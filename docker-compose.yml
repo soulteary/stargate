@@ -1,0 +1,30 @@
+services:
+  stargate: # Your Stargate forward auth service
+    image: stargate
+    environment:
+      - AUTH_HOST=auth.test.localhost # Replace with your auth host (e.g.: auth.example.com).
+      - PASSWORDS=plaintext:test1234|test1337 # Replace with your passwords. See the docs for more info.
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.auth.entrypoints=http
+      - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`) # Replace auth.test.localhost with your auth host defined above.
+      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth
+
+  whoami: # A demo whoami service that is protected with Stargate
+    image: traefik/whoami
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=proxy
+      - traefik.http.routers.whoami.entrypoints=http
+      - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
+      - "traefik.http.routers.whoami.middlewares=stargate"
+       # Add this to services that you want to guard
+
+networks:
+  traefik:
+    external: true

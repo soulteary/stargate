@@ -1,0 +1,168 @@
+package main
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/favicon"
+	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/template/html"
+	"github.com/sirupsen/logrus"
+	"github.com/soulteary/stargate/src/internal/auth"
+	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/handlers"
+	"github.com/soulteary/stargate/src/internal/middleware"
+)
+
+// findTemplatesPath finds the correct path to templates directory.
+// It checks both ./internal/web/templates (for local development) and ./web/templates (for Docker).
+func findTemplatesPath() string {
+	paths := []string{
+		"./internal/web/templates",
+		"./web/templates",
+	}
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			absPath, _ := filepath.Abs(path)
+			logrus.Debug("Found templates at: ", absPath)
+			return path
+		}
+	}
+	// Default to internal path for local development
+	return "./internal/web/templates"
+}
+
+// setupTemplates initializes the HTML template engine.
+// It loads templates from the web/templates directory.
+func setupTemplates() *html.Engine {
+	logrus.Debug("initializing html templating")
+	templatesPath := findTemplatesPath()
+	return html.New(templatesPath, ".html")
+}
+
+// setupSessionStore initializes the session store with configured settings.
+// It sets up cookie-based session management with configurable domain support.
+func setupSessionStore() *session.Store {
+	logrus.Debug("initializing session store")
+	sessionConfig := session.Config{
+		Expiration:     config.SessionExpiration,
+		KeyLookup:      "cookie:" + auth.SessionCookieName,
+		CookiePath:     "/",
+		KeyGenerator:   utils.UUID,
+		CookieHTTPOnly: true,
+		CookieSameSite: fiber.CookieSameSiteLaxMode,
+	}
+	// 如果配置了 Cookie 域名，则设置
+	if config.CookieDomain.Value != "" {
+		sessionConfig.CookieDomain = config.CookieDomain.Value
+	}
+	return session.New(sessionConfig)
+}
+
+// setupRoutes registers all HTTP routes for the application.
+// This includes authentication, login, logout, session exchange, and health check endpoints.
+func setupRoutes(app *fiber.App, store *session.Store) {
+	logrus.Debug("registering routes")
+	app.Get(RouteHealth, handlers.HealthRoute())
+	app.Get(RouteRoot, handlers.IndexRoute(store))
+	app.Get(RouteLogin, handlers.LoginRoute(store))
+	app.Post(RouteLogin, handlers.LoginAPI(store))
+	app.Get(RouteLogout, handlers.LogoutRoute(store))
+	app.Get(RouteSessionExchange, handlers.SessionShareRoute())
+	app.Get(RouteAuth, handlers.CheckRoute(store))
+}
+
+// findAssetsPath finds the correct path to assets directory.
+func findAssetsPath() string {
+	paths := []string{
+		"./internal/web/templates/assets",
+		"./web/templates/assets",
+	}
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	// Default to internal path for local development
+	return "./internal/web/templates/assets"
+}
+
+// findFaviconPath finds the correct path to favicon file.
+func findFaviconPath() string {
+	paths := []string{
+		"./internal/web/templates/assets/favicon.ico",
+		"./web/templates/assets/favicon.ico",
+	}
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+	// Default to internal path for local development
+	return "./internal/web/templates/assets/favicon.ico"
+}
+
+// setupStaticFiles registers static file serving for assets.
+func setupStaticFiles(app *fiber.App) {
+	logrus.Debug("registering static file server for assets")
+	assetsPath := findAssetsPath()
+	app.Static("/assets", assetsPath)
+}
+
+// setupMiddleware configures all middleware for the Fiber application.
+// This includes logging and favicon handling.
+func setupMiddleware(app *fiber.App) {
+	// Setup logrus for fiber
+	app.Use(middleware.NewLogMiddleware())
+
+	logrus.Debug("adding favicon middleware")
+	faviconPath := findFaviconPath()
+	app.Use(favicon.New(favicon.Config{
+		File: faviconPath,
+	}))
+}
+
+// createApp creates and configures a new Fiber application.
+// It sets up templates, middleware, routes, and static file serving.
+//
+// Returns a fully configured Fiber app ready to start.
+func createApp() *fiber.App {
+	engine := setupTemplates()
+
+	logrus.Debug("creating web server instance")
+	app := fiber.New(fiber.Config{
+		Views:                 engine,
+		DisableStartupMessage: true,
+	})
+
+	setupMiddleware(app)
+	store := setupSessionStore()
+	setupRoutes(app, store)
+	setupStaticFiles(app)
+
+	return app
+}
+
+// startServer starts the HTTP server on the default port.
+//
+// Parameters:
+//   - app: The configured Fiber application
+//
+// Returns an error if the server cannot be started.
+func startServer(app *fiber.App) error {
+	port := DefaultPort
+	// 支持通过环境变量 PORT 覆盖默认端口（用于本地测试）
+	if envPort := os.Getenv("PORT"); envPort != "" {
+		if !strings.HasPrefix(envPort, ":") {
+			port = ":" + envPort
+		} else {
+			port = envPort
+		}
+		logrus.Info("Using custom port from PORT environment variable: ", port)
+	}
+	logrus.Debug("starting web server on port: ", port)
+	return app.Listen(port)
+}
