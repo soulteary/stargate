@@ -24,6 +24,9 @@
 
         <!-- Form -->
         <form action="/_login" method="post" class="form">
+          {{if .Callback}}
+          <input type="hidden" name="callback" value="{{.Callback}}">
+          {{end}}
           <div class="form-group">
             <label for="password" class="sr-only">Password</label>
             <input

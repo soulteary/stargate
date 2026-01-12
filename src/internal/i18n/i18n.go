@@ -49,6 +49,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "Configuration error: invalid value for environment variable '%s': '%s'.\n  Accepted values: %v\n  Please check your environment variable configuration and try again.",
 		"error.config_required":         "Configuration error: environment variable '%s' is required but not set.\n  Please check your environment variable configuration and try again.",
 		"error.config_required_not_set": "not set (required)",
+		// Success messages
+		"success.login": "Login successful",
 	},
 	LangZH: {
 		// Error messages
@@ -61,6 +63,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "配置错误: 环境变量 '%s' 的值 '%s' 无效。\n  可接受的值: %v\n  请检查环境变量配置并重试。",
 		"error.config_required":         "配置错误: 环境变量 '%s' 未设置（必填项）。\n  请检查环境变量配置并重试。",
 		"error.config_required_not_set": "未设置（必填项）",
+		// Success messages
+		"success.login": "登录成功",
 	},
 }
 
