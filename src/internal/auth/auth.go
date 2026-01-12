@@ -41,7 +41,9 @@ func GetValidPasswords() (string, []string) {
 
 	passwords := strings.Split(passwordsStr, "|")
 	for k, v := range passwords {
-		passwords[k] = strings.ToUpper(strings.TrimSpace(v))
+		normalized := strings.ToUpper(strings.TrimSpace(v))
+		normalized = strings.ReplaceAll(normalized, " ", "")
+		passwords[k] = normalized
 	}
 	return algorithm, passwords
 }
