@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"html"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
@@ -13,7 +14,7 @@ import (
 
 // LoginAPI handles POST requests to /_login for password authentication.
 // It validates the password from the form data, creates a session if valid,
-// and returns 200 OK on success or 401/500 on failure.
+// and redirects to the callback URL (if provided) or returns a success response.
 //
 // Parameters:
 //   - store: Session store for managing user sessions
@@ -37,7 +38,49 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.authenticate_failed"))
 		}
 
-		return ctx.SendStatus(fiber.StatusOK)
+		// 获取 callback 参数（优先从表单数据获取，其次从查询参数获取）
+		callback := ctx.FormValue("callback")
+		if callback == "" {
+			callback = ctx.Query("callback")
+		}
+
+		// 如果有 callback，重定向到会话交换端点
+		if callback != "" {
+			proto := GetForwardedProto(ctx)
+			if proto == "" {
+				proto = ctx.Protocol()
+			}
+			redirectURL := fmt.Sprintf("%s://%s/_session_exchange?id=%s", proto, callback, sess.ID())
+			return ctx.Redirect(redirectURL)
+		}
+
+		// 如果没有 callback，根据请求类型返回响应
+		if IsHTMLRequest(ctx) {
+			// HTML 请求返回成功消息，并添加 meta refresh 重定向到来源域名
+			ctx.Set("Content-Type", "text/html; charset=utf-8")
+			successMsg := i18n.T("success.login")
+
+			// 获取来源域名和协议
+			originHost := GetForwardedHost(ctx)
+			proto := GetForwardedProto(ctx)
+			redirectURL := fmt.Sprintf("%s://%s", proto, originHost)
+
+			// 转义 URL 以确保 HTML 安全
+			escapedURL := html.EscapeString(redirectURL)
+
+			// 构建包含 meta refresh 的 HTML
+			htmlContent := fmt.Sprintf(`<html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=%s"><title>%s</title></head><body><h1>%s</h1><p>%s</p><p><a href="%s">点击这里如果页面没有自动跳转</a></p></body></html>`,
+				escapedURL, successMsg, successMsg, successMsg, escapedURL)
+			return ctx.Status(fiber.StatusOK).SendString(htmlContent)
+		}
+
+		// API 请求返回 JSON 响应
+		ctx.Set("Content-Type", "application/json")
+		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+			"success":    true,
+			"message":    i18n.T("success.login"),
+			"session_id": sess.ID(),
+		})
 	}
 }
 
