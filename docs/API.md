@@ -94,6 +94,12 @@ curl -H "Cookie: stargate_session_id=<session_id>" \
 
 - 如果用户已登录，自动重定向到会话交换端点
 - 如果用户未登录，显示登录页面
+- 如果 URL 中有 `callback` 参数且域名不一致，会将 callback 存储在 `stargate_callback` Cookie 中（10 分钟过期）
+
+#### Callback 获取优先级
+
+1. **从查询参数获取**：URL 中的 `callback` 参数（优先级最高）
+2. **从 Cookie 获取**：如果查询参数中没有，则从 `stargate_callback` Cookie 中获取
 
 #### 响应
 
@@ -122,29 +128,58 @@ curl http://auth.example.com/_login?callback=app.example.com
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
 | `password` | String | 是 | 用户密码 |
+| `callback` | String | 否 | 登录成功后的回调 URL |
+
+#### Callback 获取优先级
+
+登录处理会按以下优先级获取 callback：
+
+1. **从 Cookie 获取**：如果之前访问登录页时域名不一致，callback 会存储在 `stargate_callback` Cookie 中
+2. **从表单数据获取**：POST 请求的表单数据中的 `callback` 字段
+3. **从查询参数获取**：URL 查询参数中的 `callback`
+4. **自动推断**：如果以上都没有，且来源域名（`X-Forwarded-Host`）与认证服务域名不一致，则使用来源域名作为 callback
 
 #### 响应
 
 **成功响应（200 OK）**
 
-```
-HTTP/1.1 200 OK
-Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Expires=<expiry>
-```
+根据是否有 callback 和请求类型，响应会有所不同：
+
+1. **有 callback 时**：
+   - 重定向到 `{callback}/_session_exchange?id={session_id}`
+   - 状态码：`302 Found`
+
+2. **无 callback 时**：
+   - **HTML 请求**：返回包含 meta refresh 的 HTML 页面，自动跳转到来源域名
+   - **API 请求**：返回 JSON 响应
+     ```json
+     {
+       "success": true,
+       "message": "Login successful",
+       "session_id": "<session_id>"
+     }
+     ```
 
 **失败响应**
 
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
-| `401 Unauthorized` | 密码错误 | `{"error": "Invalid password"}` |
+| `401 Unauthorized` | 密码错误 | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
 | `500 Internal Server Error` | 服务器错误 | 错误消息 |
 
 #### 示例
 
 ```bash
-# 提交登录表单
+# 提交登录表单（带 callback）
+curl -X POST \
+     -d "password=yourpassword&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+
+# 提交登录表单（不带 callback，会自动推断）
 curl -X POST \
      -d "password=yourpassword" \
+     -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -220,7 +255,8 @@ curl "http://auth.example.com/_session_exchange?id=<session_id>"
 1. 用户在 `auth.example.com` 登录
 2. 登录成功后，重定向到 `app.example.com/_session_exchange?id=<session_id>`
 3. 会话 Cookie 被设置到 `.example.com` 域名（如果配置了 `COOKIE_DOMAIN=.example.com`）
-4. 用户可以在所有 `*.example.com` 子域名下使用该会话
+4. 重定向到 `app.example.com/`
+5. 用户可以在所有 `*.example.com` 子域名下使用该会话
 
 ## 健康检查端点
 
@@ -266,12 +302,29 @@ curl http://auth.example.com/
 
 ## 错误响应格式
 
-所有 API 错误响应都遵循以下格式：
+所有 API 错误响应根据客户端的 `Accept` 头自动选择格式：
+
+### JSON 格式（`Accept: application/json`）
 
 ```json
 {
-  "error": "错误消息"
+  "error": "错误消息",
+  "code": 401
 }
+```
+
+### XML 格式（`Accept: application/xml`）
+
+```xml
+<errors>
+  <error code="401">错误消息</error>
+</errors>
+```
+
+### 文本格式（默认）
+
+```
+错误消息
 ```
 
 错误消息支持国际化，根据 `LANGUAGE` 环境变量返回中文或英文消息。

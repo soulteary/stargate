@@ -36,7 +36,7 @@ docker build -t stargate:latest .
 
 #### 构建参数
 
-- **基础镜像**：`golang:1.20.0-alpine3.17`（构建阶段）
+- **基础镜像**：`golang:1.25-alpine`（构建阶段）
 - **运行镜像**：`scratch`（最小化镜像）
 - **工作目录**：`/app`
 - **暴露端口**：`80`

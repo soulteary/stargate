@@ -1,7 +1,7 @@
 # Stargate - Forward Auth Service
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.18+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org)
 
 Stargate 是一个轻量级的前向认证服务（Forward Auth Service），专为与 Traefik 等反向代理集成而设计。它提供统一的身份验证入口，保护您的后端服务，无需在每个服务中单独实现认证逻辑。
 
@@ -54,7 +54,7 @@ docker-compose up -d
 
 ### 本地开发
 
-1. 确保已安装 Go 1.18 或更高版本
+1. 确保已安装 Go 1.25 或更高版本
 
 2. 进入项目目录：
 ```bash
@@ -170,9 +170,18 @@ Traefik Forward Auth 的主要认证检查端点。
 
 **表单数据：**
 - `password`：用户密码
+- `callback`（可选）：登录成功后的回调 URL
+
+**Callback 获取优先级：**
+1. 从 Cookie 中获取（如果之前已设置）
+2. 从表单数据中获取
+3. 从查询参数中获取
+4. 如果以上都没有，且来源域名与认证服务域名不一致，则使用来源域名作为 callback
 
 **响应：**
-- `200 OK`：登录成功，返回 JSON 响应
+- `200 OK`：登录成功
+  - 如果有 callback，重定向到 `{callback}/_session_exchange?id={session_id}`
+  - 如果没有 callback，返回成功消息（HTML 或 JSON 格式，根据请求类型）
 - `401 Unauthorized`：密码错误
 - `500 Internal Server Error`：服务器错误
 

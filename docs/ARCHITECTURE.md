@@ -4,13 +4,13 @@
 
 ## 技术栈
 
-- **语言**: Go 1.18+
-- **Web 框架**: [Fiber v2](https://github.com/gofiber/fiber)
-- **模板引擎**: [Fiber Template](https://github.com/gofiber/template)
+- **语言**: Go 1.25
+- **Web 框架**: [Fiber v2.52.10](https://github.com/gofiber/fiber)
+- **模板引擎**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **会话管理**: Fiber Session Middleware
-- **日志**: [Logrus](https://github.com/sirupsen/logrus)
-- **终端输出**: [Pterm](https://github.com/pterm/pterm)
-- **测试框架**: [Testza](https://github.com/MarvinJWendt/testza)
+- **日志**: [Logrus v1.9.3](https://github.com/sirupsen/logrus)
+- **终端输出**: [Pterm v0.12.82](https://github.com/pterm/pterm)
+- **测试框架**: [Testza v0.5.2](https://github.com/MarvinJWendt/testza)
 
 ## 项目结构
 
@@ -59,7 +59,6 @@ codes/src/
 │       └── templates/     # HTML 模板
 │           ├── login.html # 登录页面模板
 │           └── assets/   # 静态资源
-│               ├── bg.jpg
 │               └── favicon.ico
 ```
 
@@ -148,16 +147,23 @@ type HashResolver interface {
 1. **用户访问登录页**
    - `GET /_login?callback=<url>`
    - 如果已登录，重定向到会话交换端点
+   - 如果域名不一致，会将 callback 存储在 Cookie 中（`stargate_callback`）
 
 2. **提交登录表单**
    - `POST /_login` 携带密码
    - 验证密码
    - 创建会话并设置 Cookie
+   - **Callback 获取优先级**：
+     1. 从 Cookie 中获取（如果之前已设置）
+     2. 从表单数据中获取
+     3. 从查询参数中获取
+     4. 如果以上都没有，且来源域名与认证服务域名不一致，则使用来源域名作为 callback
 
 3. **会话交换**
+   - 如果有 callback，重定向到 `{callback}/_session_exchange?id=<session_id>`
    - `GET /_session_exchange?id=<session_id>`
-   - 设置会话 Cookie
-   - 重定向到目标服务
+   - 设置会话 Cookie（如果配置了 `COOKIE_DOMAIN`，会设置到指定域名）
+   - 重定向到根路径 `/`
 
 ## 安全考虑
 
@@ -213,11 +219,12 @@ type HashResolver interface {
 ### Docker 部署
 
 - 多阶段构建，减小镜像体积
-- 使用 `golang:1.20.0-alpine3.17` 作为构建阶段
+- 使用 `golang:1.25-alpine` 作为构建阶段
 - 使用 `scratch` 基础镜像作为运行阶段，最小化安全风险
 - 模板文件从 `src/internal/web/templates` 复制到镜像中的 `/app/web/templates`
 - 使用中国镜像源（`GOPROXY=https://goproxy.cn`）加速依赖下载
 - 编译时使用 `-ldflags "-s -w"` 减小二进制体积
+- 应用会自动查找模板路径（支持本地开发的 `./internal/web/templates` 和生产环境的 `./web/templates`）
 
 ### Traefik 集成
 
