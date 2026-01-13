@@ -33,7 +33,7 @@ func showBanner() {
 	pterm.DefaultBox.Println(
 		putils.CenterText(
 			"Stargate\n" +
-				"limited access",
+				"Your Gateway to Secure Microservices",
 		),
 	)
 	time.Sleep(time.Millisecond) // Don't ask why, but this fixes the docker-compose log
@@ -52,6 +52,8 @@ func initConfig() error {
 
 	if config.Debug.ToBool() {
 		logrus.SetLevel(logrus.DebugLevel)
+	} else {
+		logrus.SetLevel(logrus.InfoLevel)
 	}
 
 	return nil

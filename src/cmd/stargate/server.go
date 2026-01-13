@@ -23,6 +23,7 @@ func findTemplatesPath() string {
 	paths := []string{
 		"./internal/web/templates",
 		"./web/templates",
+		"./src/internal/web/templates",
 	}
 	for _, path := range paths {
 		if _, err := os.Stat(path); err == nil {
@@ -80,6 +81,7 @@ func findAssetsPath() string {
 	paths := []string{
 		"./internal/web/templates/assets",
 		"./web/templates/assets",
+		"./src/internal/web/templates/assets",
 	}
 	for _, path := range paths {
 		if _, err := os.Stat(path); err == nil {
@@ -95,6 +97,7 @@ func findFaviconPath() string {
 	paths := []string{
 		"./internal/web/templates/assets/favicon.ico",
 		"./web/templates/assets/favicon.ico",
+		"./src/internal/web/templates/assets/favicon.ico",
 	}
 	for _, path := range paths {
 		if _, err := os.Stat(path); err == nil {
@@ -120,9 +123,14 @@ func setupMiddleware(app *fiber.App) {
 
 	logrus.Debug("adding favicon middleware")
 	faviconPath := findFaviconPath()
-	app.Use(favicon.New(favicon.Config{
-		File: faviconPath,
-	}))
+	// Only add favicon middleware if the file exists
+	if _, err := os.Stat(faviconPath); err == nil {
+		app.Use(favicon.New(favicon.Config{
+			File: faviconPath,
+		}))
+	} else {
+		logrus.Debug("Favicon file not found, skipping favicon middleware: ", faviconPath)
+	}
 }
 
 // createApp creates and configures a new Fiber application.
