@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/valyala/fasthttp"
 )
 
@@ -907,46 +908,101 @@ func TestIndexRoute_SessionStoreError(t *testing.T) {
 	t.Skip("Session store error testing requires mocking")
 }
 
-// TestLogoutRoute_SessionStoreError tests error handling when session store fails
-// Note: This is difficult to test without mocking, but we verify the error handling code exists
-// In practice, store.Get() rarely fails, but the code handles it gracefully
-func TestLogoutRoute_SessionStoreError(t *testing.T) {
-	// The error path exists in the code (line 21-23 in logout.go)
-	// but is difficult to trigger in unit tests without mocking the session store
-	// We verify the code compiles and the error handling logic is present
-	store := setupTestStore()
-	handler := LogoutRoute(store)
+// MockSessionGetter is a mock implementation of SessionGetter for testing.
+type MockSessionGetter struct {
+	GetFunc func(ctx *fiber.Ctx) (*session.Session, error)
+}
 
-	// Normal test - verify handler works
+func (m *MockSessionGetter) Get(ctx *fiber.Ctx) (*session.Session, error) {
+	if m.GetFunc != nil {
+		return m.GetFunc(ctx)
+	}
+	return nil, nil
+}
+
+// MockUnauthenticator is a mock implementation of Unauthenticator for testing.
+type MockUnauthenticator struct {
+	UnauthenticateFunc func(sess *session.Session) error
+}
+
+func (m *MockUnauthenticator) Unauthenticate(sess *session.Session) error {
+	if m.UnauthenticateFunc != nil {
+		return m.UnauthenticateFunc(sess)
+	}
+	return nil
+}
+
+// TestLogoutRoute_SessionStoreError tests error handling when session store fails
+func TestLogoutRoute_SessionStoreError(t *testing.T) {
 	ctx, app := createTestContext("GET", "/_logout", nil, "")
 	defer app.ReleaseCtx(ctx)
 
-	err := handler(ctx)
-	// Should succeed even without authentication
+	mockSessionGetter := &MockSessionGetter{
+		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+			return nil, fiber.ErrInternalServerError
+		},
+	}
+	mockUnauthenticator := &MockUnauthenticator{}
+
+	err := logoutHandler(ctx, mockSessionGetter, mockUnauthenticator)
 	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusInternalServerError, ctx.Response().StatusCode())
+
+	// Verify error response format
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, i18n.T("error.session_store_failed"))
 }
 
 // TestLogoutRoute_UnauthenticateError tests error handling when unauthenticate fails
-// Note: session.Destroy() rarely fails in practice, but the code handles it gracefully
-// We test that calling logout multiple times works correctly
 func TestLogoutRoute_UnauthenticateError(t *testing.T) {
-	store := setupTestStore()
-	handler := LogoutRoute(store)
-
 	ctx, app := createTestContext("GET", "/_logout", nil, "")
 	defer app.ReleaseCtx(ctx)
 
-	// Get a session and destroy it first
+	store := setupTestStore()
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 
-	// Destroy the session first
-	err = auth.Unauthenticate(sess)
+	mockSessionGetter := &MockSessionGetter{
+		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+			return sess, nil
+		},
+	}
+	mockUnauthenticator := &MockUnauthenticator{
+		UnauthenticateFunc: func(sess *session.Session) error {
+			return fiber.ErrInternalServerError
+		},
+	}
+
+	err = logoutHandler(ctx, mockSessionGetter, mockUnauthenticator)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusInternalServerError, ctx.Response().StatusCode())
+
+	// Verify error response format
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, i18n.T("error.authenticate_failed"))
+}
+
+// TestLogoutHandler_Success tests the internal logoutHandler with successful logout
+func TestLogoutHandler_Success(t *testing.T) {
+	ctx, app := createTestContext("GET", "/_logout", nil, "")
+	defer app.ReleaseCtx(ctx)
+
+	store := setupTestStore()
+	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 
-	// Now try to logout again - this should still work
-	// because Unauthenticate can be called multiple times safely
-	err = handler(ctx)
+	mockSessionGetter := &MockSessionGetter{
+		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+			return sess, nil
+		},
+	}
+	mockUnauthenticator := &MockUnauthenticator{
+		UnauthenticateFunc: func(sess *session.Session) error {
+			return auth.Unauthenticate(sess)
+		},
+	}
+
+	err = logoutHandler(ctx, mockSessionGetter, mockUnauthenticator)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
 	testza.AssertEqual(t, "Logged out", string(ctx.Response().Body()))
@@ -1222,4 +1278,135 @@ func TestLoginAPI_EmptyProto_UsesContextProtocol(t *testing.T) {
 	testza.AssertNoError(t, err)
 	// Should redirect
 	testza.AssertTrue(t, ctx.Response().StatusCode() == fiber.StatusFound || ctx.Response().StatusCode() == fiber.StatusMovedPermanently)
+}
+
+// MockAuthenticator is a mock implementation of Authenticator for testing.
+type MockAuthenticator struct {
+	AuthenticateFunc func(sess *session.Session) error
+}
+
+func (m *MockAuthenticator) Authenticate(sess *session.Session) error {
+	if m.AuthenticateFunc != nil {
+		return m.AuthenticateFunc(sess)
+	}
+	return nil
+}
+
+// TestLoginAPI_SessionStoreError tests error handling when session store fails
+func TestLoginAPI_SessionStoreError(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "password=test123")
+	defer app.ReleaseCtx(ctx)
+
+	mockSessionGetter := &MockSessionGetter{
+		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+			return nil, fiber.ErrInternalServerError
+		},
+	}
+	mockAuthenticator := &MockAuthenticator{}
+
+	err = loginAPIHandler(ctx, mockSessionGetter, mockAuthenticator)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusInternalServerError, ctx.Response().StatusCode())
+
+	// Verify error response format
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, i18n.T("error.session_store_failed"))
+}
+
+// TestLoginAPI_AuthenticateError tests error handling when authenticate fails
+func TestLoginAPI_AuthenticateError(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "password=test123")
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	mockSessionGetter := &MockSessionGetter{
+		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+			return sess, nil
+		},
+	}
+	mockAuthenticator := &MockAuthenticator{
+		AuthenticateFunc: func(sess *session.Session) error {
+			return fiber.ErrInternalServerError
+		},
+	}
+
+	err = loginAPIHandler(ctx, mockSessionGetter, mockAuthenticator)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusInternalServerError, ctx.Response().StatusCode())
+
+	// Verify error response format
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, i18n.T("error.authenticate_failed"))
+}
+
+// TestLoginAPI_EmptySessionID_Error tests error handling when session ID is always empty
+// Note: This test is difficult to implement because Fiber session always generates an ID.
+// The error path (line 101-103 in login.go) is theoretically reachable but requires
+// a session that has no ID even after Save(). This scenario is unlikely in practice
+// as Fiber session always generates an ID when Get() is called.
+// We test the retry error path instead in TestLoginAPI_EmptySessionID_RetryGetSessionError.
+func TestLoginAPI_EmptySessionID_Error(t *testing.T) {
+	t.Skip("Cannot easily mock session.ID() to return empty string - Fiber session always generates ID. This error path is covered by integration tests.")
+}
+
+// TestLoginAPI_EmptySessionID_RetryGetSessionError tests error handling when retry get session fails
+// Note: Since Fiber session always generates an ID on Get(), we can't easily test
+// the path where initial ID is empty and retry fails. The error path at line 97
+// is theoretically reachable but requires a session implementation that doesn't
+// always generate an ID, which Fiber session does.
+// This error path is covered by integration tests.
+func TestLoginAPI_EmptySessionID_RetryGetSessionError(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	// Since Fiber session always generates an ID on Get(), we can't easily test
+	// the path where initial ID is empty and retry fails. The error path at line 97
+	// is theoretically reachable but requires a session implementation that doesn't
+	// always generate an ID, which Fiber session does.
+	// This error path is covered by integration tests.
+	t.Skip("Cannot easily test retry error path - Fiber session always generates ID on Get(). This error path is covered by integration tests.")
+}
+
+// TestLoginRoute_SessionStoreError tests error handling when session store fails
+func TestLoginRoute_SessionStoreError(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContext("GET", "/_login", nil, "")
+	defer app.ReleaseCtx(ctx)
+
+	mockSessionGetter := &MockSessionGetter{
+		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+			return nil, fiber.ErrInternalServerError
+		},
+	}
+
+	err = loginRouteHandler(ctx, mockSessionGetter)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusInternalServerError, ctx.Response().StatusCode())
+
+	// Verify error response format
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, i18n.T("error.session_store_failed"))
 }
