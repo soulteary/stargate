@@ -1,24 +1,24 @@
 package main
 
 const (
-	// DefaultPort 默认服务器端口
+	// DefaultPort is the default server port
 	DefaultPort = ":80"
 
-	// RouteRoot 根路由
+	// RouteRoot is the root route
 	RouteRoot = "/"
-	// RouteLogin 登录页面路由
+	// RouteLogin is the login page route
 	RouteLogin = "/_login"
-	// RouteLogout 登出路由
+	// RouteLogout is the logout route
 	RouteLogout = "/_logout"
-	// RouteSessionExchange 会话交换路由
+	// RouteSessionExchange is the session exchange route
 	RouteSessionExchange = "/_session_exchange"
-	// RouteAuth 认证检查路由
+	// RouteAuth is the authentication check route
 	RouteAuth = "/_auth"
-	// RouteHealth 健康检查路由
+	// RouteHealth is the health check route
 	RouteHealth = "/health"
 
-	// StaticAssetsPath 静态资源路径
+	// StaticAssetsPath is the static assets path
 	StaticAssetsPath = "./internal/web/templates/assets"
-	// FaviconPath Favicon 文件路径
+	// FaviconPath is the favicon file path
 	FaviconPath = "./internal/web/templates/assets/favicon.ico"
 )

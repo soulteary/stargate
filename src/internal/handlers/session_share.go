@@ -33,7 +33,7 @@ func SessionShareRoute() func(c *fiber.Ctx) error {
 			HTTPOnly: true,
 		}
 
-		// 如果配置了 Cookie 域名，则设置
+		// If Cookie domain is configured, set it
 		if config.CookieDomain.Value != "" {
 			cookie.Domain = config.CookieDomain.Value
 		}

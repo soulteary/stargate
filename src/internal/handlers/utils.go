@@ -10,7 +10,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
-// CallbackCookieName 存储来源域名的 cookie 名称
+// CallbackCookieName stores the cookie name for origin domain
 const CallbackCookieName = "stargate_callback"
 
 // GetForwardedHost returns the forwarded hostname from the request.
@@ -55,7 +55,7 @@ func IsDifferentDomain(ctx *fiber.Ctx) bool {
 	originHost := GetForwardedHost(ctx)
 	authHost := config.AuthHost.String()
 
-	// 规范化域名（去除端口号）
+	// Normalize domain (remove port number)
 	originHost = normalizeHost(originHost)
 	authHost = normalizeHost(authHost)
 
@@ -64,7 +64,7 @@ func IsDifferentDomain(ctx *fiber.Ctx) bool {
 
 // normalizeHost removes port number from hostname for comparison.
 func normalizeHost(host string) string {
-	// 如果包含端口号，只取主机名部分
+	// If contains port number, only take the hostname part
 	if idx := strings.Index(host, ":"); idx != -1 {
 		return host[:idx]
 	}
@@ -78,22 +78,22 @@ func SetCallbackCookie(ctx *fiber.Ctx, callbackHost string) {
 		return
 	}
 
-	// 规范化域名
+	// Normalize domain
 	callbackHost = normalizeHost(callbackHost)
 	authHost := normalizeHost(config.AuthHost.String())
 
-	// 只有当域名不一致时才设置 cookie
+	// Only set cookie if domains are different
 	if callbackHost != authHost {
 		cookie := &fiber.Cookie{
 			Name:     CallbackCookieName,
 			Value:    callbackHost,
-			Expires:  time.Now().Add(10 * time.Minute), // 10 分钟过期，足够完成登录流程
+			Expires:  time.Now().Add(10 * time.Minute), // 10 minutes expiration, enough to complete login flow
 			SameSite: fiber.CookieSameSiteLaxMode,
 			HTTPOnly: true,
 			Secure:   GetForwardedProto(ctx) == "https",
 		}
 
-		// 如果配置了 Cookie 域名，则设置
+		// If Cookie domain is configured, set it
 		if config.CookieDomain.Value != "" {
 			cookie.Domain = config.CookieDomain.Value
 		}
@@ -112,12 +112,12 @@ func ClearCallbackCookie(ctx *fiber.Ctx) {
 	cookie := &fiber.Cookie{
 		Name:     CallbackCookieName,
 		Value:    "",
-		Expires:  time.Now().Add(-1 * time.Hour), // 设置为过去的时间以删除 cookie
+		Expires:  time.Now().Add(-1 * time.Hour), // Set to past time to delete cookie
 		SameSite: fiber.CookieSameSiteLaxMode,
 		HTTPOnly: true,
 	}
 
-	// 如果配置了 Cookie 域名，则设置
+	// If Cookie domain is configured, set it
 	if config.CookieDomain.Value != "" {
 		cookie.Domain = config.CookieDomain.Value
 	}
@@ -134,7 +134,7 @@ func BuildCallbackURL(ctx *fiber.Ctx) string {
 	proto := GetForwardedProto(ctx)
 	authHost := config.AuthHost.String()
 
-	// 如果来源域名与认证服务域名不一致，在 cookie 中存储来源域名
+	// If origin domain is different from auth service domain, store origin domain in cookie
 	if IsDifferentDomain(ctx) {
 		SetCallbackCookie(ctx, callbackHost)
 	}

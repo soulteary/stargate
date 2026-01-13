@@ -39,7 +39,7 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.authenticate_failed"))
 		}
 
-		// 获取 callback 参数（优先从 cookie 获取，其次从表单数据，最后从查询参数获取）
+		// Get callback parameter (priority: cookie, form data, query parameter)
 		callbackFromCookie := GetCallbackFromCookie(ctx)
 		callback := callbackFromCookie
 		if callback == "" {
@@ -49,31 +49,31 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 			callback = ctx.Query("callback")
 		}
 
-		// 如果从 cookie 获取到了 callback，登录成功后清除 cookie
+		// If callback was retrieved from cookie, clear the cookie after successful login
 		if callbackFromCookie != "" {
 			ClearCallbackCookie(ctx)
 		}
 
-		// 如果没有 callback，尝试使用来源域名作为 callback
+		// If no callback, try using origin host as callback
 		if callback == "" {
 			originHost := GetForwardedHost(ctx)
-			// 只有当来源域名与认证服务域名不一致时，才使用来源域名作为 callback
+			// Only use origin host as callback if it's different from auth service domain
 			if IsDifferentDomain(ctx) {
 				callback = originHost
 			}
 		}
 
-		// 如果有 callback，重定向到会话交换端点
+		// If callback exists, redirect to session exchange endpoint
 		if callback != "" {
-			// 获取 session ID（应该已经存在）
+			// Get session ID (should already exist)
 			sessionID := sess.ID()
 			if sessionID == "" {
-				// 如果 ID 为空，尝试从响应 cookie 中获取
-				// 在 Fiber session 中，Save() 会将 session ID 设置到响应 cookie 中
+				// If ID is empty, try to get it from response cookie
+				// In Fiber session, Save() will set session ID to response cookie
 				cookieBytes := ctx.Response().Header.Peek("Set-Cookie")
 				if len(cookieBytes) > 0 {
 					cookieStr := string(cookieBytes)
-					// 查找 session cookie (格式: stargate_session=<session_id>; ...)
+					// Find session cookie (format: stargate_session=<session_id>; ...)
 					cookieName := auth.SessionCookieName + "="
 					if idx := strings.Index(cookieStr, cookieName); idx >= 0 {
 						start := idx + len(cookieName)
@@ -84,7 +84,7 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 						sessionID = cookieStr[start:end]
 					}
 				}
-				// 如果仍然为空，尝试重新获取 session
+				// If still empty, try to get session again
 				if sessionID == "" {
 					sess, err = store.Get(ctx)
 					if err != nil {
@@ -93,7 +93,7 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 					sessionID = sess.ID()
 				}
 				if sessionID == "" {
-					// 如果 session ID 仍然为空，返回错误
+					// If session ID is still empty, return error
 					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.missing_session_id"))
 				}
 			}
@@ -105,33 +105,33 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 			return ctx.Redirect(redirectURL)
 		}
 
-		// 如果仍然没有 callback（说明来源域名就是认证服务本身），根据请求类型返回响应
+		// If still no callback (origin domain is the auth service itself), return response based on request type
 		if IsHTMLRequest(ctx) {
-			// HTML 请求返回成功消息，并添加 meta refresh 重定向到来源域名
+			// HTML request returns success message and adds meta refresh redirect to origin domain
 			ctx.Set("Content-Type", "text/html; charset=utf-8")
 			successMsg := i18n.T("success.login")
 
-			// 获取来源域名和协议
+			// Get origin host and protocol
 			originHost := GetForwardedHost(ctx)
 			proto := GetForwardedProto(ctx)
 			redirectURL := fmt.Sprintf("%s://%s", proto, originHost)
 
-			// 转义 URL 以确保 HTML 安全
+			// Escape URL to ensure HTML safety
 			escapedURL := html.EscapeString(redirectURL)
 
-			// 构建包含 meta refresh 的 HTML
+			// Build HTML with meta refresh
 			htmlContent := fmt.Sprintf(`<html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=%s"><title>%s</title></head><body><h1>%s</h1><p>%s</p><p><a href="%s">点击这里如果页面没有自动跳转</a></p></body></html>`,
 				escapedURL, successMsg, successMsg, successMsg, escapedURL)
 			return ctx.Status(fiber.StatusOK).SendString(htmlContent)
 		}
 
-		// API 请求返回 JSON 响应
+		// API request returns JSON response
 		ctx.Set("Content-Type", "application/json")
 		response := fiber.Map{
 			"success": true,
 			"message": i18n.T("success.login"),
 		}
-		// 如果 session ID 存在，则添加到响应中
+		// If session ID exists, add it to response
 		if sessionID := sess.ID(); sessionID != "" {
 			response["session_id"] = sessionID
 		}
@@ -149,13 +149,13 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 // Returns a Fiber handler function.
 func LoginRoute(store *session.Store) func(c *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
-		// 获取 callback 参数（优先从 URL 查询参数获取，其次从 cookie 获取）
-		// URL 参数优先，因为它是当前请求的明确意图
+		// Get callback parameter (priority: URL query parameter, then cookie)
+		// URL parameter takes priority as it represents the explicit intent of the current request
 		callback := ctx.Query("callback")
 		if callback == "" {
 			callback = GetCallbackFromCookie(ctx)
 		} else {
-			// 如果 URL 中有 callback 参数，更新 cookie（如果域名不一致）
+			// If URL has callback parameter, update cookie (if domain is different)
 			SetCallbackCookie(ctx, callback)
 		}
 
@@ -165,7 +165,7 @@ func LoginRoute(store *session.Store) func(c *fiber.Ctx) error {
 		}
 
 		if auth.IsAuthenticated(sess) {
-			// 使用 X-Forwarded-* 头部构建正确的重定向 URL
+			// Use X-Forwarded-* headers to build correct redirect URL
 			sessionID := sess.ID()
 			if sessionID == "" {
 				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.missing_session_id"))
@@ -174,13 +174,13 @@ func LoginRoute(store *session.Store) func(c *fiber.Ctx) error {
 			if proto == "" {
 				proto = ctx.Protocol()
 			}
-			// 如果有 callback，重定向到 callback 的 _session_exchange 端点
-			// 如果没有 callback，重定向到当前主机的根路径
+			// If callback exists, redirect to callback's _session_exchange endpoint
+			// If no callback, redirect to current host's root path
 			if callback != "" {
 				redirectURL := fmt.Sprintf("%s://%s/_session_exchange?id=%s", proto, callback, sessionID)
 				return ctx.Redirect(redirectURL)
 			}
-			// 没有 callback 时，重定向到当前主机的根路径
+			// When no callback, redirect to current host's root path
 			host := GetForwardedHost(ctx)
 			redirectURL := fmt.Sprintf("%s://%s/", proto, host)
 			return ctx.Redirect(redirectURL)

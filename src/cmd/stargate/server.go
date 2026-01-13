@@ -55,7 +55,7 @@ func setupSessionStore() *session.Store {
 		CookieHTTPOnly: true,
 		CookieSameSite: fiber.CookieSameSiteLaxMode,
 	}
-	// 如果配置了 Cookie 域名，则设置
+	// If Cookie domain is configured, set it
 	if config.CookieDomain.Value != "" {
 		sessionConfig.CookieDomain = config.CookieDomain.Value
 	}
@@ -154,7 +154,7 @@ func createApp() *fiber.App {
 // Returns an error if the server cannot be started.
 func startServer(app *fiber.App) error {
 	port := DefaultPort
-	// 支持通过环境变量 PORT 覆盖默认端口（用于本地测试）
+	// Support overriding default port via PORT environment variable (for local testing)
 	if envPort := os.Getenv("PORT"); envPort != "" {
 		if !strings.HasPrefix(envPort, ":") {
 			port = ":" + envPort

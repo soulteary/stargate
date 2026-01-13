@@ -13,12 +13,12 @@ import (
 // For API requests (JSON/XML), it returns a 401 error response.
 func handleNotAuthenticated(ctx *fiber.Ctx) error {
 	if IsHTMLRequest(ctx) {
-		// HTML 请求：重定向到登录页
+		// HTML request: redirect to login page
 		callbackURL := BuildCallbackURL(ctx)
 		return ctx.Redirect(callbackURL)
 	}
 
-	// 非 HTML 请求：返回 401 错误
+	// Non-HTML request: return 401 error
 	return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.auth_required"))
 }
 
@@ -38,31 +38,31 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		sess, err := store.Get(ctx)
 		if err != nil {
-			// 会话存储错误，返回 500 错误
+			// Session store error, return 500 error
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
 		}
 
-		// 处理 Stargate-Password Header 认证
+		// Handle Stargate-Password Header authentication
 		stargatePassword := ctx.Get("Stargate-Password")
 		if stargatePassword != "" {
 			if !auth.CheckPassword(stargatePassword) {
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
 			}
 
-			// 认证成功，设置用户信息头部
-			// 由于 Stargate 使用密码认证，没有具体的用户名，使用默认值
+			// Authentication successful, set user info header
+			// Since Stargate uses password authentication, there's no specific username, use default value
 			userHeaderName := config.UserHeaderName.String()
 			ctx.Set(userHeaderName, "authenticated")
 			return ctx.SendStatus(fiber.StatusOK)
 		}
 
-		// 检查会话认证
+		// Check session authentication
 		if !auth.IsAuthenticated(sess) {
 			return handleNotAuthenticated(ctx)
 		}
 
-		// 认证成功，设置用户信息头部
-		// 由于 Stargate 使用密码认证，没有具体的用户名，使用默认值
+		// Authentication successful, set user info header
+		// Since Stargate uses password authentication, there's no specific username, use default value
 		userHeaderName := config.UserHeaderName.String()
 		ctx.Set(userHeaderName, "authenticated")
 

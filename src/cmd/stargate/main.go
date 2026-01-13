@@ -10,25 +10,25 @@ import (
 )
 
 func main() {
-	// 显示启动横幅
+	// Display startup banner
 	showBanner()
 
-	// 初始化日志
+	// Initialize logger
 	initLogger()
 
-	// 初始化配置
+	// Initialize configuration
 	if err := initConfig(); err != nil {
 		logrus.Fatal("Failed to initialize config: ", err)
 	}
 
-	// 创建并启动服务器
+	// Create and start server
 	app := createApp()
 	if err := startServer(app); err != nil {
 		logrus.Fatal("Failed to start web server: ", err)
 	}
 }
 
-// showBanner 显示启动横幅
+// showBanner displays the startup banner
 func showBanner() {
 	pterm.DefaultBox.Println(
 		putils.CenterText(
@@ -39,12 +39,12 @@ func showBanner() {
 	time.Sleep(time.Millisecond) // Don't ask why, but this fixes the docker-compose log
 }
 
-// initLogger 初始化日志系统
+// initLogger initializes the logging system
 func initLogger() {
 	logrus.SetFormatter(&logrus.TextFormatter{})
 }
 
-// initConfig 初始化配置
+// initConfig initializes the configuration
 func initConfig() error {
 	if err := config.Initialize(); err != nil {
 		return err

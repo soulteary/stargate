@@ -9,7 +9,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
-// SessionExpiration 会话过期时间
+// SessionExpiration is the session expiration time
 const SessionExpiration = 24 * time.Hour
 
 var (
@@ -66,7 +66,7 @@ var (
 		Required:       false,
 		DefaultValue:   "",
 		PossibleValues: []string{"*"},
-		Validator:      ValidateAny, // 空值也是有效的（表示不设置域名）
+		Validator:      ValidateAny, // Empty value is also valid (means not setting domain)
 	}
 
 	Language = EnvVariable{
@@ -97,7 +97,7 @@ func Initialize() error {
 			return err
 		}
 
-		// 只记录非空值的配置项
+		// Only log non-empty configuration items
 		if variable.Value != "" {
 			logrus.Info("Config: ", variable.Name, " = ", variable.Value)
 		}
