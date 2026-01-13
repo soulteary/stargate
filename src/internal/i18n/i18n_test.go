@@ -19,13 +19,43 @@ func TestSetLanguage_ValidLanguage_ZH(t *testing.T) {
 	testza.AssertEqual(t, LangZH, result)
 }
 
+func TestSetLanguage_ValidLanguage_FR(t *testing.T) {
+	SetLanguage(LangFR)
+	result := GetLanguage()
+	testza.AssertEqual(t, LangFR, result)
+}
+
+func TestSetLanguage_ValidLanguage_IT(t *testing.T) {
+	SetLanguage(LangIT)
+	result := GetLanguage()
+	testza.AssertEqual(t, LangIT, result)
+}
+
+func TestSetLanguage_ValidLanguage_JA(t *testing.T) {
+	SetLanguage(LangJA)
+	result := GetLanguage()
+	testza.AssertEqual(t, LangJA, result)
+}
+
+func TestSetLanguage_ValidLanguage_DE(t *testing.T) {
+	SetLanguage(LangDE)
+	result := GetLanguage()
+	testza.AssertEqual(t, LangDE, result)
+}
+
+func TestSetLanguage_ValidLanguage_KO(t *testing.T) {
+	SetLanguage(LangKO)
+	result := GetLanguage()
+	testza.AssertEqual(t, LangKO, result)
+}
+
 func TestSetLanguage_InvalidLanguage(t *testing.T) {
 	// Set to a known state first
 	SetLanguage(LangEN)
 	originalLang := GetLanguage()
 
 	// Try to set invalid language
-	SetLanguage(Language("fr"))
+	SetLanguage(Language("xx"))
 	result := GetLanguage()
 
 	// Should remain unchanged
@@ -116,6 +146,36 @@ func TestT_AllErrorKeys_ZH(t *testing.T) {
 	}
 }
 
+func TestT_French_ExistingKey(t *testing.T) {
+	SetLanguage(LangFR)
+	result := T("error.auth_required")
+	testza.AssertEqual(t, "Authentification requise", result)
+}
+
+func TestT_Italian_ExistingKey(t *testing.T) {
+	SetLanguage(LangIT)
+	result := T("error.auth_required")
+	testza.AssertEqual(t, "Autenticazione richiesta", result)
+}
+
+func TestT_Japanese_ExistingKey(t *testing.T) {
+	SetLanguage(LangJA)
+	result := T("error.auth_required")
+	testza.AssertEqual(t, "認証が必要です", result)
+}
+
+func TestT_German_ExistingKey(t *testing.T) {
+	SetLanguage(LangDE)
+	result := T("error.auth_required")
+	testza.AssertEqual(t, "Authentifizierung erforderlich", result)
+}
+
+func TestT_Korean_ExistingKey(t *testing.T) {
+	SetLanguage(LangKO)
+	result := T("error.auth_required")
+	testza.AssertEqual(t, "인증이 필요합니다", result)
+}
+
 func TestTf_English_WithArgs(t *testing.T) {
 	SetLanguage(LangEN)
 	result := Tf("error.config_invalid", "TEST_VAR", "invalid-value")
@@ -158,7 +218,7 @@ func TestConcurrentAccess(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			lang := GetLanguage()
-			testza.AssertTrue(t, lang == LangEN || lang == LangZH, "language should be valid")
+			testza.AssertTrue(t, lang == LangEN || lang == LangZH || lang == LangFR || lang == LangIT || lang == LangJA || lang == LangDE || lang == LangKO, "language should be valid")
 			_ = T("error.auth_required")
 		}()
 	}
@@ -168,10 +228,21 @@ func TestConcurrentAccess(t *testing.T) {
 	for i := 0; i < iterations; i++ {
 		go func(i int) {
 			defer wg.Done()
-			if i%2 == 0 {
+			switch i % 7 {
+			case 0:
 				SetLanguage(LangEN)
-			} else {
+			case 1:
 				SetLanguage(LangZH)
+			case 2:
+				SetLanguage(LangFR)
+			case 3:
+				SetLanguage(LangIT)
+			case 4:
+				SetLanguage(LangJA)
+			case 5:
+				SetLanguage(LangDE)
+			case 6:
+				SetLanguage(LangKO)
 			}
 		}(i)
 	}
@@ -180,7 +251,7 @@ func TestConcurrentAccess(t *testing.T) {
 
 	// Final state should be valid
 	finalLang := GetLanguage()
-	testza.AssertTrue(t, finalLang == LangEN || finalLang == LangZH, "final language should be valid")
+	testza.AssertTrue(t, finalLang == LangEN || finalLang == LangZH || finalLang == LangFR || finalLang == LangIT || finalLang == LangJA || finalLang == LangDE || finalLang == LangKO, "final language should be valid")
 }
 
 func TestConcurrentReadWrite(t *testing.T) {
@@ -202,10 +273,21 @@ func TestConcurrentReadWrite(t *testing.T) {
 		// Write goroutine
 		go func(i int) {
 			defer wg.Done()
-			if i%2 == 0 {
+			switch i % 7 {
+			case 0:
 				SetLanguage(LangEN)
-			} else {
+			case 1:
 				SetLanguage(LangZH)
+			case 2:
+				SetLanguage(LangFR)
+			case 3:
+				SetLanguage(LangIT)
+			case 4:
+				SetLanguage(LangJA)
+			case 5:
+				SetLanguage(LangDE)
+			case 6:
+				SetLanguage(LangKO)
 			}
 		}(i)
 	}
@@ -214,5 +296,5 @@ func TestConcurrentReadWrite(t *testing.T) {
 
 	// Final state should be valid
 	finalLang := GetLanguage()
-	testza.AssertTrue(t, finalLang == LangEN || finalLang == LangZH, "final language should be valid")
+	testza.AssertTrue(t, finalLang == LangEN || finalLang == LangZH || finalLang == LangFR || finalLang == LangIT || finalLang == LangJA || finalLang == LangDE || finalLang == LangKO, "final language should be valid")
 }

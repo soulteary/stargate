@@ -13,6 +13,16 @@ const (
 	LangEN Language = "en"
 	// LangZH is Chinese
 	LangZH Language = "zh"
+	// LangFR is French
+	LangFR Language = "fr"
+	// LangIT is Italian
+	LangIT Language = "it"
+	// LangJA is Japanese
+	LangJA Language = "ja"
+	// LangDE is German
+	LangDE Language = "de"
+	// LangKO is Korean
+	LangKO Language = "ko"
 )
 
 var (
@@ -24,7 +34,7 @@ var (
 func SetLanguage(lang Language) {
 	mu.Lock()
 	defer mu.Unlock()
-	if lang == LangEN || lang == LangZH {
+	if lang == LangEN || lang == LangZH || lang == LangFR || lang == LangIT || lang == LangJA || lang == LangDE || lang == LangKO {
 		currentLang = lang
 	}
 }
@@ -65,6 +75,76 @@ var translations = map[Language]map[string]string{
 		"error.config_required_not_set": "未设置（必填项）",
 		// Success messages
 		"success.login": "登录成功",
+	},
+	LangFR: {
+		// Error messages
+		"error.auth_required":           "Authentification requise",
+		"error.invalid_password":        "Mot de passe invalide",
+		"error.session_store_failed":    "Erreur interne du serveur : échec d'accès au stockage de session",
+		"error.authenticate_failed":     "Erreur interne du serveur : échec de l'authentification de la session",
+		"error.missing_session_id":      "ID de session manquant",
+		"error.config_invalid":          "Erreur de configuration : valeur invalide pour la variable d'environnement '%s' : '%s'",
+		"error.config_invalid_values":   "Erreur de configuration : valeur invalide pour la variable d'environnement '%s' : '%s'.\n  Valeurs acceptées : %v\n  Veuillez vérifier votre configuration de variable d'environnement et réessayer.",
+		"error.config_required":         "Erreur de configuration : la variable d'environnement '%s' est requise mais n'est pas définie.\n  Veuillez vérifier votre configuration de variable d'environnement et réessayer.",
+		"error.config_required_not_set": "non définie (requis)",
+		// Success messages
+		"success.login": "Connexion réussie",
+	},
+	LangIT: {
+		// Error messages
+		"error.auth_required":           "Autenticazione richiesta",
+		"error.invalid_password":        "Password non valida",
+		"error.session_store_failed":    "Errore interno del server: impossibile accedere al deposito delle sessioni",
+		"error.authenticate_failed":     "Errore interno del server: impossibile autenticare la sessione",
+		"error.missing_session_id":      "ID sessione mancante",
+		"error.config_invalid":          "Errore di configurazione: valore non valido per la variabile d'ambiente '%s': '%s'",
+		"error.config_invalid_values":   "Errore di configurazione: valore non valido per la variabile d'ambiente '%s': '%s'.\n  Valori accettati: %v\n  Si prega di controllare la configurazione della variabile d'ambiente e riprovare.",
+		"error.config_required":         "Errore di configurazione: la variabile d'ambiente '%s' è richiesta ma non è impostata.\n  Si prega di controllare la configurazione della variabile d'ambiente e riprovare.",
+		"error.config_required_not_set": "non impostata (richiesto)",
+		// Success messages
+		"success.login": "Accesso riuscito",
+	},
+	LangJA: {
+		// Error messages
+		"error.auth_required":           "認証が必要です",
+		"error.invalid_password":        "パスワードが無効です",
+		"error.session_store_failed":    "内部サーバーエラー：セッションストアへのアクセスに失敗しました",
+		"error.authenticate_failed":     "内部サーバーエラー：セッションの認証に失敗しました",
+		"error.missing_session_id":      "セッションIDが不足しています",
+		"error.config_invalid":          "設定エラー：環境変数 '%s' の値 '%s' が無効です",
+		"error.config_invalid_values":   "設定エラー：環境変数 '%s' の値 '%s' が無効です。\n  受け入れられる値: %v\n  環境変数の設定を確認して再試行してください。",
+		"error.config_required":         "設定エラー：環境変数 '%s' は必須ですが設定されていません。\n  環境変数の設定を確認して再試行してください。",
+		"error.config_required_not_set": "設定されていません（必須）",
+		// Success messages
+		"success.login": "ログイン成功",
+	},
+	LangDE: {
+		// Error messages
+		"error.auth_required":           "Authentifizierung erforderlich",
+		"error.invalid_password":        "Ungültiges Passwort",
+		"error.session_store_failed":    "Interner Serverfehler: Fehler beim Zugriff auf den Sitzungsspeicher",
+		"error.authenticate_failed":     "Interner Serverfehler: Fehler bei der Authentifizierung der Sitzung",
+		"error.missing_session_id":      "Sitzungs-ID fehlt",
+		"error.config_invalid":          "Konfigurationsfehler: Ungültiger Wert für Umgebungsvariable '%s': '%s'",
+		"error.config_invalid_values":   "Konfigurationsfehler: Ungültiger Wert für Umgebungsvariable '%s': '%s'.\n  Akzeptierte Werte: %v\n  Bitte überprüfen Sie Ihre Umgebungsvariablen-Konfiguration und versuchen Sie es erneut.",
+		"error.config_required":         "Konfigurationsfehler: Umgebungsvariable '%s' ist erforderlich, wurde aber nicht gesetzt.\n  Bitte überprüfen Sie Ihre Umgebungsvariablen-Konfiguration und versuchen Sie es erneut.",
+		"error.config_required_not_set": "nicht gesetzt (erforderlich)",
+		// Success messages
+		"success.login": "Anmeldung erfolgreich",
+	},
+	LangKO: {
+		// Error messages
+		"error.auth_required":           "인증이 필요합니다",
+		"error.invalid_password":        "잘못된 비밀번호",
+		"error.session_store_failed":    "내부 서버 오류: 세션 저장소에 액세스하지 못했습니다",
+		"error.authenticate_failed":     "내부 서버 오류: 세션 인증에 실패했습니다",
+		"error.missing_session_id":      "세션 ID가 없습니다",
+		"error.config_invalid":          "구성 오류: 환경 변수 '%s'의 값 '%s'이(가) 유효하지 않습니다",
+		"error.config_invalid_values":   "구성 오류: 환경 변수 '%s'의 값 '%s'이(가) 유효하지 않습니다.\n  허용되는 값: %v\n  환경 변수 구성을 확인하고 다시 시도하세요.",
+		"error.config_required":         "구성 오류: 환경 변수 '%s'이(가) 필요하지만 설정되지 않았습니다.\n  환경 변수 구성을 확인하고 다시 시도하세요.",
+		"error.config_required_not_set": "설정되지 않음 (필수)",
+		// Success messages
+		"success.login": "로그인 성공",
 	},
 }
 

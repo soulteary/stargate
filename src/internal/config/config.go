@@ -73,7 +73,7 @@ var (
 		Name:           "LANGUAGE",
 		Required:       false,
 		DefaultValue:   "en",
-		PossibleValues: []string{"en", "zh"},
+		PossibleValues: []string{"en", "zh", "fr", "it", "ja", "de", "ko"},
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
 )
@@ -82,9 +82,20 @@ func Initialize() error {
 	// First, initialize language setting (before other validations that might use i18n)
 	Language.Validate()
 	lang := strings.ToLower(Language.Value)
-	if lang == "zh" {
+	switch lang {
+	case "zh":
 		i18n.SetLanguage(i18n.LangZH)
-	} else {
+	case "fr":
+		i18n.SetLanguage(i18n.LangFR)
+	case "it":
+		i18n.SetLanguage(i18n.LangIT)
+	case "ja":
+		i18n.SetLanguage(i18n.LangJA)
+	case "de":
+		i18n.SetLanguage(i18n.LangDE)
+	case "ko":
+		i18n.SetLanguage(i18n.LangKO)
+	default:
 		i18n.SetLanguage(i18n.LangEN)
 	}
 
