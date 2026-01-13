@@ -337,3 +337,61 @@ func TestInitialize_WithDefaults(t *testing.T) {
 	testza.AssertEqual(t, "", CookieDomain.Value)
 	testza.AssertEqual(t, "en", Language.Value)
 }
+
+func TestInitialize_Language_FR(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("LANGUAGE", "fr")
+
+	err := Initialize()
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, "fr", Language.Value)
+}
+
+func TestInitialize_Language_IT(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("LANGUAGE", "it")
+
+	err := Initialize()
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, "it", Language.Value)
+}
+
+func TestInitialize_Language_JA(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("LANGUAGE", "ja")
+
+	err := Initialize()
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, "ja", Language.Value)
+}
+
+func TestInitialize_Language_DE(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("LANGUAGE", "de")
+
+	err := Initialize()
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, "de", Language.Value)
+}
+
+func TestInitialize_Language_KO(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("LANGUAGE", "ko")
+
+	err := Initialize()
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, "ko", Language.Value)
+}
+
+func TestValidationError_String_WithWildcard(t *testing.T) {
+	err := NewValidationError("TEST_VAR", "invalid-value", []string{"*"})
+
+	errorStr := err.String()
+	testza.AssertContains(t, errorStr, "TEST_VAR")
+	testza.AssertContains(t, errorStr, "invalid-value")
+}

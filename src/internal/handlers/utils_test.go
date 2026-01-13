@@ -335,3 +335,125 @@ func TestSendErrorResponse_MultipleTypes_XMLFirst(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "application/xml", string(ctx.Response().Header.Peek("Content-Type")))
 }
+
+func TestNormalizeHost_WithPort(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
+		"X-Forwarded-Host": "app.example.com:8080",
+		"Host":             "auth.example.com",
+	})
+	defer app.ReleaseCtx(ctx)
+
+	// Test IsDifferentDomain which uses normalizeHost internally
+	// With port, it should normalize and compare correctly
+	result := IsDifferentDomain(ctx)
+	testza.AssertTrue(t, result, "should detect different domains even with port")
+}
+
+func TestNormalizeHost_WithoutPort(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
+		"X-Forwarded-Host": "app.example.com",
+		"Host":             "auth.example.com",
+	})
+	defer app.ReleaseCtx(ctx)
+
+	result := IsDifferentDomain(ctx)
+	testza.AssertTrue(t, result, "should detect different domains")
+}
+
+func TestNormalizeHost_SameDomainWithPort(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com:80")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
+		"X-Forwarded-Host": "auth.example.com:8080",
+		"Host":             "auth.example.com",
+	})
+	defer app.ReleaseCtx(ctx)
+
+	result := IsDifferentDomain(ctx)
+	testza.AssertFalse(t, result, "should detect same domain even with different ports")
+}
+
+func TestSetCallbackCookie_EmptyCallback(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContextForUtils("GET", "/test", nil)
+	defer app.ReleaseCtx(ctx)
+
+	// Should not panic with empty callback
+	testza.AssertNotPanics(t, func() {
+		SetCallbackCookie(ctx, "")
+	})
+}
+
+func TestSetCallbackCookie_WithCookieDomain(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("COOKIE_DOMAIN", ".example.com")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
+		"X-Forwarded-Host":  "app.example.com",
+		"X-Forwarded-Proto": "https",
+	})
+	defer app.ReleaseCtx(ctx)
+
+	SetCallbackCookie(ctx, "app.example.com")
+
+	// Check that cookie was set
+	cookies := ctx.Response().Header.Peek("Set-Cookie")
+	cookieStr := string(cookies)
+	testza.AssertContains(t, cookieStr, CallbackCookieName)
+	testza.AssertContains(t, cookieStr, ".example.com")
+}
+
+func TestClearCallbackCookie_WithCookieDomain(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("COOKIE_DOMAIN", ".example.com")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContextForUtils("GET", "/test", nil)
+	defer app.ReleaseCtx(ctx)
+
+	ClearCallbackCookie(ctx)
+
+	// Check that cookie was cleared (expired)
+	cookies := ctx.Response().Header.Peek("Set-Cookie")
+	cookieStr := string(cookies)
+	testza.AssertContains(t, cookieStr, CallbackCookieName)
+	testza.AssertContains(t, cookieStr, ".example.com")
+}
+
+func TestIsDifferentDomain_SameDomain(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
+		"X-Forwarded-Host": "auth.example.com",
+		"Host":             "auth.example.com",
+	})
+	defer app.ReleaseCtx(ctx)
+
+	result := IsDifferentDomain(ctx)
+	testza.AssertFalse(t, result, "should detect same domain")
+}

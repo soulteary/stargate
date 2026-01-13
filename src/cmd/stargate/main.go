@@ -3,13 +3,17 @@ package main
 import (
 	"time"
 
+	"github.com/gofiber/fiber/v2"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
-func main() {
+// runApplication is the main application logic extracted for testing.
+// It performs all initialization steps and starts the server.
+// Returns an error if any step fails, allowing tests to verify error handling.
+func runApplication() error {
 	// Display startup banner
 	showBanner()
 
@@ -18,13 +22,45 @@ func main() {
 
 	// Initialize configuration
 	if err := initConfig(); err != nil {
-		logrus.Fatal("Failed to initialize config: ", err)
+		return err
 	}
 
 	// Create and start server
 	app := createApp()
 	if err := startServer(app); err != nil {
-		logrus.Fatal("Failed to start web server: ", err)
+		return err
+	}
+
+	return nil
+}
+
+// runApplicationWithApp allows injecting a custom app for testing.
+// This is useful for testing the application flow without actually starting a server.
+func runApplicationWithApp(app *fiber.App) error {
+	// Display startup banner
+	showBanner()
+
+	// Initialize logger
+	initLogger()
+
+	// Initialize configuration
+	if err := initConfig(); err != nil {
+		return err
+	}
+
+	// Start server with provided app
+	if err := startServer(app); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func main() {
+	// Use runApplication to handle all initialization and server startup
+	// This allows the same logic to be tested via runApplication()
+	if err := runApplication(); err != nil {
+		logrus.Fatal("Application failed to start: ", err)
 	}
 }
 
