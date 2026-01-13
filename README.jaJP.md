@@ -12,6 +12,8 @@ Stargate は、本番環境に対応した軽量な Forward Auth サービスで
 
 - [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
+![プレビュー](.github/assets/preview.png)
+
 ### 🎯 なぜ Stargate なのか？
 
 すべてのサービスで認証ロジックを実装することに疲れていませんか？Stargate は、エッジで認証を集中化することでこの問題を解決し、以下を可能にします：

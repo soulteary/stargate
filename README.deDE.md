@@ -12,6 +12,8 @@ Stargate ist ein produktionsreifer, leichtgewichtiger Forward Auth Service, der 
 
 - [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
+![Vorschau](.github/assets/preview.png)
+
 ### 🎯 Warum Stargate?
 
 Müde davon, Authentifizierungslogik in jedem Service zu implementieren? Stargate löst dies, indem es die Authentifizierung am Edge zentralisiert und Ihnen ermöglicht:

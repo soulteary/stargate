@@ -12,6 +12,8 @@ Stargate is a production-ready, lightweight Forward Auth Service designed to be 
 
 - [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
+![Preview](.github/assets/preview.png)
+
 ### 🎯 Why Stargate?
 
 Tired of implementing authentication logic in every service? Stargate solves this by centralizing authentication at the edge, allowing you to:

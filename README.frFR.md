@@ -12,6 +12,8 @@ Stargate est un service d'authentification avant prêt pour la production, lége
 
 - [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
+![Aperçu](.github/assets/preview.png)
+
 ### 🎯 Pourquoi Stargate ?
 
 Fatigué d'implémenter la logique d'authentification dans chaque service ? Stargate résout ce problème en centralisant l'authentification au niveau du bord, vous permettant de :

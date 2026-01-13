@@ -12,6 +12,8 @@ Stargate 是一个生产就绪的轻量级前向认证服务，旨在成为您�
 
 - [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
+![预览图](.github/assets/preview.png)
+
 ### 🎯 为什么选择 Stargate？
 
 厌倦了在每个服务中重复实现认证逻辑？Stargate 通过在边缘集中处理认证来解决这个问题，让您能够：

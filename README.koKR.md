@@ -12,6 +12,8 @@ Stargate는 전체 인프라의 **단일 인증 지점**이 되도록 설계된 
 
 - [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
 
+![미리보기](.github/assets/preview.png)
+
 ### 🎯 Stargate를 선택하는 이유?
 
 모든 서비스에서 인증 로직을 구현하는 데 지치셨나요? Stargate는 엣지에서 인증을 중앙화하여 이 문제를 해결하며, 다음을 가능하게 합니다:
