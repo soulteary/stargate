@@ -33,7 +33,8 @@ func showBanner() {
 	pterm.DefaultBox.Println(
 		putils.CenterText(
 			"Stargate\n" +
-				"Your Gateway to Secure Microservices",
+				"Your Gateway to Secure Microservices\n" +
+				"Version: " + Version,
 		),
 	)
 	time.Sleep(time.Millisecond) // Don't ask why, but this fixes the docker-compose log

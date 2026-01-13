@@ -60,4 +60,6 @@ cd src
 # 启动服务器
 echo -e "${GREEN}正在启动服务器...${NC}\n"
 # 使用包路径运行，这样会自动包含包内的所有文件
-go run ./cmd/stargate
+# 注入开发版本号
+VERSION="dev-$(git rev-parse --short HEAD 2>/dev/null || echo 'local')"
+go run -ldflags "-X github.com/soulteary/stargate/src/cmd/stargate.Version=${VERSION}" ./cmd/stargate

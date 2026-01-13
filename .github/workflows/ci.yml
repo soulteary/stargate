@@ -73,7 +73,8 @@ jobs:
 
       - name: Build
         run: |
-          CGO_ENABLED=0 go build -ldflags "-s -w" -o ./bin/stargate ./src/cmd/stargate
+          VERSION="dev-$(git rev-parse --short HEAD)"
+          CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/soulteary/stargate/src/cmd/stargate.Version=${VERSION}" -o ./bin/stargate ./src/cmd/stargate
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

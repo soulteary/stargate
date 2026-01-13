@@ -56,14 +56,16 @@ jobs:
       - name: Build binaries
         run: |
           mkdir -p dist
+          VERSION=${{ steps.version.outputs.version }}
+          LDFLAGS="-s -w -X github.com/soulteary/stargate/src/cmd/stargate.Version=${VERSION}"
           
           # Build for multiple platforms
-          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o dist/stargate-linux-amd64 ./src/cmd/stargate
-          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -o dist/stargate-linux-arm64 ./src/cmd/stargate
-          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o dist/stargate-darwin-amd64 ./src/cmd/stargate
-          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -o dist/stargate-darwin-arm64 ./src/cmd/stargate
-          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "-s -w" -o dist/stargate-windows-amd64.exe ./src/cmd/stargate
-          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "-s -w" -o dist/stargate-windows-arm64.exe ./src/cmd/stargate
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/stargate-linux-amd64 ./src/cmd/stargate
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/stargate-linux-arm64 ./src/cmd/stargate
+          GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/stargate-darwin-amd64 ./src/cmd/stargate
+          GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/stargate-darwin-arm64 ./src/cmd/stargate
+          GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/stargate-windows-amd64.exe ./src/cmd/stargate
+          GOOS=windows GOARCH=arm64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/stargate-windows-arm64.exe ./src/cmd/stargate
 
       - name: Generate checksums
         run: |
@@ -99,6 +101,8 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
