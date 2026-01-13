@@ -2,6 +2,10 @@
 
 Welcome to the Stargate Forward Auth Service documentation.
 
+## 🌐 Multi-language Documentation
+
+- [English](README.md) | [中文](../zhCN/README.md) | [Français](../frFR/README.md) | [Italiano](../itIT/README.md) | [日本語](../jaJP/README.md) | [Deutsch](../deDE/README.md) | [한국어](../koKR/README.md)
+
 ## 📚 Document List
 
 ### Core Documents

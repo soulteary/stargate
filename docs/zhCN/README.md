@@ -2,6 +2,10 @@
 
 欢迎查阅 Stargate Forward Auth Service 的文档。
 
+## 🌐 多语言文档 / Multi-language Documentation
+
+- [English](../enUS/README.md) | [中文](README.md) | [Français](../frFR/README.md) | [Italiano](../itIT/README.md) | [日本語](../jaJP/README.md) | [Deutsch](../deDE/README.md) | [한국어](../koKR/README.md)
+
 ## 📚 文档列表
 
 ### 核心文档

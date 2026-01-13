@@ -8,6 +8,10 @@
 
 Stargate is a production-ready, lightweight Forward Auth Service designed to be the **single point of authentication** for your entire infrastructure. Built with Go and optimized for performance, Stargate seamlessly integrates with Traefik and other reverse proxies to protect your backend services—**without writing a single line of auth code in your applications**.
 
+## 🌐 Multi-language Documentation
+
+- [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
+
 ### 🎯 Why Stargate?
 
 Tired of implementing authentication logic in every service? Stargate solves this by centralizing authentication at the edge, allowing you to:
