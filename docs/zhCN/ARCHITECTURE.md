@@ -222,7 +222,7 @@ type HashResolver interface {
 - 使用 `golang:1.25-alpine` 作为构建阶段
 - 使用 `scratch` 基础镜像作为运行阶段，最小化安全风险
 - 模板文件从 `src/internal/web/templates` 复制到镜像中的 `/app/web/templates`
-- 使用中国镜像源（`GOPROXY=https://goproxy.cn`）加速依赖下载
+- 使用国内镜像源（`GOPROXY=https://goproxy.cn`）加速依赖下载
 - 编译时使用 `-ldflags "-s -w"` 减小二进制体积
 - 应用会自动查找模板路径（支持本地开发的 `./internal/web/templates` 和生产环境的 `./web/templates`）
 

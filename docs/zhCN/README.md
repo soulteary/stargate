@@ -6,7 +6,7 @@
 
 ### 核心文档
 
-- **[README.md](../README.md)** - 项目概述和快速开始指南
+- **[README.md](../../README.zhCN.md)** - 项目概述和快速开始指南
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - 技术架构和设计决策
 
 ### 详细文档
@@ -39,15 +39,15 @@
 
 ### 新手入门
 
-1. 阅读 [README.md](../README.md) 了解项目
-2. 查看 [快速开始](../README.md#快速开始) 部分
-3. 参考 [配置说明](../README.md#配置说明) 配置服务
+1. 阅读 [README.zhCN.md](../../README.zhCN.md) 了解项目
+2. 查看 [快速开始](../../README.zhCN.md#快速开始) 部分
+3. 参考 [配置说明](../../README.zhCN.md#配置说明) 配置服务
 
 ### 开发人员
 
 1. 阅读 [ARCHITECTURE.md](ARCHITECTURE.md) 了解架构
 2. 查看 [API.md](API.md) 了解 API 接口
-3. 参考 [开发指南](../README.md#开发指南) 进行开发
+3. 参考 [开发指南](../../README.zhCN.md#开发指南) 进行开发
 
 ### 运维人员
 
@@ -59,13 +59,21 @@
 
 ```
 codes/
-├── README.md              # 项目主文档
+├── README.md              # 项目主文档（英文）
+├── README.zhCN.md         # 项目主文档（中文）
 ├── docs/
-│   ├── README.md          # 文档索引（本文件）
-│   ├── ARCHITECTURE.md    # 架构文档
-│   ├── API.md             # API 文档
-│   ├── CONFIG.md          # 配置参考
-│   └── DEPLOYMENT.md      # 部署指南
+│   ├── enUS/
+│   │   ├── README.md       # 文档索引（英文）
+│   │   ├── ARCHITECTURE.md # 架构文档（英文）
+│   │   ├── API.md          # API 文档（英文）
+│   │   ├── CONFIG.md       # 配置参考（英文）
+│   │   └── DEPLOYMENT.md   # 部署指南（英文）
+│   └── zhCN/
+│       ├── README.md       # 文档索引（中文，本文件）
+│       ├── ARCHITECTURE.md # 架构文档（中文）
+│       ├── API.md          # API 文档（中文）
+│       ├── CONFIG.md       # 配置参考（中文）
+│       └── DEPLOYMENT.md   # 部署指南（中文）
 └── ...
 ```
 
@@ -97,7 +105,7 @@ codes/
 
 ## 💡 使用建议
 
-1. **首次使用**：从 [README.md](../README.md) 开始，按照快速开始指南操作
+1. **首次使用**：从 [README.zhCN.md](../../README.zhCN.md) 开始，按照快速开始指南操作
 2. **配置服务**：参考 [CONFIG.md](CONFIG.md) 了解所有配置选项
 3. **集成 Traefik**：查看 [DEPLOYMENT.md](DEPLOYMENT.md) 中的 Traefik 集成部分
 4. **开发扩展**：阅读 [ARCHITECTURE.md](ARCHITECTURE.md) 了解架构设计

@@ -3,41 +3,76 @@
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org)
 
-Stargate 是一个轻量级的前向认证服务（Forward Auth Service），专为与 Traefik 等反向代理集成而设计。它提供统一的身份验证入口，保护您的后端服务，无需在每个服务中单独实现认证逻辑。
+> **🚀 Your Gateway to Secure Microservices**
 
-## 📋 目录
+Stargate is a production-ready, lightweight Forward Auth Service designed to be the **single point of authentication** for your entire infrastructure. Built with Go and optimized for performance, Stargate seamlessly integrates with Traefik and other reverse proxies to protect your backend services—**without writing a single line of auth code in your applications**.
 
-- [功能特性](#功能特性)
-- [快速开始](#快速开始)
-- [配置说明](#配置说明)
-- [文档导航](#文档导航)
-- [API 文档](#api-文档)
-- [部署指南](#部署指南)
-- [开发指南](#开发指南)
-- [许可证](#许可证)
+### 🎯 Why Stargate?
 
-## ✨ 功能特性
+Tired of implementing authentication logic in every service? Stargate solves this by centralizing authentication at the edge, allowing you to:
 
-- 🔐 **多种密码加密算法支持**：支持 plaintext、bcrypt、MD5、SHA512 等多种加密算法
-- 🌐 **跨域会话共享**：支持在不同域名/子域名之间共享认证会话
-- 🌍 **多语言支持**：内置中英文界面，可通过配置切换
-- 🚀 **轻量级设计**：基于 Go 和 Fiber 框架，性能优异
-- 🔒 **安全会话管理**：基于 Cookie 的会话管理，支持自定义域名和过期时间
-- 📦 **Docker 支持**：提供完整的 Docker 镜像和 docker-compose 配置
-- 🔄 **Traefik 集成**：开箱即用的 Traefik Forward Auth 中间件配置
-- 🎨 **可定制登录页**：支持自定义登录页面标题和页脚文本
+- ✅ **Protect multiple services** with a single authentication layer
+- ✅ **Reduce code complexity** by removing auth logic from your applications
+- ✅ **Deploy in minutes** with Docker and simple configuration
+- ✅ **Scale effortlessly** with minimal resource footprint
+- ✅ **Maintain security** with multiple encryption algorithms and secure session management
 
-## 🚀 快速开始
+### 💼 Use Cases
 
-### 使用 Docker Compose（推荐）
+Stargate is perfect for:
 
-1. 克隆项目：
+- **Microservices Architecture**: Protect multiple backend services without modifying application code
+- **Multi-Domain Applications**: Share authentication sessions across different domains and subdomains
+- **Internal Tools & Dashboards**: Quickly add authentication to internal services and admin panels
+- **API Gateway Integration**: Use with Traefik, Nginx, or other reverse proxies as a unified auth layer
+- **Development & Testing**: Simple password-based auth for development environments
+
+## 📋 Table of Contents
+
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Documentation](#documentation)
+- [API Documentation](#api-documentation)
+- [Deployment Guide](#deployment-guide)
+- [Development Guide](#development-guide)
+- [License](#license)
+
+## ✨ Features
+
+### 🔐 Enterprise-Grade Security
+- **Multiple Password Encryption Algorithms**: Choose from plaintext (testing), bcrypt, MD5, SHA512, and more
+- **Secure Session Management**: Cookie-based sessions with customizable domain and expiration
+- **Flexible Authentication**: Support for both password-based and session-based authentication
+
+### 🌐 Advanced Capabilities
+- **Cross-Domain Session Sharing**: Seamlessly share authentication sessions across different domains/subdomains
+- **Multi-Language Support**: Built-in English and Chinese interfaces, easily extensible for more languages
+- **Customizable UI**: Brand your login page with custom titles and footer text
+
+### 🚀 Performance & Reliability
+- **Lightweight & Fast**: Built on Go and Fiber framework for exceptional performance
+- **Minimal Resource Usage**: Low memory footprint, perfect for containerized environments
+- **Production Ready**: Battle-tested architecture designed for reliability
+
+### 📦 Developer Experience
+- **Docker First**: Complete Docker image and docker-compose configuration out of the box
+- **Traefik Native**: Zero-configuration Traefik Forward Auth middleware integration
+- **Simple Configuration**: Environment variable-based configuration, no complex files needed
+
+## 🚀 Quick Start
+
+Get Stargate up and running in **under 2 minutes**!
+
+### Using Docker Compose (Recommended)
+
+**Step 1:** Clone the repository
 ```bash
 git clone <repository-url>
 cd forward-auth
 ```
 
-2. 编辑 `codes/docker-compose.yml`，配置您的认证主机和密码：
+**Step 2:** Configure your authentication (edit `codes/docker-compose.yml`)
 ```yaml
 services:
   stargate:
@@ -46,196 +81,198 @@ services:
       - PASSWORDS=plaintext:yourpassword1|yourpassword2
 ```
 
-3. 启动服务：
+**Step 3:** Start the service
 ```bash
 cd codes
 docker-compose up -d
 ```
 
-### 本地开发
+**That's it!** Your authentication service is now running. 🎉
 
-1. 确保已安装 Go 1.25 或更高版本
+### Local Development
 
-2. 进入项目目录：
+1. Ensure Go 1.25 or higher is installed
+
+2. Navigate to the project directory:
 ```bash
 cd codes
 ```
 
-3. 运行本地启动脚本：
+3. Run the local startup script:
 ```bash
 chmod +x start-local.sh
 ./start-local.sh
 ```
 
-4. 访问登录页面：
+4. Access the login page:
 ```
 http://localhost:8080/_login?callback=localhost
 ```
 
-## ⚙️ 配置说明
+## ⚙️ Configuration
 
-Stargate 通过环境变量进行配置。以下是所有可用的配置项：
+Stargate uses a simple, environment variable-based configuration system. No complex YAML files or config parsing—just set environment variables and you're ready to go.
 
-### 必需配置
+### Required Configuration
 
-| 环境变量 | 说明 | 示例 |
-|---------|------|------|
-| `AUTH_HOST` | 认证服务的主机名 | `auth.example.com` |
-| `PASSWORDS` | 密码配置，格式：`算法:密码1\|密码2\|密码3` | `plaintext:test123\|admin456` |
+| Environment Variable | Description | Example |
+|---------------------|-------------|---------|
+| `AUTH_HOST` | Hostname of the authentication service | `auth.example.com` |
+| `PASSWORDS` | Password configuration, format: `algorithm:password1\|password2\|password3` | `plaintext:test123\|admin456` |
 
-### 可选配置
+### Optional Configuration
 
-| 环境变量 | 说明 | 默认值 | 示例 |
-|---------|------|--------|------|
-| `DEBUG` | 启用调试模式 | `false` | `true` |
-| `LANGUAGE` | 界面语言 | `en` | `zh`（中文）或 `en`（英文） |
-| `LOGIN_PAGE_TITLE` | 登录页面标题 | `Stargate - Login` | `我的认证服务` |
-| `LOGIN_PAGE_FOOTER_TEXT` | 登录页面页脚文本 | `Copyright © 2024 - Stargate` | `© 2024 我的公司` |
-| `USER_HEADER_NAME` | 认证成功后设置的用户头名称 | `X-Forwarded-User` | `X-Authenticated-User` |
-| `COOKIE_DOMAIN` | Cookie 域名（用于跨域会话共享） | 空（不设置） | `.example.com` |
-| `PORT` | 服务监听端口（仅本地开发） | `80` | `8080` |
+| Environment Variable | Description | Default | Example |
+|---------------------|-------------|---------|---------|
+| `DEBUG` | Enable debug mode | `false` | `true` |
+| `LANGUAGE` | Interface language | `en` | `zh` (Chinese) or `en` (English) |
+| `LOGIN_PAGE_TITLE` | Login page title | `Stargate - Login` | `My Auth Service` |
+| `LOGIN_PAGE_FOOTER_TEXT` | Login page footer text | `Copyright © 2024 - Stargate` | `© 2024 My Company` |
+| `USER_HEADER_NAME` | User header name set after successful authentication | `X-Forwarded-User` | `X-Authenticated-User` |
+| `COOKIE_DOMAIN` | Cookie domain (for cross-domain session sharing) | Empty (not set) | `.example.com` |
+| `PORT` | Service listening port (local development only) | `80` | `8080` |
 
-### 密码配置格式
+### Password Configuration Format
 
-密码配置使用以下格式：
+Password configuration uses the following format:
 ```
-算法:密码1|密码2|密码3
+algorithm:password1|password2|password3
 ```
 
-支持的算法：
-- `plaintext`：明文密码（仅用于测试）
-- `bcrypt`：BCrypt 哈希
-- `md5`：MD5 哈希
-- `sha512`：SHA512 哈希
+Supported algorithms:
+- `plaintext`: Plain text password (testing only)
+- `bcrypt`: BCrypt hash
+- `md5`: MD5 hash
+- `sha512`: SHA512 hash
 
-示例：
+Examples:
 ```bash
-# 明文密码（多个）
+# Plain text passwords (multiple)
 PASSWORDS=plaintext:test123|admin456|user789
 
-# BCrypt 哈希
+# BCrypt hash
 PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 
-# MD5 哈希
+# MD5 hash
 PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
-**详细配置说明请参阅：[docs/CONFIG.md](docs/CONFIG.md)**
+**For detailed configuration, see: [docs/enUS/CONFIG.md](docs/enUS/CONFIG.md)**
 
-## 📚 文档导航
+## 📚 Documentation
 
-项目文档已整理到 `docs/` 目录，包含以下详细文档：
+Comprehensive documentation is available to help you get the most out of Stargate:
 
-- **[架构文档](docs/ARCHITECTURE.md)** - 技术架构和设计决策
-- **[API 文档](docs/API.md)** - 完整的 API 端点说明
-- **[配置参考](docs/CONFIG.md)** - 详细的配置选项说明
-- **[部署指南](docs/DEPLOYMENT.md)** - 生产环境部署指南
+- 📐 **[Architecture Document](docs/enUS/ARCHITECTURE.md)** - Deep dive into technical architecture and design decisions
+- 🔌 **[API Document](docs/enUS/API.md)** - Complete API endpoint reference with examples
+- ⚙️ **[Configuration Reference](docs/enUS/CONFIG.md)** - Detailed configuration options and best practices
+- 🚀 **[Deployment Guide](docs/enUS/DEPLOYMENT.md)** - Production deployment strategies and recommendations
 
-## 📚 API 文档
+## 📚 API Documentation
 
-### 认证检查端点
+### Authentication Check Endpoint
 
 #### `GET /_auth`
 
-Traefik Forward Auth 的主要认证检查端点。
+The main authentication check endpoint for Traefik Forward Auth.
 
-**请求头：**
-- `Stargate-Password`（可选）：用于 API 请求的密码认证
-- `Cookie: stargate_session_id`（可选）：用于 Web 请求的会话认证
+**Request Headers:**
+- `Stargate-Password` (optional): Password authentication for API requests
+- `Cookie: stargate_session_id` (optional): Session authentication for Web requests
 
-**响应：**
-- `200 OK`：认证成功，设置 `X-Forwarded-User` 头（或配置的用户头名称）
-- `401 Unauthorized`：认证失败
-- `500 Internal Server Error`：服务器错误
+**Response:**
+- `200 OK`: Authentication successful, sets `X-Forwarded-User` header (or configured user header name)
+- `401 Unauthorized`: Authentication failed
+- `500 Internal Server Error`: Server error
 
-**说明：**
-- HTML 请求认证失败时会重定向到登录页面
-- API 请求（JSON/XML）认证失败时返回 401 错误
+**Notes:**
+- HTML requests redirect to login page on authentication failure
+- API requests (JSON/XML) return 401 error on authentication failure
 
-### 登录端点
+### Login Endpoint
 
 #### `GET /_login`
 
-显示登录页面。
+Displays the login page.
 
-**查询参数：**
-- `callback`（可选）：登录成功后的回调 URL
+**Query Parameters:**
+- `callback` (optional): Callback URL after successful login
 
-**响应：**
-- 返回登录页面 HTML
+**Response:**
+- Returns login page HTML
 
 #### `POST /_login`
 
-处理登录请求。
+Handles login requests.
 
-**表单数据：**
-- `password`：用户密码
-- `callback`（可选）：登录成功后的回调 URL
+**Form Data:**
+- `password`: User password
+- `callback` (optional): Callback URL after successful login
 
-**Callback 获取优先级：**
-1. 从 Cookie 中获取（如果之前已设置）
-2. 从表单数据中获取
-3. 从查询参数中获取
-4. 如果以上都没有，且来源域名与认证服务域名不一致，则使用来源域名作为 callback
+**Callback Retrieval Priority:**
+1. From Cookie (if previously set)
+2. From form data
+3. From query parameters
+4. If none of the above, and the origin domain differs from the authentication service domain, use the origin domain as callback
 
-**响应：**
-- `200 OK`：登录成功
-  - 如果有 callback，重定向到 `{callback}/_session_exchange?id={session_id}`
-  - 如果没有 callback，返回成功消息（HTML 或 JSON 格式，根据请求类型）
-- `401 Unauthorized`：密码错误
-- `500 Internal Server Error`：服务器错误
+**Response:**
+- `200 OK`: Login successful
+  - If callback exists, redirects to `{callback}/_session_exchange?id={session_id}`
+  - If no callback, returns success message (HTML or JSON format, depending on request type)
+- `401 Unauthorized`: Incorrect password
+- `500 Internal Server Error`: Server error
 
-### 登出端点
+### Logout Endpoint
 
 #### `GET /_logout`
 
-登出当前用户，销毁会话。
+Logs out the current user and destroys the session.
 
-**响应：**
-- `200 OK`：登出成功，返回 "Logged out"
+**Response:**
+- `200 OK`: Logout successful, returns "Logged out"
 
-### 会话交换端点
+### Session Exchange Endpoint
 
 #### `GET /_session_exchange`
 
-用于跨域会话共享。设置指定会话 ID 的 Cookie 并重定向。
+Used for cross-domain session sharing. Sets the specified session ID cookie and redirects.
 
-**查询参数：**
-- `id`（必需）：要设置的会话 ID
+**Query Parameters:**
+- `id` (required): Session ID to set
 
-**响应：**
-- `302 Redirect`：重定向到根路径
-- `400 Bad Request`：缺少会话 ID
+**Response:**
+- `302 Redirect`: Redirects to root path
+- `400 Bad Request`: Missing session ID
 
-### 健康检查端点
+### Health Check Endpoint
 
 #### `GET /health`
 
-服务健康检查端点。
+Service health check endpoint.
 
-**响应：**
-- `200 OK`：服务正常
+**Response:**
+- `200 OK`: Service is healthy
 
-### 根端点
+### Root Endpoint
 
 #### `GET /`
 
-根路径，显示服务信息。
+Root path, displays service information.
 
-**详细 API 文档请参阅：[docs/API.md](docs/API.md)**
+**For detailed API documentation, see: [docs/enUS/API.md](docs/enUS/API.md)**
 
-## 🐳 部署指南
+## 🐳 Deployment Guide
 
-### Docker 部署
+### Docker Deployment
 
-#### 构建镜像
+#### Build Image
 
 ```bash
 cd codes
 docker build -t stargate:latest .
 ```
 
-#### 运行容器
+#### Run Container
 
 ```bash
 docker run -d \
@@ -246,18 +283,18 @@ docker run -d \
   stargate:latest
 ```
 
-### Docker Compose 部署
+### Docker Compose Deployment
 
-项目提供了 `docker-compose.yml` 示例配置，包含 Stargate 服务和示例的 whoami 服务：
+The project provides a `docker-compose.yml` example configuration, including Stargate service and example whoami service:
 
 ```bash
 cd codes
 docker-compose up -d
 ```
 
-### Traefik 集成
+### Traefik Integration
 
-在 `docker-compose.yml` 中配置 Traefik 标签：
+Configure Traefik labels in `docker-compose.yml`:
 
 ```yaml
 services:
@@ -284,43 +321,43 @@ services:
       - "traefik.docker.network=traefik"
       - "traefik.http.routers.your-service.entrypoints=http"
       - "traefik.http.routers.your-service.rule=Host(`your-service.example.com`)"
-      - "traefik.http.routers.your-service.middlewares=stargate"  # 使用 Stargate 中间件
+      - "traefik.http.routers.your-service.middlewares=stargate"  # Use Stargate middleware
 
 networks:
   traefik:
     external: true
 ```
 
-### 生产环境建议
+### Production Recommendations
 
-1. **使用 HTTPS**：在生产环境中，确保通过 Traefik 配置 HTTPS
-2. **使用强密码算法**：避免使用 `plaintext`，推荐使用 `bcrypt` 或 `sha512`
-3. **设置 Cookie 域名**：如果需要在多个子域名间共享会话，设置 `COOKIE_DOMAIN`
-4. **日志管理**：配置适当的日志轮转和监控
-5. **资源限制**：为容器设置适当的 CPU 和内存限制
+1. **Use HTTPS**: In production, ensure HTTPS is configured via Traefik
+2. **Use Strong Password Algorithms**: Avoid `plaintext`, recommend using `bcrypt` or `sha512`
+3. **Set Cookie Domain**: If you need to share sessions across multiple subdomains, set `COOKIE_DOMAIN`
+4. **Log Management**: Configure appropriate log rotation and monitoring
+5. **Resource Limits**: Set appropriate CPU and memory limits for containers
 
-**详细部署指南请参阅：[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**
+**For detailed deployment guide, see: [docs/enUS/DEPLOYMENT.md](docs/enUS/DEPLOYMENT.md)**
 
-## 💻 开发指南
+## 💻 Development Guide
 
-### 项目结构
+### Project Structure
 
 ```
 codes/
 ├── src/
 │   ├── cmd/
-│   │   └── stargate/          # 主程序入口
-│   │       ├── main.go        # 程序入口
-│   │       ├── server.go      # 服务器配置
-│   │       └── constants.go   # 常量定义
+│   │   └── stargate/          # Main program entry point
+│   │       ├── main.go        # Program entry
+│   │       ├── server.go      # Server configuration
+│   │       └── constants.go  # Constant definitions
 │   ├── internal/
-│   │   ├── auth/              # 认证逻辑
-│   │   ├── config/            # 配置管理
-│   │   ├── handlers/          # HTTP 处理器
-│   │   ├── i18n/              # 国际化
-│   │   ├── middleware/        # 中间件
-│   │   ├── secure/            # 密码加密算法
-│   │   └── web/               # Web 模板和静态资源
+│   │   ├── auth/              # Authentication logic
+│   │   ├── config/            # Configuration management
+│   │   ├── handlers/          # HTTP handlers
+│   │   ├── i18n/              # Internationalization
+│   │   ├── middleware/        # Middleware
+│   │   ├── secure/            # Password encryption algorithms
+│   │   └── web/               # Web templates and static resources
 │   ├── go.mod
 │   └── go.sum
 ├── Dockerfile
@@ -328,39 +365,39 @@ codes/
 └── start-local.sh
 ```
 
-### 本地开发
+### Local Development
 
-1. 安装依赖：
+1. Install dependencies:
 ```bash
 cd codes
 go mod download
 ```
 
-2. 运行测试：
+2. Run tests:
 ```bash
 go test ./...
 ```
 
-3. 启动开发服务器：
+3. Start development server:
 ```bash
 ./start-local.sh
 ```
 
-### 添加新的密码算法
+### Adding New Password Algorithms
 
-1. 在 `src/internal/secure/` 目录下创建新的算法实现：
+1. Create a new algorithm implementation in `src/internal/secure/` directory:
 ```go
 package secure
 
 type NewAlgorithmResolver struct{}
 
 func (r *NewAlgorithmResolver) Check(h string, password string) bool {
-    // 实现密码验证逻辑
+    // Implement password verification logic
     return false
 }
 ```
 
-2. 在 `src/internal/config/validation.go` 中注册算法：
+2. Register the algorithm in `src/internal/config/validation.go`:
 ```go
 SupportedAlgorithms = map[string]secure.HashResolver{
     // ...
@@ -368,18 +405,18 @@ SupportedAlgorithms = map[string]secure.HashResolver{
 }
 ```
 
-### 添加新的语言支持
+### Adding New Language Support
 
-1. 在 `src/internal/i18n/i18n.go` 中添加语言常量：
+1. Add language constant in `src/internal/i18n/i18n.go`:
 ```go
 const (
     LangEN Language = "en"
     LangZH Language = "zh"
-    LangFR Language = "fr"  // 新增
+    LangFR Language = "fr"  // New
 )
 ```
 
-2. 添加翻译映射：
+2. Add translation mapping:
 ```go
 var translations = map[Language]map[string]string{
     // ...
@@ -390,25 +427,35 @@ var translations = map[Language]map[string]string{
 }
 ```
 
-3. 在 `src/internal/config/config.go` 中添加语言选项：
+3. Add language option in `src/internal/config/config.go`:
 ```go
 Language = EnvVariable{
-    PossibleValues: []string{"en", "zh", "fr"},  // 添加新语言
+    PossibleValues: []string{"en", "zh", "fr"},  // Add new language
 }
 ```
 
-## 📝 许可证
+## 📝 License
 
-本项目采用 Apache License 2.0 许可证。详情请参阅 [LICENSE](codes/LICENSE) 文件。
+This project is licensed under the Apache License 2.0. See the [LICENSE](codes/LICENSE) file for details.
 
-## 🤝 贡献
+## 🤝 Contributing
 
-欢迎提交 Issue 和 Pull Request！
+We welcome contributions! Whether it's:
+- 🐛 Bug reports
+- 💡 Feature suggestions
+- 📝 Documentation improvements
+- 🔧 Code contributions
+
+Please feel free to open an Issue or submit a Pull Request. Every contribution makes Stargate better!
 
 ---
 
-**注意**：在生产环境中使用前，请确保：
-- 使用强密码和安全的加密算法
-- 配置 HTTPS
-- 定期更新和维护
-- 监控服务状态和日志
+## ⚠️ Production Checklist
+
+Before deploying to production, ensure you've completed these security best practices:
+
+- ✅ **Use Strong Passwords**: Avoid `plaintext`, use `bcrypt` or `sha512` for password hashing
+- ✅ **Enable HTTPS**: Configure HTTPS via Traefik or your reverse proxy
+- ✅ **Set Cookie Domain**: Configure `COOKIE_DOMAIN` for proper session management across subdomains
+- ✅ **Monitor & Log**: Set up appropriate logging and monitoring for your deployment
+- ✅ **Regular Updates**: Keep Stargate updated to the latest version for security patches
