@@ -206,10 +206,5 @@ func Initialize() error {
 		logrus.Info("Config: ", Language.Name, " = ", Language.Value)
 	}
 
-	// Log OIDC setting
-	if OIDCEnabled.Value != "" {
-		logrus.Info("Config: ", OIDCEnabled.Name, " = ", OIDCEnabled.Value)
-	}
-
 	return nil
 }
