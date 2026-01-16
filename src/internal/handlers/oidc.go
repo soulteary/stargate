@@ -56,12 +56,28 @@ func OIDCLoginHandler(store *session.Store) fiber.Handler {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
 		}
 
+		callback := ""
+		rawCallback := ctx.Query("callback")
+		if rawCallback != "" {
+			callback = ValidateCallbackHost(rawCallback)
+			if callback == "" {
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.invalid_callback"))
+			}
+			SetCallbackCookie(ctx, callback)
+		} else {
+			rawCookieCallback := GetCallbackFromCookie(ctx)
+			callback = ValidateCallbackHost(rawCookieCallback)
+			if callback == "" && rawCookieCallback != "" {
+				ClearCallbackCookie(ctx)
+			}
+		}
+
 		state, err := oidcStateManager.GenerateState()
 		if err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.state_generation_failed"))
 		}
 
-		if err := oidcStateManager.SetState(sess, state); err != nil {
+		if err := oidcStateManager.SetStateWithCallback(sess, state, callback); err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
 		}
 
@@ -93,6 +109,18 @@ func OIDCCallbackHandler(store *session.Store) fiber.Handler {
 			return renderOIDCErrorPage(ctx, i18n.T("error.oidc_invalid_state"))
 		}
 
+		callbackURL := ValidateCallbackHost(oidcStateManager.GetCallback(sess))
+		if callbackURL == "" {
+			rawCallback := ctx.Query("callback")
+			if rawCallback != "" {
+				callbackURL = ValidateCallbackHost(rawCallback)
+				if callbackURL == "" {
+					return renderOIDCErrorPage(ctx, i18n.T("error.invalid_callback"))
+				}
+			}
+		}
+		oidcStateManager.ClearCallback(sess)
+
 		reqCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		token, err := oidcProvider.Exchange(reqCtx, code)
@@ -116,12 +144,13 @@ func OIDCCallbackHandler(store *session.Store) fiber.Handler {
 			return renderOIDCErrorPage(ctx, i18n.T("error.authenticate_failed"))
 		}
 
-		callbackURL := ctx.Query("callback")
 		if callbackURL == "" {
 			callbackURL = fmt.Sprintf("/_session_exchange?id=%s", sess.ID())
 		} else {
 			callbackURL = fmt.Sprintf("%s/_session_exchange?id=%s", callbackURL, sess.ID())
 		}
+
+		ClearCallbackCookie(ctx)
 
 		return ctx.Redirect(callbackURL)
 	}
