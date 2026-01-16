@@ -62,9 +62,9 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 		}
 
 		// Authentication successful, set user info header
-		// Since Stargate uses password authentication, there's no specific username, use default value
 		userHeaderName := config.UserHeaderName.String()
-		ctx.Set(userHeaderName, "authenticated")
+		userValue := auth.GetForwardedUserValue(sess)
+		ctx.Set(userHeaderName, userValue)
 
 		return ctx.SendStatus(fiber.StatusOK)
 	}
