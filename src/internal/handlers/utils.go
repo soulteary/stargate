@@ -3,6 +3,7 @@ package handlers
 
 import (
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -66,24 +67,72 @@ func IsDifferentDomain(ctx *fiber.Ctx) bool {
 func normalizeHost(host string) string {
 	// If contains port number, only take the hostname part
 	if idx := strings.Index(host, ":"); idx != -1 {
-		return host[:idx]
+		host = host[:idx]
 	}
-	return host
+	return strings.ToLower(host)
+}
+
+// NormalizeCallbackHost sanitizes a callback host by ensuring it has no scheme or path.
+// It returns a normalized host (may include port) or an empty string if invalid.
+func NormalizeCallbackHost(callbackHost string) string {
+	trimmed := strings.TrimSpace(callbackHost)
+	if trimmed == "" {
+		return ""
+	}
+	if strings.Contains(trimmed, "://") {
+		return ""
+	}
+	parsed, err := url.Parse("https://" + trimmed)
+	if err != nil {
+		return ""
+	}
+	if parsed.Host == "" || parsed.User != nil || parsed.Path != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return ""
+	}
+	if strings.ContainsAny(trimmed, "/\\?#") {
+		return ""
+	}
+	return parsed.Host
+}
+
+// ValidateCallbackHost verifies a callback host against basic safety rules and optional domain constraints.
+// It returns the normalized callback host or an empty string if invalid.
+func ValidateCallbackHost(callbackHost string) string {
+	normalized := NormalizeCallbackHost(callbackHost)
+	if normalized == "" {
+		return ""
+	}
+
+	normalizedHost := normalizeHost(normalized)
+	authHost := normalizeHost(config.AuthHost.String())
+	if normalizedHost == authHost {
+		return normalized
+	}
+
+	cookieDomain := strings.TrimPrefix(config.CookieDomain.Value, ".")
+	if cookieDomain == "" {
+		return normalized
+	}
+
+	if normalizedHost == cookieDomain || strings.HasSuffix(normalizedHost, "."+cookieDomain) {
+		return normalized
+	}
+
+	return ""
 }
 
 // SetCallbackCookie stores the origin host in a cookie if it's different from the auth host.
 // This allows the callback to persist even if the user refreshes the login page.
 func SetCallbackCookie(ctx *fiber.Ctx, callbackHost string) {
+	callbackHost = ValidateCallbackHost(callbackHost)
 	if callbackHost == "" {
 		return
 	}
 
-	// Normalize domain
-	callbackHost = normalizeHost(callbackHost)
 	authHost := normalizeHost(config.AuthHost.String())
 
 	// Only set cookie if domains are different
-	if callbackHost != authHost {
+	if normalizeHost(callbackHost) != authHost {
 		cookie := &fiber.Cookie{
 			Name:     CallbackCookieName,
 			Value:    callbackHost,
@@ -130,9 +179,13 @@ func ClearCallbackCookie(ctx *fiber.Ctx) {
 //
 // The URL format is: {protocol}://{authHost}/_login?callback={originalHost}
 func BuildCallbackURL(ctx *fiber.Ctx) string {
-	callbackHost := GetForwardedHost(ctx)
+	callbackHost := ValidateCallbackHost(GetForwardedHost(ctx))
 	proto := GetForwardedProto(ctx)
 	authHost := config.AuthHost.String()
+
+	if callbackHost == "" {
+		return fmt.Sprintf("%s://%s/_login", proto, authHost)
+	}
 
 	// If origin domain is different from auth service domain, store origin domain in cookie
 	if IsDifferentDomain(ctx) {
