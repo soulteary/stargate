@@ -2,7 +2,7 @@ package config
 
 // IsOIDCEnabled returns true if OIDC authentication is enabled
 func IsOIDCEnabled() bool {
-	return OIDCEnabled.String() == "true"
+	return OIDCEnabled.ToBool()
 }
 
 // GetOIDCProviderName returns the configured OIDC provider name
