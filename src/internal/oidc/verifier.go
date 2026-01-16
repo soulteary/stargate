@@ -11,6 +11,11 @@ import (
 // StateManager manages OAuth2 state parameters for CSRF protection
 type StateManager struct{}
 
+const (
+	oauthStateKey    = "oauth_state"
+	oauthCallbackKey = "oauth_callback"
+)
+
 // NewStateManager creates a new state manager
 func NewStateManager() *StateManager {
 	return &StateManager{}
@@ -27,7 +32,7 @@ func (sm *StateManager) GenerateState() (string, error) {
 
 // ValidateState validates the state parameter from the callback
 func (sm *StateManager) ValidateState(sess *session.Session, state string) bool {
-	storedState := sess.Get("oauth_state")
+	storedState := sess.Get(oauthStateKey)
 	if storedState == nil {
 		return false
 	}
@@ -38,15 +43,43 @@ func (sm *StateManager) ValidateState(sess *session.Session, state string) bool 
 	}
 
 	// Clear the state after validation (single-use)
-	sess.Delete("oauth_state")
+	sess.Delete(oauthStateKey)
 
 	return storedStateStr == state
 }
 
 // SetState stores the state parameter in the session
 func (sm *StateManager) SetState(sess *session.Session, state string) error {
-	sess.Set("oauth_state", state)
+	sess.Set(oauthStateKey, state)
 	return sess.Save()
+}
+
+// SetStateWithCallback stores state and callback in the session and saves it once.
+func (sm *StateManager) SetStateWithCallback(sess *session.Session, state, callback string) error {
+	sess.Set(oauthStateKey, state)
+	if callback == "" {
+		sess.Delete(oauthCallbackKey)
+	} else {
+		sess.Set(oauthCallbackKey, callback)
+	}
+	return sess.Save()
+}
+
+// GetCallback returns the stored callback host, if any.
+func (sm *StateManager) GetCallback(sess *session.Session) string {
+	value := sess.Get(oauthCallbackKey)
+	if value == nil {
+		return ""
+	}
+	if stored, ok := value.(string); ok {
+		return stored
+	}
+	return ""
+}
+
+// ClearCallback removes the stored callback from the session.
+func (sm *StateManager) ClearCallback(sess *session.Session) {
+	sess.Delete(oauthCallbackKey)
 }
 
 // GetUserInfoFromToken verifies the token and extracts user info
