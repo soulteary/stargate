@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"html"
+	"net/url"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -51,13 +52,30 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	}
 
 	// Get callback parameter (priority: cookie, form data, query parameter)
-	callbackFromCookie := GetCallbackFromCookie(ctx)
+	rawCallbackFromCookie := GetCallbackFromCookie(ctx)
+	callbackFromCookie := ValidateCallbackHost(rawCallbackFromCookie)
+	if callbackFromCookie == "" && rawCallbackFromCookie != "" {
+		ClearCallbackCookie(ctx)
+	}
+
 	callback := callbackFromCookie
 	if callback == "" {
-		callback = ctx.FormValue("callback")
+		rawFormCallback := ctx.FormValue("callback")
+		if rawFormCallback != "" {
+			callback = ValidateCallbackHost(rawFormCallback)
+			if callback == "" {
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.invalid_callback"))
+			}
+		}
 	}
 	if callback == "" {
-		callback = ctx.Query("callback")
+		rawQueryCallback := ctx.Query("callback")
+		if rawQueryCallback != "" {
+			callback = ValidateCallbackHost(rawQueryCallback)
+			if callback == "" {
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.invalid_callback"))
+			}
+		}
 	}
 
 	// If callback was retrieved from cookie, clear the cookie after successful login
@@ -70,7 +88,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		originHost := GetForwardedHost(ctx)
 		// Only use origin host as callback if it's different from auth service domain
 		if IsDifferentDomain(ctx) {
-			callback = originHost
+			callback = ValidateCallbackHost(originHost)
 		}
 	}
 
@@ -166,8 +184,12 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 }
 
 // renderOIDCLoginPage renders the OIDC login button page
-func renderOIDCLoginPage(ctx *fiber.Ctx) error {
+func renderOIDCLoginPage(ctx *fiber.Ctx, callback string) error {
 	providerName := config.GetOIDCProviderName()
+	loginURL := "/_oidc/login"
+	if callback != "" {
+		loginURL = fmt.Sprintf("/_oidc/login?callback=%s", url.QueryEscape(callback))
+	}
 
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html lang="%s">
@@ -211,7 +233,7 @@ func renderOIDCLoginPage(ctx *fiber.Ctx) error {
 <body>
     <div class="container">
         <h1>%s</h1>
-        <a href="/_oidc/login" class="login-btn">%s</a>
+        <a href="%s" class="login-btn">%s</a>
         <div class="footer">%s</div>
     </div>
 </body>
@@ -219,6 +241,7 @@ func renderOIDCLoginPage(ctx *fiber.Ctx) error {
 		string(i18n.GetLanguage()),
 		config.LoginPageTitle.Value,
 		config.LoginPageTitle.Value,
+		loginURL,
 		fmt.Sprintf(i18n.T("login.oidc_button"), providerName),
 		config.LoginPageFooterText.Value,
 	)
@@ -229,21 +252,29 @@ func renderOIDCLoginPage(ctx *fiber.Ctx) error {
 
 // loginRouteHandler is the internal handler that can be tested with mocked dependencies.
 func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
+	callback := ""
+	rawCallback := ctx.Query("callback")
+	if rawCallback != "" {
+		callback = ValidateCallbackHost(rawCallback)
+		if callback == "" {
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.invalid_callback"))
+		}
+		SetCallbackCookie(ctx, callback)
+	} else {
+		rawCookieCallback := GetCallbackFromCookie(ctx)
+		callback = ValidateCallbackHost(rawCookieCallback)
+		if callback == "" && rawCookieCallback != "" {
+			ClearCallbackCookie(ctx)
+		}
+	}
+
 	// Check if OIDC is enabled
 	if config.IsOIDCEnabled() {
-		return renderOIDCLoginPage(ctx)
+		return renderOIDCLoginPage(ctx, callback)
 	}
 
 	// Get callback parameter (priority: URL query parameter, then cookie)
 	// URL parameter takes priority as it represents the explicit intent of the current request
-	callback := ctx.Query("callback")
-	if callback == "" {
-		callback = GetCallbackFromCookie(ctx)
-	} else {
-		// If URL has callback parameter, update cookie (if domain is different)
-		SetCallbackCookie(ctx, callback)
-	}
-
 	sess, err := sessionGetter.Get(ctx)
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
