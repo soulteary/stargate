@@ -52,6 +52,7 @@ var translations = map[Language]map[string]string{
 		// Error messages
 		"error.auth_required":            "Authentication required",
 		"error.invalid_password":         "Invalid password",
+		"error.invalid_callback":         "Invalid callback host",
 		"error.session_store_failed":     "Internal server error: failed to access session store",
 		"error.authenticate_failed":      "Internal server error: failed to authenticate session",
 		"error.missing_session_id":       "Missing session ID",
@@ -77,6 +78,7 @@ var translations = map[Language]map[string]string{
 		// Error messages
 		"error.auth_required":            "需要身份验证",
 		"error.invalid_password":         "密码无效",
+		"error.invalid_callback":         "回调地址无效",
 		"error.session_store_failed":     "内部服务器错误：无法访问会话存储",
 		"error.authenticate_failed":      "内部服务器错误：无法验证会话",
 		"error.missing_session_id":       "缺少会话 ID",
@@ -102,6 +104,7 @@ var translations = map[Language]map[string]string{
 		// Error messages
 		"error.auth_required":            "Authentification requise",
 		"error.invalid_password":         "Mot de passe invalide",
+		"error.invalid_callback":         "Hôte de rappel invalide",
 		"error.session_store_failed":     "Erreur interne du serveur : échec d'accès au stockage de session",
 		"error.authenticate_failed":      "Erreur interne du serveur : échec de l'authentification de la session",
 		"error.missing_session_id":       "ID de session manquant",
@@ -127,6 +130,7 @@ var translations = map[Language]map[string]string{
 		// Error messages
 		"error.auth_required":            "Autenticazione richiesta",
 		"error.invalid_password":         "Password non valida",
+		"error.invalid_callback":         "Host di callback non valido",
 		"error.session_store_failed":     "Errore interno del server: impossibile accedere al deposito delle sessioni",
 		"error.authenticate_failed":      "Errore interno del server: impossibile autenticare la sessione",
 		"error.missing_session_id":       "ID sessione mancante",
@@ -152,6 +156,7 @@ var translations = map[Language]map[string]string{
 		// Error messages
 		"error.auth_required":            "認証が必要です",
 		"error.invalid_password":         "パスワードが無効です",
+		"error.invalid_callback":         "無効なコールバックホスト",
 		"error.session_store_failed":     "内部サーバーエラー：セッションストアへのアクセスに失敗しました",
 		"error.authenticate_failed":      "内部サーバーエラー：セッションの認証に失敗しました",
 		"error.missing_session_id":       "セッションIDが不足しています",
@@ -177,6 +182,7 @@ var translations = map[Language]map[string]string{
 		// Error messages
 		"error.auth_required":            "Authentifizierung erforderlich",
 		"error.invalid_password":         "Ungültiges Passwort",
+		"error.invalid_callback":         "Ungültiger Callback-Host",
 		"error.session_store_failed":     "Interner Serverfehler: Fehler beim Zugriff auf den Sitzungsspeicher",
 		"error.authenticate_failed":      "Interner Serverfehler: Fehler bei der Authentifizierung der Sitzung",
 		"error.missing_session_id":       "Sitzungs-ID fehlt",
@@ -202,6 +208,7 @@ var translations = map[Language]map[string]string{
 		// Error messages
 		"error.auth_required":            "인증이 필요합니다",
 		"error.invalid_password":         "잘못된 비밀번호",
+		"error.invalid_callback":         "잘못된 콜백 호스트",
 		"error.session_store_failed":     "내부 서버 오류: 세션 저장소에 액세스하지 못했습니다",
 		"error.authenticate_failed":      "내부 서버 오류: 세션 인증에 실패했습니다",
 		"error.missing_session_id":       "세션 ID가 없습니다",
