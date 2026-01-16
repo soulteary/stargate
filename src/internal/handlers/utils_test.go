@@ -386,6 +386,38 @@ func TestNormalizeHost_SameDomainWithPort(t *testing.T) {
 	testza.AssertFalse(t, result, "should detect same domain even with different ports")
 }
 
+func TestValidateCallbackHost_DisallowsScheme(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	result := ValidateCallbackHost("https://evil.example.com")
+	testza.AssertEqual(t, "", result)
+}
+
+func TestValidateCallbackHost_AllowsCookieDomain(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("COOKIE_DOMAIN", ".example.com")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	result := ValidateCallbackHost("app.example.com")
+	testza.AssertEqual(t, "app.example.com", result)
+}
+
+func TestValidateCallbackHost_DisallowsOutsideCookieDomain(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("COOKIE_DOMAIN", ".example.com")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	result := ValidateCallbackHost("evil.example.net")
+	testza.AssertEqual(t, "", result)
+}
+
 func TestSetCallbackCookie_EmptyCallback(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
