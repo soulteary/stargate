@@ -4,6 +4,7 @@ go 1.25
 
 require (
 	github.com/MarvinJWendt/testza v0.5.2
+	github.com/coreos/go-oidc/v3 v3.10.0
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/gofiber/template v1.7.5
 	github.com/pterm/pterm v0.12.82
@@ -22,9 +23,8 @@ require (
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.0 // indirect
 	github.com/containerd/console v1.0.5 // indirect
-	github.com/coreos/go-oidc/v3 v3.9.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.6.0 // indirect
 	github.com/klauspost/compress v1.18.2 // indirect
