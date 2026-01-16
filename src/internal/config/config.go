@@ -76,6 +76,54 @@ var (
 		PossibleValues: []string{"en", "zh", "fr", "it", "ja", "de", "ko"},
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
+
+	OIDCEnabled = EnvVariable{
+		Name:           "OIDC_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	OIDCIssuerURL = EnvVariable{
+		Name:           "OIDC_ISSUER_URL",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	OIDCClientID = EnvVariable{
+		Name:           "OIDC_CLIENT_ID",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	OIDCClientSecret = EnvVariable{
+		Name:           "OIDC_CLIENT_SECRET",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	OIDCRedirectURI = EnvVariable{
+		Name:           "OIDC_REDIRECT_URI",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	OIDCProviderName = EnvVariable{
+		Name:           "OIDC_PROVIDER_NAME",
+		Required:       false,
+		DefaultValue:   "OIDC",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateNotEmptyString,
+	}
 )
 
 func Initialize() error {
@@ -99,8 +147,47 @@ func Initialize() error {
 		i18n.SetLanguage(i18n.LangEN)
 	}
 
+	// Initialize OIDC setting before determining which auth mode to validate
+	OIDCEnabled.Validate()
+	oidcEnabled := strings.ToLower(OIDCEnabled.Value) == "true"
+
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain}
+	var envVariables []*EnvVariable
+
+	if oidcEnabled {
+		// OIDC mode: validate OIDC configuration instead of PASSWORDS
+		envVariables = []*EnvVariable{
+			&Debug,
+			&AuthHost,
+			&LoginPageTitle,
+			&LoginPageFooterText,
+			// Note: Passwords is NOT required in OIDC mode
+			&UserHeaderName,
+			&CookieDomain,
+			&OIDCIssuerURL,
+			&OIDCClientID,
+			&OIDCClientSecret,
+			&OIDCRedirectURI,
+			&OIDCProviderName,
+		}
+		// Make OIDC fields required when OIDC is enabled
+		OIDCIssuerURL.Required = true
+		OIDCClientID.Required = true
+		OIDCClientSecret.Required = true
+	} else {
+		// Password mode: validate PASSWORDS (original behavior)
+		envVariables = []*EnvVariable{
+			&Debug,
+			&AuthHost,
+			&LoginPageTitle,
+			&LoginPageFooterText,
+			&Passwords,
+			&UserHeaderName,
+			&CookieDomain,
+		}
+		// Still validate optional OIDC variables to get their default values
+		OIDCProviderName.Validate()
+	}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
@@ -117,6 +204,11 @@ func Initialize() error {
 	// Log language setting
 	if Language.Value != "" {
 		logrus.Info("Config: ", Language.Name, " = ", Language.Value)
+	}
+
+	// Log OIDC setting
+	if OIDCEnabled.Value != "" {
+		logrus.Info("Config: ", OIDCEnabled.Name, " = ", OIDCEnabled.Value)
 	}
 
 	return nil

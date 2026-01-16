@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -394,4 +395,83 @@ func TestValidationError_String_WithWildcard(t *testing.T) {
 	errorStr := err.String()
 	testza.AssertContains(t, errorStr, "TEST_VAR")
 	testza.AssertContains(t, errorStr, "invalid-value")
+}
+
+func TestOIDCConfigurationDefaults(t *testing.T) {
+	// Reset environment
+	os.Unsetenv("OIDC_ENABLED")
+	os.Unsetenv("OIDC_ISSUER_URL")
+	os.Unsetenv("OIDC_CLIENT_ID")
+	os.Unsetenv("OIDC_CLIENT_SECRET")
+	os.Unsetenv("OIDC_REDIRECT_URI")
+	os.Unsetenv("OIDC_PROVIDER_NAME")
+
+	Initialize()
+
+	testza.AssertEqual(t, "false", OIDCEnabled.String())
+	testza.AssertEqual(t, "", OIDCIssuerURL.Value)
+	testza.AssertEqual(t, "", OIDCClientID.Value)
+	testza.AssertEqual(t, "", OIDCClientSecret.Value)
+	testza.AssertEqual(t, "", OIDCRedirectURI.Value)
+	testza.AssertEqual(t, "OIDC", OIDCProviderName.Value)
+}
+
+func TestOIDCConfigurationEnabled(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("OIDC_ENABLED", "true")
+	t.Setenv("OIDC_ISSUER_URL", "https://accounts.example.com")
+	t.Setenv("OIDC_CLIENT_ID", "my-client-id")
+	t.Setenv("OIDC_CLIENT_SECRET", "my-client-secret")
+	t.Setenv("OIDC_REDIRECT_URI", "https://auth.example.com/_callback")
+	t.Setenv("OIDC_PROVIDER_NAME", "Example Inc")
+
+	err := Initialize()
+	testza.AssertNoError(t, err)
+
+	testza.AssertEqual(t, "true", OIDCEnabled.String())
+	testza.AssertEqual(t, "https://accounts.example.com", OIDCIssuerURL.Value)
+	testza.AssertEqual(t, "my-client-id", OIDCClientID.Value)
+	testza.AssertEqual(t, "my-client-secret", OIDCClientSecret.Value)
+	testza.AssertEqual(t, "https://auth.example.com/_callback", OIDCRedirectURI.Value)
+	testza.AssertEqual(t, "Example Inc", OIDCProviderName.Value)
+}
+
+func TestOIDCConfigurationEnabled_MissingRequired(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("OIDC_ENABLED", "true")
+	// Missing required OIDC fields
+
+	err := Initialize()
+	testza.AssertNotNil(t, err)
+}
+
+func TestIsOIDCEnabled(t *testing.T) {
+	// Test default (disabled)
+	os.Unsetenv("OIDC_ENABLED")
+	os.Unsetenv("AUTH_HOST")
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	Initialize()
+	testza.AssertFalse(t, IsOIDCEnabled())
+
+	// Test explicitly enabled
+	t.Setenv("OIDC_ENABLED", "true")
+	t.Setenv("OIDC_ISSUER_URL", "https://accounts.example.com")
+	t.Setenv("OIDC_CLIENT_ID", "my-client-id")
+	t.Setenv("OIDC_CLIENT_SECRET", "my-client-secret")
+	t.Setenv("OIDC_REDIRECT_URI", "https://auth.example.com/_callback")
+	Initialize()
+	testza.AssertTrue(t, IsOIDCEnabled())
+}
+
+func TestGetOIDCProviderName(t *testing.T) {
+	os.Unsetenv("OIDC_PROVIDER_NAME")
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	Initialize()
+	testza.AssertEqual(t, "OIDC", GetOIDCProviderName())
+
+	t.Setenv("OIDC_PROVIDER_NAME", "Custom Provider")
+	Initialize()
+	testza.AssertEqual(t, "Custom Provider", GetOIDCProviderName())
 }
