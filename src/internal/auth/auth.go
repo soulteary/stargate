@@ -112,3 +112,66 @@ func Unauthenticate(session *session.Session) error {
 func IsAuthenticated(session *session.Session) bool {
 	return session.Get("authenticated") != nil
 }
+
+// GetUserID returns the user ID from the session.
+//
+// Parameters:
+//   - session: The session to get the user ID from
+//
+// Returns the user ID if present, empty string otherwise.
+func GetUserID(session *session.Session) string {
+	if userID := session.Get("user_id"); userID != nil {
+		if str, ok := userID.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+// GetEmail returns the email from the session.
+//
+// Parameters:
+//   - session: The session to get the email from
+//
+// Returns the email if present, empty string otherwise.
+func GetEmail(session *session.Session) string {
+	if email := session.Get("email"); email != nil {
+		if str, ok := email.(string); ok {
+			return str
+		}
+	}
+	return ""
+}
+
+// AuthenticateOIDC marks a session as authenticated with OIDC user info.
+//
+// Parameters:
+//   - session: The session to authenticate
+//   - userID: The user ID from the OIDC provider
+//   - email: The email from the OIDC provider
+//
+// Returns an error if the session cannot be saved.
+func AuthenticateOIDC(session *session.Session, userID, email string) error {
+	session.Set("authenticated", true)
+	session.Set("user_id", userID)
+	session.Set("email", email)
+	session.Set("provider", "oidc")
+	return session.Save()
+}
+
+// GetForwardedUserValue returns the value to use for X-Forwarded-User header.
+// Priority: user_id > email > "authenticated".
+//
+// Parameters:
+//   - session: The session to get the user value from
+//
+// Returns the user ID, email, or "authenticated" as a fallback.
+func GetForwardedUserValue(session *session.Session) string {
+	if userID := GetUserID(session); userID != "" {
+		return userID
+	}
+	if email := GetEmail(session); email != "" {
+		return email
+	}
+	return "authenticated"
+}
