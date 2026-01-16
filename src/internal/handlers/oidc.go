@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
@@ -92,7 +93,9 @@ func OIDCCallbackHandler(store *session.Store) fiber.Handler {
 			return renderOIDCErrorPage(ctx, i18n.T("error.oidc_invalid_state"))
 		}
 
-		token, err := oidcProvider.Exchange(context.Background(), code)
+		reqCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		token, err := oidcProvider.Exchange(reqCtx, code)
 		if err != nil {
 			return renderOIDCErrorPage(ctx, i18n.T("error.oidc_token_exchange_failed"))
 		}
@@ -102,7 +105,9 @@ func OIDCCallbackHandler(store *session.Store) fiber.Handler {
 			return renderOIDCErrorPage(ctx, i18n.T("error.oidc_missing_id_token"))
 		}
 
-		userInfo, err := oidcProvider.GetUserInfoFromToken(context.Background(), rawIDToken)
+		reqCtx, cancel = context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		userInfo, err := oidcProvider.GetUserInfoFromToken(reqCtx, rawIDToken)
 		if err != nil {
 			return renderOIDCErrorPage(ctx, i18n.T("error.oidc_token_verification_failed"))
 		}
