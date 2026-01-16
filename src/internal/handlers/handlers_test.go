@@ -1457,7 +1457,7 @@ func TestLoginRoute_WhenOIDCEnabled_RendersOIDCLoginPage(t *testing.T) {
 	store := setupTestStore()
 	handler := LoginRoute(store)
 
-	ctx, app := createTestContext("GET", "/_login", nil, "")
+	ctx, app := createTestContext("GET", "/_login?callback=app.example.com", nil, "")
 	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
@@ -1466,7 +1466,50 @@ func TestLoginRoute_WhenOIDCEnabled_RendersOIDCLoginPage(t *testing.T) {
 
 	body := string(ctx.Response().Body())
 	testza.AssertContains(t, body, "/_oidc/login")
+	testza.AssertContains(t, body, "callback=app.example.com")
 	testza.AssertContains(t, body, "TestProvider")
 	testza.AssertContains(t, body, "Test Title")
 	testza.AssertContains(t, body, "Test Footer")
+}
+
+func TestLoginRoute_InvalidCallback_ReturnsBadRequest(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	handler := LoginRoute(store)
+
+	ctx, app := createTestContext("GET", "/_login?callback=https://evil.example.com", nil, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, i18n.T("error.invalid_callback"))
+}
+
+func TestLoginAPI_InvalidCallback_ReturnsBadRequest(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	handler := LoginAPI(store)
+
+	ctx, app := createTestContext("POST", "/_login?callback=https://evil.example.com", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "password=test123")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, i18n.T("error.invalid_callback"))
 }
