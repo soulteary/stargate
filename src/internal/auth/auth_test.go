@@ -350,3 +350,236 @@ func TestIsAuthenticated_WithNilValue(t *testing.T) {
 	// Session without authenticated flag
 	testza.AssertFalse(t, IsAuthenticated(sess), "should return false for unauthenticated session")
 }
+
+func TestGetUserID_Success(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	sess.Set("user_id", "test-user-123")
+	err = sess.Save()
+	testza.AssertNoError(t, err)
+
+	// Get session again to verify it was saved
+	sess2, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	userID := GetUserID(sess2)
+	testza.AssertEqual(t, "test-user-123", userID, "should return the user ID from session")
+}
+
+func TestGetUserID_NotFound(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	userID := GetUserID(sess)
+	testza.AssertEqual(t, "", userID, "should return empty string when user_id not found")
+}
+
+func TestGetUserID_WrongType(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	sess.Set("user_id", 12345) // Set as integer instead of string
+	err = sess.Save()
+	testza.AssertNoError(t, err)
+
+	// Get session again to verify it was saved
+	sess2, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	userID := GetUserID(sess2)
+	testza.AssertEqual(t, "", userID, "should return empty string when user_id is not a string")
+}
+
+func TestGetEmail_Success(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	sess.Set("email", "test@example.com")
+	err = sess.Save()
+	testza.AssertNoError(t, err)
+
+	// Get session again to verify it was saved
+	sess2, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	email := GetEmail(sess2)
+	testza.AssertEqual(t, "test@example.com", email, "should return the email from session")
+}
+
+func TestGetEmail_NotFound(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	email := GetEmail(sess)
+	testza.AssertEqual(t, "", email, "should return empty string when email not found")
+}
+
+func TestGetEmail_WrongType(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	sess.Set("email", 12345) // Set as integer instead of string
+	err = sess.Save()
+	testza.AssertNoError(t, err)
+
+	// Get session again to verify it was saved
+	sess2, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	email := GetEmail(sess2)
+	testza.AssertEqual(t, "", email, "should return empty string when email is not a string")
+}
+
+func TestAuthenticateOIDC_Success(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	err = AuthenticateOIDC(sess, "oidc-user-456", "oidc@example.com")
+	testza.AssertNoError(t, err)
+
+	// Get session again to verify it was saved
+	sess2, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	// Verify authentication
+	testza.AssertTrue(t, IsAuthenticated(sess2), "session should be authenticated")
+
+	// Verify user ID
+	userID := GetUserID(sess2)
+	testza.AssertEqual(t, "oidc-user-456", userID, "should return the user ID from OIDC")
+
+	// Verify email
+	email := GetEmail(sess2)
+	testza.AssertEqual(t, "oidc@example.com", email, "should return the email from OIDC")
+
+	// Verify provider
+	provider := sess2.Get("provider")
+	testza.AssertEqual(t, "oidc", provider, "should have provider set to oidc")
+}
+
+func TestGetForwardedUserValue_Priority(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	// Set both user_id and email
+	sess.Set("user_id", "priority-user")
+	sess.Set("email", "priority@example.com")
+	err = sess.Save()
+	testza.AssertNoError(t, err)
+
+	// Get session again to verify it was saved
+	sess2, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	// user_id should take priority
+	value := GetForwardedUserValue(sess2)
+	testza.AssertEqual(t, "priority-user", value, "should return user_id when both user_id and email are present")
+}
+
+func TestGetForwardedUserValue_EmailOnly(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	// Set only email
+	sess.Set("email", "emailonly@example.com")
+	err = sess.Save()
+	testza.AssertNoError(t, err)
+
+	// Get session again to verify it was saved
+	sess2, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	// Should fallback to email
+	value := GetForwardedUserValue(sess2)
+	testza.AssertEqual(t, "emailonly@example.com", value, "should return email when user_id is not present")
+}
+
+func TestGetForwardedUserValue_NoData(t *testing.T) {
+	app := fiber.New()
+	store := session.New(session.Config{
+		KeyLookup: "cookie:" + SessionCookieName,
+	})
+
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+
+	// No user_id or email set
+	value := GetForwardedUserValue(sess)
+	testza.AssertEqual(t, "authenticated", value, "should return 'authenticated' when no user data is present")
+}
