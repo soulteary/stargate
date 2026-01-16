@@ -1410,3 +1410,63 @@ func TestLoginRoute_SessionStoreError(t *testing.T) {
 	body := string(ctx.Response().Body())
 	testza.AssertContains(t, body, i18n.T("error.session_store_failed"))
 }
+
+// TestLoginAPI_WhenOIDCEnabled_DeniesPasswordLogin tests that password login is disabled when OIDC is enabled
+func TestLoginAPI_WhenOIDCEnabled_DeniesPasswordLogin(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("OIDC_ENABLED", "true")
+	t.Setenv("OIDC_ISSUER_URL", "https://accounts.example.com")
+	t.Setenv("OIDC_CLIENT_ID", "test-client-id")
+	t.Setenv("OIDC_CLIENT_SECRET", "test-client-secret")
+
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	handler := LoginAPI(store)
+
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "password=test123")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusMethodNotAllowed, ctx.Response().StatusCode())
+
+	// Verify error response format
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, i18n.T("error.password_login_disabled"))
+}
+
+// TestLoginRoute_WhenOIDCEnabled_RendersOIDCLoginPage tests that OIDC login page is rendered when OIDC is enabled
+func TestLoginRoute_WhenOIDCEnabled_RendersOIDCLoginPage(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("OIDC_ENABLED", "true")
+	t.Setenv("OIDC_ISSUER_URL", "https://accounts.example.com")
+	t.Setenv("OIDC_CLIENT_ID", "test-client-id")
+	t.Setenv("OIDC_CLIENT_SECRET", "test-client-secret")
+	t.Setenv("OIDC_PROVIDER_NAME", "TestProvider")
+	t.Setenv("LOGIN_PAGE_TITLE", "Test Title")
+	t.Setenv("LOGIN_PAGE_FOOTER_TEXT", "Test Footer")
+
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	handler := LoginRoute(store)
+
+	ctx, app := createTestContext("GET", "/_login", nil, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+
+	body := string(ctx.Response().Body())
+	testza.AssertContains(t, body, "/_oidc/login")
+	testza.AssertContains(t, body, "TestProvider")
+	testza.AssertContains(t, body, "Test Title")
+	testza.AssertContains(t, body, "Test Footer")
+}
