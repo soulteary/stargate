@@ -74,6 +74,18 @@ func setupRoutes(app *fiber.App, store *session.Store) {
 	app.Get(RouteLogout, handlers.LogoutRoute(store))
 	app.Get(RouteSessionExchange, handlers.SessionShareRoute())
 	app.Get(RouteAuth, handlers.CheckRoute(store))
+
+	// OIDC routes (only if OIDC is enabled)
+	if config.IsOIDCEnabled() {
+		// Initialize OIDC provider
+		if err := handlers.InitOIDC(); err != nil {
+			logrus.Fatalf("Failed to initialize OIDC: %v", err)
+		}
+
+		// OIDC authentication flow
+		app.Get("/_oidc/login", handlers.OIDCLoginHandler(store))
+		app.Get("/_oidc/callback", handlers.OIDCCallbackHandler(store))
+	}
 }
 
 // findAssetsPath finds the correct path to assets directory.
