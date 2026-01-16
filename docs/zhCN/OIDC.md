@@ -12,7 +12,7 @@ Stargate 支持 OpenID Connect (OIDC) 认证，可与企业 SSO 提供商集成�
 | `OIDC_ISSUER_URL` | 是* | - | OIDC 提供商的 Issuer URL |
 | `OIDC_CLIENT_ID` | 是* | - | 从 OIDC 提供商获取的客户端 ID |
 | `OIDC_CLIENT_SECRET` | 是* | - | 从 OIDC 提供商获取的客户端密钥 |
-| `OIDC_REDIRECT_URI` | 否 | 自动生成 | 应用的回调 URL |
+| `OIDC_REDIRECT_URI` | 否 | `https://{AUTH_HOST}/_oidc/callback` | 应用的回调 URL |
 | `OIDC_PROVIDER_NAME` | 否 | `OIDC` | 登录按钮显示的名称 |
 
 *当 `OIDC_ENABLED=true` 时必需
@@ -48,3 +48,4 @@ services:
 - 仅请求 `openid` 和 `email` 范围
 - 用户 ID（sub 声明）和邮箱存储在会话中
 - `X-Forwarded-User` 请求头包含用户 ID 或邮箱
+- 如果需要使用 `http` 或自定义回调地址，请显式设置 `OIDC_REDIRECT_URI`

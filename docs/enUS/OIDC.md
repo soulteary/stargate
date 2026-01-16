@@ -12,7 +12,7 @@ Enable OIDC by setting the following environment variables:
 | `OIDC_ISSUER_URL` | Yes* | - | Your OIDC provider's issuer URL |
 | `OIDC_CLIENT_ID` | Yes* | - | Client ID from your OIDC provider |
 | `OIDC_CLIENT_SECRET` | Yes* | - | Client secret from your OIDC provider |
-| `OIDC_REDIRECT_URI` | No | Auto-generated | Callback URL for your application |
+| `OIDC_REDIRECT_URI` | No | `https://{AUTH_HOST}/_oidc/callback` | Callback URL for your application |
 | `OIDC_PROVIDER_NAME` | No | `OIDC` | Display name for login button |
 
 *Required when `OIDC_ENABLED=true`
@@ -45,6 +45,7 @@ Any OIDC-compliant provider should work, including:
 ## Notes
 
 - When OIDC is enabled, password authentication is automatically disabled
+- If you need `http` or a custom callback URL, set `OIDC_REDIRECT_URI` explicitly
 - Only `openid` and `email` scopes are requested
 - User ID (sub claim) and email are stored in the session
 - The `X-Forwarded-User` header contains the user ID or email
