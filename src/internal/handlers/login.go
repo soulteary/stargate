@@ -29,6 +29,11 @@ func (a *AuthAuthenticator) Authenticate(sess *session.Session) error {
 
 // loginAPIHandler is the internal handler that can be tested with mocked dependencies.
 func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator Authenticator) error {
+	// Check if OIDC is enabled (deny password login)
+	if config.IsOIDCEnabled() {
+		return SendErrorResponse(ctx, fiber.StatusMethodNotAllowed, i18n.T("error.password_login_disabled"))
+	}
+
 	password := ctx.FormValue("password")
 
 	if !auth.CheckPassword(password) {
@@ -160,8 +165,75 @@ func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
 	}
 }
 
+// renderOIDCLoginPage renders the OIDC login button page
+func renderOIDCLoginPage(ctx *fiber.Ctx) error {
+	providerName := config.GetOIDCProviderName()
+
+	html := fmt.Sprintf(`<!DOCTYPE html>
+<html lang="%s">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>%s</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%%, #764ba2 100%%);
+        }
+        .container {
+            text-align: center;
+            background: white;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        h1 { color: #333; margin-bottom: 2rem; }
+        .login-btn {
+            display: inline-block;
+            padding: 0.75rem 2rem;
+            background: #667eea;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .login-btn:hover { background: #5568d3; }
+        .footer { margin-top: 2rem; color: #666; font-size: 0.875rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>%s</h1>
+        <a href="/_oidc/login" class="login-btn">%s</a>
+        <div class="footer">%s</div>
+    </div>
+</body>
+</html>`,
+		string(i18n.GetLanguage()),
+		config.LoginPageTitle.Value,
+		config.LoginPageTitle.Value,
+		fmt.Sprintf(i18n.T("login.oidc_button"), providerName),
+		config.LoginPageFooterText.Value,
+	)
+
+	ctx.Set("Content-Type", "text/html; charset=utf-8")
+	return ctx.SendString(html)
+}
+
 // loginRouteHandler is the internal handler that can be tested with mocked dependencies.
 func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
+	// Check if OIDC is enabled
+	if config.IsOIDCEnabled() {
+		return renderOIDCLoginPage(ctx)
+	}
+
 	// Get callback parameter (priority: URL query parameter, then cookie)
 	// URL parameter takes priority as it represents the explicit intent of the current request
 	callback := ctx.Query("callback")
