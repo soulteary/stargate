@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/sirupsen/logrus"
 
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
@@ -48,9 +49,16 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		if userPhone == "" && userMail == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.user_not_in_list"))
 		}
+
+		// Log the authentication attempt
+		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", userPhone, userMail)
+
 		if !auth.CheckUserInList(ctx.Context(), userPhone, userMail) {
+			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", userPhone, userMail)
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
 		}
+
+		logrus.Infof("Warden authentication successful for: phone=%s, mail=%s", userPhone, userMail)
 		authenticated = true
 	} else {
 		// Password authentication (default)
@@ -72,6 +80,17 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
 	}
 
+	// Set user information to session for warden authentication before authenticating
+	if authMethod == "warden" {
+		if userPhone != "" {
+			sess.Set("user_phone", userPhone)
+		}
+		if userMail != "" {
+			sess.Set("user_mail", userMail)
+		}
+	}
+
+	// Authenticate and save session (this will save all session data including user info)
 	err = authenticator.Authenticate(sess)
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.authenticate_failed"))

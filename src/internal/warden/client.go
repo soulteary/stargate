@@ -32,6 +32,7 @@ type Client struct {
 // NewClient creates a new Warden API client.
 func NewClient() *Client {
 	if !config.WardenEnabled.ToBool() {
+		logrus.Debug("Warden is not enabled, skipping client initialization")
 		return nil
 	}
 
@@ -44,15 +45,28 @@ func NewClient() *Client {
 	// Remove trailing slash
 	wardenURL = strings.TrimSuffix(wardenURL, "/")
 
+	// Add protocol prefix if missing
+	if !strings.HasPrefix(wardenURL, "http://") && !strings.HasPrefix(wardenURL, "https://") {
+		// Default to http if no protocol specified
+		originalURL := wardenURL
+		wardenURL = "http://" + wardenURL
+		logrus.Debugf("WARDEN_URL missing protocol, defaulting to http://%s", originalURL)
+	}
+
+	apiKey := config.WardenAPIKey.String()
+	hasAPIKey := apiKey != ""
+
 	client := &Client{
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 		baseURL: wardenURL,
-		apiKey:  config.WardenAPIKey.String(),
+		apiKey:  apiKey,
 		cache:   NewCache(),
 		logger:  logrus.StandardLogger(),
 	}
+
+	logrus.Debugf("Warden client created: URL=%s, APIKey=%v", wardenURL, hasAPIKey)
 
 	return client
 }
@@ -71,6 +85,7 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 
 	// Build request URL
 	url := fmt.Sprintf("%s/", c.baseURL)
+	c.logger.Debugf("Fetching users from Warden API: %s", url)
 
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -83,11 +98,13 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 		req.Header.Set("X-API-Key", c.apiKey)
 		// Also support Authorization header
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.apiKey))
+		c.logger.Debug("Added API key headers to Warden request")
 	}
 
 	// Make request
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		c.logger.Errorf("Failed to fetch users from Warden API: %v", err)
 		return nil, fmt.Errorf("failed to fetch users from Warden: %w", err)
 	}
 	defer resp.Body.Close()
@@ -95,6 +112,7 @@ func (c *Client) GetUsers(ctx context.Context) ([]AllowListUser, error) {
 	// Check status code
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
+		c.logger.Warnf("Warden API returned non-200 status: %d, body: %s", resp.StatusCode, string(body))
 		return nil, fmt.Errorf("warden API returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -130,22 +148,29 @@ func (c *Client) CheckUserInList(ctx context.Context, phone, mail string) bool {
 	phone = strings.TrimSpace(phone)
 	mail = strings.TrimSpace(strings.ToLower(mail))
 
+	c.logger.Debugf("Checking user in list: phone=%s, mail=%s, total users=%d", phone, mail, len(users))
+
 	// Check if user exists
-	for _, user := range users {
+	for i, user := range users {
 		userPhone := strings.TrimSpace(user.Phone)
 		userMail := strings.TrimSpace(strings.ToLower(user.Mail))
 
+		c.logger.Debugf("Comparing with user[%d]: phone=%s, mail=%s", i, userPhone, userMail)
+
 		// Match by phone if provided
 		if phone != "" && userPhone == phone {
+			c.logger.Infof("User matched by phone: %s", phone)
 			return true
 		}
 
 		// Match by mail if provided
 		if mail != "" && userMail == mail {
+			c.logger.Infof("User matched by mail: %s", mail)
 			return true
 		}
 	}
 
+	c.logger.Debugf("User not found in list: phone=%s, mail=%s", phone, mail)
 	return false
 }
 

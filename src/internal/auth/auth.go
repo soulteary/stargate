@@ -4,8 +4,10 @@ package auth
 import (
 	"context"
 	"strings"
+	"sync"
 
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/warden"
 )
@@ -118,16 +120,28 @@ func IsAuthenticated(session *session.Session) bool {
 // wardenClient is a global instance of the Warden client.
 // It's initialized once and reused for all requests.
 var wardenClient *warden.Client
+var wardenClientInit sync.Once
 
-// initWardenClient initializes the Warden client if enabled.
-func initWardenClient() {
-	if warden.IsEnabled() {
-		wardenClient = warden.NewClient()
-	}
+// InitWardenClient initializes the Warden client if enabled.
+// This should be called after configuration is loaded.
+func InitWardenClient() {
+	wardenClientInit.Do(func() {
+		if warden.IsEnabled() {
+			wardenClient = warden.NewClient()
+			if wardenClient == nil {
+				logrus.Warn("Failed to initialize Warden client. Check WARDEN_URL and WARDEN_ENABLED configuration.")
+			} else {
+				logrus.Info("Warden client initialized successfully")
+			}
+		}
+	})
 }
 
-func init() {
-	initWardenClient()
+// getWardenClient returns the warden client, initializing it if necessary.
+func getWardenClient() *warden.Client {
+	// Try to initialize if not already done
+	InitWardenClient()
+	return wardenClient
 }
 
 // CheckUserInList checks if a user (by phone or mail) is in the Warden allow list.
@@ -140,7 +154,14 @@ func init() {
 // Returns true if the user is in the allow list, false otherwise.
 // If Warden is not enabled or client is not initialized, returns false.
 func CheckUserInList(ctx context.Context, phone, mail string) bool {
-	if !warden.IsEnabled() || wardenClient == nil {
+	if !warden.IsEnabled() {
+		logrus.Debug("Warden is not enabled, skipping user list check")
+		return false
+	}
+
+	client := getWardenClient()
+	if client == nil {
+		logrus.Warn("Warden client is not initialized, cannot check user in list. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
 		return false
 	}
 
@@ -148,5 +169,10 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 		ctx = context.Background()
 	}
 
-	return wardenClient.CheckUserInList(ctx, phone, mail)
+	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", phone, mail)
+	result := client.CheckUserInList(ctx, phone, mail)
+	if !result {
+		logrus.Debugf("User not found in Warden list: phone=%s, mail=%s", phone, mail)
+	}
+	return result
 }

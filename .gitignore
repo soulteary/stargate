@@ -33,3 +33,4 @@ coverage.html
 bin/
 dist/
 .DS_Store
+start-debug.sh

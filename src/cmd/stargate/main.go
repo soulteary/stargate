@@ -7,6 +7,7 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 	"github.com/sirupsen/logrus"
+	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
@@ -92,6 +93,9 @@ func initConfig() error {
 	} else {
 		logrus.SetLevel(logrus.InfoLevel)
 	}
+
+	// Initialize Warden client after configuration is loaded
+	auth.InitWardenClient()
 
 	return nil
 }
