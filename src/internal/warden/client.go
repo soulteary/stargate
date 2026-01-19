@@ -50,8 +50,8 @@ func NewClient() *Client {
 		},
 		baseURL: wardenURL,
 		apiKey:  config.WardenAPIKey.String(),
-		cache:    NewCache(),
-		logger:   logrus.StandardLogger(),
+		cache:   NewCache(),
+		logger:  logrus.StandardLogger(),
 	}
 
 	return client
