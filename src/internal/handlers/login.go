@@ -53,6 +53,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		// Log the authentication attempt
 		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", userPhone, userMail)
 
+		// Use context from request
+		// ctx.Context() returns *fasthttp.RequestCtx which implements context.Context
+		// CheckUserInList handles nil context internally by using context.Background()
 		if !auth.CheckUserInList(ctx.Context(), userPhone, userMail) {
 			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", userPhone, userMail)
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))

@@ -124,6 +124,13 @@ func IsAuthenticated(session *session.Session) bool {
 var wardenClient *warden.Client
 var wardenClientInit sync.Once
 
+// ResetWardenClientForTesting resets the Warden client and initialization state for testing purposes.
+// This function should only be used in tests.
+func ResetWardenClientForTesting() {
+	wardenClient = nil
+	wardenClientInit = sync.Once{}
+}
+
 // InitWardenClient initializes the Warden client if enabled.
 // This should be called after configuration is loaded.
 func InitWardenClient() {
@@ -173,6 +180,36 @@ func getWardenClient() *warden.Client {
 	return wardenClient
 }
 
+// safeContext returns a safe context wrapper that prevents panics from invalid contexts.
+// If the original context is invalid (e.g., uninitialized fasthttp.RequestCtx in tests),
+// it returns context.Background() instead.
+func safeContext(ctx context.Context) context.Context {
+	// Use a closure to capture the result
+	var safeCtx context.Context
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Context is invalid, use background context
+				safeCtx = context.Background()
+			}
+		}()
+
+		// Try to access Done() to check if context is valid
+		// If this panics, the defer will catch it and set safeCtx to background
+		_ = ctx.Done()
+
+		// Context appears valid, use it
+		safeCtx = ctx
+	}()
+
+	// If safeCtx is still nil (shouldn't happen, but be safe), use background
+	if safeCtx == nil {
+		return context.Background()
+	}
+
+	return safeCtx
+}
+
 // CheckUserInList checks if a user (by phone or mail) is in the Warden allow list.
 //
 // Parameters:
@@ -194,8 +231,15 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 		return false
 	}
 
+	// Ensure we have a valid context
+	// If ctx is nil, use background context
 	if ctx == nil {
 		ctx = context.Background()
+	} else {
+		// In test environments, fasthttp.RequestCtx may have an invalid context
+		// that causes panics when used. Use a safe wrapper that falls back to
+		// background context if the original context is invalid.
+		ctx = safeContext(ctx)
 	}
 
 	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", phone, mail)

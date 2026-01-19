@@ -1,6 +1,9 @@
 package handlers
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"sync"
 	"testing"
 
@@ -1409,4 +1412,259 @@ func TestLoginRoute_SessionStoreError(t *testing.T) {
 	// Verify error response format
 	body := string(ctx.Response().Body())
 	testza.AssertContains(t, body, i18n.T("error.session_store_failed"))
+}
+
+// TestCheckRoute_WardenAuth_ValidPhone tests Warden authentication with valid phone
+func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "http://localhost:8080")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+		{Phone: "13900139000", Mail: "user2@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	// Initialize Warden client with mock server
+	t.Setenv("WARDEN_URL", server.URL)
+	config.Initialize()
+	auth.ResetWardenClientForTesting()
+	auth.InitWardenClient()
+
+	store := setupTestStore()
+	handler := CheckRoute(store)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"X-User-Phone": "13800138000",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+
+	// Verify user header is set
+	userHeader := string(ctx.Response().Header.Peek("X-Forwarded-User"))
+	testza.AssertEqual(t, "authenticated", userHeader)
+}
+
+// TestCheckRoute_WardenAuth_ValidMail tests Warden authentication with valid email
+func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+		{Phone: "13900139000", Mail: "user2@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	// Initialize Warden client with mock server
+	t.Setenv("WARDEN_URL", server.URL)
+	config.Initialize()
+	auth.ResetWardenClientForTesting()
+	auth.InitWardenClient()
+
+	store := setupTestStore()
+	handler := CheckRoute(store)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"X-User-Mail": "user2@example.com",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+
+	// Verify user header is set
+	userHeader := string(ctx.Response().Header.Peek("X-Forwarded-User"))
+	testza.AssertEqual(t, "authenticated", userHeader)
+}
+
+// TestCheckRoute_WardenAuth_InvalidUser tests Warden authentication with invalid user
+func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	// Initialize Warden client with mock server
+	t.Setenv("WARDEN_URL", server.URL)
+	config.Initialize()
+	auth.ResetWardenClientForTesting()
+	auth.InitWardenClient()
+
+	store := setupTestStore()
+	handler := CheckRoute(store)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"X-User-Phone": "99999999999", // Not in list
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	// Should fall back to session check, which will redirect or return 401
+	// Since no session is authenticated, it should redirect or return 401
+	testza.AssertTrue(t, ctx.Response().StatusCode() == fiber.StatusUnauthorized ||
+		ctx.Response().StatusCode() == fiber.StatusFound ||
+		ctx.Response().StatusCode() == fiber.StatusMovedPermanently)
+}
+
+// TestCheckRoute_WardenAuth_EmptyHeaders tests Warden authentication with empty headers
+func TestCheckRoute_WardenAuth_EmptyHeaders(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	handler := CheckRoute(store)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		// No X-User-Phone or X-User-Mail headers
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	// Should fall back to session check
+	testza.AssertTrue(t, ctx.Response().StatusCode() == fiber.StatusUnauthorized ||
+		ctx.Response().StatusCode() == fiber.StatusFound ||
+		ctx.Response().StatusCode() == fiber.StatusMovedPermanently)
+}
+
+// TestCheckRoute_WardenAuth_WithBothHeaders tests Warden authentication with both phone and mail headers
+func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+		{Phone: "13900139000", Mail: "user2@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	// Initialize Warden client with mock server
+	t.Setenv("WARDEN_URL", server.URL)
+	config.Initialize()
+	auth.ResetWardenClientForTesting()
+	auth.InitWardenClient()
+
+	store := setupTestStore()
+	handler := CheckRoute(store)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"X-User-Phone": "13800138000",
+		"X-User-Mail":  "user1@example.com",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+
+	// Verify user header is set
+	userHeader := string(ctx.Response().Header.Peek("X-Forwarded-User"))
+	testza.AssertEqual(t, "authenticated", userHeader)
+}
+
+// TestCheckRoute_WardenAuth_WithCustomUserHeader tests Warden authentication with custom user header name
+func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("USER_HEADER_NAME", "X-Custom-User")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	// Initialize Warden client with mock server
+	t.Setenv("WARDEN_URL", server.URL)
+	config.Initialize()
+	auth.ResetWardenClientForTesting()
+	auth.InitWardenClient()
+
+	store := setupTestStore()
+	handler := CheckRoute(store)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"X-User-Phone": "13800138000",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+
+	// Verify custom user header is set
+	userHeader := string(ctx.Response().Header.Peek("X-Custom-User"))
+	testza.AssertEqual(t, "authenticated", userHeader)
 }

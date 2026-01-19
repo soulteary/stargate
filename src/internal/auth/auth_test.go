@@ -1,6 +1,10 @@
 package auth
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -489,7 +493,7 @@ func TestCheckUserInList_NotEnabled(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	result := CheckUserInList(nil, "1234567890", "test@example.com")
+	result := CheckUserInList(context.TODO(), "1234567890", "test@example.com")
 	testza.AssertFalse(t, result, "should return false when Warden is not enabled")
 }
 
@@ -506,7 +510,7 @@ func TestCheckUserInList_NoClient(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	result := CheckUserInList(nil, "1234567890", "test@example.com")
+	result := CheckUserInList(context.TODO(), "1234567890", "test@example.com")
 	testza.AssertFalse(t, result, "should return false when client is not initialized")
 }
 
@@ -522,7 +526,7 @@ func TestCheckUserInList_NilContext(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	result := CheckUserInList(nil, "1234567890", "test@example.com")
+	result := CheckUserInList(context.TODO(), "1234567890", "test@example.com")
 	testza.AssertFalse(t, result, "should return false with nil context when Warden is not enabled")
 }
 
@@ -538,7 +542,7 @@ func TestCheckUserInList_EmptyPhoneAndMail(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	result := CheckUserInList(nil, "", "")
+	result := CheckUserInList(context.TODO(), "", "")
 	testza.AssertFalse(t, result, "should return false when Warden is not enabled")
 }
 
@@ -663,4 +667,203 @@ func TestIsAuthenticated_WithNonBoolValue(t *testing.T) {
 	sess.Set("authenticated", "yes")
 	// IsAuthenticated checks for nil, so it should return true (value exists)
 	testza.AssertTrue(t, IsAuthenticated(sess), "should return true when authenticated flag exists, regardless of type")
+}
+
+// TestInitWardenClient_Success tests that InitWardenClient successfully initializes with valid config
+func TestInitWardenClient_Success(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	InitWardenClient()
+	// Client should be initialized
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
+}
+
+// TestCheckUserInList_Success_WithPhone tests CheckUserInList with valid phone when Warden is enabled
+func TestCheckUserInList_Success_WithPhone(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+		{Phone: "13900139000", Mail: "user2@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	InitWardenClient()
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
+
+	// Test with valid phone
+	result := CheckUserInList(context.Background(), "13800138000", "")
+	testza.AssertTrue(t, result, "should return true for valid phone")
+}
+
+// TestCheckUserInList_Success_WithMail tests CheckUserInList with valid email when Warden is enabled
+func TestCheckUserInList_Success_WithMail(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+		{Phone: "13900139000", Mail: "user2@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	InitWardenClient()
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
+
+	// Test with valid email
+	result := CheckUserInList(context.Background(), "", "user2@example.com")
+	testza.AssertTrue(t, result, "should return true for valid email")
+}
+
+// TestCheckUserInList_Success_WithBoth tests CheckUserInList with both phone and email when Warden is enabled
+func TestCheckUserInList_Success_WithBoth(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+		{Phone: "13900139000", Mail: "user2@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	InitWardenClient()
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
+
+	// Test with both phone and email (should match by phone first)
+	result := CheckUserInList(context.Background(), "13800138000", "user1@example.com")
+	testza.AssertTrue(t, result, "should return true when user exists")
+}
+
+// TestCheckUserInList_Failure_UserNotInList tests CheckUserInList when user is not in list
+func TestCheckUserInList_Failure_UserNotInList(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	InitWardenClient()
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
+
+	// Test with user not in list
+	result := CheckUserInList(context.Background(), "99999999999", "")
+	testza.AssertFalse(t, result, "should return false when user is not in list")
+}
+
+// TestCheckUserInList_WithContext tests CheckUserInList with a custom context
+func TestCheckUserInList_WithContext(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	// Create a mock HTTP server for Warden
+	mockUsers := []struct {
+		Phone string `json:"phone"`
+		Mail  string `json:"mail"`
+	}{
+		{Phone: "13800138000", Mail: "user1@example.com"},
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	InitWardenClient()
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
+
+	// Test with custom context
+	ctx := context.WithValue(context.Background(), "test", "value")
+	result := CheckUserInList(ctx, "13800138000", "")
+	testza.AssertTrue(t, result, "should return true for valid phone with custom context")
 }

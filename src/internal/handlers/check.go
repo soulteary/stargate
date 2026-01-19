@@ -60,6 +60,9 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 		userPhone := ctx.Get("X-User-Phone")
 		userMail := ctx.Get("X-User-Mail")
 		if userPhone != "" || userMail != "" {
+			// Use context from request
+			// ctx.Context() returns *fasthttp.RequestCtx which implements context.Context
+			// CheckUserInList handles nil context internally by using context.Background()
 			if auth.CheckUserInList(ctx.Context(), userPhone, userMail) {
 				// Authentication successful, set user info header
 				userHeaderName := config.UserHeaderName.String()
