@@ -30,24 +30,8 @@
           {{if .Callback}}
           <input type="hidden" name="callback" value="{{.Callback}}">
           {{end}}
+          <input type="hidden" name="auth_method" value="warden">
           <div class="form-group">
-            <label for="auth_method" class="sr-only">Authentication Method</label>
-            <select id="auth_method" name="auth_method" onchange="toggleAuthFields()">
-              <option value="password">Password Authentication</option>
-              <option value="warden">User List Authentication</option>
-            </select>
-          </div>
-          <div class="form-group" id="password-group">
-            <label for="password" class="sr-only">Password</label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              placeholder="Enter password"
-              autocomplete="current-password"
-            >
-          </div>
-          <div class="form-group" id="warden-group" style="display: none;">
             <label for="phone" class="sr-only">Phone or Email</label>
             <input
               type="text"
@@ -70,21 +54,6 @@
           </div>
           <button type="submit" class="btn-verify">Verify Access</button>
         </form>
-        <script>
-          function toggleAuthFields() {
-            const authMethod = document.getElementById('auth_method').value;
-            const passwordGroup = document.getElementById('password-group');
-            const wardenGroup = document.getElementById('warden-group');
-            
-            if (authMethod === 'warden') {
-              passwordGroup.style.display = 'none';
-              wardenGroup.style.display = 'block';
-            } else {
-              passwordGroup.style.display = 'block';
-              wardenGroup.style.display = 'none';
-            }
-          }
-        </script>
       </div>
     </main>
 

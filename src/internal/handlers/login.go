@@ -234,7 +234,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 	// Select template based on Warden configuration
 	templateName := "login"
 	if config.WardenEnabled.ToBool() {
-		templateName = "login_warden"
+		templateName = "login.warden"
 	}
 
 	return ctx.Render(templateName, fiber.Map{
