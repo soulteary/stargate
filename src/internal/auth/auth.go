@@ -2,10 +2,12 @@
 package auth
 
 import (
+	"context"
 	"strings"
 
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/warden"
 )
 
 // SessionCookieName is the name of the session cookie used for authentication.
@@ -111,4 +113,40 @@ func Unauthenticate(session *session.Session) error {
 // Returns true if the session has the "authenticated" flag set, false otherwise.
 func IsAuthenticated(session *session.Session) bool {
 	return session.Get("authenticated") != nil
+}
+
+// wardenClient is a global instance of the Warden client.
+// It's initialized once and reused for all requests.
+var wardenClient *warden.Client
+
+// initWardenClient initializes the Warden client if enabled.
+func initWardenClient() {
+	if warden.IsEnabled() {
+		wardenClient = warden.NewClient()
+	}
+}
+
+func init() {
+	initWardenClient()
+}
+
+// CheckUserInList checks if a user (by phone or mail) is in the Warden allow list.
+//
+// Parameters:
+//   - ctx: Context for the request (can be nil, will use background context)
+//   - phone: User's phone number (optional, can be empty)
+//   - mail: User's email address (optional, can be empty)
+//
+// Returns true if the user is in the allow list, false otherwise.
+// If Warden is not enabled or client is not initialized, returns false.
+func CheckUserInList(ctx context.Context, phone, mail string) bool {
+	if !warden.IsEnabled() || wardenClient == nil {
+		return false
+	}
+
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	return wardenClient.CheckUserInList(ctx, phone, mail)
 }

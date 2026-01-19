@@ -76,6 +76,38 @@ var (
 		PossibleValues: []string{"en", "zh", "fr", "it", "ja", "de", "ko"},
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
+
+	WardenURL = EnvVariable{
+		Name:           "WARDEN_URL",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	WardenAPIKey = EnvVariable{
+		Name:           "WARDEN_API_KEY",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	WardenEnabled = EnvVariable{
+		Name:           "WARDEN_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	WardenCacheTTL = EnvVariable{
+		Name:           "WARDEN_CACHE_TTL",
+		Required:       false,
+		DefaultValue:   "300",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
 )
 
 func Initialize() error {
@@ -100,7 +132,7 @@ func Initialize() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
