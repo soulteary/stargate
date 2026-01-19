@@ -63,7 +63,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	} else {
 		// Password authentication (default)
 		if password == "" {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.invalid_password"))
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
 		}
 		if !auth.CheckPassword(password) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
