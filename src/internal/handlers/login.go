@@ -53,6 +53,53 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		// Log the authentication attempt
 		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", userPhone, userMail)
 
+		// Get verification code and OTP code from form
+		verifyCode := ctx.FormValue("verify_code")
+		otpCode := ctx.FormValue("otp_code")
+		useOTP := ctx.FormValue("use_otp") == "true"
+
+		// Check if verify code URL is configured
+		verifyCodeURL := config.WardenVerifyCodeURL.String()
+		otpEnabled := config.WardenOTPEnabled.ToBool()
+
+		// If verify code URL is configured, verify the code first
+		if verifyCodeURL != "" && !useOTP {
+			if verifyCode == "" {
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码不能为空")
+			}
+
+			// Verify the code with remote API
+			valid, err := auth.VerifyCode(ctx.Context(), userPhone, userMail, verifyCode)
+			if err != nil {
+				logrus.Errorf("Failed to verify code: %v", err)
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "验证码验证失败")
+			}
+			if !valid {
+				logrus.Warnf("Verification code invalid: phone=%s, mail=%s", userPhone, userMail)
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "验证码错误")
+			}
+		}
+
+		// If OTP is enabled and user chose to use OTP
+		if otpEnabled && useOTP {
+			if otpCode == "" {
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, "OTP 验证码不能为空")
+			}
+
+			// Get OTP secret
+			otpSecret := auth.GetOTPSecret()
+			if otpSecret == "" {
+				logrus.Warn("OTP secret is not configured")
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "OTP 配置错误")
+			}
+
+			// Verify OTP code
+			if !auth.VerifyOTP(otpSecret, otpCode) {
+				logrus.Warnf("OTP verification failed: phone=%s, mail=%s", userPhone, userMail)
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "OTP 验证码错误")
+			}
+		}
+
 		// Use context from request
 		// ctx.Context() returns *fasthttp.RequestCtx which implements context.Context
 		// CheckUserInList handles nil context internally by using context.Background()
@@ -259,12 +306,17 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		templateName = "login.warden"
 	}
 
+	verifyCodeURL := config.WardenVerifyCodeURL.String()
+	otpEnabled := config.WardenOTPEnabled.ToBool()
+
 	return ctx.Render(templateName, fiber.Map{
 		"Callback":      callback,
 		"SessionID":     sess.ID(),
 		"Title":         config.LoginPageTitle.Value,
 		"FooterText":    config.LoginPageFooterText.Value,
 		"WardenEnabled": config.WardenEnabled.ToBool(),
+		"VerifyCodeURL": verifyCodeURL,
+		"OTPEnabled":    otpEnabled,
 	})
 }
 
@@ -281,4 +333,42 @@ func LoginRoute(store *session.Store) func(c *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		return loginRouteHandler(ctx, sessionGetter)
 	}
+}
+
+// sendVerifyCodeHandler handles POST requests to /_send_verify_code for sending verification codes.
+func sendVerifyCodeHandler(ctx *fiber.Ctx) error {
+	userPhone := ctx.FormValue("phone")
+	userMail := ctx.FormValue("mail")
+
+	// Check if at least one identifier is provided
+	if userPhone == "" && userMail == "" {
+		return SendErrorResponse(ctx, fiber.StatusBadRequest, "手机号或邮箱不能为空")
+	}
+
+	// Check if verify code URL is configured
+	verifyCodeURL := config.WardenVerifyCodeURL.String()
+	if verifyCodeURL == "" {
+		return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码服务未配置")
+	}
+
+	// Send verification code
+	err := auth.SendVerifyCode(ctx.Context(), userPhone, userMail)
+	if err != nil {
+		logrus.Errorf("Failed to send verification code: %v", err)
+		return SendErrorResponse(ctx, fiber.StatusInternalServerError, "发送验证码失败: "+err.Error())
+	}
+
+	// Return success response
+	ctx.Set("Content-Type", "application/json")
+	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		"success": true,
+		"message": "验证码已发送",
+	})
+}
+
+// SendVerifyCodeAPI handles POST requests to /_send_verify_code for sending verification codes.
+//
+// Returns a Fiber handler function.
+func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
+	return sendVerifyCodeHandler
 }

@@ -2,13 +2,19 @@
 package auth
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/pquerna/otp/totp"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/warden/pkg/warden"
@@ -248,4 +254,229 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 		logrus.Debugf("User not found in Warden list: phone=%s, mail=%s", phone, mail)
 	}
 	return result
+}
+
+// verifyCodeRequest represents the request body for verify code API
+type verifyCodeRequest struct {
+	Action string `json:"action"` // "send" or "verify"
+	Phone  string `json:"phone,omitempty"`
+	Mail   string `json:"mail,omitempty"`
+	Code   string `json:"code,omitempty"` // Only used for verify action
+}
+
+// verifyCodeResponse represents the response from verify code API
+type verifyCodeResponse struct {
+	Success bool   `json:"success"`
+	Message string `json:"message,omitempty"`
+	Error   string `json:"error,omitempty"`
+}
+
+// SendVerifyCode sends a verification code to the user's phone or email via remote API.
+//
+// Parameters:
+//   - ctx: Context for the request
+//   - phone: User's phone number (optional)
+//   - mail: User's email address (optional)
+//
+// Returns an error if the request fails or the API returns an error.
+func SendVerifyCode(ctx context.Context, phone, mail string) error {
+	verifyCodeURL := config.WardenVerifyCodeURL.String()
+	if verifyCodeURL == "" {
+		return fmt.Errorf("WARDEN_VERIFY_CODE_URL is not configured")
+	}
+
+	// Ensure we have at least one identifier
+	if phone == "" && mail == "" {
+		return fmt.Errorf("phone or mail must be provided")
+	}
+
+	// Ensure we have a valid context
+	if ctx == nil {
+		ctx = context.Background()
+	} else {
+		ctx = safeContext(ctx)
+	}
+
+	// Create request body
+	reqBody := verifyCodeRequest{
+		Action: "send",
+		Phone:  phone,
+		Mail:   mail,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", verifyCodeURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send request
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Parse response
+	var apiResp verifyCodeResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Check response
+	if resp.StatusCode != http.StatusOK || !apiResp.Success {
+		errorMsg := apiResp.Error
+		if errorMsg == "" {
+			errorMsg = fmt.Sprintf("API returned status %d", resp.StatusCode)
+		}
+		return fmt.Errorf("verify code API error: %s", errorMsg)
+	}
+
+	logrus.Infof("Verification code sent successfully: phone=%s, mail=%s", phone, mail)
+	return nil
+}
+
+// VerifyCode verifies a verification code with the remote API.
+//
+// Parameters:
+//   - ctx: Context for the request
+//   - phone: User's phone number (optional)
+//   - mail: User's email address (optional)
+//   - code: The verification code to verify
+//
+// Returns true if the code is valid, false otherwise.
+// Returns an error if the request fails.
+func VerifyCode(ctx context.Context, phone, mail, code string) (bool, error) {
+	verifyCodeURL := config.WardenVerifyCodeURL.String()
+	if verifyCodeURL == "" {
+		return false, fmt.Errorf("WARDEN_VERIFY_CODE_URL is not configured")
+	}
+
+	// Ensure we have at least one identifier and a code
+	if phone == "" && mail == "" {
+		return false, fmt.Errorf("phone or mail must be provided")
+	}
+	if code == "" {
+		return false, fmt.Errorf("code must be provided")
+	}
+
+	// Ensure we have a valid context
+	if ctx == nil {
+		ctx = context.Background()
+	} else {
+		ctx = safeContext(ctx)
+	}
+
+	// Create request body
+	reqBody := verifyCodeRequest{
+		Action: "verify",
+		Phone:  phone,
+		Mail:   mail,
+		Code:   code,
+	}
+
+	jsonData, err := json.Marshal(reqBody)
+	if err != nil {
+		return false, fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Create HTTP request
+	req, err := http.NewRequestWithContext(ctx, "POST", verifyCodeURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return false, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	// Send request
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Read response
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, fmt.Errorf("failed to read response: %w", err)
+	}
+
+	// Parse response
+	var apiResp verifyCodeResponse
+	if err := json.Unmarshal(body, &apiResp); err != nil {
+		return false, fmt.Errorf("failed to parse response: %w", err)
+	}
+
+	// Check response
+	if resp.StatusCode != http.StatusOK || !apiResp.Success {
+		logrus.Debugf("Verification code verification failed: phone=%s, mail=%s, error=%s", phone, mail, apiResp.Error)
+		return false, nil
+	}
+
+	logrus.Debugf("Verification code verified successfully: phone=%s, mail=%s", phone, mail)
+	return true, nil
+}
+
+// VerifyOTP verifies a TOTP (Time-based One-Time Password) code.
+//
+// Parameters:
+//   - secret: The OTP secret key (base32 encoded)
+//   - code: The OTP code to verify (6 digits)
+//
+// Returns true if the code is valid, false otherwise.
+func VerifyOTP(secret, code string) bool {
+	if secret == "" {
+		logrus.Debug("OTP secret is empty, cannot verify")
+		return false
+	}
+
+	if code == "" {
+		logrus.Debug("OTP code is empty, cannot verify")
+		return false
+	}
+
+	// Validate code is 6 digits
+	code = strings.TrimSpace(code)
+	if len(code) != 6 {
+		logrus.Debugf("OTP code length is invalid: expected 6, got %d", len(code))
+		return false
+	}
+
+	// Verify TOTP code
+	// Using 30 second window, allowing 1 time step skew (previous/current/next window)
+	valid := totp.Validate(code, secret)
+	if !valid {
+		logrus.Debug("OTP code verification failed")
+		return false
+	}
+
+	logrus.Debug("OTP code verified successfully")
+	return true
+}
+
+// GetOTPSecret returns the OTP secret key from configuration.
+// This can be extended to fetch from remote API if needed.
+func GetOTPSecret() string {
+	return config.WardenOTPSecretKey.String()
 }

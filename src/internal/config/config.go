@@ -108,6 +108,30 @@ var (
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
 	}
+
+	WardenVerifyCodeURL = EnvVariable{
+		Name:           "WARDEN_VERIFY_CODE_URL",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	WardenOTPEnabled = EnvVariable{
+		Name:           "WARDEN_OTP_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	WardenOTPSecretKey = EnvVariable{
+		Name:           "WARDEN_OTP_SECRET_KEY",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
 )
 
 func Initialize() error {
@@ -132,7 +156,7 @@ func Initialize() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenVerifyCodeURL, &WardenOTPEnabled, &WardenOTPSecretKey}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()

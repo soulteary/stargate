@@ -71,6 +71,7 @@ func setupRoutes(app *fiber.App, store *session.Store) {
 	app.Get(RouteRoot, handlers.IndexRoute(store))
 	app.Get(RouteLogin, handlers.LoginRoute(store))
 	app.Post(RouteLogin, handlers.LoginAPI(store))
+	app.Post(RouteSendVerifyCode, handlers.SendVerifyCodeAPI())
 	app.Get(RouteLogout, handlers.LogoutRoute(store))
 	app.Get(RouteSessionExchange, handlers.SessionShareRoute())
 	app.Get(RouteAuth, handlers.CheckRoute(store))
