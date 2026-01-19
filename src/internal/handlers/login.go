@@ -7,6 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/sirupsen/logrus"
 
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
@@ -30,9 +31,51 @@ func (a *AuthAuthenticator) Authenticate(sess *session.Session) error {
 // loginAPIHandler is the internal handler that can be tested with mocked dependencies.
 func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator Authenticator) error {
 	password := ctx.FormValue("password")
+	authMethod := ctx.FormValue("auth_method") // "password" or "warden"
+	userPhone := ctx.FormValue("phone")
+	userMail := ctx.FormValue("mail")
 
-	if !auth.CheckPassword(password) {
-		return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
+	// Determine authentication method
+	// If auth_method is not specified, default to password authentication for backward compatibility
+	if authMethod == "" {
+		authMethod = "password"
+	}
+
+	var authenticated bool
+
+	if authMethod == "warden" {
+		// Warden user list authentication
+		// Check if at least one identifier is provided
+		if userPhone == "" && userMail == "" {
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.user_not_in_list"))
+		}
+
+		// Log the authentication attempt
+		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", userPhone, userMail)
+
+		// Use context from request
+		// ctx.Context() returns *fasthttp.RequestCtx which implements context.Context
+		// CheckUserInList handles nil context internally by using context.Background()
+		if !auth.CheckUserInList(ctx.Context(), userPhone, userMail) {
+			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", userPhone, userMail)
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
+		}
+
+		logrus.Infof("Warden authentication successful for: phone=%s, mail=%s", userPhone, userMail)
+		authenticated = true
+	} else {
+		// Password authentication (default)
+		if password == "" {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
+		}
+		if !auth.CheckPassword(password) {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
+		}
+		authenticated = true
+	}
+
+	if !authenticated {
+		return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.authentication_failed"))
 	}
 
 	sess, err := sessionGetter.Get(ctx)
@@ -40,6 +83,17 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
 	}
 
+	// Set user information to session for warden authentication before authenticating
+	if authMethod == "warden" {
+		if userPhone != "" {
+			sess.Set("user_phone", userPhone)
+		}
+		if userMail != "" {
+			sess.Set("user_mail", userMail)
+		}
+	}
+
+	// Authenticate and save session (this will save all session data including user info)
 	err = authenticator.Authenticate(sess)
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.authenticate_failed"))
@@ -199,11 +253,18 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		return ctx.Redirect(redirectURL)
 	}
 
-	return ctx.Render("login", fiber.Map{
-		"Callback":   callback,
-		"SessionID":  sess.ID(),
-		"Title":      config.LoginPageTitle.Value,
-		"FooterText": config.LoginPageFooterText.Value,
+	// Select template based on Warden configuration
+	templateName := "login"
+	if config.WardenEnabled.ToBool() {
+		templateName = "login.warden"
+	}
+
+	return ctx.Render(templateName, fiber.Map{
+		"Callback":      callback,
+		"SessionID":     sess.ID(),
+		"Title":         config.LoginPageTitle.Value,
+		"FooterText":    config.LoginPageFooterText.Value,
+		"WardenEnabled": config.WardenEnabled.ToBool(),
 	})
 }
 

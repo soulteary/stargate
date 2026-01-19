@@ -56,6 +56,22 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 			return ctx.SendStatus(fiber.StatusOK)
 		}
 
+		// Handle Warden user list authentication via headers
+		userPhone := ctx.Get("X-User-Phone")
+		userMail := ctx.Get("X-User-Mail")
+		if userPhone != "" || userMail != "" {
+			// Use context from request
+			// ctx.Context() returns *fasthttp.RequestCtx which implements context.Context
+			// CheckUserInList handles nil context internally by using context.Background()
+			if auth.CheckUserInList(ctx.Context(), userPhone, userMail) {
+				// Authentication successful, set user info header
+				userHeaderName := config.UserHeaderName.String()
+				ctx.Set(userHeaderName, "authenticated")
+				return ctx.SendStatus(fiber.StatusOK)
+			}
+			// User not in list, continue to session check
+		}
+
 		// Check session authentication
 		if !auth.IsAuthenticated(sess) {
 			return handleNotAuthenticated(ctx)

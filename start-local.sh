@@ -32,6 +32,12 @@ DEBUG=${DEBUG:-"true"}
 LANGUAGE=${LANGUAGE:-"zh"}
 PORT=${PORT:-"8080"}
 
+# Warden 配置（可选）
+WARDEN_ENABLED=${WARDEN_ENABLED:-"false"}
+WARDEN_URL=${WARDEN_URL:-""}
+WARDEN_API_KEY=${WARDEN_API_KEY:-""}
+WARDEN_CACHE_TTL=${WARDEN_CACHE_TTL:-"300"}
+
 echo -e "${YELLOW}配置信息:${NC}"
 echo "  AUTH_HOST: $AUTH_HOST"
 echo "  PASSWORDS: $PASSWORDS"
@@ -39,12 +45,24 @@ echo "  DEBUG: $DEBUG"
 echo "  LANGUAGE: $LANGUAGE"
 echo "  端口: $PORT"
 echo ""
+echo -e "${YELLOW}Warden 配置:${NC}"
+echo "  WARDEN_ENABLED: $WARDEN_ENABLED"
+if [ "$WARDEN_ENABLED" = "true" ]; then
+    echo "  WARDEN_URL: ${WARDEN_URL:-"未设置"}"
+    echo "  WARDEN_API_KEY: ${WARDEN_API_KEY:+已设置}"
+    echo "  WARDEN_CACHE_TTL: $WARDEN_CACHE_TTL (秒)"
+fi
+echo ""
 
 # 提示用户
 echo -e "${YELLOW}提示:${NC}"
 echo "  1. 访问登录页面: http://localhost:$PORT/_login?callback=localhost"
 echo "  2. 测试密码: test123 或 admin123"
-echo "  3. 按 Ctrl+C 停止服务"
+if [ "$WARDEN_ENABLED" = "true" ]; then
+    echo "  3. Warden 模式已启用，可以使用用户列表认证"
+    echo "  4. 确保 WARDEN_URL 和 WARDEN_API_KEY 已正确配置"
+fi
+echo "  按 Ctrl+C 停止服务"
 echo ""
 
 # 设置环境变量
@@ -53,6 +71,10 @@ export PASSWORDS
 export DEBUG
 export LANGUAGE
 export PORT
+export WARDEN_ENABLED
+export WARDEN_URL
+export WARDEN_API_KEY
+export WARDEN_CACHE_TTL
 
 # 进入源代码目录
 cd src

@@ -2,10 +2,16 @@
 package auth
 
 import (
+	"context"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/warden/pkg/warden"
 )
 
 // SessionCookieName is the name of the session cookie used for authentication.
@@ -111,4 +117,135 @@ func Unauthenticate(session *session.Session) error {
 // Returns true if the session has the "authenticated" flag set, false otherwise.
 func IsAuthenticated(session *session.Session) bool {
 	return session.Get("authenticated") != nil
+}
+
+// wardenClient is a global instance of the Warden client.
+// It's initialized once and reused for all requests.
+var wardenClient *warden.Client
+var wardenClientInit sync.Once
+
+// ResetWardenClientForTesting resets the Warden client and initialization state for testing purposes.
+// This function should only be used in tests.
+func ResetWardenClientForTesting() {
+	wardenClient = nil
+	wardenClientInit = sync.Once{}
+}
+
+// InitWardenClient initializes the Warden client if enabled.
+// This should be called after configuration is loaded.
+func InitWardenClient() {
+	wardenClientInit.Do(func() {
+		if !config.WardenEnabled.ToBool() {
+			logrus.Debug("Warden is not enabled, skipping client initialization")
+			return
+		}
+
+		wardenURL := config.WardenURL.String()
+		if wardenURL == "" {
+			logrus.Warn("WARDEN_URL is not set, Warden client will not be initialized")
+			return
+		}
+
+		// Parse cache TTL
+		cacheTTL := 300 * time.Second // Default 5 minutes
+		if ttlStr := config.WardenCacheTTL.String(); ttlStr != "" {
+			if parsedTTL, err := strconv.Atoi(ttlStr); err == nil && parsedTTL > 0 {
+				cacheTTL = time.Duration(parsedTTL) * time.Second
+			}
+		}
+
+		// Create SDK options
+		opts := warden.DefaultOptions().
+			WithBaseURL(wardenURL).
+			WithAPIKey(config.WardenAPIKey.String()).
+			WithCacheTTL(cacheTTL).
+			WithLogger(warden.NewLogrusAdapter(logrus.StandardLogger()))
+
+		// Create client
+		client, err := warden.NewClient(opts)
+		if err != nil {
+			logrus.Warnf("Failed to initialize Warden client: %v. Check WARDEN_URL and WARDEN_ENABLED configuration.", err)
+			return
+		}
+
+		wardenClient = client
+		logrus.Info("Warden client initialized successfully")
+	})
+}
+
+// getWardenClient returns the warden client, initializing it if necessary.
+func getWardenClient() *warden.Client {
+	// Try to initialize if not already done
+	InitWardenClient()
+	return wardenClient
+}
+
+// safeContext returns a safe context wrapper that prevents panics from invalid contexts.
+// If the original context is invalid (e.g., uninitialized fasthttp.RequestCtx in tests),
+// it returns context.Background() instead.
+func safeContext(ctx context.Context) context.Context {
+	// Use a closure to capture the result
+	var safeCtx context.Context
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				// Context is invalid, use background context
+				safeCtx = context.Background()
+			}
+		}()
+
+		// Try to access Done() to check if context is valid
+		// If this panics, the defer will catch it and set safeCtx to background
+		_ = ctx.Done()
+
+		// Context appears valid, use it
+		safeCtx = ctx
+	}()
+
+	// If safeCtx is still nil (shouldn't happen, but be safe), use background
+	if safeCtx == nil {
+		return context.Background()
+	}
+
+	return safeCtx
+}
+
+// CheckUserInList checks if a user (by phone or mail) is in the Warden allow list.
+//
+// Parameters:
+//   - ctx: Context for the request (can be nil, will use background context)
+//   - phone: User's phone number (optional, can be empty)
+//   - mail: User's email address (optional, can be empty)
+//
+// Returns true if the user is in the allow list, false otherwise.
+// If Warden is not enabled or client is not initialized, returns false.
+func CheckUserInList(ctx context.Context, phone, mail string) bool {
+	if !config.WardenEnabled.ToBool() {
+		logrus.Debug("Warden is not enabled, skipping user list check")
+		return false
+	}
+
+	client := getWardenClient()
+	if client == nil {
+		logrus.Warn("Warden client is not initialized, cannot check user in list. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
+		return false
+	}
+
+	// Ensure we have a valid context
+	// If ctx is nil, use background context
+	if ctx == nil {
+		ctx = context.Background()
+	} else {
+		// In test environments, fasthttp.RequestCtx may have an invalid context
+		// that causes panics when used. Use a safe wrapper that falls back to
+		// background context if the original context is invalid.
+		ctx = safeContext(ctx)
+	}
+
+	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", phone, mail)
+	result := client.CheckUserInList(ctx, phone, mail)
+	if !result {
+		logrus.Debugf("User not found in Warden list: phone=%s, mail=%s", phone, mail)
+	}
+	return result
 }

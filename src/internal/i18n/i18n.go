@@ -59,6 +59,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "Configuration error: invalid value for environment variable '%s': '%s'.\n  Accepted values: %v\n  Please check your environment variable configuration and try again.",
 		"error.config_required":         "Configuration error: environment variable '%s' is required but not set.\n  Please check your environment variable configuration and try again.",
 		"error.config_required_not_set": "not set (required)",
+		"error.user_not_in_list":        "User not found in allow list",
+		"error.authentication_failed":   "Authentication failed",
 		// Success messages
 		"success.login": "Login successful",
 	},
@@ -73,6 +75,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "配置错误: 环境变量 '%s' 的值 '%s' 无效。\n  可接受的值: %v\n  请检查环境变量配置并重试。",
 		"error.config_required":         "配置错误: 环境变量 '%s' 未设置（必填项）。\n  请检查环境变量配置并重试。",
 		"error.config_required_not_set": "未设置（必填项）",
+		"error.user_not_in_list":        "用户不在允许列表中",
+		"error.authentication_failed":   "认证失败",
 		// Success messages
 		"success.login": "登录成功",
 	},
@@ -87,6 +91,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "Erreur de configuration : valeur invalide pour la variable d'environnement '%s' : '%s'.\n  Valeurs acceptées : %v\n  Veuillez vérifier votre configuration de variable d'environnement et réessayer.",
 		"error.config_required":         "Erreur de configuration : la variable d'environnement '%s' est requise mais n'est pas définie.\n  Veuillez vérifier votre configuration de variable d'environnement et réessayer.",
 		"error.config_required_not_set": "non définie (requis)",
+		"error.user_not_in_list":        "Utilisateur non trouvé dans la liste d'autorisation",
+		"error.authentication_failed":   "Échec de l'authentification",
 		// Success messages
 		"success.login": "Connexion réussie",
 	},
@@ -101,6 +107,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "Errore di configurazione: valore non valido per la variabile d'ambiente '%s': '%s'.\n  Valori accettati: %v\n  Si prega di controllare la configurazione della variabile d'ambiente e riprovare.",
 		"error.config_required":         "Errore di configurazione: la variabile d'ambiente '%s' è richiesta ma non è impostata.\n  Si prega di controllare la configurazione della variabile d'ambiente e riprovare.",
 		"error.config_required_not_set": "non impostata (richiesto)",
+		"error.user_not_in_list":        "Utente non trovato nell'elenco consentiti",
+		"error.authentication_failed":   "Autenticazione fallita",
 		// Success messages
 		"success.login": "Accesso riuscito",
 	},
@@ -115,6 +123,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "設定エラー：環境変数 '%s' の値 '%s' が無効です。\n  受け入れられる値: %v\n  環境変数の設定を確認して再試行してください。",
 		"error.config_required":         "設定エラー：環境変数 '%s' は必須ですが設定されていません。\n  環境変数の設定を確認して再試行してください。",
 		"error.config_required_not_set": "設定されていません（必須）",
+		"error.user_not_in_list":        "許可リストにユーザーが見つかりません",
+		"error.authentication_failed":   "認証に失敗しました",
 		// Success messages
 		"success.login": "ログイン成功",
 	},
@@ -129,6 +139,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "Konfigurationsfehler: Ungültiger Wert für Umgebungsvariable '%s': '%s'.\n  Akzeptierte Werte: %v\n  Bitte überprüfen Sie Ihre Umgebungsvariablen-Konfiguration und versuchen Sie es erneut.",
 		"error.config_required":         "Konfigurationsfehler: Umgebungsvariable '%s' ist erforderlich, wurde aber nicht gesetzt.\n  Bitte überprüfen Sie Ihre Umgebungsvariablen-Konfiguration und versuchen Sie es erneut.",
 		"error.config_required_not_set": "nicht gesetzt (erforderlich)",
+		"error.user_not_in_list":        "Benutzer nicht in der Zulassungsliste gefunden",
+		"error.authentication_failed":   "Authentifizierung fehlgeschlagen",
 		// Success messages
 		"success.login": "Anmeldung erfolgreich",
 	},
@@ -143,6 +155,8 @@ var translations = map[Language]map[string]string{
 		"error.config_invalid_values":   "구성 오류: 환경 변수 '%s'의 값 '%s'이(가) 유효하지 않습니다.\n  허용되는 값: %v\n  환경 변수 구성을 확인하고 다시 시도하세요.",
 		"error.config_required":         "구성 오류: 환경 변수 '%s'이(가) 필요하지만 설정되지 않았습니다.\n  환경 변수 구성을 확인하고 다시 시도하세요.",
 		"error.config_required_not_set": "설정되지 않음 (필수)",
+		"error.user_not_in_list":        "허용 목록에 사용자를 찾을 수 없습니다",
+		"error.authentication_failed":   "인증 실패",
 		// Success messages
 		"success.login": "로그인 성공",
 	},
