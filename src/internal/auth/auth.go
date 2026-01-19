@@ -3,13 +3,15 @@ package auth
 
 import (
 	"context"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/config"
-	"github.com/soulteary/stargate/src/internal/warden"
+	"github.com/soulteary/warden/pkg/warden"
 )
 
 // SessionCookieName is the name of the session cookie used for authentication.
@@ -126,14 +128,41 @@ var wardenClientInit sync.Once
 // This should be called after configuration is loaded.
 func InitWardenClient() {
 	wardenClientInit.Do(func() {
-		if warden.IsEnabled() {
-			wardenClient = warden.NewClient()
-			if wardenClient == nil {
-				logrus.Warn("Failed to initialize Warden client. Check WARDEN_URL and WARDEN_ENABLED configuration.")
-			} else {
-				logrus.Info("Warden client initialized successfully")
+		if !config.WardenEnabled.ToBool() {
+			logrus.Debug("Warden is not enabled, skipping client initialization")
+			return
+		}
+
+		wardenURL := config.WardenURL.String()
+		if wardenURL == "" {
+			logrus.Warn("WARDEN_URL is not set, Warden client will not be initialized")
+			return
+		}
+
+		// Parse cache TTL
+		cacheTTL := 300 * time.Second // Default 5 minutes
+		if ttlStr := config.WardenCacheTTL.String(); ttlStr != "" {
+			if parsedTTL, err := strconv.Atoi(ttlStr); err == nil && parsedTTL > 0 {
+				cacheTTL = time.Duration(parsedTTL) * time.Second
 			}
 		}
+
+		// Create SDK options
+		opts := warden.DefaultOptions().
+			WithBaseURL(wardenURL).
+			WithAPIKey(config.WardenAPIKey.String()).
+			WithCacheTTL(cacheTTL).
+			WithLogger(warden.NewLogrusAdapter(logrus.StandardLogger()))
+
+		// Create client
+		client, err := warden.NewClient(opts)
+		if err != nil {
+			logrus.Warnf("Failed to initialize Warden client: %v. Check WARDEN_URL and WARDEN_ENABLED configuration.", err)
+			return
+		}
+
+		wardenClient = client
+		logrus.Info("Warden client initialized successfully")
 	})
 }
 
@@ -154,7 +183,7 @@ func getWardenClient() *warden.Client {
 // Returns true if the user is in the allow list, false otherwise.
 // If Warden is not enabled or client is not initialized, returns false.
 func CheckUserInList(ctx context.Context, phone, mail string) bool {
-	if !warden.IsEnabled() {
+	if !config.WardenEnabled.ToBool() {
 		logrus.Debug("Warden is not enabled, skipping user list check")
 		return false
 	}

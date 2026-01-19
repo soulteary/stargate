@@ -8,6 +8,7 @@ require (
 	github.com/gofiber/template v1.7.5
 	github.com/pterm/pterm v0.12.82
 	github.com/sirupsen/logrus v1.9.3
+	github.com/soulteary/warden v0.0.0-20260119155427-76e92c75e259
 	github.com/valyala/fasthttp v1.69.0
 	golang.org/x/crypto v0.46.0
 )
@@ -37,3 +38,5 @@ require (
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 )
+
+replace github.com/soulteary/warden => ../warden
