@@ -8,10 +8,12 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/pquerna/otp/totp"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
@@ -1274,4 +1276,68 @@ func TestGetUserInfo_InactiveUser(t *testing.T) {
 
 	user := GetUserInfo(context.Background(), "13800138000", "")
 	testza.AssertNil(t, user, "should return nil for inactive user")
+}
+
+type panicContext struct{}
+
+func (panicContext) Deadline() (time.Time, bool) {
+	return time.Time{}, false
+}
+
+func (panicContext) Done() <-chan struct{} {
+	panic("invalid context")
+}
+
+func (panicContext) Err() error {
+	return nil
+}
+
+func (panicContext) Value(key interface{}) interface{} {
+	return "value"
+}
+
+func TestSafeContext_Valid(t *testing.T) {
+	type contextKey struct{}
+	key := contextKey{}
+	ctx := context.WithValue(context.Background(), key, "value")
+	safe := safeContext(ctx)
+
+	testza.AssertEqual(t, "value", safe.Value(key))
+}
+
+func TestSafeContext_Invalid(t *testing.T) {
+	testza.AssertNotPanics(t, func() {
+		safe := safeContext(panicContext{})
+		testza.AssertNil(t, safe.Value("key"))
+	})
+}
+
+func TestGetOTPSecret(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_OTP_SECRET_KEY", "secret-key")
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	testza.AssertEqual(t, "secret-key", GetOTPSecret())
+}
+
+func TestVerifyOTP_Valid(t *testing.T) {
+	secret := "JBSWY3DPEHPK3PXP"
+	code, err := totp.GenerateCode(secret, time.Now().UTC())
+	testza.AssertNoError(t, err)
+
+	testza.AssertTrue(t, VerifyOTP(secret, code))
+}
+
+func TestVerifyOTP_EmptySecret(t *testing.T) {
+	testza.AssertFalse(t, VerifyOTP("", "123456"))
+}
+
+func TestVerifyOTP_EmptyCode(t *testing.T) {
+	testza.AssertFalse(t, VerifyOTP("JBSWY3DPEHPK3PXP", ""))
+}
+
+func TestVerifyOTP_InvalidLength(t *testing.T) {
+	testza.AssertFalse(t, VerifyOTP("JBSWY3DPEHPK3PXP", "12345"))
 }
