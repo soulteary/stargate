@@ -272,6 +272,124 @@ COOKIE_DOMAIN=.example.com
 PORT=8080
 ```
 
+### Herald 集成
+
+Herald 是 OTP/验证码服务。以下配置选项用于与 Herald 集成。
+
+#### `HERALD_ENABLED`
+
+启用 Herald 集成以使用 OTP/验证码功能。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | Boolean |
+| **必需** | 否 |
+| **默认值** | `false` |
+| **可选值** | `true`, `false` |
+
+**说明：**
+
+- 启用后，Stargate 将使用 Herald 服务发送和验证 OTP 验证码
+- 需要设置 `HERALD_URL`
+- 建议在使用 Warden 认证的生产环境中启用
+
+**示例：**
+
+```bash
+HERALD_ENABLED=true
+```
+
+#### `HERALD_URL`
+
+Herald 服务的基础 URL。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String |
+| **必需** | 否（如果 `HERALD_ENABLED=true` 则为必需） |
+| **默认值** | 空 |
+| **示例** | `http://herald:8080` 或 `https://herald.example.com` |
+
+**说明：**
+
+- Herald 服务的完整基础 URL（不带尾部斜杠）
+- 如果 `HERALD_ENABLED=true` 则必须设置
+- 用于创建 challenge 和验证验证码
+
+**示例：**
+
+```bash
+HERALD_URL=http://herald:8080
+```
+
+#### `HERALD_API_KEY`
+
+用于与 Herald 服务进行 API Key 认证（简单认证方式）。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String |
+| **必需** | 否 |
+| **默认值** | 空 |
+
+**说明：**
+
+- 使用 API Key 的简单认证方式
+- 适用于开发环境
+- 如果同时设置了 `HERALD_API_KEY` 和 `HERALD_HMAC_SECRET`，HMAC 优先
+- 如果未设置 `HERALD_HMAC_SECRET` 则必须设置
+
+**示例：**
+
+```bash
+HERALD_API_KEY=your-api-key-here
+```
+
+#### `HERALD_HMAC_SECRET`
+
+用于与 Herald 服务进行 HMAC 签名认证的密钥（生产环境推荐）。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String |
+| **必需** | 否 |
+| **默认值** | 空 |
+
+**说明：**
+
+- 基于 HMAC-SHA256 签名的认证方式（比 API Key 更安全）
+- 推荐用于生产环境
+- 如果同时设置了 `HERALD_API_KEY` 和 `HERALD_HMAC_SECRET`，HMAC 优先
+- 为服务间通信提供更好的安全性
+- 必须与 Herald 服务中配置的 HMAC 密钥匹配
+
+**认证方式：**
+
+Stargate 支持两种与 Herald 的认证方式：
+
+1. **API Key**（简单，适用于开发）：
+   - 仅设置 `HERALD_API_KEY`
+   - 安全性较低但配置简单
+   - 适用于开发和测试环境
+
+2. **HMAC 签名**（安全，适用于生产）：
+   - 设置 `HERALD_HMAC_SECRET`
+   - 更安全，使用 HMAC-SHA256 签名
+   - 推荐用于生产环境
+   - 提供基于时间戳的请求签名
+
+**示例：**
+
+```bash
+# 生产环境：使用 HMAC
+HERALD_HMAC_SECRET=your-hmac-secret-key-here
+
+# 开发环境：使用 API Key
+HERALD_API_KEY=your-api-key-here
+```
+
+**注意：** 如果既未设置 `HERALD_API_KEY` 也未设置 `HERALD_HMAC_SECRET`，Herald 客户端可能无法正确认证，请求可能失败。
+
 ## 密码配置
 
 Stargate 支持多种密码加密算法。密码配置格式为：`算法:密码1|密码2|密码3`

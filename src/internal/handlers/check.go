@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/soulteary/stargate/src/internal/auth"
@@ -77,10 +79,64 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 			return handleNotAuthenticated(ctx)
 		}
 
-		// Authentication successful, set user info header
-		// Since Stargate uses password authentication, there's no specific username, use default value
+		// Authentication successful, set user info headers
 		userHeaderName := config.UserHeaderName.String()
-		ctx.Set(userHeaderName, "authenticated")
+
+		// Get user information from session (for Warden authentication)
+		userIDVal := sess.Get("user_id")
+		userMailVal := sess.Get("user_mail")
+		userScopeVal := sess.Get("user_scope")
+		userRoleVal := sess.Get("user_role")
+
+		// Set basic authentication header
+		var userID string
+		if userIDVal != nil {
+			if id, ok := userIDVal.(string); ok {
+				userID = id
+				ctx.Set(userHeaderName, userID)
+			} else {
+				ctx.Set(userHeaderName, "authenticated")
+			}
+		} else {
+			// Fallback to default value for password authentication
+			ctx.Set(userHeaderName, "authenticated")
+		}
+
+		// Set authorization headers for downstream services (as per Claude.md spec)
+		if userMailVal != nil {
+			if mail, ok := userMailVal.(string); ok && mail != "" {
+				ctx.Set("X-Auth-Email", mail)
+			}
+		}
+
+		if userID != "" {
+			ctx.Set("X-Auth-User", userID)
+		}
+
+		// Set scope header (comma-separated list)
+		if userScopeVal != nil {
+			if scopes, ok := userScopeVal.([]string); ok && len(scopes) > 0 {
+				ctx.Set("X-Auth-Scopes", strings.Join(scopes, ","))
+			} else if scopes, ok := userScopeVal.([]interface{}); ok && len(scopes) > 0 {
+				// Handle case where scope is stored as []interface{}
+				scopeStrs := make([]string, 0, len(scopes))
+				for _, s := range scopes {
+					if str, ok := s.(string); ok {
+						scopeStrs = append(scopeStrs, str)
+					}
+				}
+				if len(scopeStrs) > 0 {
+					ctx.Set("X-Auth-Scopes", strings.Join(scopeStrs, ","))
+				}
+			}
+		}
+
+		// Set role header
+		if userRoleVal != nil {
+			if role, ok := userRoleVal.(string); ok && role != "" {
+				ctx.Set("X-Auth-Role", role)
+			}
+		}
 
 		return ctx.SendStatus(fiber.StatusOK)
 	}

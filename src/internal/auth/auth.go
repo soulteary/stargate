@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/pquerna/otp/totp"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/warden/pkg/warden"
@@ -245,7 +246,93 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", phone, mail)
 	result := client.CheckUserInList(ctx, phone, mail)
 	if !result {
-		logrus.Debugf("User not found in Warden list: phone=%s, mail=%s", phone, mail)
+		logrus.Debugf("User not found in Warden list or not active: phone=%s, mail=%s", phone, mail)
 	}
 	return result
+}
+
+// GetUserInfo fetches complete user information from Warden by phone or mail.
+//
+// Returns the user information if found and active, nil otherwise.
+// If Warden is not enabled or client is not initialized, returns nil.
+func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser {
+	if !config.WardenEnabled.ToBool() {
+		logrus.Debug("Warden is not enabled, skipping user info fetch")
+		return nil
+	}
+
+	client := getWardenClient()
+	if client == nil {
+		logrus.Warn("Warden client is not initialized, cannot get user info. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
+		return nil
+	}
+
+	// Ensure we have a valid context
+	if ctx == nil {
+		ctx = context.Background()
+	} else {
+		ctx = safeContext(ctx)
+	}
+
+	logrus.Debugf("Fetching user info from Warden: phone=%s, mail=%s", phone, mail)
+	user, err := client.GetUserByIdentifier(ctx, phone, mail, "")
+	if err != nil {
+		logrus.Debugf("Failed to get user info from Warden: %v (phone=%s, mail=%s)", err, phone, mail)
+		return nil
+	}
+
+	// Check if user is active
+	if !user.IsActive() {
+		logrus.Warnf("User status is not active: phone=%s, mail=%s, status=%s", phone, mail, user.Status)
+		return nil
+	}
+
+	logrus.Debugf("Fetched user info from Warden: user_id=%s, phone=%s, mail=%s, status=%s", user.UserID, user.Phone, user.Mail, user.Status)
+	return user
+}
+
+// Note: SendVerifyCode and VerifyCode functions have been removed.
+// Verification code functionality is now handled by the Herald service.
+
+// VerifyOTP verifies a TOTP (Time-based One-Time Password) code.
+//
+// Parameters:
+//   - secret: The OTP secret key (base32 encoded)
+//   - code: The OTP code to verify (6 digits)
+//
+// Returns true if the code is valid, false otherwise.
+func VerifyOTP(secret, code string) bool {
+	if secret == "" {
+		logrus.Debug("OTP secret is empty, cannot verify")
+		return false
+	}
+
+	if code == "" {
+		logrus.Debug("OTP code is empty, cannot verify")
+		return false
+	}
+
+	// Validate code is 6 digits
+	code = strings.TrimSpace(code)
+	if len(code) != 6 {
+		logrus.Debugf("OTP code length is invalid: expected 6, got %d", len(code))
+		return false
+	}
+
+	// Verify TOTP code
+	// Using 30 second window, allowing 1 time step skew (previous/current/next window)
+	valid := totp.Validate(code, secret)
+	if !valid {
+		logrus.Debug("OTP code verification failed")
+		return false
+	}
+
+	logrus.Debug("OTP code verified successfully")
+	return true
+}
+
+// GetOTPSecret returns the OTP secret key from configuration.
+// This can be extended to fetch from remote API if needed.
+func GetOTPSecret() string {
+	return config.WardenOTPSecretKey.String()
 }

@@ -108,11 +108,63 @@ var (
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
 	}
+
+	// WardenVerifyCodeURL has been removed - verification codes are now handled by Herald service
+
+	WardenOTPEnabled = EnvVariable{
+		Name:           "WARDEN_OTP_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	WardenOTPSecretKey = EnvVariable{
+		Name:           "WARDEN_OTP_SECRET_KEY",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	HeraldURL = EnvVariable{
+		Name:           "HERALD_URL",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	HeraldAPIKey = EnvVariable{
+		Name:           "HERALD_API_KEY",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	HeraldEnabled = EnvVariable{
+		Name:           "HERALD_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	HeraldHMACSecret = EnvVariable{
+		Name:           "HERALD_HMAC_SECRET",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny, // Empty value is also valid (means using API key instead)
+	}
 )
 
 func Initialize() error {
 	// First, initialize language setting (before other validations that might use i18n)
-	Language.Validate()
+	if err := Language.Validate(); err != nil {
+		return err
+	}
 	lang := strings.ToLower(Language.Value)
 	switch lang {
 	case "zh":
@@ -132,7 +184,7 @@ func Initialize() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()

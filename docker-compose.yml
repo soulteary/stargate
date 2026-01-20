@@ -1,6 +1,12 @@
 services:
   stargate: # Your Stargate forward auth service
     image: stargate
+    # Local development port mapping: host port 8080 -> container port 80
+    # Purpose: Direct access to service during local development without traefik
+    # Production: Uses port 80 via traefik proxy (not mapped to host)
+    # Note: Uncomment the ports configuration below to enable local development port mapping
+    # ports:
+    #   - "8080:80"
     environment:
       - AUTH_HOST=auth.test.localhost # Replace with your auth host (e.g.: auth.example.com).
       - PASSWORDS=plaintext:test1234|test1337 # Replace with your passwords. See the docs for more info.

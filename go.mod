@@ -6,6 +6,7 @@ require (
 	github.com/MarvinJWendt/testza v0.5.2
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/gofiber/template v1.7.5
+	github.com/pquerna/otp v1.4.0
 	github.com/pterm/pterm v0.12.82
 	github.com/sirupsen/logrus v1.9.4
 	github.com/soulteary/warden v0.0.0-20260119155427-76e92c75e259
@@ -13,12 +14,15 @@ require (
 	golang.org/x/crypto v0.47.0
 )
 
+replace github.com/soulteary/warden => ../warden
+
 require (
 	atomicgo.dev/assert v0.0.2 // indirect
 	atomicgo.dev/cursor v0.2.0 // indirect
 	atomicgo.dev/keyboard v0.2.9 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
 	github.com/andybalholm/brotli v1.2.0 // indirect
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/clipperhouse/stringish v0.1.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.3.1 // indirect
 	github.com/containerd/console v1.0.5 // indirect
@@ -38,3 +42,5 @@ require (
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 )
+
+replace github.com/soulteary/warden => ../warden

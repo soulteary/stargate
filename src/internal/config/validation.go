@@ -90,11 +90,10 @@ var (
 		passwords := strings.Split(parts[1], "|")
 
 		algoSupported := false
-		algorithms := make([]string, 0, len(SupportedAlgorithms))
 		for possibleValue := range SupportedAlgorithms {
-			algorithms = append(algorithms, possibleValue)
 			if algorithm == possibleValue {
 				algoSupported = true
+				break
 			}
 		}
 		if !algoSupported {
