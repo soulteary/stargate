@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
@@ -1130,4 +1131,147 @@ func TestCheckUserInList_WithContext(t *testing.T) {
 	ctx := context.WithValue(context.Background(), contextKey("test"), "value")
 	result := CheckUserInList(ctx, "13800138000", "")
 	testza.AssertTrue(t, result, "should return true for valid phone with custom context")
+}
+
+// TestGetUserInfo_PrefersPhone ensures GetUserInfo only queries by phone when both identifiers are provided.
+func TestGetUserInfo_PrefersPhone(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	var phoneHits int32
+	var mailHits int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		phone := r.URL.Query().Get("phone")
+		mail := r.URL.Query().Get("mail")
+		if phone != "" {
+			atomic.AddInt32(&phoneHits, 1)
+		}
+		if mail != "" {
+			atomic.AddInt32(&mailHits, 1)
+		}
+
+		if phone == "13800138000" {
+			user := struct {
+				Phone  string `json:"phone"`
+				Mail   string `json:"mail"`
+				UserID string `json:"user_id"`
+				Status string `json:"status"`
+			}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "active"}
+			_ = json.NewEncoder(w).Encode(user)
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	user := GetUserInfo(context.Background(), "13800138000", "user1@example.com")
+	testza.AssertNotNil(t, user, "should return user info for valid phone")
+	testza.AssertEqual(t, "user1", user.UserID)
+	testza.AssertEqual(t, int32(1), atomic.LoadInt32(&phoneHits), "should query by phone once")
+	testza.AssertEqual(t, int32(0), atomic.LoadInt32(&mailHits), "should not query by mail when phone exists")
+}
+
+// TestGetUserInfo_FallbackToMail ensures GetUserInfo falls back to mail when phone is not found.
+func TestGetUserInfo_FallbackToMail(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	var phoneHits int32
+	var mailHits int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		phone := r.URL.Query().Get("phone")
+		mail := r.URL.Query().Get("mail")
+		if phone != "" {
+			atomic.AddInt32(&phoneHits, 1)
+		}
+		if mail != "" {
+			atomic.AddInt32(&mailHits, 1)
+		}
+
+		switch {
+		case phone == "99999999999":
+			w.WriteHeader(http.StatusNotFound)
+			return
+		case mail == "user2@example.com" || mail == "USER2@EXAMPLE.COM":
+			user := struct {
+				Phone  string `json:"phone"`
+				Mail   string `json:"mail"`
+				UserID string `json:"user_id"`
+				Status string `json:"status"`
+			}{Phone: "13900139000", Mail: "user2@example.com", UserID: "user2", Status: "active"}
+			_ = json.NewEncoder(w).Encode(user)
+			return
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	user := GetUserInfo(context.Background(), "99999999999", "user2@example.com")
+	testza.AssertNotNil(t, user, "should return user info via mail fallback")
+	testza.AssertEqual(t, "user2", user.UserID)
+	testza.AssertEqual(t, int32(1), atomic.LoadInt32(&phoneHits), "should query by phone first")
+	testza.AssertEqual(t, int32(1), atomic.LoadInt32(&mailHits), "should query by mail after fallback")
+}
+
+// TestGetUserInfo_InactiveUser ensures inactive users are rejected.
+func TestGetUserInfo_InactiveUser(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		phone := r.URL.Query().Get("phone")
+		if phone == "13800138000" {
+			user := struct {
+				Phone  string `json:"phone"`
+				Mail   string `json:"mail"`
+				UserID string `json:"user_id"`
+				Status string `json:"status"`
+			}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "inactive"}
+			_ = json.NewEncoder(w).Encode(user)
+			return
+		}
+
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	user := GetUserInfo(context.Background(), "13800138000", "")
+	testza.AssertNil(t, user, "should return nil for inactive user")
 }
