@@ -9,12 +9,10 @@ require (
 	github.com/pquerna/otp v1.4.0
 	github.com/pterm/pterm v0.12.82
 	github.com/sirupsen/logrus v1.9.4
-	github.com/soulteary/warden v0.0.0-20260119155427-76e92c75e259
+	github.com/soulteary/warden v0.3.0
 	github.com/valyala/fasthttp v1.69.0
 	golang.org/x/crypto v0.47.0
 )
-
-replace github.com/soulteary/warden => ../warden
 
 require (
 	atomicgo.dev/assert v0.0.2 // indirect
