@@ -243,12 +243,53 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 		ctx = safeContext(ctx)
 	}
 
+	// Normalize input (trim spaces, lowercase mail)
+	phone = strings.TrimSpace(phone)
+	mail = strings.TrimSpace(strings.ToLower(mail))
+
 	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", phone, mail)
-	result := client.CheckUserInList(ctx, phone, mail)
-	if !result {
+
+	// If both phone and mail are provided, prioritize phone
+	// This matches the behavior of the latest Warden SDK
+	var user *warden.AllowListUser
+	var err error
+
+	if phone != "" {
+		// Try phone first if provided
+		user, err = client.GetUserByIdentifier(ctx, phone, "", "")
+		if err == nil && user != nil && user.IsActive() {
+			logrus.Debugf("User found and active by phone: phone=%s, user_id=%s", phone, user.UserID)
+			return true
+		}
+		// If phone lookup failed or user is not active, fall through to mail check
+		if err != nil {
+			logrus.Debugf("Failed to get user by phone: %v (phone=%s)", err, phone)
+		} else if user != nil && !user.IsActive() {
+			logrus.Debugf("User found by phone but not active: phone=%s, status=%s", phone, user.Status)
+		}
+	}
+
+	if mail != "" {
+		// Fall back to mail if phone is empty or phone lookup failed
+		user, err = client.GetUserByIdentifier(ctx, "", mail, "")
+		if err == nil && user != nil && user.IsActive() {
+			logrus.Debugf("User found and active by mail: mail=%s, user_id=%s", mail, user.UserID)
+			return true
+		}
+		if err != nil {
+			logrus.Debugf("Failed to get user by mail: %v (mail=%s)", err, mail)
+		} else if user != nil && !user.IsActive() {
+			logrus.Debugf("User found by mail but not active: mail=%s, status=%s", mail, user.Status)
+		}
+	}
+
+	// Both are empty or both lookups failed
+	if phone == "" && mail == "" {
+		logrus.Debug("CheckUserInList called with both phone and mail empty")
+	} else {
 		logrus.Debugf("User not found in Warden list or not active: phone=%s, mail=%s", phone, mail)
 	}
-	return result
+	return false
 }
 
 // GetUserInfo fetches complete user information from Warden by phone or mail.
