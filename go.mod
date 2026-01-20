@@ -9,7 +9,7 @@ require (
 	github.com/pquerna/otp v1.4.0
 	github.com/pterm/pterm v0.12.82
 	github.com/sirupsen/logrus v1.9.4
-	github.com/soulteary/warden v0.3.0
+	github.com/soulteary/warden v0.3.1
 	github.com/valyala/fasthttp v1.69.0
 	golang.org/x/crypto v0.47.0
 )
