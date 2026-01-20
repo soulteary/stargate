@@ -933,8 +933,76 @@ func TestCheckUserInList_Success_WithBoth(t *testing.T) {
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with both phone and email (should match by phone first)
+	// When both are provided, CheckUserInList prioritizes phone, so it will call GetUserByIdentifier with phone only
 	result := CheckUserInList(context.Background(), "13800138000", "user1@example.com")
 	testza.AssertTrue(t, result, "should return true when user exists")
+}
+
+// TestCheckUserInList_Success_WithBoth_FallbackToMail tests CheckUserInList fallback to mail when phone is not found
+func TestCheckUserInList_Success_WithBoth_FallbackToMail(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	// Create a mock HTTP server for Warden
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := r.URL.Query().Get("phone")
+			mail := r.URL.Query().Get("mail")
+
+			var user struct {
+				Phone  string `json:"phone"`
+				Mail   string `json:"mail"`
+				UserID string `json:"user_id"`
+				Status string `json:"status"`
+			}
+
+			switch {
+			case phone == "99999999999":
+				// Phone not found, return 404
+				w.WriteHeader(http.StatusNotFound)
+				return
+			case mail == "user2@example.com" || mail == "USER2@EXAMPLE.COM":
+				// Mail found, return user
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13900139000", Mail: "user2@example.com", UserID: "user2", Status: "active"}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(user)
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []struct {
+			Phone string `json:"phone"`
+			Mail  string `json:"mail"`
+		}{
+			{Phone: "13900139000", Mail: "user2@example.com"},
+		}
+		_ = json.NewEncoder(w).Encode(mockUsers)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize()
+	testza.AssertNoError(t, err)
+
+	InitWardenClient()
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
+
+	// Test with phone that doesn't exist but mail that does (should fallback to mail)
+	result := CheckUserInList(context.Background(), "99999999999", "user2@example.com")
+	testza.AssertTrue(t, result, "should return true when phone not found but mail exists (fallback)")
 }
 
 // TestCheckUserInList_Failure_UserNotInList tests CheckUserInList when user is not in list
