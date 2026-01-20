@@ -14,6 +14,8 @@ require (
 	golang.org/x/crypto v0.47.0
 )
 
+replace github.com/soulteary/warden => ../warden
+
 require (
 	atomicgo.dev/assert v0.0.2 // indirect
 	atomicgo.dev/cursor v0.2.0 // indirect
@@ -40,3 +42,5 @@ require (
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 )
+
+replace github.com/soulteary/warden => ../warden

@@ -1,18 +1,86 @@
 package handlers
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"html"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/sirupsen/logrus"
 
+	"github.com/soulteary/stargate/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
+
+var (
+	heraldClient     *herald.Client
+	heraldClientInit sync.Once
+)
+
+// InitHeraldClient initializes the Herald client if enabled
+func InitHeraldClient() {
+	heraldClientInit.Do(func() {
+		if !config.HeraldEnabled.ToBool() {
+			logrus.Debug("Herald is not enabled, skipping client initialization")
+			return
+		}
+
+		heraldURL := config.HeraldURL.String()
+		if heraldURL == "" {
+			logrus.Warn("HERALD_URL is not set, Herald client will not be initialized")
+			return
+		}
+
+		opts := herald.DefaultOptions().
+			WithBaseURL(heraldURL).
+			WithAPIKey(config.HeraldAPIKey.String()).
+			WithTimeout(10 * time.Second)
+
+		// Add HMAC secret if configured (for service-to-service authentication)
+		// HMAC takes precedence over API key if both are set
+		hmacSecret := config.HeraldHMACSecret.String()
+		if hmacSecret != "" {
+			opts = opts.WithHMACSecret(hmacSecret)
+			logrus.Debug("Herald client will use HMAC authentication")
+		} else if config.HeraldAPIKey.String() != "" {
+			logrus.Debug("Herald client will use API key authentication")
+		} else {
+			logrus.Warn("Neither HERALD_HMAC_SECRET nor HERALD_API_KEY is set. Herald client may not authenticate properly.")
+		}
+
+		client, err := herald.NewClient(opts)
+		if err != nil {
+			logrus.Warnf("Failed to initialize Herald client: %v. Check HERALD_URL and HERALD_ENABLED configuration.", err)
+			return
+		}
+
+		heraldClient = client
+		logrus.Info("Herald client initialized successfully")
+	})
+}
+
+// getHeraldClient returns the herald client, initializing it if necessary
+func getHeraldClient() *herald.Client {
+	InitHeraldClient()
+	return heraldClient
+}
+
+// generateUserID generates a user ID from phone/mail
+func generateUserID(phone, mail string) string {
+	identifier := phone
+	if identifier == "" {
+		identifier = mail
+	}
+	hash := sha256.Sum256([]byte(identifier))
+	return "u_" + hex.EncodeToString(hash[:])[:16]
+}
 
 // Authenticator defines an interface for authenticating sessions.
 // This interface allows for easier testing by enabling mock implementations.
@@ -53,35 +121,98 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		// Log the authentication attempt
 		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", userPhone, userMail)
 
-		// Get verification code and OTP code from form
+		// Step 1: Get complete user information from Warden (includes status check)
+		userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail)
+		if userInfo == nil {
+			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", userPhone, userMail)
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
+		}
+
+		// Step 2: Use user_id from Warden if available, otherwise generate one
+		userID := userInfo.UserID
+		if userID == "" {
+			userID = generateUserID(userPhone, userMail)
+		}
+
+		// Step 3: Get verification code and OTP code from form
 		verifyCode := ctx.FormValue("verify_code")
+		challengeID := ctx.FormValue("challenge_id")
 		otpCode := ctx.FormValue("otp_code")
 		useOTP := ctx.FormValue("use_otp") == "true"
 
-		// Check if verify code URL is configured
-		verifyCodeURL := config.WardenVerifyCodeURL.String()
 		otpEnabled := config.WardenOTPEnabled.ToBool()
 
-		// If verify code URL is configured, verify the code first
-		if verifyCodeURL != "" && !useOTP {
-			if verifyCode == "" {
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码不能为空")
+		// Step 4: Verify code via Herald (if not using OTP)
+		if !useOTP {
+			// Check if Herald is enabled
+			if !config.HeraldEnabled.ToBool() {
+				// If Herald is not enabled and OTP is also not enabled, return error
+				if !otpEnabled {
+					return SendErrorResponse(ctx, fiber.StatusInternalServerError, "验证码服务未配置，请使用 OTP 或联系管理员")
+				}
+				// If OTP is enabled, suggest user to use OTP
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码服务未配置，请使用 OTP 验证")
 			}
 
-			// Verify the code with remote API
-			valid, err := auth.VerifyCode(ctx.Context(), userPhone, userMail, verifyCode)
+			// Verify challenge via Herald
+			if challengeID == "" || verifyCode == "" {
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码和 challenge_id 不能为空")
+			}
+
+			heraldClient := getHeraldClient()
+			if heraldClient == nil {
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "验证码服务不可用")
+			}
+
+			verifyReq := &herald.VerifyChallengeRequest{
+				ChallengeID: challengeID,
+				Code:        verifyCode,
+				ClientIP:    ctx.IP(),
+			}
+
+			verifyResp, err := heraldClient.VerifyChallenge(ctx.Context(), verifyReq)
 			if err != nil {
-				logrus.Errorf("Failed to verify code: %v", err)
-				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "验证码验证失败")
+				logrus.Errorf("Failed to verify challenge: %v", err)
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.verify_code_failed"))
 			}
-			if !valid {
-				logrus.Warnf("Verification code invalid: phone=%s, mail=%s", userPhone, userMail)
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "验证码错误")
-			}
-		}
 
-		// If OTP is enabled and user chose to use OTP
-		if otpEnabled && useOTP {
+			if !verifyResp.OK {
+				reason := verifyResp.Reason
+				if reason == "" {
+					reason = "invalid"
+				}
+				logrus.Warnf("Challenge verification failed: reason=%s", reason)
+
+				// Provide detailed error message based on reason (as per Claude.md section 9)
+				var errorMsg string
+				switch reason {
+				case "expired":
+					errorMsg = i18n.T("error.verify_code_expired")
+				case "invalid":
+					errorMsg = i18n.T("error.verify_code_invalid")
+				case "locked":
+					errorMsg = i18n.T("error.verify_code_locked")
+				case "too_many_attempts":
+					errorMsg = i18n.T("error.verify_code_too_many")
+				case "rate_limited":
+					errorMsg = i18n.T("error.verify_code_rate_limited")
+				case "send_failed":
+					errorMsg = i18n.T("error.verify_code_send_failed")
+				case "unauthorized":
+					errorMsg = i18n.T("error.verify_code_unauthorized")
+				default:
+					errorMsg = i18n.T("error.verify_code_failed")
+				}
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
+			}
+
+			// Verify user ID matches
+			if verifyResp.UserID != userID {
+				logrus.Warnf("User ID mismatch: expected=%s, got=%s", userID, verifyResp.UserID)
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "验证失败")
+			}
+		} else if otpEnabled && useOTP {
+			// If OTP is enabled and user chose to use OTP
 			if otpCode == "" {
 				return SendErrorResponse(ctx, fiber.StatusBadRequest, "OTP 验证码不能为空")
 			}
@@ -98,14 +229,14 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				logrus.Warnf("OTP verification failed: phone=%s, mail=%s", userPhone, userMail)
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "OTP 验证码错误")
 			}
-		}
-
-		// Use context from request
-		// ctx.Context() returns *fasthttp.RequestCtx which implements context.Context
-		// CheckUserInList handles nil context internally by using context.Background()
-		if !auth.CheckUserInList(ctx.Context(), userPhone, userMail) {
-			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", userPhone, userMail)
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
+		} else {
+			// Neither Herald verification nor OTP was used
+			// This should not happen if frontend validation works correctly
+			// But we add this check as a safety measure
+			if !otpEnabled {
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, "请提供验证码或使用 OTP")
+			}
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, "请选择验证方式：验证码或 OTP")
 		}
 
 		logrus.Infof("Warden authentication successful for: phone=%s, mail=%s", userPhone, userMail)
@@ -132,11 +263,39 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 
 	// Set user information to session for warden authentication before authenticating
 	if authMethod == "warden" {
-		if userPhone != "" {
-			sess.Set("user_phone", userPhone)
-		}
-		if userMail != "" {
-			sess.Set("user_mail", userMail)
+		// Get complete user information from Warden
+		userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail)
+		if userInfo != nil {
+			// Store complete user information in session
+			if userInfo.UserID != "" {
+				sess.Set("user_id", userInfo.UserID)
+			}
+			if userInfo.Phone != "" {
+				sess.Set("user_phone", userInfo.Phone)
+			}
+			if userInfo.Mail != "" {
+				sess.Set("user_mail", userInfo.Mail)
+			}
+			if userInfo.Status != "" {
+				sess.Set("user_status", userInfo.Status)
+			}
+			// Store scope and role for authorization headers
+			if len(userInfo.Scope) > 0 {
+				sess.Set("user_scope", userInfo.Scope)
+			}
+			if userInfo.Role != "" {
+				sess.Set("user_role", userInfo.Role)
+			}
+			logrus.Debugf("Stored user info in session: user_id=%s, phone=%s, mail=%s, scope=%v, role=%s",
+				userInfo.UserID, userInfo.Phone, userInfo.Mail, userInfo.Scope, userInfo.Role)
+		} else {
+			// Fallback: store basic info if GetUserInfo failed (should not happen after CheckUserInList)
+			if userPhone != "" {
+				sess.Set("user_phone", userPhone)
+			}
+			if userMail != "" {
+				sess.Set("user_mail", userMail)
+			}
 		}
 	}
 
@@ -306,7 +465,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		templateName = "login.warden"
 	}
 
-	verifyCodeURL := config.WardenVerifyCodeURL.String()
+	heraldEnabled := config.HeraldEnabled.ToBool()
 	otpEnabled := config.WardenOTPEnabled.ToBool()
 
 	return ctx.Render(templateName, fiber.Map{
@@ -315,7 +474,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		"Title":         config.LoginPageTitle.Value,
 		"FooterText":    config.LoginPageFooterText.Value,
 		"WardenEnabled": config.WardenEnabled.ToBool(),
-		"VerifyCodeURL": verifyCodeURL,
+		"HeraldEnabled": heraldEnabled,
 		"OTPEnabled":    otpEnabled,
 	})
 }
@@ -335,40 +494,5 @@ func LoginRoute(store *session.Store) func(c *fiber.Ctx) error {
 	}
 }
 
-// sendVerifyCodeHandler handles POST requests to /_send_verify_code for sending verification codes.
-func sendVerifyCodeHandler(ctx *fiber.Ctx) error {
-	userPhone := ctx.FormValue("phone")
-	userMail := ctx.FormValue("mail")
-
-	// Check if at least one identifier is provided
-	if userPhone == "" && userMail == "" {
-		return SendErrorResponse(ctx, fiber.StatusBadRequest, "手机号或邮箱不能为空")
-	}
-
-	// Check if verify code URL is configured
-	verifyCodeURL := config.WardenVerifyCodeURL.String()
-	if verifyCodeURL == "" {
-		return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码服务未配置")
-	}
-
-	// Send verification code
-	err := auth.SendVerifyCode(ctx.Context(), userPhone, userMail)
-	if err != nil {
-		logrus.Errorf("Failed to send verification code: %v", err)
-		return SendErrorResponse(ctx, fiber.StatusInternalServerError, "发送验证码失败: "+err.Error())
-	}
-
-	// Return success response
-	ctx.Set("Content-Type", "application/json")
-	return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-		"success": true,
-		"message": "验证码已发送",
-	})
-}
-
-// SendVerifyCodeAPI handles POST requests to /_send_verify_code for sending verification codes.
-//
-// Returns a Fiber handler function.
-func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
-	return sendVerifyCodeHandler
-}
+// Note: SendVerifyCodeAPI and sendVerifyCodeHandler have been removed.
+// Verification code sending is now handled by the Herald service via the login flow.

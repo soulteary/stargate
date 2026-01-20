@@ -27,7 +27,7 @@ func ensureTestWorkingDir(t *testing.T) {
 
 	// Restore original directory when test completes
 	t.Cleanup(func() {
-		os.Chdir(originalWd)
+		_ = os.Chdir(originalWd)
 	})
 
 	// Check if we're already in the right directory (project root)
@@ -129,8 +129,8 @@ func TestSetupSessionStore_WithoutCookieDomain(t *testing.T) {
 	setupTestConfig(t)
 
 	// Clear cookie domain
-	os.Unsetenv("COOKIE_DOMAIN")
-	config.Initialize()
+	_ = os.Unsetenv("COOKIE_DOMAIN")
+	_ = config.Initialize()
 
 	store := setupSessionStore()
 	testza.AssertNotNil(t, store)
@@ -141,7 +141,7 @@ func TestSetupSessionStore_WithCookieDomain(t *testing.T) {
 
 	// Set cookie domain
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
-	config.Initialize()
+	_ = config.Initialize()
 
 	store := setupSessionStore()
 	testza.AssertNotNil(t, store)
@@ -299,13 +299,12 @@ func TestStartServer_PortLogic_DefaultPort(t *testing.T) {
 	setupTestConfig(t)
 
 	// Unset PORT to test default
-	os.Unsetenv("PORT")
+	_ = os.Unsetenv("PORT")
 
 	// Test the port logic from startServer function
 	port := DefaultPort
-	if envPort := os.Getenv("PORT"); envPort != "" {
-		// This won't execute if PORT is unset
-	}
+	// PORT is unset, so port should remain DefaultPort
+	_ = os.Getenv("PORT")
 
 	testza.AssertEqual(t, ":80", port)
 }

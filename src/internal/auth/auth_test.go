@@ -685,7 +685,7 @@ func TestInitWardenClient_Success(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+		_ = json.NewEncoder(w).Encode(mockUsers)
 	}))
 	defer server.Close()
 
@@ -706,17 +706,60 @@ func TestCheckUserInList_Success_WithPhone(t *testing.T) {
 	t.Setenv("WARDEN_ENABLED", "true")
 
 	// Create a mock HTTP server for Warden
-	mockUsers := []struct {
-		Phone string `json:"phone"`
-		Mail  string `json:"mail"`
-	}{
-		{Phone: "13800138000", Mail: "user1@example.com"},
-		{Phone: "13900139000", Mail: "user2@example.com"},
-	}
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := r.URL.Query().Get("phone")
+			mail := r.URL.Query().Get("mail")
+
+			var user struct {
+				Phone  string `json:"phone"`
+				Mail   string `json:"mail"`
+				UserID string `json:"user_id"`
+				Status string `json:"status"`
+			}
+
+			switch {
+			case phone == "13800138000":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "active"}
+			case phone == "13900139000":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13900139000", Mail: "user2@example.com", UserID: "user2", Status: "active"}
+			case mail == "user2@example.com" || mail == "USER2@EXAMPLE.COM":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13900139000", Mail: "user2@example.com", UserID: "user2", Status: "active"}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(user)
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []struct {
+			Phone string `json:"phone"`
+			Mail  string `json:"mail"`
+		}{
+			{Phone: "13800138000", Mail: "user1@example.com"},
+			{Phone: "13900139000", Mail: "user2@example.com"},
+		}
+		_ = json.NewEncoder(w).Encode(mockUsers)
 	}))
 	defer server.Close()
 
@@ -740,17 +783,60 @@ func TestCheckUserInList_Success_WithMail(t *testing.T) {
 	t.Setenv("WARDEN_ENABLED", "true")
 
 	// Create a mock HTTP server for Warden
-	mockUsers := []struct {
-		Phone string `json:"phone"`
-		Mail  string `json:"mail"`
-	}{
-		{Phone: "13800138000", Mail: "user1@example.com"},
-		{Phone: "13900139000", Mail: "user2@example.com"},
-	}
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := r.URL.Query().Get("phone")
+			mail := r.URL.Query().Get("mail")
+
+			var user struct {
+				Phone  string `json:"phone"`
+				Mail   string `json:"mail"`
+				UserID string `json:"user_id"`
+				Status string `json:"status"`
+			}
+
+			switch {
+			case phone == "13800138000":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "active"}
+			case phone == "13900139000":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13900139000", Mail: "user2@example.com", UserID: "user2", Status: "active"}
+			case mail == "user2@example.com" || mail == "USER2@EXAMPLE.COM":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13900139000", Mail: "user2@example.com", UserID: "user2", Status: "active"}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(user)
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []struct {
+			Phone string `json:"phone"`
+			Mail  string `json:"mail"`
+		}{
+			{Phone: "13800138000", Mail: "user1@example.com"},
+			{Phone: "13900139000", Mail: "user2@example.com"},
+		}
+		_ = json.NewEncoder(w).Encode(mockUsers)
 	}))
 	defer server.Close()
 
@@ -774,17 +860,67 @@ func TestCheckUserInList_Success_WithBoth(t *testing.T) {
 	t.Setenv("WARDEN_ENABLED", "true")
 
 	// Create a mock HTTP server for Warden
-	mockUsers := []struct {
-		Phone string `json:"phone"`
-		Mail  string `json:"mail"`
-	}{
-		{Phone: "13800138000", Mail: "user1@example.com"},
-		{Phone: "13900139000", Mail: "user2@example.com"},
-	}
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := r.URL.Query().Get("phone")
+			mail := r.URL.Query().Get("mail")
+
+			var user struct {
+				Phone  string `json:"phone"`
+				Mail   string `json:"mail"`
+				UserID string `json:"user_id"`
+				Status string `json:"status"`
+			}
+
+			switch {
+			case phone == "13800138000":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "active"}
+			case phone == "13900139000":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13900139000", Mail: "user2@example.com", UserID: "user2", Status: "active"}
+			case mail == "user1@example.com" || mail == "USER1@EXAMPLE.COM":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "active"}
+			case mail == "user2@example.com" || mail == "USER2@EXAMPLE.COM":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13900139000", Mail: "user2@example.com", UserID: "user2", Status: "active"}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(user)
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []struct {
+			Phone string `json:"phone"`
+			Mail  string `json:"mail"`
+		}{
+			{Phone: "13800138000", Mail: "user1@example.com"},
+			{Phone: "13900139000", Mail: "user2@example.com"},
+		}
+		_ = json.NewEncoder(w).Encode(mockUsers)
 	}))
 	defer server.Close()
 
@@ -808,16 +944,39 @@ func TestCheckUserInList_Failure_UserNotInList(t *testing.T) {
 	t.Setenv("WARDEN_ENABLED", "true")
 
 	// Create a mock HTTP server for Warden
-	mockUsers := []struct {
-		Phone string `json:"phone"`
-		Mail  string `json:"mail"`
-	}{
-		{Phone: "13800138000", Mail: "user1@example.com"},
-	}
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := r.URL.Query().Get("phone")
+			mail := r.URL.Query().Get("mail")
+
+			// Only return user for known phone/mail
+			if phone == "13800138000" || mail == "user1@example.com" || mail == "USER1@EXAMPLE.COM" {
+				user := struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "active"}
+				_ = json.NewEncoder(w).Encode(user)
+				return
+			}
+
+			// User not found
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []struct {
+			Phone string `json:"phone"`
+			Mail  string `json:"mail"`
+		}{
+			{Phone: "13800138000", Mail: "user1@example.com"},
+		}
+		_ = json.NewEncoder(w).Encode(mockUsers)
 	}))
 	defer server.Close()
 
@@ -841,16 +1000,52 @@ func TestCheckUserInList_WithContext(t *testing.T) {
 	t.Setenv("WARDEN_ENABLED", "true")
 
 	// Create a mock HTTP server for Warden
-	mockUsers := []struct {
-		Phone string `json:"phone"`
-		Mail  string `json:"mail"`
-	}{
-		{Phone: "13800138000", Mail: "user1@example.com"},
-	}
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(mockUsers)
+
+		// Handle /user endpoint (used by GetUserByIdentifier)
+		if r.URL.Path == "/user" {
+			phone := r.URL.Query().Get("phone")
+			mail := r.URL.Query().Get("mail")
+
+			var user struct {
+				Phone  string `json:"phone"`
+				Mail   string `json:"mail"`
+				UserID string `json:"user_id"`
+				Status string `json:"status"`
+			}
+
+			switch {
+			case phone == "13800138000":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "active"}
+			case mail == "user1@example.com" || mail == "USER1@EXAMPLE.COM":
+				user = struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{Phone: "13800138000", Mail: "user1@example.com", UserID: "user1", Status: "active"}
+			default:
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(user)
+			return
+		}
+
+		// Handle root endpoint (for backward compatibility)
+		mockUsers := []struct {
+			Phone string `json:"phone"`
+			Mail  string `json:"mail"`
+		}{
+			{Phone: "13800138000", Mail: "user1@example.com"},
+		}
+		_ = json.NewEncoder(w).Encode(mockUsers)
 	}))
 	defer server.Close()
 
@@ -863,7 +1058,8 @@ func TestCheckUserInList_WithContext(t *testing.T) {
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with custom context
-	ctx := context.WithValue(context.Background(), "test", "value")
+	type contextKey string
+	ctx := context.WithValue(context.Background(), contextKey("test"), "value")
 	result := CheckUserInList(ctx, "13800138000", "")
 	testza.AssertTrue(t, result, "should return true for valid phone with custom context")
 }

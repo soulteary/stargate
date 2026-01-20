@@ -52,7 +52,7 @@
               Enter either phone number or email address
             </small>
           </div>
-          {{if .VerifyCodeURL}}
+          {{if .HeraldEnabled}}
           <div class="form-group" id="verifyCodeGroup" style="display: none;">
             <label for="verify_code" class="sr-only">Verification Code</label>
             <div style="display: flex; gap: 8px;">
@@ -107,15 +107,16 @@
       const otpGroup = document.getElementById('otpGroup');
       const otpInput = document.getElementById('otp_code');
       const loginForm = document.getElementById('loginForm');
-      const verifyCodeURL = {{if .VerifyCodeURL}}'{{.VerifyCodeURL}}'{{else}}null{{end}};
+      const heraldEnabled = {{if .HeraldEnabled}}true{{else}}false{{end}};
       const otpEnabled = {{if .OTPEnabled}}true{{else}}false{{end}};
+      let currentChallengeId = null;
       
       let countdownTimer = null;
       let countdownSeconds = 60;
 
       // Show verify code input when phone or mail is entered
       function updateVerifyCodeVisibility() {
-        if (verifyCodeGroup && verifyCodeURL) {
+        if (verifyCodeGroup && heraldEnabled) {
           const hasInput = (phoneInput && phoneInput.value.trim()) || (mailInput && mailInput.value.trim());
           verifyCodeGroup.style.display = hasInput ? 'block' : 'none';
         }
@@ -144,7 +145,7 @@
             return;
           }
 
-          if (!verifyCodeURL) {
+          if (!heraldEnabled) {
             alert('Verification code service is not configured');
             return;
           }
@@ -167,6 +168,8 @@
             const result = await response.json();
             
             if (result.success) {
+              // Store challenge_id for form submission
+              currentChallengeId = result.challenge_id;
               alert('Verification code sent successfully');
             } else {
               alert('Failed to send verification code: ' + (result.message || 'Unknown error'));
@@ -226,12 +229,23 @@
             return false;
           }
 
-          if (verifyCodeURL && !useOtp) {
+          if (heraldEnabled && !useOtp) {
             if (!verifyCode) {
               e.preventDefault();
               alert('Please enter verification code');
               return false;
             }
+            if (!currentChallengeId) {
+              e.preventDefault();
+              alert('Please send verification code first');
+              return false;
+            }
+            // Add challenge_id to form
+            const challengeIdInput = document.createElement('input');
+            challengeIdInput.type = 'hidden';
+            challengeIdInput.name = 'challenge_id';
+            challengeIdInput.value = currentChallengeId;
+            loginForm.appendChild(challengeIdInput);
           }
 
           if (otpEnabled && useOtp) {

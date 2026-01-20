@@ -2,12 +2,7 @@
 package auth
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -251,43 +246,25 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", phone, mail)
 	result := client.CheckUserInList(ctx, phone, mail)
 	if !result {
-		logrus.Debugf("User not found in Warden list: phone=%s, mail=%s", phone, mail)
+		logrus.Debugf("User not found in Warden list or not active: phone=%s, mail=%s", phone, mail)
 	}
 	return result
 }
 
-// verifyCodeRequest represents the request body for verify code API
-type verifyCodeRequest struct {
-	Action string `json:"action"` // "send" or "verify"
-	Phone  string `json:"phone,omitempty"`
-	Mail   string `json:"mail,omitempty"`
-	Code   string `json:"code,omitempty"` // Only used for verify action
-}
-
-// verifyCodeResponse represents the response from verify code API
-type verifyCodeResponse struct {
-	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
-	Error   string `json:"error,omitempty"`
-}
-
-// SendVerifyCode sends a verification code to the user's phone or email via remote API.
+// GetUserInfo fetches complete user information from Warden by phone or mail.
 //
-// Parameters:
-//   - ctx: Context for the request
-//   - phone: User's phone number (optional)
-//   - mail: User's email address (optional)
-//
-// Returns an error if the request fails or the API returns an error.
-func SendVerifyCode(ctx context.Context, phone, mail string) error {
-	verifyCodeURL := config.WardenVerifyCodeURL.String()
-	if verifyCodeURL == "" {
-		return fmt.Errorf("WARDEN_VERIFY_CODE_URL is not configured")
+// Returns the user information if found and active, nil otherwise.
+// If Warden is not enabled or client is not initialized, returns nil.
+func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser {
+	if !config.WardenEnabled.ToBool() {
+		logrus.Debug("Warden is not enabled, skipping user info fetch")
+		return nil
 	}
 
-	// Ensure we have at least one identifier
-	if phone == "" && mail == "" {
-		return fmt.Errorf("phone or mail must be provided")
+	client := getWardenClient()
+	if client == nil {
+		logrus.Warn("Warden client is not initialized, cannot get user info. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
+		return nil
 	}
 
 	// Ensure we have a valid context
@@ -297,146 +274,25 @@ func SendVerifyCode(ctx context.Context, phone, mail string) error {
 		ctx = safeContext(ctx)
 	}
 
-	// Create request body
-	reqBody := verifyCodeRequest{
-		Action: "send",
-		Phone:  phone,
-		Mail:   mail,
-	}
-
-	jsonData, err := json.Marshal(reqBody)
+	logrus.Debugf("Fetching user info from Warden: phone=%s, mail=%s", phone, mail)
+	user, err := client.GetUserByIdentifier(ctx, phone, mail, "")
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %w", err)
+		logrus.Debugf("Failed to get user info from Warden: %v (phone=%s, mail=%s)", err, phone, mail)
+		return nil
 	}
 
-	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", verifyCodeURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return fmt.Errorf("failed to create request: %w", err)
+	// Check if user is active
+	if !user.IsActive() {
+		logrus.Warnf("User status is not active: phone=%s, mail=%s, status=%s", phone, mail, user.Status)
+		return nil
 	}
 
-	req.Header.Set("Content-Type", "application/json")
-
-	// Send request
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// Parse response
-	var apiResp verifyCodeResponse
-	if err := json.Unmarshal(body, &apiResp); err != nil {
-		return fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	// Check response
-	if resp.StatusCode != http.StatusOK || !apiResp.Success {
-		errorMsg := apiResp.Error
-		if errorMsg == "" {
-			errorMsg = fmt.Sprintf("API returned status %d", resp.StatusCode)
-		}
-		return fmt.Errorf("verify code API error: %s", errorMsg)
-	}
-
-	logrus.Infof("Verification code sent successfully: phone=%s, mail=%s", phone, mail)
-	return nil
+	logrus.Debugf("Fetched user info from Warden: user_id=%s, phone=%s, mail=%s, status=%s", user.UserID, user.Phone, user.Mail, user.Status)
+	return user
 }
 
-// VerifyCode verifies a verification code with the remote API.
-//
-// Parameters:
-//   - ctx: Context for the request
-//   - phone: User's phone number (optional)
-//   - mail: User's email address (optional)
-//   - code: The verification code to verify
-//
-// Returns true if the code is valid, false otherwise.
-// Returns an error if the request fails.
-func VerifyCode(ctx context.Context, phone, mail, code string) (bool, error) {
-	verifyCodeURL := config.WardenVerifyCodeURL.String()
-	if verifyCodeURL == "" {
-		return false, fmt.Errorf("WARDEN_VERIFY_CODE_URL is not configured")
-	}
-
-	// Ensure we have at least one identifier and a code
-	if phone == "" && mail == "" {
-		return false, fmt.Errorf("phone or mail must be provided")
-	}
-	if code == "" {
-		return false, fmt.Errorf("code must be provided")
-	}
-
-	// Ensure we have a valid context
-	if ctx == nil {
-		ctx = context.Background()
-	} else {
-		ctx = safeContext(ctx)
-	}
-
-	// Create request body
-	reqBody := verifyCodeRequest{
-		Action: "verify",
-		Phone:  phone,
-		Mail:   mail,
-		Code:   code,
-	}
-
-	jsonData, err := json.Marshal(reqBody)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Create HTTP request
-	req, err := http.NewRequestWithContext(ctx, "POST", verifyCodeURL, bytes.NewBuffer(jsonData))
-	if err != nil {
-		return false, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-
-	// Send request
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return false, fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	// Read response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	// Parse response
-	var apiResp verifyCodeResponse
-	if err := json.Unmarshal(body, &apiResp); err != nil {
-		return false, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	// Check response
-	if resp.StatusCode != http.StatusOK || !apiResp.Success {
-		logrus.Debugf("Verification code verification failed: phone=%s, mail=%s, error=%s", phone, mail, apiResp.Error)
-		return false, nil
-	}
-
-	logrus.Debugf("Verification code verified successfully: phone=%s, mail=%s", phone, mail)
-	return true, nil
-}
+// Note: SendVerifyCode and VerifyCode functions have been removed.
+// Verification code functionality is now handled by the Herald service.
 
 // VerifyOTP verifies a TOTP (Time-based One-Time Password) code.
 //

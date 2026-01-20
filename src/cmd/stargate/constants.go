@@ -20,8 +20,6 @@ const (
 	RouteAuth = "/_auth"
 	// RouteHealth is the health check route
 	RouteHealth = "/health"
-	// RouteSendVerifyCode is the send verification code route
-	RouteSendVerifyCode = "/_send_verify_code"
 
 	// StaticAssetsPath is the static assets path
 	StaticAssetsPath = "./internal/web/templates/assets"

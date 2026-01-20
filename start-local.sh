@@ -2,6 +2,10 @@
 
 # StarGate 本地启动脚本
 # 用于快速启动和测试 StarGate 认证服务
+# 使用方式: ./start-local.sh [选项]
+# 选项:
+#   -port, --port PORT     设置服务端口（默认: 8080）
+#   -h, --help             显示帮助信息
 
 set -e
 
@@ -9,7 +13,46 @@ set -e
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
+BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# 解析命令行参数
+CUSTOM_PORT=""
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -port|--port)
+            CUSTOM_PORT="$2"
+            shift 2
+            ;;
+        -h|--help)
+            echo "StarGate 本地启动脚本"
+            echo ""
+            echo "使用方式: $0 [选项]"
+            echo ""
+            echo "选项:"
+            echo "  -port, --port PORT     设置服务端口（默认: 8080）"
+            echo "  -h, --help             显示帮助信息"
+            echo ""
+            echo "环境变量:"
+            echo "  可以通过环境变量设置配置，命令行参数会覆盖环境变量"
+            echo "  PORT                   服务端口"
+            echo "  AUTH_HOST              认证服务主机名"
+            echo "  PASSWORDS              密码配置"
+            echo "  DEBUG                  调试模式（true/false）"
+            echo "  LANGUAGE               界面语言（zh/en）"
+            echo "  WARDEN_ENABLED         启用 Warden 集成（true/false）"
+            echo "  WARDEN_URL             Warden 服务地址"
+            echo "  WARDEN_API_KEY         Warden API 密钥"
+            echo "  WARDEN_CACHE_TTL       Warden 缓存 TTL（秒）"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}错误: 未知参数: $1${NC}"
+            echo "使用 $0 --help 查看帮助信息"
+            exit 1
+            ;;
+    esac
+done
 
 echo -e "${GREEN}=== StarGate 本地启动脚本 ===${NC}\n"
 
@@ -25,12 +68,17 @@ if ! command -v go &> /dev/null; then
     exit 1
 fi
 
-# 设置默认值
+# 设置默认值（命令行参数优先级最高，然后是环境变量，最后是默认值）
 AUTH_HOST=${AUTH_HOST:-"localhost"}
 PASSWORDS=${PASSWORDS:-"plaintext:test123|admin123"}
 DEBUG=${DEBUG:-"true"}
 LANGUAGE=${LANGUAGE:-"zh"}
-PORT=${PORT:-"8080"}
+# 端口设置：命令行参数 > 环境变量 > 默认值
+if [ -n "$CUSTOM_PORT" ]; then
+    PORT="$CUSTOM_PORT"
+elif [ -z "$PORT" ]; then
+    PORT="8080"
+fi
 
 # Warden 配置（可选）
 WARDEN_ENABLED=${WARDEN_ENABLED:-"false"}
@@ -38,14 +86,17 @@ WARDEN_URL=${WARDEN_URL:-""}
 WARDEN_API_KEY=${WARDEN_API_KEY:-""}
 WARDEN_CACHE_TTL=${WARDEN_CACHE_TTL:-"300"}
 
-echo -e "${YELLOW}配置信息:${NC}"
+echo -e "${BLUE}配置信息:${NC}"
 echo "  AUTH_HOST: $AUTH_HOST"
 echo "  PASSWORDS: $PASSWORDS"
 echo "  DEBUG: $DEBUG"
 echo "  LANGUAGE: $LANGUAGE"
 echo "  端口: $PORT"
+if [ -n "$CUSTOM_PORT" ]; then
+    echo -e "  ${GREEN}✓ 端口通过命令行参数设置: $CUSTOM_PORT${NC}"
+fi
 echo ""
-echo -e "${YELLOW}Warden 配置:${NC}"
+echo -e "${BLUE}Warden 配置:${NC}"
 echo "  WARDEN_ENABLED: $WARDEN_ENABLED"
 if [ "$WARDEN_ENABLED" = "true" ]; then
     echo "  WARDEN_URL: ${WARDEN_URL:-"未设置"}"

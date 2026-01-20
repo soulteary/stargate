@@ -272,6 +272,124 @@ Service listening port (local development only).
 PORT=8080
 ```
 
+### Herald Integration
+
+Herald is the OTP/verification code service. The following configuration options are available for integrating with Herald.
+
+#### `HERALD_ENABLED`
+
+Enable Herald integration for OTP/verification code functionality.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+**Description:**
+
+- When enabled, Stargate will use Herald service for sending and verifying OTP codes
+- Requires `HERALD_URL` to be set
+- Recommended for production environments using Warden authentication
+
+**Example:**
+
+```bash
+HERALD_ENABLED=true
+```
+
+#### `HERALD_URL`
+
+Base URL of the Herald service.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No (required if `HERALD_ENABLED=true`) |
+| **Default** | Empty |
+| **Example** | `http://herald:8080` or `https://herald.example.com` |
+
+**Description:**
+
+- Full base URL of the Herald service (without trailing slash)
+- Must be set if `HERALD_ENABLED=true`
+- Used for creating challenges and verifying codes
+
+**Example:**
+
+```bash
+HERALD_URL=http://herald:8080
+```
+
+#### `HERALD_API_KEY`
+
+API key for authenticating with Herald service (simple authentication method).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+**Description:**
+
+- Simple authentication method using API key
+- Suitable for development environments
+- If both `HERALD_API_KEY` and `HERALD_HMAC_SECRET` are set, HMAC takes precedence
+- Must be set if `HERALD_HMAC_SECRET` is not set
+
+**Example:**
+
+```bash
+HERALD_API_KEY=your-api-key-here
+```
+
+#### `HERALD_HMAC_SECRET`
+
+HMAC secret for service-to-service authentication with Herald (recommended for production).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+**Description:**
+
+- HMAC-SHA256 signature-based authentication (more secure than API key)
+- Recommended for production environments
+- If both `HERALD_API_KEY` and `HERALD_HMAC_SECRET` are set, HMAC takes precedence
+- Provides better security for service-to-service communication
+- Must match the HMAC secret configured in Herald service
+
+**Authentication Methods:**
+
+Stargate supports two authentication methods for Herald:
+
+1. **API Key** (Simple, for development):
+   - Set `HERALD_API_KEY` only
+   - Less secure but easier to configure
+   - Suitable for development and testing
+
+2. **HMAC Signature** (Secure, for production):
+   - Set `HERALD_HMAC_SECRET`
+   - More secure, uses HMAC-SHA256 signatures
+   - Recommended for production environments
+   - Provides timestamp-based request signing
+
+**Example:**
+
+```bash
+# Production: Use HMAC
+HERALD_HMAC_SECRET=your-hmac-secret-key-here
+
+# Development: Use API Key
+HERALD_API_KEY=your-api-key-here
+```
+
+**Note:** If neither `HERALD_API_KEY` nor `HERALD_HMAC_SECRET` is set, Herald client may not authenticate properly and requests may fail.
+
 ## Password Configuration
 
 Stargate supports multiple password encryption algorithms. Password configuration format: `algorithm:password1|password2|password3`

@@ -118,7 +118,7 @@ func TestInitConfig_ConfigInitializationError(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// Call initConfig - should return error
 	err := initConfig()
@@ -127,11 +127,11 @@ func TestInitConfig_ConfigInitializationError(t *testing.T) {
 
 func TestInitConfig_MissingRequiredConfig(t *testing.T) {
 	// Clear required environment variables
-	os.Unsetenv("AUTH_HOST")
-	os.Unsetenv("PASSWORDS")
+	_ = os.Unsetenv("AUTH_HOST")
+	_ = os.Unsetenv("PASSWORDS")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// Call initConfig - should return error
 	err := initConfig()
@@ -197,7 +197,7 @@ func TestInitConfig_EmptyDebugValue(t *testing.T) {
 
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	os.Unsetenv("DEBUG")
+	_ = os.Unsetenv("DEBUG")
 
 	// Reset config state
 	err := initConfig()
@@ -217,7 +217,7 @@ func TestInitConfig_InvalidDebugValue(t *testing.T) {
 	t.Setenv("DEBUG", "invalid")
 
 	// Reset config state - this should fail validation
-	config.Initialize()
+	_ = config.Initialize()
 
 	// initConfig should return error because DEBUG validation failed
 	err := initConfig()
@@ -266,7 +266,7 @@ func TestRunApplication_ConfigError(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// runApplication should return error when config initialization fails
 	err := runApplication()
@@ -280,7 +280,7 @@ func TestRunApplicationWithApp_ConfigError(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// Create a test app
 	app := fiber.New()
@@ -299,7 +299,7 @@ func TestRunApplicationWithApp_Success(t *testing.T) {
 	t.Setenv("DEBUG", "false")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// Note: runApplicationWithApp will try to start the server with app.Listen()
 	// This will block, so we can't easily test the full flow in a unit test
@@ -320,7 +320,7 @@ func TestRunApplication_SuccessPath(t *testing.T) {
 	t.Setenv("DEBUG", "false")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// Note: runApplication will try to start a real server which will block
 	// We can't easily test this in a unit test without using goroutines and timeouts
@@ -413,7 +413,7 @@ func TestInitConfig_AllPaths(t *testing.T) {
 			tt.setup(t)
 
 			// Reset config state
-			config.Initialize()
+			_ = config.Initialize()
 
 			// Call initConfig
 			err := initConfig()
@@ -435,7 +435,7 @@ func TestRunApplication_ConfigErrorPath(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// runApplication should return error when config fails
 	err := runApplication()
@@ -450,7 +450,7 @@ func TestRunApplicationWithApp_ConfigErrorPath(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// Create a test app
 	app := fiber.New()
@@ -470,7 +470,7 @@ func TestRunApplication_ServerErrorPath(t *testing.T) {
 	t.Setenv("DEBUG", "false")
 
 	// Reset config state
-	config.Initialize()
+	_ = config.Initialize()
 
 	// Note: runApplication will try to start a server which will block
 	// We can't easily test the server error path in a unit test
@@ -532,7 +532,7 @@ func TestInitConfig_ErrorReturn(t *testing.T) {
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
 
-	config.Initialize()
+	_ = config.Initialize()
 
 	err := initConfig()
 	testza.AssertNotNil(t, err, "initConfig should return error for invalid config")
@@ -545,7 +545,7 @@ func TestInitConfig_SuccessReturn(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("DEBUG", "false")
 
-	config.Initialize()
+	_ = config.Initialize()
 
 	err := initConfig()
 	testza.AssertNoError(t, err, "initConfig should not return error for valid config")

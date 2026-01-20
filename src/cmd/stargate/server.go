@@ -67,11 +67,14 @@ func setupSessionStore() *session.Store {
 // This includes authentication, login, logout, session exchange, and health check endpoints.
 func setupRoutes(app *fiber.App, store *session.Store) {
 	logrus.Debug("registering routes")
+	// Initialize Herald client
+	handlers.InitHeraldClient()
+
 	app.Get(RouteHealth, handlers.HealthRoute())
 	app.Get(RouteRoot, handlers.IndexRoute(store))
 	app.Get(RouteLogin, handlers.LoginRoute(store))
 	app.Post(RouteLogin, handlers.LoginAPI(store))
-	app.Post(RouteSendVerifyCode, handlers.SendVerifyCodeAPI())
+	app.Post("/_send_verify_code", handlers.SendVerifyCodeAPI())
 	app.Get(RouteLogout, handlers.LogoutRoute(store))
 	app.Get(RouteSessionExchange, handlers.SessionShareRoute())
 	app.Get(RouteAuth, handlers.CheckRoute(store))
