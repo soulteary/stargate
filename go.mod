@@ -40,5 +40,3 @@ require (
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
 )
-
-replace github.com/soulteary/warden => ../warden
