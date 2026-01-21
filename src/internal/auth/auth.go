@@ -12,6 +12,7 @@ import (
 	"github.com/pquerna/otp/totp"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/utils"
 	"github.com/soulteary/warden/pkg/warden"
 )
 
@@ -252,12 +253,12 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 		return false
 	}
 
-	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", phone, mail)
+	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", utils.MaskPhone(phone), utils.MaskEmail(mail))
 	exists := client.CheckUserInList(ctx, phone, mail)
 	if exists {
-		logrus.Debugf("User found and active: phone=%s, mail=%s", phone, mail)
+		logrus.Debugf("User found and active: phone=%s, mail=%s", utils.MaskPhone(phone), utils.MaskEmail(mail))
 	} else {
-		logrus.Debugf("User not found in Warden list or not active: phone=%s, mail=%s", phone, mail)
+		logrus.Debugf("User not found in Warden list or not active: phone=%s, mail=%s", utils.MaskPhone(phone), utils.MaskEmail(mail))
 	}
 	return exists
 }
@@ -294,7 +295,7 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 		return nil
 	}
 
-	logrus.Debugf("Fetching user info from Warden: phone=%s, mail=%s", phone, mail)
+	logrus.Debugf("Fetching user info from Warden: phone=%s, mail=%s", utils.MaskPhone(phone), utils.MaskEmail(mail))
 
 	var (
 		user *warden.AllowListUser
@@ -305,10 +306,10 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 		user, err = client.GetUserByIdentifier(ctx, phone, "", "")
 		if err != nil {
 			if sdkErr, ok := err.(*warden.Error); ok && sdkErr.Code == warden.ErrCodeNotFound && mail != "" {
-				logrus.Debugf("User not found by phone, falling back to mail: phone=%s, mail=%s", phone, mail)
+				logrus.Debugf("User not found by phone, falling back to mail: phone=%s, mail=%s", utils.MaskPhone(phone), utils.MaskEmail(mail))
 				user, err = client.GetUserByIdentifier(ctx, "", mail, "")
 			} else {
-				logrus.Debugf("Failed to get user info from Warden: %v (phone=%s, mail=%s)", err, phone, mail)
+				logrus.Debugf("Failed to get user info from Warden: %v (phone=%s, mail=%s)", err, utils.MaskPhone(phone), utils.MaskEmail(mail))
 				return nil
 			}
 		}
@@ -317,22 +318,22 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 	}
 
 	if err != nil {
-		logrus.Debugf("Failed to get user info from Warden: %v (phone=%s, mail=%s)", err, phone, mail)
+		logrus.Debugf("Failed to get user info from Warden: %v (phone=%s, mail=%s)", err, utils.MaskPhone(phone), utils.MaskEmail(mail))
 		return nil
 	}
 
 	if user == nil {
-		logrus.Debugf("User not found in Warden: phone=%s, mail=%s", phone, mail)
+		logrus.Debugf("User not found in Warden: phone=%s, mail=%s", utils.MaskPhone(phone), utils.MaskEmail(mail))
 		return nil
 	}
 
 	// Check if user is active
 	if !user.IsActive() {
-		logrus.Warnf("User status is not active: phone=%s, mail=%s, status=%s", phone, mail, user.Status)
+		logrus.Warnf("User status is not active: phone=%s, mail=%s, status=%s", utils.MaskPhone(phone), utils.MaskEmail(mail), user.Status)
 		return nil
 	}
 
-	logrus.Debugf("Fetched user info from Warden: user_id=%s, phone=%s, mail=%s, status=%s", user.UserID, user.Phone, user.Mail, user.Status)
+	logrus.Debugf("Fetched user info from Warden: user_id=%s, phone=%s, mail=%s, status=%s", user.UserID, utils.MaskPhone(user.Phone), utils.MaskEmail(user.Mail), user.Status)
 	return user
 }
 

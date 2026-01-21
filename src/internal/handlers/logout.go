@@ -4,8 +4,10 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
+	"github.com/soulteary/stargate/src/internal/audit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/metrics"
 )
 
 // SessionGetter defines an interface for getting sessions from a context.
@@ -45,10 +47,23 @@ func logoutHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, unauthenticator 
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
 	}
 
+	// Get user ID from session for audit logging
+	var userID string
+	if userIDVal := sess.Get("user_id"); userIDVal != nil {
+		if id, ok := userIDVal.(string); ok {
+			userID = id
+		}
+	}
+
 	err = unauthenticator.Unauthenticate(sess)
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.authenticate_failed"))
 	}
+
+	// Log logout and session destruction
+	metrics.RecordSessionDestroyed()
+	audit.GetAuditLogger().LogLogout(userID, ctx.IP())
+	audit.GetAuditLogger().LogSessionDestroy(userID, ctx.IP())
 
 	return ctx.SendString("Logged out")
 }
