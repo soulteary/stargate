@@ -395,8 +395,8 @@ github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPx
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
-github.com/soulteary/warden v0.3.1 h1:GqsiwlTHqsFQ9+ZAyxrwlbyg+AsPa7mWP/6U/uTI8W0=
-github.com/soulteary/warden v0.3.1/go.mod h1:gyv+dERzyfBjrrvNghr5D1hJt+HYYBeqJaCGgjgRINo=
+github.com/soulteary/warden v0.4.0 h1:Ps2tnTrsE78Hn93pZQbdFTKUku938GY6rHABwoazXGk=
+github.com/soulteary/warden v0.4.0/go.mod h1:gyv+dERzyfBjrrvNghr5D1hJt+HYYBeqJaCGgjgRINo=
 github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
 github.com/spf13/afero v1.3.3/go.mod h1:5KUK8ByomD5Ti5Artl0RtHeI5pTF7MIDuXL3yY520V4=
 github.com/spf13/afero v1.6.0/go.mod h1:Ai8FlHk4v/PARR026UzYexafAt9roJ7LcLMAmO6Z93I=
