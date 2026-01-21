@@ -16,27 +16,31 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/redis/go-redis/v9"
+	"github.com/soulteary/redis-kit/cache"
+	"github.com/soulteary/redis-kit/client"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
 
-// setupTestRedis creates a test Redis client
+// setupTestRedis creates a test Redis client using redis-kit
 func setupTestRedis(t *testing.T) *redis.Client {
-	client := redis.NewClient(&redis.Options{
-		Addr: "localhost:6379",
-		DB:   14, // Use DB 14 for integration testing
-	})
+	cfg := client.DefaultConfig().
+		WithAddr("localhost:6379").
+		WithDB(14) // Use DB 14 for integration testing
 
-	ctx := context.Background()
-	if err := client.Ping(ctx).Err(); err != nil {
+	redisClient, err := client.NewClient(cfg)
+	if err != nil {
 		t.Skipf("Skipping integration test: Redis not available: %v", err)
 	}
 
+	ctx := context.Background()
 	// Clean up test database
-	client.FlushDB(ctx)
+	if err := redisClient.FlushDB(ctx).Err(); err != nil {
+		t.Logf("Warning: Failed to flush test database: %v", err)
+	}
 
-	return client
+	return redisClient
 }
 
 // AllowListUser represents a user in the allow list (matching Warden's structure)
@@ -116,6 +120,8 @@ func setupWardenServer(t *testing.T, userData []AllowListUser) *httptest.Server 
 func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Server {
 	// This is a simplified mock - in production, you'd run Herald separately
 	// For now, we'll create a basic mock that stores codes in Redis for testing
+	// Use redis-kit cache for storing test data
+	testCache := cache.NewCache(redisClient, "otp:test:")
 	mux := http.NewServeMux()
 
 	// Mock health check
@@ -159,10 +165,9 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 		challengeID := fmt.Sprintf("ch_test_%d_%d", time.Now().UnixNano(), time.Now().Unix()%10000)
 		code := "123456" // Fixed code for testing
 
-		// Store in Redis (simplified - in real Herald, this would be hashed)
+		// Store in Redis using redis-kit cache (simplified - in real Herald, this would be hashed)
 		ctx := context.Background()
-		testCodeKey := "otp:test:code:" + challengeID
-		if err := redisClient.Set(ctx, testCodeKey, code, 5*time.Minute).Err(); err != nil {
+		if err := testCache.Set(ctx, "code:"+challengeID, code, 5*time.Minute); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"ok":     false,
@@ -172,8 +177,7 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 		}
 
 		// Store user_id for verification
-		testUserIDKey := "otp:test:user_id:" + challengeID
-		redisClient.Set(ctx, testUserIDKey, req.UserID, 5*time.Minute)
+		_ = testCache.Set(ctx, "user_id:"+challengeID, req.UserID, 5*time.Minute)
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -214,11 +218,10 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 			return
 		}
 
-		// Get code from Redis
+		// Get code from Redis using redis-kit cache
 		ctx := context.Background()
-		testCodeKey := "otp:test:code:" + req.ChallengeID
-		storedCode, err := redisClient.Get(ctx, testCodeKey).Result()
-		if err != nil {
+		var storedCode string
+		if err := testCache.Get(ctx, "code:"+req.ChallengeID, &storedCode); err != nil {
 			// Challenge not found or expired
 			w.WriteHeader(http.StatusUnauthorized)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -240,10 +243,9 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 			return
 		}
 
-		// Get user_id from Redis
-		testUserIDKey := "otp:test:user_id:" + req.ChallengeID
-		userID, err := redisClient.Get(ctx, testUserIDKey).Result()
-		if err != nil {
+		// Get user_id from Redis using redis-kit cache
+		var userID string
+		if err := testCache.Get(ctx, "user_id:"+req.ChallengeID, &userID); err != nil {
 			// Fallback to default if not found
 			userID = "test-user-123"
 		}
@@ -289,9 +291,8 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 		}
 
 		ctx := context.Background()
-		testCodeKey := "otp:test:code:" + challengeID
-		code, err := redisClient.Get(ctx, testCodeKey).Result()
-		if err != nil {
+		var code string
+		if err := testCache.Get(ctx, "code:"+challengeID, &code); err != nil {
 			w.WriteHeader(http.StatusNotFound)
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{
 				"ok":     false,
@@ -342,10 +343,10 @@ func getTestCode(t *testing.T, heraldURL, challengeID string) string {
 }
 
 func TestE2E_CompleteLoginFlow(t *testing.T) {
-	// Setup Redis
+	// Setup Redis using redis-kit
 	redisClient := setupTestRedis(t)
 	defer func() {
-		_ = redisClient.Close()
+		_ = client.Close(redisClient)
 	}()
 
 	// Setup test user data
