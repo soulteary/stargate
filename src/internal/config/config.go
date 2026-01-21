@@ -230,6 +230,38 @@ var (
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
 	}
+
+	AuditLogEnabled = EnvVariable{
+		Name:           "AUDIT_LOG_ENABLED",
+		Required:       false,
+		DefaultValue:   "true",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	AuditLogFormat = EnvVariable{
+		Name:           "AUDIT_LOG_FORMAT",
+		Required:       false,
+		DefaultValue:   "json",
+		PossibleValues: []string{"json", "text"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	StepUpEnabled = EnvVariable{
+		Name:           "STEP_UP_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	StepUpPaths = EnvVariable{
+		Name:           "STEP_UP_PATHS",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
 )
 
 func Initialize() error {
@@ -256,7 +288,7 @@ func Initialize() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
@@ -274,6 +306,9 @@ func Initialize() error {
 	if Language.Value != "" {
 		logrus.Info("Config: ", Language.Name, " = ", Language.Value)
 	}
+
+	// Initialize step-up matcher after configuration is loaded
+	InitStepUpMatcher()
 
 	return nil
 }

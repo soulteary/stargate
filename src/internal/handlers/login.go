@@ -15,9 +15,12 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/soulteary/stargate/pkg/herald"
+	"github.com/soulteary/stargate/src/internal/audit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/metrics"
+	"github.com/soulteary/stargate/src/internal/utils"
 )
 
 var (
@@ -123,6 +126,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	userPhone := ctx.FormValue("phone")
 	userMail := ctx.FormValue("mail")
 
+	var userID string          // Declare userID at function scope
+	var verifyRespAMR []string // Store AMR from Herald response
+
 	// Determine authentication method
 	// If auth_method is not specified, default to password authentication for backward compatibility
 	if authMethod == "" {
@@ -139,17 +145,23 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		}
 
 		// Log the authentication attempt
-		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", userPhone, userMail)
+		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
 
 		// Step 1: Get complete user information from Warden (includes status check)
+		wardenStartTime := time.Now()
 		userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail)
+		wardenDuration := time.Since(wardenStartTime)
 		if userInfo == nil {
-			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", userPhone, userMail)
+			metrics.RecordWardenCall("get_user_info", "failure", wardenDuration)
+			metrics.RecordAuthRequest("warden", "failure")
+			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
+			audit.GetAuditLogger().LogLogin("", "warden", ctx.IP(), false, "user_not_in_list")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
 		}
+		metrics.RecordWardenCall("get_user_info", "success", wardenDuration)
 
 		// Step 2: Use user_id from Warden if available, otherwise generate one
-		userID := userInfo.UserID
+		userID = userInfo.UserID
 		if userID == "" {
 			userID = generateUserID(userPhone, userMail)
 		}
@@ -190,8 +202,11 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				ClientIP:    ctx.IP(),
 			}
 
+			startTime := time.Now()
 			verifyResp, err := heraldClient.VerifyChallenge(ctx.Context(), verifyReq)
+			duration := time.Since(startTime)
 			if err != nil {
+				metrics.RecordHeraldCall("verify_challenge", "failure", duration)
 				logrus.Errorf("Failed to verify challenge: %v", err)
 
 				// Check if it's a connection error (Herald service unavailable)
@@ -214,11 +229,13 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			}
 
 			if !verifyResp.OK {
+				metrics.RecordHeraldCall("verify_challenge", "failure", duration)
 				reason := verifyResp.Reason
 				if reason == "" {
 					reason = "invalid"
 				}
 				logrus.Warnf("Challenge verification failed: reason=%s", reason)
+				audit.GetAuditLogger().LogVerifyCodeCheck(userID, ctx.IP(), false, reason)
 
 				// Provide detailed error message based on reason (as per Claude.md section 9)
 				var errorMsg string
@@ -227,12 +244,20 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 					errorMsg = i18n.T("error.verify_code_expired")
 				case "invalid":
 					errorMsg = i18n.T("error.verify_code_invalid")
+					// Add remaining attempts if available
+					if verifyResp.RemainingAttempts != nil {
+						errorMsg = i18n.Tf("error.verify_code_invalid_with_attempts", *verifyResp.RemainingAttempts)
+					}
 				case "locked":
 					errorMsg = i18n.T("error.verify_code_locked")
 				case "too_many_attempts":
 					errorMsg = i18n.T("error.verify_code_too_many")
 				case "rate_limited":
 					errorMsg = i18n.T("error.verify_code_rate_limited")
+					// Add wait time if available
+					if verifyResp.NextResendIn != nil {
+						errorMsg = i18n.Tf("error.verify_code_rate_limited_with_wait", *verifyResp.NextResendIn)
+					}
 				case "send_failed":
 					errorMsg = i18n.T("error.verify_code_send_failed")
 				case "unauthorized":
@@ -243,10 +268,19 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
 			}
 
+			// Log successful verification
+			metrics.RecordHeraldCall("verify_challenge", "success", duration)
+			audit.GetAuditLogger().LogVerifyCodeCheck(userID, ctx.IP(), true, "")
+
 			// Verify user ID matches
 			if verifyResp.UserID != userID {
 				logrus.Warnf("User ID mismatch: expected=%s, got=%s", userID, verifyResp.UserID)
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "验证失败")
+			}
+
+			// Store AMR (Authentication Method Reference) from Herald response for later use
+			if len(verifyResp.AMR) > 0 {
+				verifyRespAMR = verifyResp.AMR
 			}
 		} else if otpEnabled && useOTP {
 			// If OTP is enabled and user chose to use OTP
@@ -263,7 +297,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 
 			// Verify OTP code
 			if !auth.VerifyOTP(otpSecret, otpCode) {
-				logrus.Warnf("OTP verification failed: phone=%s, mail=%s", userPhone, userMail)
+				metrics.RecordAuthRequest("warden_otp", "failure")
+				logrus.Warnf("OTP verification failed: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
+				audit.GetAuditLogger().LogLogin(userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "OTP 验证码错误")
 			}
 		} else {
@@ -276,14 +312,18 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, "请选择验证方式：验证码或 OTP")
 		}
 
-		logrus.Infof("Warden authentication successful for: phone=%s, mail=%s", userPhone, userMail)
+		logrus.Infof("Warden authentication successful for: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
 		authenticated = true
 	} else {
 		// Password authentication (default)
 		if password == "" {
+			metrics.RecordAuthRequest("password", "failure")
+			audit.GetAuditLogger().LogLogin("", "password", ctx.IP(), false, "empty_password")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
 		}
 		if !auth.CheckPassword(password) {
+			metrics.RecordAuthRequest("password", "failure")
+			audit.GetAuditLogger().LogLogin("", "password", ctx.IP(), false, "invalid_password")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
 		}
 		authenticated = true
@@ -324,7 +364,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				sess.Set("user_role", userInfo.Role)
 			}
 			logrus.Debugf("Stored user info in session: user_id=%s, phone=%s, mail=%s, scope=%v, role=%s",
-				userInfo.UserID, userInfo.Phone, userInfo.Mail, userInfo.Scope, userInfo.Role)
+				userInfo.UserID, utils.MaskPhone(userInfo.Phone), utils.MaskEmail(userInfo.Mail), userInfo.Scope, userInfo.Role)
 		} else {
 			// Fallback: store basic info if GetUserInfo failed (should not happen after CheckUserInList)
 			if userPhone != "" {
@@ -334,6 +374,11 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				sess.Set("user_mail", userMail)
 			}
 		}
+
+		// Store AMR (Authentication Method Reference) from Herald response if available
+		if len(verifyRespAMR) > 0 {
+			sess.Set("user_amr", verifyRespAMR)
+		}
 	}
 
 	// Authenticate and save session (this will save all session data including user info)
@@ -341,6 +386,23 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.authenticate_failed"))
 	}
+
+	// Log successful login and session creation
+	var loggedUserID string
+	if authMethod == "warden" {
+		if userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail); userInfo != nil && userInfo.UserID != "" {
+			loggedUserID = userInfo.UserID
+		} else {
+			loggedUserID = userID
+		}
+		metrics.RecordAuthRequest(authMethod, "success")
+		audit.GetAuditLogger().LogLogin(loggedUserID, authMethod, ctx.IP(), true, "")
+	} else {
+		metrics.RecordAuthRequest("password", "success")
+		audit.GetAuditLogger().LogLogin("", "password", ctx.IP(), true, "")
+	}
+	metrics.RecordSessionCreated()
+	audit.GetAuditLogger().LogSessionCreate(loggedUserID, ctx.IP())
 
 	// Get callback parameter (priority: cookie, form data, query parameter)
 	callbackFromCookie := GetCallbackFromCookie(ctx)

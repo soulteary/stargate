@@ -232,11 +232,13 @@ type VerifyChallengeRequest struct {
 
 // VerifyChallengeResponse represents the response from verifying a challenge
 type VerifyChallengeResponse struct {
-	OK       bool     `json:"ok"`
-	UserID   string   `json:"user_id,omitempty"`
-	AMR      []string `json:"amr,omitempty"`
-	IssuedAt int64    `json:"issued_at,omitempty"`
-	Reason   string   `json:"reason,omitempty"`
+	OK                bool     `json:"ok"`
+	UserID            string   `json:"user_id,omitempty"`
+	AMR               []string `json:"amr,omitempty"`
+	IssuedAt          int64    `json:"issued_at,omitempty"`
+	Reason            string   `json:"reason,omitempty"`
+	RemainingAttempts *int     `json:"remaining_attempts,omitempty"` // Number of remaining attempts
+	NextResendIn      *int     `json:"next_resend_in,omitempty"`     // Seconds until next resend is allowed
 }
 
 // CreateChallenge creates a new challenge and sends verification code

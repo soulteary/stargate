@@ -3,14 +3,18 @@ package handlers
 import (
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
 
 	"github.com/soulteary/stargate/pkg/herald"
+	"github.com/soulteary/stargate/src/internal/audit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/metrics"
+	"github.com/soulteary/stargate/src/internal/utils"
 )
 
 // getLocaleFromConfig converts language code to locale format
@@ -57,7 +61,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		// This ensures we use the official email/phone from Warden, not user input
 		userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail)
 		if userInfo == nil {
-			logrus.Warnf("User not found in Warden or not active: phone=%s, mail=%s", userPhone, userMail)
+			logrus.Warnf("User not found in Warden or not active: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
 		}
 
@@ -77,7 +81,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		} else if destination == "" {
 			// Fallback: if Warden doesn't provide destination, use user input
 			// This should not happen if Warden is properly configured
-			logrus.Warnf("Warden user info missing destination, using user input: phone=%s, mail=%s", userPhone, userMail)
+			logrus.Warnf("Warden user info missing destination, using user input: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
 			destination = userMail
 			if userPhone != "" {
 				channel = "sms"
@@ -126,29 +130,43 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			UA:          ctx.Get("User-Agent"),
 		}
 
+		heraldStartTime := time.Now()
 		createResp, err := heraldClient.CreateChallenge(ctx.Context(), createReq)
+		heraldDuration := time.Since(heraldStartTime)
 		if err != nil {
 			logrus.Errorf("Failed to create challenge: %v", err)
 
+			reason := "unknown_error"
 			// Check if it's a connection error (Herald service unavailable)
 			if heraldErr, ok := err.(*herald.HeraldError); ok {
 				if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
+					reason = "connection_failed"
 					// Herald service is unavailable, suggest OTP fallback if enabled
 					otpEnabled := config.WardenOTPEnabled.ToBool()
 					if otpEnabled {
+						audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), false, reason)
 						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请使用 OTP 验证")
 					}
+					audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), false, reason)
 					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
 				}
 				// Other errors (rate limit, etc.)
 				if heraldErr.StatusCode == http.StatusTooManyRequests {
+					reason = "rate_limited"
+					audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), false, reason)
 					return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "请求过于频繁，请稍后重试")
 				}
+				reason = heraldErr.Reason
 			}
 
 			// Default error handling
+			audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), false, reason)
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "发送验证码失败: "+err.Error())
 		}
+
+		// Log successful verification code send
+		metrics.RecordHeraldCall("create_challenge", "success", heraldDuration)
+		audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), true, "")
 
 		// Return success response with challenge_id
 		ctx.Set("Content-Type", "application/json")

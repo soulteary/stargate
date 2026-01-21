@@ -79,6 +79,25 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 			return handleNotAuthenticated(ctx)
 		}
 
+		// Check step-up authentication for sensitive paths
+		stepUpMatcher := config.GetStepUpMatcher()
+		if stepUpMatcher.RequiresStepUp(ctx.Path()) {
+			// Check if step-up authentication has been completed
+			stepUpVerified := sess.Get("step_up_verified")
+			if stepUpVerified == nil || !stepUpVerified.(bool) {
+				// Step-up authentication required but not completed
+				// Return 403 Forbidden to indicate additional authentication is needed
+				if IsHTMLRequest(ctx) {
+					// For HTML requests, redirect to step-up verification page
+					callbackURL := BuildCallbackURL(ctx)
+					stepUpURL := "/_step_up?callback=" + callbackURL
+					return ctx.Redirect(stepUpURL)
+				}
+				// For API requests, return 403
+				return SendErrorResponse(ctx, fiber.StatusForbidden, i18n.T("error.step_up_required"))
+			}
+		}
+
 		// Authentication successful, set user info headers
 		userHeaderName := config.UserHeaderName.String()
 
@@ -135,6 +154,25 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 		if userRoleVal != nil {
 			if role, ok := userRoleVal.(string); ok && role != "" {
 				ctx.Set("X-Auth-Role", role)
+			}
+		}
+
+		// Set AMR (Authentication Method Reference) header
+		userAMRVal := sess.Get("user_amr")
+		if userAMRVal != nil {
+			if amr, ok := userAMRVal.([]string); ok && len(amr) > 0 {
+				ctx.Set("X-Auth-AMR", strings.Join(amr, ","))
+			} else if amr, ok := userAMRVal.([]interface{}); ok && len(amr) > 0 {
+				// Handle case where AMR is stored as []interface{}
+				amrStrs := make([]string, 0, len(amr))
+				for _, a := range amr {
+					if str, ok := a.(string); ok {
+						amrStrs = append(amrStrs, str)
+					}
+				}
+				if len(amrStrs) > 0 {
+					ctx.Set("X-Auth-AMR", strings.Join(amrStrs, ","))
+				}
 			}
 		}
 
