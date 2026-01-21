@@ -190,6 +190,46 @@ var (
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
 	}
+
+	SessionStorageEnabled = EnvVariable{
+		Name:           "SESSION_STORAGE_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	SessionStorageRedisAddr = EnvVariable{
+		Name:           "SESSION_STORAGE_REDIS_ADDR",
+		Required:       false,
+		DefaultValue:   "localhost:6379",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	SessionStorageRedisPassword = EnvVariable{
+		Name:           "SESSION_STORAGE_REDIS_PASSWORD",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	SessionStorageRedisDB = EnvVariable{
+		Name:           "SESSION_STORAGE_REDIS_DB",
+		Required:       false,
+		DefaultValue:   "0",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	SessionStorageRedisKeyPrefix = EnvVariable{
+		Name:           "SESSION_STORAGE_REDIS_KEY_PREFIX",
+		Required:       false,
+		DefaultValue:   "stargate:session:",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
 )
 
 func Initialize() error {
@@ -216,7 +256,7 @@ func Initialize() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()

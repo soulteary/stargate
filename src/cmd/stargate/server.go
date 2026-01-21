@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -15,6 +16,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/stargate/src/internal/middleware"
+	"github.com/soulteary/stargate/src/internal/storage"
 )
 
 // findTemplatesPath finds the correct path to templates directory.
@@ -46,8 +48,10 @@ func setupTemplates() *html.Engine {
 
 // setupSessionStore initializes the session store with configured settings.
 // It sets up cookie-based session management with configurable domain support.
+// If Redis storage is enabled via SESSION_STORAGE_ENABLED=true, it will use Redis for session storage.
 func setupSessionStore() *session.Store {
 	logrus.Debug("initializing session store")
+
 	sessionConfig := session.Config{
 		Expiration:     config.SessionExpiration,
 		KeyLookup:      "cookie:" + auth.SessionCookieName,
@@ -56,10 +60,49 @@ func setupSessionStore() *session.Store {
 		CookieHTTPOnly: true,
 		CookieSameSite: fiber.CookieSameSiteLaxMode,
 	}
+
 	// If Cookie domain is configured, set it
 	if config.CookieDomain.Value != "" {
 		sessionConfig.CookieDomain = config.CookieDomain.Value
 	}
+
+	// Check if Redis session storage is enabled
+	if config.SessionStorageEnabled.ToBool() {
+		logrus.Info("Redis session storage is enabled, initializing Redis client...")
+
+		// Parse Redis DB number
+		redisDB := 0
+		if config.SessionStorageRedisDB.Value != "" {
+			if db, err := strconv.Atoi(config.SessionStorageRedisDB.Value); err == nil {
+				redisDB = db
+			} else {
+				logrus.Warnf("Invalid SESSION_STORAGE_REDIS_DB value '%s', using default 0", config.SessionStorageRedisDB.Value)
+			}
+		}
+
+		// Create Redis client
+		redisClient, err := storage.NewRedisClientFromConfig(
+			config.SessionStorageRedisAddr.Value,
+			config.SessionStorageRedisPassword.Value,
+			redisDB,
+		)
+		if err != nil {
+			logrus.Fatalf("Failed to initialize Redis client for session storage: %v", err)
+		}
+
+		// Create Redis storage
+		redisStorage := storage.NewRedisStorage(
+			redisClient,
+			config.SessionStorageRedisKeyPrefix.Value,
+		)
+
+		// Set the storage in session config
+		sessionConfig.Storage = redisStorage
+		logrus.Info("Session storage configured to use Redis")
+	} else {
+		logrus.Debug("Using default in-memory session storage")
+	}
+
 	return session.New(sessionConfig)
 }
 
