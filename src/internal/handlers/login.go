@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -53,6 +54,25 @@ func InitHeraldClient() {
 			logrus.Debug("Herald client will use API key authentication")
 		} else {
 			logrus.Warn("Neither HERALD_HMAC_SECRET nor HERALD_API_KEY is set. Herald client may not authenticate properly.")
+		}
+
+		// Add TLS/mTLS configuration if provided
+		if caCertFile := config.HeraldTLSCACertFile.String(); caCertFile != "" {
+			opts = opts.WithTLSCACert(caCertFile)
+			logrus.Debug("Herald client will verify server certificate using CA cert")
+		}
+		if clientCert := config.HeraldTLSClientCert.String(); clientCert != "" {
+			clientKey := config.HeraldTLSClientKey.String()
+			if clientKey != "" {
+				opts = opts.WithTLSClientCert(clientCert, clientKey)
+				logrus.Debug("Herald client will use mTLS with client certificate")
+			} else {
+				logrus.Warn("HERALD_TLS_CLIENT_CERT_FILE is set but HERALD_TLS_CLIENT_KEY_FILE is not, mTLS will not be used")
+			}
+		}
+		if serverName := config.HeraldTLSServerName.String(); serverName != "" {
+			opts = opts.WithTLSServerName(serverName)
+			logrus.Debugf("Herald client will use server name %s for TLS verification", serverName)
 		}
 
 		client, err := herald.NewClient(opts)
@@ -173,6 +193,23 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			verifyResp, err := heraldClient.VerifyChallenge(ctx.Context(), verifyReq)
 			if err != nil {
 				logrus.Errorf("Failed to verify challenge: %v", err)
+
+				// Check if it's a connection error (Herald service unavailable)
+				if heraldErr, ok := err.(*herald.HeraldError); ok {
+					if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
+						// Herald service is unavailable, suggest OTP fallback if enabled
+						if otpEnabled {
+							return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请使用 OTP 验证")
+						}
+						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
+					}
+					// Other Herald errors (unauthorized, etc.)
+					if heraldErr.StatusCode == http.StatusUnauthorized {
+						return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.verify_code_unauthorized"))
+					}
+				}
+
+				// Default error handling
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.verify_code_failed"))
 			}
 

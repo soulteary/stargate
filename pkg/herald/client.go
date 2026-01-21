@@ -5,11 +5,14 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -27,11 +30,16 @@ type Client struct {
 
 // Options for creating a Herald client
 type Options struct {
-	BaseURL    string
-	APIKey     string
-	HMACSecret string
-	Service    string
-	Timeout    time.Duration
+	BaseURL            string
+	APIKey             string
+	HMACSecret         string
+	Service            string
+	Timeout            time.Duration
+	TLSCACertFile      string // For verifying server certificate
+	TLSClientCert      string // Client certificate file for mTLS
+	TLSClientKey       string // Client private key file for mTLS
+	TLSServerName      string // Server name for TLS verification
+	InsecureSkipVerify bool   // Skip TLS certificate verification (not recommended)
 }
 
 // DefaultOptions returns default options
@@ -72,12 +80,67 @@ func (o *Options) WithTimeout(timeout time.Duration) *Options {
 	return o
 }
 
+// WithTLSCACert sets the CA certificate file for TLS verification
+func (o *Options) WithTLSCACert(caCertFile string) *Options {
+	o.TLSCACertFile = caCertFile
+	return o
+}
+
+// WithTLSClientCert sets the client certificate and key files for mTLS
+func (o *Options) WithTLSClientCert(certFile, keyFile string) *Options {
+	o.TLSClientCert = certFile
+	o.TLSClientKey = keyFile
+	return o
+}
+
+// WithTLSServerName sets the server name for TLS verification
+func (o *Options) WithTLSServerName(serverName string) *Options {
+	o.TLSServerName = serverName
+	return o
+}
+
+// WithInsecureSkipVerify sets whether to skip TLS certificate verification
+func (o *Options) WithInsecureSkipVerify(skip bool) *Options {
+	o.InsecureSkipVerify = skip
+	return o
+}
+
 // Validate validates the options
 func (o *Options) Validate() error {
 	if o.BaseURL == "" {
 		return fmt.Errorf("base URL is required")
 	}
 	return nil
+}
+
+// HeraldError represents an error from Herald API
+type HeraldError struct {
+	StatusCode int
+	Reason     string
+	Message    string
+}
+
+func (e *HeraldError) Error() string {
+	// Always include status code in error message for better debugging
+	if e.StatusCode > 0 {
+		if e.Message != "" {
+			// Always include status code in the message format for consistency
+			// Format: "API returned status 400: bad request" (matches test expectations)
+			return fmt.Sprintf("API returned status %d: %s", e.StatusCode, e.Message)
+		}
+		if e.Reason != "" {
+			return fmt.Sprintf("Herald API error: %s (status: %d)", e.Reason, e.StatusCode)
+		}
+		return fmt.Sprintf("Herald API error: status %d", e.StatusCode)
+	}
+	// Connection errors (status code 0)
+	if e.Message != "" {
+		return e.Message
+	}
+	if e.Reason != "" {
+		return fmt.Sprintf("Herald API error: %s", e.Reason)
+	}
+	return "Herald API error"
 }
 
 // NewClient creates a new Herald API client
@@ -90,9 +153,47 @@ func NewClient(opts *Options) (*Client, error) {
 		return nil, err
 	}
 
+	// Configure TLS
+	var tlsConfig *tls.Config
+	if opts.TLSCACertFile != "" || opts.TLSClientCert != "" || opts.InsecureSkipVerify {
+		tlsConfig = &tls.Config{
+			InsecureSkipVerify: opts.InsecureSkipVerify,
+			ServerName:         opts.TLSServerName,
+		}
+
+		// Load CA certificate for server verification
+		if opts.TLSCACertFile != "" {
+			caCert, err := os.ReadFile(opts.TLSCACertFile)
+			if err != nil {
+				return nil, fmt.Errorf("failed to read CA certificate: %w", err)
+			}
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return nil, fmt.Errorf("failed to parse CA certificate")
+			}
+			tlsConfig.RootCAs = caCertPool
+		}
+
+		// Load client certificate for mTLS
+		if opts.TLSClientCert != "" && opts.TLSClientKey != "" {
+			cert, err := tls.LoadX509KeyPair(opts.TLSClientCert, opts.TLSClientKey)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load client certificate: %w", err)
+			}
+			tlsConfig.Certificates = []tls.Certificate{cert}
+		}
+	}
+
+	// Create HTTP client with TLS config
+	transport := &http.Transport{}
+	if tlsConfig != nil {
+		transport.TLSClientConfig = tlsConfig
+	}
+
 	client := &Client{
 		httpClient: &http.Client{
-			Timeout: opts.Timeout,
+			Timeout:   opts.Timeout,
+			Transport: transport,
 		},
 		baseURL:    opts.BaseURL,
 		apiKey:     opts.APIKey,
@@ -157,7 +258,11 @@ func (c *Client) CreateChallenge(ctx context.Context, req *CreateChallengeReques
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, &HeraldError{
+			StatusCode: 0,
+			Reason:     "connection_failed",
+			Message:    fmt.Sprintf("failed to send request: %v", err),
+		}
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -165,7 +270,16 @@ func (c *Client) CreateChallenge(ctx context.Context, req *CreateChallengeReques
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(bodyBytes))
+		var errorResp struct {
+			OK     bool   `json:"ok"`
+			Reason string `json:"reason"`
+		}
+		_ = json.Unmarshal(bodyBytes, &errorResp)
+		return nil, &HeraldError{
+			StatusCode: resp.StatusCode,
+			Reason:     errorResp.Reason,
+			Message:    string(bodyBytes),
+		}
 	}
 
 	var challengeResp CreateChallengeResponse
@@ -195,7 +309,11 @@ func (c *Client) VerifyChallenge(ctx context.Context, req *VerifyChallengeReques
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return nil, fmt.Errorf("failed to send request: %w", err)
+		return nil, &HeraldError{
+			StatusCode: 0,
+			Reason:     "connection_failed",
+			Message:    fmt.Sprintf("failed to send request: %v", err),
+		}
 	}
 	defer func() {
 		_ = resp.Body.Close()
@@ -203,11 +321,19 @@ func (c *Client) VerifyChallenge(ctx context.Context, req *VerifyChallengeReques
 
 	var verifyResp VerifyChallengeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&verifyResp); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
+		return nil, &HeraldError{
+			StatusCode: resp.StatusCode,
+			Reason:     "invalid_response",
+			Message:    fmt.Sprintf("failed to decode response: %v", err),
+		}
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return &verifyResp, fmt.Errorf("verification failed: %s", verifyResp.Reason)
+		return &verifyResp, &HeraldError{
+			StatusCode: resp.StatusCode,
+			Reason:     verifyResp.Reason,
+			Message:    fmt.Sprintf("verification failed: %s", verifyResp.Reason),
+		}
 	}
 
 	return &verifyResp, nil
