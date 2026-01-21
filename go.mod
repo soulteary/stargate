@@ -10,6 +10,7 @@ require (
 	github.com/pterm/pterm v0.12.82
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/sirupsen/logrus v1.9.4
+	github.com/soulteary/redis-kit v0.1.1
 	github.com/soulteary/warden v0.4.0
 	github.com/valyala/fasthttp v1.69.0
 	golang.org/x/crypto v0.47.0
@@ -37,7 +38,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.19 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
-	github.com/soulteary/redis-kit v0.1.0 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	golang.org/x/sys v0.40.0 // indirect
