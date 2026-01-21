@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -106,7 +107,12 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		// Get Herald client
 		heraldClient := getHeraldClient()
 		if heraldClient == nil {
-			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "验证码服务不可用")
+			// Herald client not initialized, check if OTP is available as fallback
+			otpEnabled := config.WardenOTPEnabled.ToBool()
+			if otpEnabled {
+				return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请使用 OTP 验证")
+			}
+			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
 		}
 
 		// Step 5: Create challenge via Herald
@@ -123,6 +129,24 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		createResp, err := heraldClient.CreateChallenge(ctx.Context(), createReq)
 		if err != nil {
 			logrus.Errorf("Failed to create challenge: %v", err)
+
+			// Check if it's a connection error (Herald service unavailable)
+			if heraldErr, ok := err.(*herald.HeraldError); ok {
+				if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
+					// Herald service is unavailable, suggest OTP fallback if enabled
+					otpEnabled := config.WardenOTPEnabled.ToBool()
+					if otpEnabled {
+						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请使用 OTP 验证")
+					}
+					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
+				}
+				// Other errors (rate limit, etc.)
+				if heraldErr.StatusCode == http.StatusTooManyRequests {
+					return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "请求过于频繁，请稍后重试")
+				}
+			}
+
+			// Default error handling
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "发送验证码失败: "+err.Error())
 		}
 

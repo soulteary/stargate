@@ -158,6 +158,38 @@ var (
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny, // Empty value is also valid (means using API key instead)
 	}
+
+	HeraldTLSCACertFile = EnvVariable{
+		Name:           "HERALD_TLS_CA_CERT_FILE",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	HeraldTLSClientCert = EnvVariable{
+		Name:           "HERALD_TLS_CLIENT_CERT_FILE",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	HeraldTLSClientKey = EnvVariable{
+		Name:           "HERALD_TLS_CLIENT_KEY_FILE",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	HeraldTLSServerName = EnvVariable{
+		Name:           "HERALD_TLS_SERVER_NAME",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
 )
 
 func Initialize() error {
@@ -184,7 +216,7 @@ func Initialize() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
