@@ -1,9 +1,9 @@
 package config
 
 import (
-	"os"
 	"strings"
 
+	"github.com/soulteary/cli-kit/env"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/secure"
 )
@@ -15,6 +15,7 @@ type EnvVariable struct {
 	Value          string
 	PossibleValues []string
 	Validator      func(v EnvVariable) bool
+	Trimmed        bool // If true, use env.GetTrimmed instead of env.Get
 }
 
 func (v *EnvVariable) String() string {
@@ -26,10 +27,10 @@ func (v *EnvVariable) ToBool() bool {
 }
 
 func (v *EnvVariable) Validate() error {
-	v.Value = os.Getenv(v.Name)
-
-	if v.Value == "" {
-		v.Value = v.DefaultValue
+	if v.Trimmed {
+		v.Value = env.GetTrimmed(v.Name, v.DefaultValue)
+	} else {
+		v.Value = env.Get(v.Name, v.DefaultValue)
 	}
 
 	if v.Required && v.Value == "" {
