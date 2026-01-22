@@ -15,7 +15,7 @@ Questo documento descrive l'architettura tecnica e le decisioni di progettazione
 ## Struttura del Progetto
 
 ```
-codes/src/
+src/
 ├── cmd/stargate/          # Punto di ingresso dell'applicazione
 │   ├── main.go            # Funzione principale, inizializza la configurazione e avvia il server
 │   ├── server.go          # Configurazione del server e configurazione delle route

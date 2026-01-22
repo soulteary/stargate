@@ -15,7 +15,7 @@
 ## 프로젝트 구조
 
 ```
-codes/src/
+src/
 ├── cmd/stargate/          # 애플리케이션 진입점
 │   ├── main.go            # 메인 함수, 설정 초기화 및 서버 시작
 │   ├── server.go          # 서버 설정 및 라우트 설정

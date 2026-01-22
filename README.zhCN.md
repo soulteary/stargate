@@ -7,6 +7,8 @@
 
 > **🚀 微服务安全的统一入口**
 
+![Stargate](.github/assets/banner.jpg)
+
 Stargate 是一个生产就绪的轻量级前向认证服务，旨在成为您整个基础设施的**单一认证入口**。基于 Go 构建并针对性能优化，Stargate 可与 Traefik 等反向代理无缝集成，保护您的后端服务——**无需在应用程序中编写任何认证代码**。
 
 ## 🌐 多语言文档 / Multi-language Documentation
@@ -36,17 +38,6 @@ Stargate 非常适合以下场景：
 - **开发与测试**：为开发环境提供简单的基于密码的认证
 - **企业级认证**：与 Warden（用户白名单）和 Herald（OTP/验证码）集成，提供生产级认证能力
 
-## 📋 目录
-
-- [功能特性](#功能特性)
-- [快速开始](#快速开始)
-- [配置说明](#配置说明)
-- [文档导航](#文档导航)
-- [API 文档](#api-文档)
-- [部署指南](#部署指南)
-- [开发指南](#开发指南)
-- [许可证](#许可证)
-
 ## ✨ 功能特性
 
 ### 🔐 企业级安全
@@ -71,6 +62,15 @@ Stargate 非常适合以下场景：
 - **Traefik 原生支持**：零配置的 Traefik Forward Auth 中间件集成
 - **简单配置**：基于环境变量的配置方式，无需复杂的配置文件
 
+## 📋 目录
+
+- [快速开始](#-快速开始)
+- [文档导航](#-文档导航)
+- [基本配置](#-基本配置)
+- [可选服务集成](#-可选服务集成)
+- [生产环境检查清单](#-生产环境检查清单)
+- [许可证](#-许可证)
+
 ## 🚀 快速开始
 
 **2 分钟内**让 Stargate 运行起来！
@@ -80,10 +80,10 @@ Stargate 非常适合以下场景：
 **步骤 1：** 克隆项目
 ```bash
 git clone <repository-url>
-cd forward-auth
+cd stargate
 ```
 
-**步骤 2：** 配置认证信息（编辑 `codes/docker-compose.yml`）
+**步骤 2：** 配置认证信息（编辑 `docker-compose.yml`）
 
 **选项 A：密码认证（简单）**
 ```yaml
@@ -110,7 +110,6 @@ services:
 
 **步骤 3：** 启动服务
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -118,426 +117,118 @@ docker-compose up -d
 
 ### 本地开发
 
-1. 确保已安装 Go 1.25 或更高版本
+本地开发需要 Go 1.25 或更高版本，然后：
 
-2. 进入项目目录：
-```bash
-cd codes
-```
-
-3. 运行本地启动脚本：
 ```bash
 chmod +x start-local.sh
 ./start-local.sh
 ```
 
-4. 访问登录页面：
-```
-http://localhost:8080/_login?callback=localhost
-```
-
-## ⚙️ 配置说明
-
-Stargate 采用简单直观的环境变量配置系统。无需复杂的 YAML 文件或配置解析——只需设置环境变量，即可开始使用。
-
-### 必需配置
-
-| 环境变量 | 说明 | 示例 |
-|---------|------|------|
-| `AUTH_HOST` | 认证服务的主机名 | `auth.example.com` |
-| `PASSWORDS` | 密码配置，格式：`算法:密码1\|密码2\|密码3` | `plaintext:test123\|admin456` |
-
-### 可选配置
-
-| 环境变量 | 说明 | 默认值 | 示例 |
-|---------|------|--------|------|
-| `DEBUG` | 启用调试模式 | `false` | `true` |
-| `LANGUAGE` | 界面语言 | `en` | `zh`（中文）或 `en`（英文） |
-| `LOGIN_PAGE_TITLE` | 登录页面标题 | `Stargate - Login` | `我的认证服务` |
-| `LOGIN_PAGE_FOOTER_TEXT` | 登录页面页脚文本 | `Copyright © 2024 - Stargate` | `© 2024 我的公司` |
-| `USER_HEADER_NAME` | 认证成功后设置的用户头名称 | `X-Forwarded-User` | `X-Authenticated-User` |
-| `COOKIE_DOMAIN` | Cookie 域名（用于跨域会话共享） | 空（不设置） | `.example.com` |
-| `PORT` | 服务监听端口（仅本地开发） | `80` | `8080` |
-
-### 密码配置格式
-
-密码配置使用以下格式：
-```
-算法:密码1|密码2|密码3
-```
-
-支持的算法：
-- `plaintext`：明文密码（仅用于测试）
-- `bcrypt`：BCrypt 哈希
-- `md5`：MD5 哈希
-- `sha512`：SHA512 哈希
-
-示例：
-```bash
-# 明文密码（多个）
-PASSWORDS=plaintext:test123|admin456|user789
-
-# BCrypt 哈希
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
-
-# MD5 哈希
-PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-**详细配置说明请参阅：[docs/zhCN/CONFIG.md](docs/zhCN/CONFIG.md)**
-
-## 🔗 可选服务集成
-
-Stargate 可以完全独立使用，也可以选择性地与以下服务集成以扩展功能：
-
-### Warden 集成（可选）
-
-Warden 提供用户白名单管理和用户信息。**这是可选的**，如果不需要用户白名单功能，可以不启用。
-
-启用后：
-- Stargate 查询 Warden 以验证用户是否在允许列表中
-- Warden 返回用户信息（email、phone、user_id、status）
-- 支持缓存以提高性能
-
-**配置：**
-```bash
-WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
-WARDEN_API_KEY=your-api-key
-WARDEN_CACHE_TTL=300  # 缓存 TTL（秒）
-```
-
-### Herald 集成（可选）
-
-Herald 提供 OTP/验证码服务。**这是可选的**，如果不需要验证码功能，可以不启用。
-
-启用后：
-- Stargate 调用 Herald 创建并发送验证码（短信/邮件）
-- Herald 处理所有 OTP 复杂性：限流、冷却时间、尝试次数限制、安全性
-- Stargate 调用 Herald 验证用户输入的验证码
-
-**配置：**
-```bash
-HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
-# 生产环境（推荐）：
-HERALD_HMAC_SECRET=your-hmac-secret
-# 开发环境：
-HERALD_API_KEY=your-api-key
-```
-
-**注意**：Warden 和 Herald 的集成都是可选的。Stargate 可以独立使用密码认证，也可以选择性地启用这些集成功能。
-
-**完整集成指南请参阅：[docs/zhCN/ARCHITECTURE.md](docs/zhCN/ARCHITECTURE.md)**
+访问登录页面：`http://localhost:8080/_login?callback=localhost`
 
 ## 📚 文档导航
 
 我们提供了全面的文档，帮助您充分利用 Stargate：
+
+### 核心文档
 
 - 📐 **[架构文档](docs/zhCN/ARCHITECTURE.md)** - 深入了解技术架构和设计决策
 - 🔌 **[API 文档](docs/zhCN/API.md)** - 完整的 API 端点参考和示例
 - ⚙️ **[配置参考](docs/zhCN/CONFIG.md)** - 详细的配置选项和最佳实践
 - 🚀 **[部署指南](docs/zhCN/DEPLOYMENT.md)** - 生产环境部署策略和建议
 
-## 📚 API 文档
+### 快速参考
 
-### 认证检查端点
+- **API 端点**：`GET /_auth`（认证检查）、`GET /_login`（登录页面）、`POST /_login`（登录）、`GET /_logout`（登出）、`GET /_session_exchange`（跨域）、`GET /health`（健康检查）
+- **部署**：推荐使用 Docker Compose 快速开始。生产环境部署请参阅 [DEPLOYMENT.md](docs/zhCN/DEPLOYMENT.md)
+- **开发**：开发相关文档请参阅 [ARCHITECTURE.md](docs/zhCN/ARCHITECTURE.md)
 
-#### `GET /_auth`
+## ⚙️ 基本配置
 
-Traefik Forward Auth 的主要认证检查端点。
+Stargate 使用环境变量进行配置。以下是最常用的配置项：
 
-**请求头：**
-- `Stargate-Password`（可选）：用于 API 请求的密码认证
-- `Cookie: stargate_session_id`（可选）：用于 Web 请求的会话认证
+### 必需配置
 
-**响应：**
-- `200 OK`：认证成功，设置 `X-Forwarded-User` 头（或配置的用户头名称）
-- `401 Unauthorized`：认证失败
-- `500 Internal Server Error`：服务器错误
+- **`AUTH_HOST`**：认证服务的主机名（例如：`auth.example.com`）
+- **`PASSWORDS`**：密码配置，格式为 `算法:密码1|密码2|密码3`
 
-**说明：**
-- HTML 请求认证失败时会重定向到登录页面
-- API 请求（JSON/XML）认证失败时返回 401 错误
-
-### 登录端点
-
-#### `GET /_login`
-
-显示登录页面。
-
-**查询参数：**
-- `callback`（可选）：登录成功后的回调 URL
-
-**响应：**
-- 返回登录页面 HTML
-
-#### `POST /_login`
-
-处理登录请求。
-
-**表单数据：**
-- `password`：用户密码
-- `callback`（可选）：登录成功后的回调 URL
-
-**Callback 获取优先级：**
-1. 从 Cookie 中获取（如果之前已设置）
-2. 从表单数据中获取
-3. 从查询参数中获取
-4. 如果以上都没有，且来源域名与认证服务域名不一致，则使用来源域名作为 callback
-
-**响应：**
-- `200 OK`：登录成功
-  - 如果有 callback，重定向到 `{callback}/_session_exchange?id={session_id}`
-  - 如果没有 callback，返回成功消息（HTML 或 JSON 格式，根据请求类型）
-- `401 Unauthorized`：密码错误
-- `500 Internal Server Error`：服务器错误
-
-### 登出端点
-
-#### `GET /_logout`
-
-登出当前用户，销毁会话。
-
-**响应：**
-- `200 OK`：登出成功，返回 "Logged out"
-
-### 会话交换端点
-
-#### `GET /_session_exchange`
-
-用于跨域会话共享。设置指定会话 ID 的 Cookie 并重定向。
-
-**查询参数：**
-- `id`（必需）：要设置的会话 ID
-
-**响应：**
-- `302 Redirect`：重定向到根路径
-- `400 Bad Request`：缺少会话 ID
-
-### 健康检查端点
-
-#### `GET /health`
-
-服务健康检查端点。
-
-**响应：**
-- `200 OK`：服务正常
-
-### 根端点
-
-#### `GET /`
-
-根路径，显示服务信息。
-
-**详细 API 文档请参阅：[docs/zhCN/API.md](docs/zhCN/API.md)**
-
-## 🐳 部署指南
-
-### Docker 部署
-
-#### 构建镜像
+### 常用配置示例
 
 ```bash
-cd codes
-docker build -t stargate:latest .
+# 简单密码认证
+AUTH_HOST=auth.example.com
+PASSWORDS=plaintext:test123|admin456
+
+# 使用 BCrypt 哈希
+PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+
+# 跨域会话共享
+COOKIE_DOMAIN=.example.com
+
+# 自定义登录页面
+LOGIN_PAGE_TITLE=我的认证服务
+LANGUAGE=zh  # 或 'en'
 ```
 
-#### 运行容器
+**支持的密码算法：** `plaintext`（仅测试用）、`bcrypt`、`md5`、`sha512`
+
+**完整配置参考请参阅：[docs/zhCN/CONFIG.md](docs/zhCN/CONFIG.md)**
+
+## 🔗 可选服务集成
+
+Stargate 可以完全独立使用，也可以选择性地与以下服务集成：
+
+### Warden 集成（用户白名单）
+
+提供用户白名单管理和用户信息。启用后，Stargate 会查询 Warden 以验证用户是否在允许列表中。
 
 ```bash
-docker run -d \
-  --name stargate \
-  -p 80:80 \
-  -e AUTH_HOST=auth.example.com \
-  -e PASSWORDS=plaintext:yourpassword \
-  stargate:latest
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
 ```
 
-### Docker Compose 部署
+### Herald 集成（OTP/验证码）
 
-项目提供了 `docker-compose.yml` 示例配置，包含 Stargate 服务和示例的 whoami 服务：
+提供 OTP/验证码服务。启用后，Stargate 会调用 Herald 创建、发送和验证验证码（短信/邮件）。
 
 ```bash
-cd codes
-docker-compose up -d
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-hmac-secret  # 生产环境
+# 或
+HERALD_API_KEY=your-api-key  # 开发环境
 ```
 
-### Traefik 集成
+**注意**：这两个集成都是可选的。Stargate 可以独立使用密码认证。
 
-在 `docker-compose.yml` 中配置 Traefik 标签：
-
-```yaml
-services:
-  stargate:
-    image: stargate:latest
-    environment:
-      - AUTH_HOST=auth.example.com
-      - PASSWORDS=plaintext:yourpassword
-    networks:
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
-      - "traefik.http.routers.auth.entrypoints=http"
-      - "traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)"
-      - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
-
-  your-service:
-    image: your-service:latest
-    networks:
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
-      - "traefik.http.routers.your-service.entrypoints=http"
-      - "traefik.http.routers.your-service.rule=Host(`your-service.example.com`)"
-      - "traefik.http.routers.your-service.middlewares=stargate"  # 使用 Stargate 中间件
-
-networks:
-  traefik:
-    external: true
-```
-
-### 生产环境建议
-
-1. **使用 HTTPS**：在生产环境中，确保通过 Traefik 配置 HTTPS
-2. **使用强密码算法**：避免使用 `plaintext`，推荐使用 `bcrypt` 或 `sha512`
-3. **设置 Cookie 域名**：如果需要在多个子域名间共享会话，设置 `COOKIE_DOMAIN`
-4. **日志管理**：配置适当的日志轮转和监控
-5. **资源限制**：为容器设置适当的 CPU 和内存限制
-
-**详细部署指南请参阅：[docs/zhCN/DEPLOYMENT.md](docs/zhCN/DEPLOYMENT.md)**
-
-## 💻 开发指南
-
-### 项目结构
-
-```
-codes/
-├── src/
-│   ├── cmd/
-│   │   └── stargate/          # 主程序入口
-│   │       ├── main.go        # 程序入口
-│   │       ├── server.go      # 服务器配置
-│   │       └── constants.go   # 常量定义
-│   ├── internal/
-│   │   ├── auth/              # 认证逻辑
-│   │   ├── config/            # 配置管理
-│   │   ├── handlers/          # HTTP 处理器
-│   │   ├── i18n/              # 国际化
-│   │   ├── middleware/        # 中间件
-│   │   ├── secure/            # 密码加密算法
-│   │   └── web/               # Web 模板和静态资源
-│   ├── go.mod
-│   └── go.sum
-├── Dockerfile
-├── docker-compose.yml
-└── start-local.sh
-```
-
-### 本地开发
-
-1. 安装依赖：
-```bash
-cd codes
-go mod download
-```
-
-2. 运行测试：
-```bash
-go test ./...
-```
-
-3. 启动开发服务器：
-```bash
-./start-local.sh
-```
-
-### 添加新的密码算法
-
-1. 在 `src/internal/secure/` 目录下创建新的算法实现：
-```go
-package secure
-
-type NewAlgorithmResolver struct{}
-
-func (r *NewAlgorithmResolver) Check(h string, password string) bool {
-    // 实现密码验证逻辑
-    return false
-}
-```
-
-2. 在 `src/internal/config/validation.go` 中注册算法：
-```go
-SupportedAlgorithms = map[string]secure.HashResolver{
-    // ...
-    "newalgorithm": &secure.NewAlgorithmResolver{},
-}
-```
-
-### 添加新的语言支持
-
-1. 在 `src/internal/i18n/i18n.go` 中添加语言常量：
-```go
-const (
-    LangEN Language = "en"
-    LangZH Language = "zh"
-    LangFR Language = "fr"  // 新增
-)
-```
-
-2. 添加翻译映射：
-```go
-var translations = map[Language]map[string]string{
-    // ...
-    LangFR: {
-        "error.auth_required": "Authentification requise",
-        // ...
-    },
-}
-```
-
-3. 在 `src/internal/config/config.go` 中添加语言选项：
-```go
-Language = EnvVariable{
-    PossibleValues: []string{"en", "zh", "fr"},  // 添加新语言
-}
-```
-
-## 📝 许可证
-
-本项目采用 Apache License 2.0 许可证。详情请参阅 [LICENSE](codes/LICENSE) 文件。
-
-## 🤝 贡献
-
-我们欢迎各种形式的贡献！无论是：
-- 🐛 错误报告
-- 💡 功能建议
-- 📝 文档改进
-- 🔧 代码贡献
-
-请随时提交 Issue 或 Pull Request。每一个贡献都会让 Stargate 变得更好！
-
----
+**完整集成指南请参阅：[docs/zhCN/ARCHITECTURE.md](docs/zhCN/ARCHITECTURE.md)**
 
 ## ⚠️ 生产环境检查清单
 
-在部署到生产环境之前，请确保您已完成以下安全最佳实践：
+在部署到生产环境之前：
 
-- ✅ **使用强密码**：避免使用 `plaintext`，使用 `bcrypt` 或 `sha512` 进行密码哈希
-- ✅ **启用 HTTPS**：通过 Traefik 或您的反向代理配置 HTTPS
-- ✅ **设置 Cookie 域名**：配置 `COOKIE_DOMAIN` 以在子域名间正确管理会话
-- ✅ **可选服务集成**：如需更高级功能，可选择集成 Warden + Herald 进行 OTP 认证
-- ✅ **服务安全**：Stargate ↔ Herald/Warden 通信使用 HMAC 签名或 mTLS
-- ✅ **监控与日志**：为您的部署设置适当的日志记录和监控
-- ✅ **定期更新**：保持 Stargate 更新到最新版本，以获取安全补丁
+- ✅ 使用强密码算法（`bcrypt` 或 `sha512`，避免使用 `plaintext`）
+- ✅ 通过 Traefik 或您的反向代理启用 HTTPS
+- ✅ 设置 `COOKIE_DOMAIN` 以在子域名间正确管理会话
+- ✅ 如需更高级功能，可选择集成 Warden + Herald 进行 OTP 认证
+- ✅ Stargate ↔ Herald/Warden 通信使用 HMAC 签名或 mTLS
+- ✅ 设置适当的日志记录和监控
+- ✅ 保持 Stargate 更新到最新版本
 
 ## 🎯 设计原则
 
 Stargate 设计为可以完全独立使用：
 
-- **独立使用**：Stargate 可以独立运行，使用密码认证模式，无需任何外部依赖
+- **独立使用**：可以独立运行，使用密码认证模式，无需任何外部依赖
 - **可选集成**：可以选择性地集成 Warden（用户白名单）和 Herald（OTP/验证码）服务
 - **高性能**：forwardAuth 主链路只校验 session，确保快速响应
 - **灵活性**：支持多种认证模式，可根据需求选择
+
+## 📝 许可证
+
+本项目采用 Apache License 2.0 许可证。详情请参阅 [LICENSE](LICENSE) 文件。
+
+## 🤝 贡献
+
+我们欢迎各种形式的贡献！无论是错误报告、功能建议、文档改进还是代码贡献，请随时提交 Issue 或 Pull Request。

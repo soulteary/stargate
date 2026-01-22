@@ -62,7 +62,7 @@ Benvenuto nella documentazione del servizio Stargate Forward Auth.
 ## 📖 Struttura dei Documenti
 
 ```
-codes/
+stargate/
 ├── README.md              # Documento principale del progetto (Inglese)
 ├── README.zhCN.md         # Documento principale del progetto (Cinese)
 ├── README.frFR.md         # Documento principale del progetto (Francese)

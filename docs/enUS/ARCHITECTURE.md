@@ -15,7 +15,7 @@ This document describes the technical architecture and design decisions of the S
 ## Project Structure
 
 ```
-codes/src/
+src/
 ├── cmd/stargate/          # Application entry point
 │   ├── main.go            # Main function, initializes configuration and starts server
 │   ├── server.go          # Server configuration and route setup

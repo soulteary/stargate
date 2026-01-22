@@ -15,7 +15,7 @@ Dieses Dokument beschreibt die technische Architektur und Designentscheidungen d
 ## Projektstruktur
 
 ```
-codes/src/
+src/
 ├── cmd/stargate/          # Anwendungseinstiegspunkt
 │   ├── main.go            # Hauptfunktion, initialisiert Konfiguration und startet Server
 │   ├── server.go          # Server-Konfiguration und Routen-Setup

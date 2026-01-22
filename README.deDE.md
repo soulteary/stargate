@@ -7,6 +7,8 @@
 
 > **🚀 Ihr Gateway zu sicheren Microservices**
 
+![Stargate](.github/assets/banner.jpg)
+
 Stargate ist ein produktionsreifer, leichtgewichtiger Forward Auth Service, der als **einzelner Authentifizierungspunkt** für Ihre gesamte Infrastruktur konzipiert wurde. Mit Go entwickelt und für Leistung optimiert, integriert sich Stargate nahtlos mit Traefik und anderen Reverse-Proxies, um Ihre Backend-Services zu schützen—**ohne eine einzige Zeile Authentifizierungscode in Ihren Anwendungen zu schreiben**.
 
 ## 🌐 Mehrsprachige Dokumentation
@@ -34,17 +36,7 @@ Stargate ist perfekt für:
 - **Interne Tools & Dashboards**: Schnell Authentifizierung zu internen Services und Admin-Panels hinzufügen
 - **API-Gateway-Integration**: Mit Traefik, Nginx oder anderen Reverse-Proxies als einheitliche Auth-Schicht verwenden
 - **Entwicklung & Testing**: Einfache passwortbasierte Authentifizierung für Entwicklungsumgebungen
-
-## 📋 Inhaltsverzeichnis
-
-- [Funktionen](#funktionen)
-- [Schnellstart](#schnellstart)
-- [Konfiguration](#konfiguration)
-- [Dokumentation](#dokumentation)
-- [API-Dokumentation](#api-dokumentation)
-- [Bereitstellungsanleitung](#bereitstellungsanleitung)
-- [Entwicklungsleitfaden](#entwicklungsleitfaden)
-- [Lizenz](#lizenz)
+- **Unternehmensauthentifizierung**: Integration mit Warden (Benutzer-Whitelist) und Herald (OTP/Verifizierungscodes) für produktionsreife Authentifizierung
 
 ## ✨ Funktionen
 
@@ -74,6 +66,15 @@ Stargate ist perfekt für:
 - **Traefik Native**: Zero-Konfiguration Traefik Forward Auth Middleware-Integration
 - **Einfache Konfiguration**: Umgebungsvariablen-basierte Konfiguration, keine komplexen Dateien erforderlich
 
+## 📋 Inhaltsverzeichnis
+
+- [Schnellstart](#-schnellstart)
+- [Dokumentation](#-dokumentation)
+- [Grundkonfiguration](#-grundkonfiguration)
+- [Optionale Service-Integration](#-optionale-service-integration)
+- [Produktions-Checkliste](#-produktions-checkliste)
+- [Lizenz](#-lizenz)
+
 ## 🚀 Schnellstart
 
 Stargate in **weniger als 2 Minuten** zum Laufen bringen!
@@ -83,10 +84,10 @@ Stargate in **weniger als 2 Minuten** zum Laufen bringen!
 **Schritt 1:** Repository klonen
 ```bash
 git clone <repository-url>
-cd forward-auth
+cd stargate
 ```
 
-**Schritt 2:** Authentifizierung konfigurieren (`codes/docker-compose.yml` bearbeiten)
+**Schritt 2:** Authentifizierung konfigurieren (`docker-compose.yml` bearbeiten)
 
 **Option A: Passwort-Authentifizierung (Einfach)**
 ```yaml
@@ -113,7 +114,6 @@ services:
 
 **Schritt 3:** Service starten
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -121,420 +121,104 @@ docker-compose up -d
 
 ### Lokale Entwicklung
 
-1. Stellen Sie sicher, dass Go 1.25 oder höher installiert ist
+Für die lokale Entwicklung stellen Sie sicher, dass Go 1.25+ installiert ist, dann:
 
-2. Navigieren Sie zum Projektverzeichnis:
-```bash
-cd codes
-```
-
-3. Lokales Startskript ausführen:
 ```bash
 chmod +x start-local.sh
 ./start-local.sh
 ```
 
-4. Auf die Login-Seite zugreifen:
-```
-http://localhost:8080/_login?callback=localhost
-```
-
-## ⚙️ Konfiguration
-
-Stargate verwendet ein einfaches, umgebungsvariablen-basiertes Konfigurationssystem. Keine komplexen YAML-Dateien oder Konfigurationsparsing—setzen Sie einfach Umgebungsvariablen und Sie sind bereit.
-
-### Erforderliche Konfiguration
-
-| Umgebungsvariable | Beschreibung | Beispiel |
-|-------------------|--------------|----------|
-| `AUTH_HOST` | Hostname des Authentifizierungsservices | `auth.example.com` |
-| `PASSWORDS` | Passwort-Konfiguration, Format: `algorithm:password1\|password2\|password3` | `plaintext:test123\|admin456` |
-
-### Optionale Konfiguration
-
-| Umgebungsvariable | Beschreibung | Standard | Beispiel |
-|-------------------|--------------|----------|----------|
-| `DEBUG` | Debug-Modus aktivieren | `false` | `true` |
-| `LANGUAGE` | Interface-Sprache | `en` | `de` (Deutsch), `zh` (Chinesisch), `en` (Englisch), `fr` (Französisch), `it` (Italienisch), `ja` (Japanisch), `ko` (Koreanisch) |
-| `LOGIN_PAGE_TITLE` | Titel der Login-Seite | `Stargate - Login` | `Mein Auth-Service` |
-| `LOGIN_PAGE_FOOTER_TEXT` | Fußzeilentext der Login-Seite | `Copyright © 2024 - Stargate` | `© 2024 Mein Unternehmen` |
-| `USER_HEADER_NAME` | Benutzer-Header-Name, der nach erfolgreicher Authentifizierung gesetzt wird | `X-Forwarded-User` | `X-Authenticated-User` |
-| `COOKIE_DOMAIN` | Cookie-Domain (für Cross-Domain-Sitzungsteilung) | Leer (nicht gesetzt) | `.example.com` |
-| `PORT` | Service-Listening-Port (nur lokale Entwicklung) | `80` | `8080` |
-
-### Passwort-Konfigurationsformat
-
-Die Passwort-Konfiguration verwendet das folgende Format:
-```
-algorithm:password1|password2|password3
-```
-
-Unterstützte Algorithmen:
-- `plaintext`: Klartext-Passwort (nur Test)
-- `bcrypt`: BCrypt-Hash
-- `md5`: MD5-Hash
-- `sha512`: SHA512-Hash
-
-Beispiele:
-```bash
-# Klartext-Passwörter (mehrere)
-PASSWORDS=plaintext:test123|admin456|user789
-
-# BCrypt-Hash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
-
-# MD5-Hash
-PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-**Für detaillierte Konfiguration siehe: [docs/deDE/CONFIG.md](docs/deDE/CONFIG.md)**
-
-## 🔗 Optionale Service-Integration
-
-Stargate kann vollständig unabhängig verwendet werden oder optional mit den folgenden Services integriert werden, um die Funktionalität zu erweitern:
-
-### Warden-Integration (Optional)
-
-Warden bietet Benutzer-Whitelist-Verwaltung und Benutzerinformationen. **Dies ist optional** - wenn Sie keine Benutzer-Whitelist-Funktionalität benötigen, müssen Sie es nicht aktivieren.
-
-Wenn aktiviert:
-- Stargate fragt Warden ab, um zu überprüfen, ob ein Benutzer in der erlaubten Liste ist
-- Warden gibt Benutzerinformationen zurück (email, phone, user_id, status)
-- Unterstützt Caching zur Leistungsverbesserung
-
-**Konfiguration:**
-```bash
-WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
-WARDEN_API_KEY=your-api-key
-WARDEN_CACHE_TTL=300  # Cache-TTL (Sekunden)
-```
-
-### Herald-Integration (Optional)
-
-Herald bietet OTP/Verifizierungscode-Services. **Dies ist optional** - wenn Sie keine Verifizierungscode-Funktionalität benötigen, müssen Sie es nicht aktivieren.
-
-Wenn aktiviert:
-- Stargate ruft Herald auf, um Verifizierungscodes (SMS/Email) zu erstellen und zu senden
-- Herald verwaltet alle OTP-Komplexität: Ratenbegrenzung, Abkühlzeit, Versuchslimits, Sicherheit
-- Stargate ruft Herald auf, um vom Benutzer eingegebene Codes zu überprüfen
-
-**Konfiguration:**
-```bash
-HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
-# Produktionsumgebung (empfohlen):
-HERALD_HMAC_SECRET=your-hmac-secret
-# Entwicklungsumgebung:
-HERALD_API_KEY=your-api-key
-```
-
-**Hinweis:** Warden- und Herald-Integrationen sind optional. Stargate kann unabhängig mit Passwort-Authentifizierung verwendet werden, oder Sie können diese Integrationsfunktionen optional aktivieren.
-
-**Vollständige Integrationsanleitung siehe: [docs/deDE/ARCHITECTURE.md](docs/deDE/ARCHITECTURE.md)**
+Zugriff auf die Login-Seite unter `http://localhost:8080/_login?callback=localhost`
 
 ## 📚 Dokumentation
 
 Umfassende Dokumentation ist verfügbar, um Ihnen zu helfen, das Beste aus Stargate herauszuholen:
+
+### Kern-Dokumente
 
 - 📐 **[Architekturdokument](docs/deDE/ARCHITECTURE.md)** - Tiefere Einblicke in technische Architektur und Designentscheidungen
 - 🔌 **[API-Dokument](docs/deDE/API.md)** - Vollständige API-Endpunkt-Referenz mit Beispielen
 - ⚙️ **[Konfigurationsreferenz](docs/deDE/CONFIG.md)** - Detaillierte Konfigurationsoptionen und Best Practices
 - 🚀 **[Bereitstellungsanleitung](docs/deDE/DEPLOYMENT.md)** - Produktionsbereitstellungsstrategien und Empfehlungen
 
-## 📚 API-Dokumentation
+### Schnellreferenz
 
-### Authentifizierungsprüfungs-Endpunkt
+- **API-Endpunkte**: `GET /_auth` (Auth-Prüfung), `GET /_login` (Login-Seite), `POST /_login` (Login), `GET /_logout` (Logout), `GET /_session_exchange` (Cross-Domain), `GET /health` (Gesundheitsprüfung)
+- **Bereitstellung**: Docker Compose wird für den Schnellstart empfohlen. Siehe [DEPLOYMENT.md](docs/deDE/DEPLOYMENT.md) für die Produktionsbereitstellung.
+- **Entwicklung**: Für entwicklungsbezogene Dokumentation siehe [ARCHITECTURE.md](docs/deDE/ARCHITECTURE.md)
 
-#### `GET /_auth`
+## ⚙️ Grundkonfiguration
 
-Der Haupt-Authentifizierungsprüfungs-Endpunkt für Traefik Forward Auth.
+Stargate verwendet Umgebungsvariablen für die Konfiguration. Hier sind die häufigsten Einstellungen:
 
-**Anfrage-Header:**
-- `Stargate-Password` (optional): Passwort-Authentifizierung für API-Anfragen
-- `Cookie: stargate_session_id` (optional): Sitzungs-Authentifizierung für Web-Anfragen
+### Erforderliche Konfiguration
 
-**Antwort:**
-- `200 OK`: Authentifizierung erfolgreich, setzt `X-Forwarded-User`-Header (oder konfigurierter Benutzer-Header-Name)
-- `401 Unauthorized`: Authentifizierung fehlgeschlagen
-- `500 Internal Server Error`: Serverfehler
+- **`AUTH_HOST`**: Hostname des Authentifizierungsservices (z.B. `auth.example.com`)
+- **`PASSWORDS`**: Passwort-Konfiguration, Format: `algorithm:password1|password2|password3`
 
-**Hinweise:**
-- HTML-Anfragen leiten bei Authentifizierungsfehler zur Login-Seite weiter
-- API-Anfragen (JSON/XML) geben bei Authentifizierungsfehler 401-Fehler zurück
-
-### Login-Endpunkt
-
-#### `GET /_login`
-
-Zeigt die Login-Seite an.
-
-**Abfrageparameter:**
-- `callback` (optional): Callback-URL nach erfolgreichem Login
-
-**Antwort:**
-- Gibt Login-Seiten-HTML zurück
-
-#### `POST /_login`
-
-Verarbeitet Login-Anfragen.
-
-**Formulardaten:**
-- `password`: Benutzerpasswort
-- `callback` (optional): Callback-URL nach erfolgreichem Login
-
-**Callback-Abrufpriorität:**
-1. Vom Cookie (wenn zuvor gesetzt)
-2. Von Formulardaten
-3. Von Abfrageparametern
-4. Wenn keines der oben genannten vorhanden ist und die Ursprungsdomain sich von der Authentifizierungsservice-Domain unterscheidet, verwenden Sie die Ursprungsdomain als Callback
-
-**Antwort:**
-- `200 OK`: Login erfolgreich
-  - Wenn Callback vorhanden ist, leitet zu `{callback}/_session_exchange?id={session_id}` weiter
-  - Wenn kein Callback vorhanden ist, gibt Erfolgsmeldung zurück (HTML- oder JSON-Format, abhängig vom Anfragetyp)
-- `401 Unauthorized`: Falsches Passwort
-- `500 Internal Server Error`: Serverfehler
-
-### Logout-Endpunkt
-
-#### `GET /_logout`
-
-Meldet den aktuellen Benutzer ab und zerstört die Sitzung.
-
-**Antwort:**
-- `200 OK`: Logout erfolgreich, gibt "Logged out" zurück
-
-### Sitzungsaustausch-Endpunkt
-
-#### `GET /_session_exchange`
-
-Wird für Cross-Domain-Sitzungsteilung verwendet. Setzt das angegebene Sitzungs-ID-Cookie und leitet weiter.
-
-**Abfrageparameter:**
-- `id` (erforderlich): Zu setzende Sitzungs-ID
-
-**Antwort:**
-- `302 Redirect`: Leitet zum Root-Pfad weiter
-- `400 Bad Request`: Sitzungs-ID fehlt
-
-### Gesundheitsprüfungs-Endpunkt
-
-#### `GET /health`
-
-Service-Gesundheitsprüfungs-Endpunkt.
-
-**Antwort:**
-- `200 OK`: Service ist gesund
-
-### Root-Endpunkt
-
-#### `GET /`
-
-Root-Pfad, zeigt Service-Informationen an.
-
-**Für detaillierte API-Dokumentation siehe: [docs/deDE/API.md](docs/deDE/API.md)**
-
-## 🐳 Bereitstellungsanleitung
-
-### Docker-Bereitstellung
-
-#### Image erstellen
+### Häufige Konfigurationsbeispiele
 
 ```bash
-cd codes
-docker build -t stargate:latest .
+# Einfache Passwort-Authentifizierung
+AUTH_HOST=auth.example.com
+PASSWORDS=plaintext:test123|admin456
+
+# BCrypt-Hash verwenden
+PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+
+# Cross-Domain-Sitzungsteilung
+COOKIE_DOMAIN=.example.com
+
+# Login-Seite anpassen
+LOGIN_PAGE_TITLE=Mein Auth-Service
+LANGUAGE=de  # oder 'en'
 ```
 
-#### Container ausführen
+**Unterstützte Passwort-Algorithmen:** `plaintext` (nur Test), `bcrypt`, `md5`, `sha512`
+
+**Für vollständige Konfigurationsreferenz siehe: [docs/deDE/CONFIG.md](docs/deDE/CONFIG.md)**
+
+## 🔗 Optionale Service-Integration
+
+Stargate kann vollständig unabhängig verwendet werden oder optional mit den folgenden Services integriert werden:
+
+### Warden-Integration (Benutzer-Whitelist)
+
+Bietet Benutzer-Whitelist-Verwaltung und Benutzerinformationen. Wenn aktiviert, fragt Stargate Warden ab, um zu überprüfen, ob ein Benutzer in der erlaubten Liste ist.
 
 ```bash
-docker run -d \
-  --name stargate \
-  -p 80:80 \
-  -e AUTH_HOST=auth.example.com \
-  -e PASSWORDS=plaintext:yourpassword \
-  stargate:latest
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
 ```
 
-### Docker Compose-Bereitstellung
+### Herald-Integration (OTP/Verifizierungscodes)
 
-Das Projekt bietet eine `docker-compose.yml`-Beispielkonfiguration, einschließlich Stargate-Service und Beispiel-whoami-Service:
+Bietet OTP/Verifizierungscode-Services. Wenn aktiviert, ruft Stargate Herald auf, um Verifizierungscodes (SMS/Email) zu erstellen, zu senden und zu überprüfen.
 
 ```bash
-cd codes
-docker-compose up -d
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-hmac-secret  # Produktion
+# oder
+HERALD_API_KEY=your-api-key  # Entwicklung
 ```
 
-### Traefik-Integration
+**Hinweis:** Beide Integrationen sind optional. Stargate kann unabhängig mit Passwort-Authentifizierung verwendet werden.
 
-Traefik-Labels in `docker-compose.yml` konfigurieren:
-
-```yaml
-services:
-  stargate:
-    image: stargate:latest
-    environment:
-      - AUTH_HOST=auth.example.com
-      - PASSWORDS=plaintext:yourpassword
-    networks:
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
-      - "traefik.http.routers.auth.entrypoints=http"
-      - "traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)"
-      - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
-
-  your-service:
-    image: your-service:latest
-    networks:
-      - traefik
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
-      - "traefik.http.routers.your-service.entrypoints=http"
-      - "traefik.http.routers.your-service.rule=Host(`your-service.example.com`)"
-      - "traefik.http.routers.your-service.middlewares=stargate"  # Stargate-Middleware verwenden
-
-networks:
-  traefik:
-    external: true
-```
-
-### Produktionsempfehlungen
-
-1. **HTTPS verwenden**: In der Produktion sicherstellen, dass HTTPS über Traefik konfiguriert ist
-2. **Starke Passwort-Algorithmen verwenden**: `plaintext` vermeiden, `bcrypt` oder `sha512` empfehlen
-3. **Cookie-Domain setzen**: Wenn Sie Sitzungen über mehrere Subdomains teilen müssen, `COOKIE_DOMAIN` setzen
-4. **Log-Verwaltung**: Angemessene Log-Rotation und Überwachung konfigurieren
-5. **Ressourcenlimits**: Angemessene CPU- und Speicherlimits für Container setzen
-
-**Für detaillierte Bereitstellungsanleitung siehe: [docs/deDE/DEPLOYMENT.md](docs/deDE/DEPLOYMENT.md)**
-
-## 💻 Entwicklungsleitfaden
-
-### Projektstruktur
-
-```
-codes/
-├── src/
-│   ├── cmd/
-│   │   └── stargate/          # Hauptprogramm-Einstiegspunkt
-│   │       ├── main.go        # Programmeinstieg
-│   │       ├── server.go      # Serverkonfiguration
-│   │       └── constants.go  # Konstantendefinitionen
-│   ├── internal/
-│   │   ├── auth/              # Authentifizierungslogik
-│   │   ├── config/            # Konfigurationsverwaltung
-│   │   ├── handlers/          # HTTP-Handler
-│   │   ├── i18n/              # Internationalisierung
-│   │   ├── middleware/        # Middleware
-│   │   ├── secure/            # Passwort-Verschlüsselungsalgorithmen
-│   │   └── web/               # Web-Vorlagen und statische Ressourcen
-│   ├── go.mod
-│   └── go.sum
-├── Dockerfile
-├── docker-compose.yml
-└── start-local.sh
-```
-
-### Lokale Entwicklung
-
-1. Abhängigkeiten installieren:
-```bash
-cd codes
-go mod download
-```
-
-2. Tests ausführen:
-```bash
-go test ./...
-```
-
-3. Entwicklungsserver starten:
-```bash
-./start-local.sh
-```
-
-### Neue Passwort-Algorithmen hinzufügen
-
-1. Neue Algorithmus-Implementierung im Verzeichnis `src/internal/secure/` erstellen:
-```go
-package secure
-
-type NewAlgorithmResolver struct{}
-
-func (r *NewAlgorithmResolver) Check(h string, password string) bool {
-    // Passwort-Verifizierungslogik implementieren
-    return false
-}
-```
-
-2. Algorithmus in `src/internal/config/validation.go` registrieren:
-```go
-SupportedAlgorithms = map[string]secure.HashResolver{
-    // ...
-    "newalgorithm": &secure.NewAlgorithmResolver{},
-}
-```
-
-### Neue Sprachunterstützung hinzufügen
-
-1. Sprachkonstante in `src/internal/i18n/i18n.go` hinzufügen:
-```go
-const (
-    LangEN Language = "en"
-    LangZH Language = "zh"
-    LangDE Language = "de"  // Neu
-)
-```
-
-2. Übersetzungszuordnung hinzufügen:
-```go
-var translations = map[Language]map[string]string{
-    // ...
-    LangDE: {
-        "error.auth_required": "Authentifizierung erforderlich",
-        // ...
-    },
-}
-```
-
-3. Sprachoption in `src/internal/config/config.go` hinzufügen:
-```go
-Language = EnvVariable{
-    PossibleValues: []string{"en", "zh", "de"},  // Neue Sprache hinzufügen
-}
-```
-
-## 📝 Lizenz
-
-Dieses Projekt ist unter der Apache License 2.0 lizenziert. Siehe die [LICENSE](codes/LICENSE)-Datei für Details.
-
-## 🤝 Beitragen
-
-Wir begrüßen Beiträge! Ob es sich handelt um:
-- 🐛 Fehlerberichte
-- 💡 Funktionsvorschläge
-- 📝 Dokumentationsverbesserungen
-- 🔧 Code-Beiträge
-
-Bitte zögern Sie nicht, ein Issue zu öffnen oder einen Pull Request einzureichen. Jeder Beitrag macht Stargate besser!
-
----
+**Vollständige Integrationsanleitung siehe: [docs/deDE/ARCHITECTURE.md](docs/deDE/ARCHITECTURE.md)**
 
 ## ⚠️ Produktions-Checkliste
 
-Vor dem Bereitstellen in der Produktion stellen Sie sicher, dass Sie diese Sicherheits-Best-Practices abgeschlossen haben:
+Vor dem Bereitstellen in der Produktion:
 
-- ✅ **Starke Passwörter verwenden**: `plaintext` vermeiden, `bcrypt` oder `sha512` für Passwort-Hashing verwenden
-- ✅ **HTTPS aktivieren**: HTTPS über Traefik oder Ihren Reverse-Proxy konfigurieren
-- ✅ **Cookie-Domain setzen**: `COOKIE_DOMAIN` für ordnungsgemäße Sitzungsverwaltung über Subdomains konfigurieren
-- ✅ **Optionale Service-Integration**: Für erweiterte Funktionen optional Warden + Herald für OTP-Authentifizierung integrieren
-- ✅ **Service-zu-Service-Sicherheit**: Stargate ↔ Herald/Warden-Kommunikation mit HMAC-Signaturen oder mTLS
-- ✅ **Überwachen & Protokollieren**: Angemessene Protokollierung und Überwachung für Ihre Bereitstellung einrichten
-- ✅ **Regelmäßige Updates**: Stargate auf die neueste Version aktualisieren, um Sicherheitspatches zu erhalten
+- ✅ Verwenden Sie starke Passwort-Algorithmen (`bcrypt` oder `sha512`, vermeiden Sie `plaintext`)
+- ✅ Aktivieren Sie HTTPS über Traefik oder Ihren Reverse-Proxy
+- ✅ Setzen Sie `COOKIE_DOMAIN` für ordnungsgemäße Sitzungsverwaltung über Subdomains
+- ✅ Für erweiterte Funktionen optional Warden + Herald für OTP-Authentifizierung integrieren
+- ✅ Verwenden Sie HMAC-Signaturen oder mTLS für Stargate ↔ Herald/Warden-Kommunikation
+- ✅ Richten Sie angemessene Protokollierung und Überwachung ein
+- ✅ Halten Sie Stargate auf dem neuesten Stand
 
 ## 🎯 Designprinzipien
 
@@ -544,3 +228,17 @@ Stargate ist für die unabhängige Verwendung konzipiert:
 - **Optionale Integration**: Kann optional mit Warden (Benutzer-Whitelist) und Herald (OTP/Verifizierungscodes) integriert werden
 - **Hohe Leistung**: Der forwardAuth-Hauptpfad überprüft nur die Sitzung und gewährleistet schnelle Antwortzeiten
 - **Flexibilität**: Unterstützt mehrere Authentifizierungsmodi, wählen Sie je nach Bedarf
+
+## 📝 Lizenz
+
+Dieses Projekt ist unter der Apache License 2.0 lizenziert. Siehe die [LICENSE](LICENSE)-Datei für Details.
+
+## 🤝 Beitragen
+
+Wir begrüßen Beiträge! Ob es sich handelt um:
+- 🐛 Fehlerberichte
+- 💡 Funktionsvorschläge
+- 📝 Dokumentationsverbesserungen
+- 🔧 Code-Beiträge
+
+Bitte zögern Sie nicht, ein Issue zu öffnen oder einen Pull Request einzureichen.

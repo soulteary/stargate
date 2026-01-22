@@ -62,7 +62,7 @@ Stargate Forward Auth Service のドキュメントへようこそ。
 ## 📖 ドキュメント構造
 
 ```
-codes/
+stargate/
 ├── README.md              # プロジェクトメインドキュメント（英語）
 ├── README.zhCN.md         # プロジェクトメインドキュメント（中国語）
 ├── README.frFR.md         # プロジェクトメインドキュメント（フランス語）

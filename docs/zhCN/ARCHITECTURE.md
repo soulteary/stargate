@@ -15,7 +15,7 @@
 ## 项目结构
 
 ```
-codes/src/
+src/
 ├── cmd/stargate/          # 应用程序入口点
 │   ├── main.go            # 主函数，初始化配置和启动服务器
 │   ├── server.go          # 服务器配置和路由设置

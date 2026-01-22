@@ -62,7 +62,7 @@ Welcome to the Stargate Forward Auth Service documentation.
 ## 📖 Document Structure
 
 ```
-codes/
+stargate/
 ├── README.md              # Main project document (English)
 ├── README.zhCN.md         # Main project document (Chinese)
 ├── docs/
