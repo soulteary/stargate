@@ -121,38 +121,152 @@ type HashResolver interface {
 }
 ```
 
+## 시스템 아키텍처
+
+### 아키텍처 다이어그램
+
+```mermaid
+graph TB
+    subgraph User["사용자"]
+        Browser[브라우저]
+        API[API 클라이언트]
+    end
+
+    subgraph Edge["엣지 레이어"]
+        Traefik[Traefik 리버스 프록시]
+    end
+
+    subgraph Auth["인증 레이어"]
+        Stargate[Stargate<br/>인증/세션 관리]
+    end
+
+    subgraph Services["서비스 레이어"]
+        Warden[Warden<br/>사용자 화이트리스트]
+        Herald[Herald<br/>OTP/인증 코드]
+    end
+
+    subgraph Storage["스토리지 레이어"]
+        Redis[Redis<br/>세션/속도 제한]
+        DB[(데이터베이스<br/>사용자 정보)]
+    end
+
+    subgraph Providers["외부 서비스"]
+        SMSProvider[SMS 제공자]
+        EmailProvider[이메일 제공자]
+    end
+
+    Browser -->|1. 보호된 리소스 액세스| Traefik
+    API -->|1. API 요청| Traefik
+    Traefik -->|2. Forward Auth| Stargate
+    Stargate -->|3. 세션 확인| Redis
+    Stargate -->|4. 로그인 안 됨: 사용자 쿼리| Warden
+    Warden -->|5. 사용자 정보 반환| DB
+    Stargate -->|6. 챌린지 생성| Herald
+    Herald -->|7. 코드 전송| SMSProvider
+    Herald -->|7. 코드 전송| EmailProvider
+    Herald -->|8. 챌린지 저장| Redis
+    Stargate -->|9. 코드 확인| Herald
+    Stargate -->|10. 세션 생성| Redis
+    Stargate -->|11. 인증 결과 반환| Traefik
+    Traefik -->|12. 허용/거부| Browser
+    Traefik -->|12. 허용/거부| API
+
+    style Stargate fill:#4A90E2,color:#fff
+    style Warden fill:#50C878,color:#fff
+    style Herald fill:#FF6B6B,color:#fff
+    style Redis fill:#FFA500,color:#fff
+```
+
+## 독립 사용 모드
+
+Stargate는 외부 종속성 없이 완전히 독립적으로 사용할 수 있도록 설계되었습니다:
+
+- **비밀번호 인증 모드**: 구성된 비밀번호를 사용하여 인증을 수행하며, 여러 암호화 알고리즘을 지원합니다
+- **세션 관리**: Cookie 기반 세션 관리, 크로스 도메인 세션 공유를 지원합니다
+- **ForwardAuth**: 표준 Traefik Forward Auth 인터페이스를 제공합니다
+
+이것은 Stargate의 주요 사용 사례로, 대부분의 애플리케이션 시나리오에 적합합니다.
+
+## 선택적 서비스 통합
+
+Stargate는 인증 기능을 확장하기 위한 선택적 서비스 통합을 지원합니다. 이러한 통합은 모두 선택 사항이며, Stargate는 완전히 독립적으로 사용할 수 있습니다.
+
+### Warden 통합 (선택 사항)
+
+`WARDEN_ENABLED=true`인 경우, Stargate는 Warden SDK를 통해 Warden 서비스와 통합할 수 있습니다:
+
+- **사용자 화이트리스트 검증**: 사용자가 허용 목록에 있는지 확인
+- **사용자 정보 검색**: 사용자의 이메일, 전화, user_id 및 기타 신원 정보 가져오기
+- **사용자 상태 확인**: 사용자 계정이 활성 상태인지 확인
+
+**통합 방법:**
+- Warden Go SDK 사용 (`github.com/soulteary/warden/pkg/warden`)
+- API 키 인증 지원
+- 캐싱 지원 (구성 가능한 TTL)
+- 헬스 체크 통합
+
+**구성 요구 사항:**
+- `WARDEN_ENABLED=true`
+- `WARDEN_URL`을 설정해야 합니다
+
+### Herald 통합 (선택 사항)
+
+`HERALD_ENABLED=true`인 경우, Stargate는 Herald 클라이언트를 통해 Herald 서비스와 통합할 수 있습니다:
+
+- **인증 코드 챌린지 생성**: Herald API를 호출하여 인증 코드 생성 및 전송
+- **코드 검증**: Herald API를 호출하여 사용자가 입력한 코드 검증
+- **오류 처리**: Herald가 반환하는 다양한 오류 처리 (만료, 잠금, 속도 제한 등)
+
+**통합 방법:**
+- Herald Go 클라이언트 사용 (`github.com/soulteary/stargate/pkg/herald`)
+- API 키 인증 지원 (개발 환경)
+- HMAC 서명 인증 지원 (프로덕션 환경, 권장)
+- mTLS 지원 (선택 사항)
+- 헬스 체크 통합
+
+**구성 요구 사항:**
+- `HERALD_ENABLED=true`
+- `HERALD_URL`을 설정해야 합니다
+- `HERALD_API_KEY` 또는 `HERALD_HMAC_SECRET` 중 하나를 설정해야 합니다
+
+**보안 요구 사항 (프로덕션 환경):**
+- 서비스 간 통신은 HMAC 서명 또는 mTLS 사용 권장
+- 타임스탬프 검증 (재생 공격 방지)
+- 요청 서명 검증
+
 ## 워크플로우
 
-### 인증 플로우
+### ForwardAuth 인증 플로우 (메인 경로)
 
 1. **사용자가 보호된 리소스에 액세스**
-   - Traefik이 요청을 가로챔
-   - Stargate 엔드포인트 `/_auth`로 전달
+   - Traefik이 요청을 가로챕니다
+   - Stargate 엔드포인트 `/_auth`로 전달합니다
 
 2. **Stargate가 인증을 검증**
-   - 먼저 `Stargate-Password` 헤더 확인 (API 인증)
-   - 헤더 인증이 실패하면 `stargate_session_id` Cookie 확인 (웹 인증)
+   - 먼저 `Stargate-Password` 헤더를 확인합니다 (API 인증)
+   - 헤더 인증이 실패하면 `stargate_session_id` Cookie를 확인합니다 (웹 인증)
+   - **세션만 검증하며 외부 서비스를 호출하지 않습니다** (고성능 보장)
 
 3. **인증 성공**
-   - `X-Forwarded-User` 헤더 (또는 설정된 사용자 헤더 이름)에 "authenticated" 설정
-   - 200 OK 반환
-   - Traefik이 요청 계속을 허용
+   - `X-Forwarded-User` 헤더 (또는 구성된 사용자 헤더 이름)에 사용자 정보를 설정합니다
+   - 200 OK를 반환합니다
+   - Traefik이 요청 계속을 허용합니다
 
 4. **인증 실패**
    - HTML 요청: 로그인 페이지로 리디렉션 (`/_login?callback=<originalURL>`)
    - API 요청 (JSON/XML): 401 Unauthorized 반환
 
-### 로그인 플로우
+### 비밀번호 인증 로그인 플로우
 
 1. **사용자가 로그인 페이지에 액세스**
    - `GET /_login?callback=<url>`
-   - 이미 로그인한 경우, 세션 교환 엔드포인트로 리디렉션
-   - 도메인이 다른 경우, 콜백을 Cookie (`stargate_callback`)에 저장
+   - 이미 로그인한 경우, 세션 교환 엔드포인트로 리디렉션합니다
+   - 도메인이 다른 경우, 콜백을 Cookie (`stargate_callback`)에 저장합니다
 
 2. **로그인 폼 제출**
-   - `POST /_login`에 비밀번호
-   - 비밀번호 검증
-   - 세션 생성 및 Cookie 설정
+   - `POST /_login`에 비밀번호와 `auth_method=password`
+   - 비밀번호를 검증합니다 (구성된 비밀번호 알고리즘 사용)
+   - 세션을 생성하고 Cookie를 설정합니다
    - **콜백 가져오기 우선순위**:
      1. Cookie에서 (이전에 설정된 경우)
      2. 폼 데이터에서
@@ -160,10 +274,39 @@ type HashResolver interface {
      4. 위의 항목이 없고 원본 도메인이 인증 서비스 도메인과 다른 경우, 원본 도메인을 콜백으로 사용
 
 3. **세션 교환**
-   - 콜백이 있는 경우, `{callback}/_session_exchange?id=<session_id>`로 리디렉션
+   - 콜백이 있는 경우, `{callback}/_session_exchange?id=<session_id>`로 리디렉션합니다
    - `GET /_session_exchange?id=<session_id>`
-   - 세션 Cookie 설정 (`COOKIE_DOMAIN`이 설정된 경우, 지정된 도메인에 설정)
-   - 루트 경로 `/`로 리디렉션
+   - 세션 Cookie를 설정합니다 (`COOKIE_DOMAIN`이 설정된 경우, 지정된 도메인에 설정)
+   - 루트 경로 `/`로 리디렉션합니다
+
+### Warden + Herald OTP 인증 로그인 플로우 (선택 사항)
+
+Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있습니다:
+
+1. **사용자가 로그인 페이지에 액세스**
+   - `GET /_login?callback=<url>`
+   - 로그인 폼을 표시합니다 (이메일/전화번호 입력 지원)
+
+2. **사용자가 식별자를 입력하고 인증 코드를 요청**
+   - 사용자가 이메일 또는 전화번호를 입력합니다
+   - `POST /_send_verify_code`가 인증 코드 요청을 보냅니다
+   - Warden이 활성화된 경우: Stargate → Warden이 사용자를 쿼리합니다 (화이트리스트 검증, 상태 확인), user_id + email/phone을 가져옵니다
+   - Herald가 활성화된 경우: Stargate → Herald가 챌린지를 생성하고 인증 코드(SMS 또는 이메일)를 보냅니다
+   - Herald가 challenge_id, expires_in, next_resend_in을 반환합니다
+
+3. **사용자가 인증 코드를 제출**
+   - `POST /_login`에 인증 코드와 `auth_method=warden`
+   - Herald가 활성화된 경우: Stargate → Herald verify(challenge_id, code)
+   - Herald가 ok + user_id (+ 선택적 amr/인증 강도)를 반환합니다
+
+4. **세션 생성**
+   - Stargate가 세션(cookie/JWT)을 발급합니다
+   - Warden이 활성화된 경우: Warden에서 사용자 정보를 가져와 세션 클레임에 씁니다
+   - 세션 Cookie를 설정합니다
+
+5. **세션 교환**
+   - 콜백이 있는 경우, `{callback}/_session_exchange?id=<session_id>`로 리디렉션합니다
+   - 후속 forwardAuth는 Stargate 세션만 검증하여 고성능을 보장합니다
 
 ## 보안 고려 사항
 
@@ -250,12 +393,42 @@ type HashResolver interface {
   - 비밀번호 암호화 알고리즘 (`internal/secure/secure_test.go`)
   - HTTP 핸들러 (`internal/handlers/handlers_test.go`)
 
+## 데이터 흐름 및 보안 경계
+
+### 데이터 흐름
+
+**로그인 흐름 데이터 흐름:**
+1. 사용자가 식별자(이메일/전화) 입력 → Stargate
+2. Stargate → Warden: 사용자 정보 쿼리 (HMAC/mTLS로 보호)
+3. Warden → Stargate: user_id, 이메일, 전화, 상태 반환
+4. Stargate → Herald: 챌린지 생성 (HMAC/mTLS로 보호)
+5. Herald → 제공자: 인증 코드 전송 (SMS/이메일)
+6. 사용자가 인증 코드 입력 → Stargate
+7. Stargate → Herald: 코드 검증 (HMAC/mTLS로 보호)
+8. Herald → Stargate: 검증 결과 반환
+9. Stargate: 세션 생성 → Redis
+
+**ForwardAuth 데이터 흐름 (메인 경로):**
+1. Traefik → Stargate: 인증 확인 요청
+2. Stargate: Redis에서 세션 읽기 (또는 Cookie에서 구문 분석)
+3. Stargate → Traefik: 인증 결과 반환 (2xx 또는 401/302)
+
+### 보안 경계
+
+- **서비스 간 통신**: HMAC 서명 또는 mTLS로 보호
+- **PII 보호**: 민감한 정보(이메일/전화)는 로그에서 마스킹됩니다
+- **코드 보안**: Herald는 코드 해시만 저장하고 평문은 저장하지 않습니다
+- **세션 보안**: 세션 ID는 UUID를 사용하고, Cookie는 HttpOnly와 SameSite를 사용합니다
+- **타임스탬프 검증**: HMAC 서명에는 타임스탬프가 포함되어 재생 공격을 방지합니다
+
 ## 향후 개선 사항
 
+- [x] Warden 사용자 화이트리스트 인증 지원
+- [x] Herald OTP/인증 코드 서비스 통합 지원
+- [x] Redis 외부 세션 스토리지 지원
+- [x] Prometheus 메트릭 내보내기 추가
 - [ ] 더 많은 비밀번호 암호화 알고리즘 지원
 - [ ] OAuth2/OpenID Connect 지원
 - [ ] 다중 사용자 및 역할 관리 지원
 - [ ] 관리 인터페이스 추가
-- [ ] 외부 세션 스토리지 (Redis 등) 지원
-- [ ] Prometheus 메트릭 내보내기 추가
 - [ ] 설정 파일 (YAML/JSON) 지원

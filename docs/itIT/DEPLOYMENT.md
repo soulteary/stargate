@@ -23,6 +23,61 @@ Stargate supporta i seguenti metodi di deployment:
 
 Questo documento presenta principalmente i metodi di deployment Docker e Docker Compose.
 
+## Dipendenze del Servizio
+
+Stargate può integrarsi con i seguenti servizi opzionali:
+
+### Servizio Warden
+
+**Funzione:** Gestione whitelist utenti e fornitura informazioni utente
+
+**Requisiti di Deployment:**
+- Richiede database (PostgreSQL/MySQL/SQLite)
+- Fornisce interfaccia API HTTP
+- Supporta autenticazione API Key
+
+**Configurazione:**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+```
+
+### Servizio Herald
+
+**Funzione:** Invio e verifica OTP/codice di verifica
+
+**Requisiti di Deployment:**
+- Richiede Redis (memorizza challenge e stato limite velocità)
+- Fornisce interfaccia API HTTP
+- Supporta autenticazione firma HMAC o mTLS (raccomandato per produzione)
+
+**Configurazione:**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-hmac-secret  # Raccomandato per produzione
+```
+
+### Sicurezza Comunicazione Inter-Servizio
+
+**Requisiti per Ambiente di Produzione:**
+
+1. **Autenticazione Firma HMAC** (Raccomandato):
+   - Stargate ↔ Herald utilizza firma HMAC-SHA256
+   - Configurare `HERALD_HMAC_SECRET`
+   - Include verifica timestamp (previene attacchi replay)
+
+2. **Autenticazione mTLS** (Opzionale, più sicuro):
+   - Configurare certificato client TLS
+   - Impostare `HERALD_TLS_CLIENT_CERT_FILE` e `HERALD_TLS_CLIENT_KEY_FILE`
+   - Configurare verifica certificato CA
+
+3. **Isolamento Rete:**
+   - La comunicazione inter-servizio dovrebbe essere su rete interna
+   - Utilizzare regole firewall per limitare l'accesso
+   - Evitare di esporre servizi alla rete pubblica
+
 ## Deployment Docker
 
 ### Costruire l'Immagine

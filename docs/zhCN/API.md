@@ -6,10 +6,12 @@
 
 - [认证检查端点](#认证检查端点)
 - [登录端点](#登录端点)
+- [发送验证码端点](#发送验证码端点)
 - [登出端点](#登出端点)
 - [会话交换端点](#会话交换端点)
 - [健康检查端点](#健康检查端点)
 - [根端点](#根端点)
+- [认证流程](#认证流程)
 
 ## 认证检查端点
 
@@ -119,15 +121,32 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 ### `POST /_login`
 
-处理登录请求，验证密码并创建会话。
+处理登录请求，支持两种认证模式：
+
+1. **密码认证模式**：验证密码并创建会话
+2. **Warden + Herald OTP 认证模式**：验证验证码并创建会话
 
 #### 请求体
 
 表单数据（`application/x-www-form-urlencoded`）：
 
+**密码认证模式：**
+
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
+| `auth_method` | String | 否 | 认证方式，值为 `password`（默认） |
 | `password` | String | 是 | 用户密码 |
+| `callback` | String | 否 | 登录成功后的回调 URL |
+
+**Warden + Herald OTP 认证模式：**
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `auth_method` | String | 是 | 认证方式，值为 `warden` |
+| `user_phone` | String | 否 | 用户手机号（与 `user_mail` 二选一） |
+| `user_mail` | String | 否 | 用户邮箱（与 `user_phone` 二选一） |
+| `challenge_id` | String | 是 | Herald 返回的 challenge_id |
+| `code` | String | 是 | 用户输入的验证码 |
 | `callback` | String | 否 | 登录成功后的回调 URL |
 
 #### Callback 获取优先级
@@ -169,20 +188,117 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 #### 示例
 
+**密码认证：**
+
 ```bash
 # 提交登录表单（带 callback）
 curl -X POST \
-     -d "password=yourpassword&callback=app.example.com" \
-     -c cookies.txt \
-     http://auth.example.com/_login
-
-# 提交登录表单（不带 callback，会自动推断）
-curl -X POST \
-     -d "password=yourpassword" \
-     -H "X-Forwarded-Host: app.example.com" \
+     -d "auth_method=password&password=yourpassword&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
+
+**Warden + Herald OTP 认证：**
+
+```bash
+# 提交登录表单（使用验证码）
+curl -X POST \
+     -d "auth_method=warden&user_mail=user@example.com&challenge_id=ch_xxx&code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+```
+
+#### Warden + Herald 认证流程说明
+
+1. 用户输入邮箱或手机号，调用 `POST /_send_verify_code` 发送验证码
+2. Stargate 调用 Warden 查询用户信息（白名单验证、状态检查）
+3. Stargate 调用 Herald 创建 challenge 并发送验证码
+4. 用户输入验证码，调用 `POST /_login` 进行验证
+5. Stargate 调用 Herald 验证验证码
+6. 验证成功后，Stargate 创建 session 并返回
+
+## 发送验证码端点
+
+### `POST /_send_verify_code`
+
+发送验证码请求。此端点用于 Warden + Herald OTP 认证流程。
+
+#### 请求体
+
+表单数据（`application/x-www-form-urlencoded`）或 JSON（`application/json`）：
+
+| 字段 | 类型 | 必需 | 说明 |
+|------|------|------|------|
+| `user_phone` | String | 否 | 用户手机号（与 `user_mail` 二选一） |
+| `user_mail` | String | 否 | 用户邮箱（与 `user_phone` 二选一） |
+
+#### 处理流程
+
+1. **Stargate → Warden**：查询用户信息
+   - 验证用户是否在白名单中
+   - 检查用户状态（是否活跃）
+   - 获取用户的 email 和 phone
+
+2. **Stargate → Herald**：创建 challenge 并发送验证码
+   - 使用 Warden 返回的 email/phone 作为 destination
+   - 调用 Herald API 创建 challenge
+   - Herald 发送验证码（SMS 或 Email）
+
+3. **返回结果**：返回 challenge_id 和相关信息
+
+#### 响应
+
+**成功响应（200 OK）**
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_xxxxxxxxxxxx",
+  "expires_in": 300,
+  "next_resend_in": 60,
+  "channel": "email",
+  "destination": "u***@example.com"
+}
+```
+
+**失败响应**
+
+| 状态码 | 说明 | 响应体 |
+|--------|------|--------|
+| `400 Bad Request` | 请求参数错误（缺少 user_phone 或 user_mail） | 错误消息 |
+| `404 Not Found` | 用户不在 Warden 白名单中 | 错误消息 |
+| `429 Too Many Requests` | 触发限流 | 错误消息 |
+| `500 Internal Server Error` | 服务器错误或 Herald 服务不可用 | 错误消息 |
+
+#### 示例
+
+```bash
+# 发送验证码（使用邮箱）
+curl -X POST \
+     -d "user_mail=user@example.com" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# 发送验证码（使用手机号）
+curl -X POST \
+     -d "user_phone=13800138000" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# 使用 JSON 格式
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{"user_mail":"user@example.com"}' \
+     http://auth.example.com/_send_verify_code
+```
+
+#### 注意事项
+
+- 需要启用 `WARDEN_ENABLED=true` 和 `HERALD_ENABLED=true`
+- 用户必须在 Warden 白名单中才能发送验证码
+- Herald 会进行限流控制，同一用户/手机号/邮箱有发送频率限制
+- 验证码有效期由 Herald 配置决定（默认 300 秒）
+- 重发冷却时间由 Herald 配置决定（默认 60 秒）
 
 ## 登出端点
 
@@ -329,26 +445,54 @@ curl http://auth.example.com/
 
 错误消息支持国际化，根据 `LANGUAGE` 环境变量返回中文或英文消息。
 
-## 认证流程示例
+## 认证流程
 
-### Web 应用认证流程
+### ForwardAuth 认证流程（主链路）
+
+**关键原则：forwardAuth 主链路只校验 session，不调用 Warden/Herald**
 
 1. 用户访问受保护资源（如 `https://app.example.com/dashboard`）
 2. Traefik 拦截请求，转发到 `https://auth.example.com/_auth`
-3. Stargate 检查 Cookie 中的会话
-4. 如果未认证，重定向到 `https://auth.example.com/_login?callback=app.example.com`
-5. 用户输入密码并提交
-6. Stargate 验证密码，创建会话，设置 Cookie
-7. 重定向到 `https://app.example.com/_session_exchange?id=<session_id>`
-8. 会话 Cookie 被设置到 `app.example.com` 域名
-9. 用户再次访问受保护资源，认证成功
+3. Stargate **仅校验 Session**（从 Cookie 或 Redis 读取）
+   - **不调用 Warden**
+   - **不调用 Herald**
+4. 如果已认证，设置 `X-Forwarded-User` 头并返回 200
+5. 如果未认证，重定向到登录页（HTML 请求）或返回 401（API 请求）
+
+### 密码认证登录流程
+
+1. 用户访问受保护资源
+2. Traefik → Stargate `/_auth`：检查 session，未登录
+3. 重定向到 `https://auth.example.com/_login?callback=app.example.com`
+4. 用户输入密码并提交 `POST /_login`（`auth_method=password`）
+5. Stargate 验证密码，创建会话，设置 Cookie
+6. 重定向到 `https://app.example.com/_session_exchange?id=<session_id>`
+7. 会话 Cookie 被设置到 `app.example.com` 域名
+8. 用户再次访问受保护资源，forwardAuth 校验 session，认证成功
+
+### Warden + Herald OTP 认证登录流程
+
+1. 用户访问受保护资源
+2. Traefik → Stargate `/_auth`：检查 session，未登录
+3. 重定向到 `https://auth.example.com/_login?callback=app.example.com`
+4. 用户输入邮箱或手机号，提交 `POST /_send_verify_code`
+5. **Stargate → Warden**：查询用户（白名单验证、状态检查），获得 user_id + email/phone
+6. **Stargate → Herald**：创建 challenge 并发送验证码（SMS 或 Email）
+7. Herald 返回 challenge_id、expires_in、next_resend_in
+8. 用户输入验证码，提交 `POST /_login`（`auth_method=warden`）
+9. **Stargate → Herald**：verify(challenge_id, code)
+10. Herald 返回 ok + user_id (+ 可选 amr/认证强度)
+11. Stargate 签发 session（cookie/JWT），从 Warden 获取用户信息并写入 session claims
+12. 重定向到 `https://app.example.com/_session_exchange?id=<session_id>`
+13. 会话 Cookie 被设置到 `app.example.com` 域名
+14. 用户再次访问受保护资源，forwardAuth **只校验 Stargate session**，不再触发 Warden/Herald
 
 ### API 认证流程
 
 1. API 客户端发送请求到受保护资源
 2. Traefik 拦截请求，转发到 `https://auth.example.com/_auth`
 3. API 客户端在请求头中包含 `Stargate-Password: <password>`
-4. Stargate 验证密码
+4. Stargate 验证密码（**不调用 Warden/Herald**）
 5. 如果验证成功，设置 `X-Forwarded-User` 头并返回 200
 6. Traefik 允许请求继续到后端服务
 

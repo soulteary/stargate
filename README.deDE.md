@@ -53,6 +53,8 @@ Stargate ist perfekt für:
 - **Mehrere Passwort-Verschlüsselungsalgorithmen**: Wählen Sie aus Plaintext (Test), bcrypt, MD5, SHA512 und mehr
 - **Sichere Sitzungsverwaltung**: Cookie-basierte Sitzungen mit anpassbarer Domain und Ablaufzeit
 - **Flexible Authentifizierung**: Unterstützung für passwortbasierte und sitzungsbasierte Authentifizierung
+- **OTP/Verifizierungscode-Unterstützung**: Integration mit Herald-Service für SMS/Email-Verifizierungscodes
+- **Benutzer-Whitelist-Verwaltung**: Integration mit Warden-Service für Benutzerzugriffskontrolle
 
 ### 🌐 Erweiterte Fähigkeiten
 
@@ -85,12 +87,28 @@ cd forward-auth
 ```
 
 **Schritt 2:** Authentifizierung konfigurieren (`codes/docker-compose.yml` bearbeiten)
+
+**Option A: Passwort-Authentifizierung (Einfach)**
 ```yaml
 services:
   stargate:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```
+
+**Option B: Warden + Herald OTP-Authentifizierung (Produktion)**
+```yaml
+services:
+  stargate:
+    environment:
+      - AUTH_HOST=auth.example.com
+      - WARDEN_ENABLED=true
+      - WARDEN_URL=http://warden:8080
+      - WARDEN_API_KEY=your-warden-api-key
+      - HERALD_ENABLED=true
+      - HERALD_URL=http://herald:8080
+      - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
 **Schritt 3:** Service starten
@@ -170,6 +188,50 @@ PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
 **Für detaillierte Konfiguration siehe: [docs/deDE/CONFIG.md](docs/deDE/CONFIG.md)**
+
+## 🔗 Optionale Service-Integration
+
+Stargate kann vollständig unabhängig verwendet werden oder optional mit den folgenden Services integriert werden, um die Funktionalität zu erweitern:
+
+### Warden-Integration (Optional)
+
+Warden bietet Benutzer-Whitelist-Verwaltung und Benutzerinformationen. **Dies ist optional** - wenn Sie keine Benutzer-Whitelist-Funktionalität benötigen, müssen Sie es nicht aktivieren.
+
+Wenn aktiviert:
+- Stargate fragt Warden ab, um zu überprüfen, ob ein Benutzer in der erlaubten Liste ist
+- Warden gibt Benutzerinformationen zurück (email, phone, user_id, status)
+- Unterstützt Caching zur Leistungsverbesserung
+
+**Konfiguration:**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+WARDEN_CACHE_TTL=300  # Cache-TTL (Sekunden)
+```
+
+### Herald-Integration (Optional)
+
+Herald bietet OTP/Verifizierungscode-Services. **Dies ist optional** - wenn Sie keine Verifizierungscode-Funktionalität benötigen, müssen Sie es nicht aktivieren.
+
+Wenn aktiviert:
+- Stargate ruft Herald auf, um Verifizierungscodes (SMS/Email) zu erstellen und zu senden
+- Herald verwaltet alle OTP-Komplexität: Ratenbegrenzung, Abkühlzeit, Versuchslimits, Sicherheit
+- Stargate ruft Herald auf, um vom Benutzer eingegebene Codes zu überprüfen
+
+**Konfiguration:**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+# Produktionsumgebung (empfohlen):
+HERALD_HMAC_SECRET=your-hmac-secret
+# Entwicklungsumgebung:
+HERALD_API_KEY=your-api-key
+```
+
+**Hinweis:** Warden- und Herald-Integrationen sind optional. Stargate kann unabhängig mit Passwort-Authentifizierung verwendet werden, oder Sie können diese Integrationsfunktionen optional aktivieren.
+
+**Vollständige Integrationsanleitung siehe: [docs/deDE/ARCHITECTURE.md](docs/deDE/ARCHITECTURE.md)**
 
 ## 📚 Dokumentation
 
@@ -469,5 +531,16 @@ Vor dem Bereitstellen in der Produktion stellen Sie sicher, dass Sie diese Siche
 - ✅ **Starke Passwörter verwenden**: `plaintext` vermeiden, `bcrypt` oder `sha512` für Passwort-Hashing verwenden
 - ✅ **HTTPS aktivieren**: HTTPS über Traefik oder Ihren Reverse-Proxy konfigurieren
 - ✅ **Cookie-Domain setzen**: `COOKIE_DOMAIN` für ordnungsgemäße Sitzungsverwaltung über Subdomains konfigurieren
+- ✅ **Optionale Service-Integration**: Für erweiterte Funktionen optional Warden + Herald für OTP-Authentifizierung integrieren
+- ✅ **Service-zu-Service-Sicherheit**: Stargate ↔ Herald/Warden-Kommunikation mit HMAC-Signaturen oder mTLS
 - ✅ **Überwachen & Protokollieren**: Angemessene Protokollierung und Überwachung für Ihre Bereitstellung einrichten
 - ✅ **Regelmäßige Updates**: Stargate auf die neueste Version aktualisieren, um Sicherheitspatches zu erhalten
+
+## 🎯 Designprinzipien
+
+Stargate ist für die unabhängige Verwendung konzipiert:
+
+- **Eigenständige Nutzung**: Stargate kann unabhängig mit Passwort-Authentifizierungsmodus ausgeführt werden, ohne externe Abhängigkeiten
+- **Optionale Integration**: Kann optional mit Warden (Benutzer-Whitelist) und Herald (OTP/Verifizierungscodes) integriert werden
+- **Hohe Leistung**: Der forwardAuth-Hauptpfad überprüft nur die Sitzung und gewährleistet schnelle Antwortzeiten
+- **Flexibilität**: Unterstützt mehrere Authentifizierungsmodi, wählen Sie je nach Bedarf

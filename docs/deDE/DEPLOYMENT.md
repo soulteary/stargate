@@ -23,6 +23,61 @@ Stargate unterstützt die folgenden Bereitstellungsmethoden:
 
 Dieses Dokument behandelt hauptsächlich Docker- und Docker Compose-Bereitstellungsmethoden.
 
+## Service-Abhängigkeiten
+
+Stargate kann sich mit den folgenden optionalen Diensten integrieren:
+
+### Warden-Service
+
+**Funktion:** Verwaltung der Benutzer-Whitelist und Bereitstellung von Benutzerinformationen
+
+**Bereitstellungsanforderungen:**
+- Erfordert Datenbank (PostgreSQL/MySQL/SQLite)
+- Stellt HTTP-API-Schnittstelle bereit
+- Unterstützt API-Key-Authentifizierung
+
+**Konfiguration:**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+```
+
+### Herald-Service
+
+**Funktion:** OTP/Verifizierungscode-Versand und -Verifizierung
+
+**Bereitstellungsanforderungen:**
+- Erfordert Redis (speichert Challenges und Rate-Limit-Status)
+- Stellt HTTP-API-Schnittstelle bereit
+- Unterstützt HMAC-Signatur- oder mTLS-Authentifizierung (für Produktion empfohlen)
+
+**Konfiguration:**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-hmac-secret  # Für Produktion empfohlen
+```
+
+### Inter-Service-Kommunikationssicherheit
+
+**Anforderungen für Produktionsumgebung:**
+
+1. **HMAC-Signatur-Authentifizierung** (Empfohlen):
+   - Stargate ↔ Herald verwendet HMAC-SHA256-Signatur
+   - `HERALD_HMAC_SECRET` konfigurieren
+   - Enthält Zeitstempel-Verifizierung (verhindert Replay-Angriffe)
+
+2. **mTLS-Authentifizierung** (Optional, sicherer):
+   - TLS-Client-Zertifikat konfigurieren
+   - `HERALD_TLS_CLIENT_CERT_FILE` und `HERALD_TLS_CLIENT_KEY_FILE` setzen
+   - CA-Zertifikat-Verifizierung konfigurieren
+
+3. **Netzwerk-Isolation:**
+   - Inter-Service-Kommunikation sollte im internen Netzwerk sein
+   - Firewall-Regeln verwenden, um den Zugriff einzuschränken
+   - Vermeiden, Dienste dem öffentlichen Netzwerk auszusetzen
+
 ## Docker-Bereitstellung
 
 ### Image erstellen

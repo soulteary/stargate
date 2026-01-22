@@ -272,9 +272,104 @@ COOKIE_DOMAIN=.example.com
 PORT=8080
 ```
 
-### Herald 集成
+### Warden 集成（可选）
 
-Herald 是 OTP/验证码服务。以下配置选项用于与 Herald 集成。
+Warden 是用户白名单/授权用户信息服务。**这是可选的**，如果不需要用户白名单功能，可以不启用。以下配置选项用于与 Warden 集成。
+
+#### `WARDEN_ENABLED`
+
+启用 Warden 集成以使用用户白名单认证功能。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | Boolean |
+| **必需** | 否 |
+| **默认值** | `false` |
+| **可选值** | `true`, `false` |
+
+**说明：**
+
+- 启用后，Stargate 将使用 Warden 服务进行用户白名单验证
+- 需要设置 `WARDEN_URL`
+- 这是可选功能，Stargate 可以独立使用密码认证
+
+**示例：**
+
+```bash
+WARDEN_ENABLED=true
+```
+
+#### `WARDEN_URL`
+
+Warden 服务的基础 URL。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String |
+| **必需** | 否（如果 `WARDEN_ENABLED=true` 则为必需） |
+| **默认值** | 空 |
+| **示例** | `http://warden:8080` 或 `https://warden.example.com` |
+
+**说明：**
+
+- Warden 服务的完整基础 URL（不带尾部斜杠）
+- 如果 `WARDEN_ENABLED=true` 则必须设置
+- 用于查询用户信息和白名单验证
+
+**示例：**
+
+```bash
+WARDEN_URL=http://warden:8080
+```
+
+#### `WARDEN_API_KEY`
+
+用于与 Warden 服务进行 API Key 认证。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String |
+| **必需** | 否 |
+| **默认值** | 空 |
+
+**说明：**
+
+- 使用 API Key 的简单认证方式
+- 适用于开发和生产环境
+- 如果未设置，Warden 客户端可能无法正确认证
+
+**示例：**
+
+```bash
+WARDEN_API_KEY=your-warden-api-key-here
+```
+
+#### `WARDEN_CACHE_TTL`
+
+Warden 用户信息缓存的 TTL（生存时间）。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | Integer |
+| **必需** | 否 |
+| **默认值** | `300`（5 分钟） |
+| **单位** | 秒 |
+
+**说明：**
+
+- 用户信息在本地缓存的时间
+- 减少对 Warden 服务的请求频率
+- 提高认证性能
+
+**示例：**
+
+```bash
+WARDEN_CACHE_TTL=300
+```
+
+### Herald 集成（可选）
+
+Herald 是 OTP/验证码服务。**这是可选的**，如果不需要验证码功能，可以不启用。以下配置选项用于与 Herald 集成。
 
 #### `HERALD_ENABLED`
 
@@ -291,7 +386,7 @@ Herald 是 OTP/验证码服务。以下配置选项用于与 Herald 集成。
 
 - 启用后，Stargate 将使用 Herald 服务发送和验证 OTP 验证码
 - 需要设置 `HERALD_URL`
-- 建议在使用 Warden 认证的生产环境中启用
+- 这是可选功能，Stargate 可以独立使用密码认证
 
 **示例：**
 
@@ -487,7 +582,7 @@ PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d
 
 ## 配置示例
 
-### 基础配置
+### 基础配置（密码认证）
 
 ```bash
 # 必需配置
@@ -499,7 +594,7 @@ DEBUG=false
 LANGUAGE=en
 ```
 
-### 生产环境配置
+### 生产环境配置（密码认证）
 
 ```bash
 # 必需配置
@@ -515,7 +610,43 @@ USER_HEADER_NAME=X-Forwarded-User
 COOKIE_DOMAIN=.example.com
 ```
 
+### Warden + Herald OTP 认证配置（生产环境推荐）
+
+```bash
+# 必需配置
+AUTH_HOST=auth.example.com
+
+# Warden 配置
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-warden-api-key
+WARDEN_CACHE_TTL=300
+
+# Herald 配置
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-herald-hmac-secret
+
+# 可选配置
+DEBUG=false
+LANGUAGE=zh
+LOGIN_PAGE_TITLE=我的认证服务
+LOGIN_PAGE_FOOTER_TEXT=© 2024 我的公司
+USER_HEADER_NAME=X-Forwarded-User
+COOKIE_DOMAIN=.example.com
+```
+
+**说明：**
+
+- 此配置展示了如何同时使用 Warden 和 Herald 集成
+- Warden 提供用户白名单验证
+- Herald 提供 OTP/验证码发送和验证
+- 生产环境推荐使用 HMAC 签名（`HERALD_HMAC_SECRET`）而非 API Key
+- **注意**：这是可选配置，Stargate 可以独立使用密码认证，无需这些服务
+
 ### Docker Compose 配置
+
+**密码认证模式：**
 
 ```yaml
 services:
@@ -532,6 +663,50 @@ services:
       - LOGIN_PAGE_TITLE=我的认证服务
       - LOGIN_PAGE_FOOTER_TEXT=© 2024 我的公司
       - COOKIE_DOMAIN=.example.com
+```
+
+**Warden + Herald OTP 认证模式：**
+
+```yaml
+services:
+  stargate:
+    image: stargate:latest
+    environment:
+      # 必需配置
+      - AUTH_HOST=auth.example.com
+      
+      # Warden 配置
+      - WARDEN_ENABLED=true
+      - WARDEN_URL=http://warden:8080
+      - WARDEN_API_KEY=your-warden-api-key
+      - WARDEN_CACHE_TTL=300
+      
+      # Herald 配置
+      - HERALD_ENABLED=true
+      - HERALD_URL=http://herald:8080
+      - HERALD_HMAC_SECRET=your-herald-hmac-secret
+      
+      # 可选配置
+      - DEBUG=false
+      - LANGUAGE=zh
+      - LOGIN_PAGE_TITLE=我的认证服务
+      - LOGIN_PAGE_FOOTER_TEXT=© 2024 我的公司
+      - COOKIE_DOMAIN=.example.com
+    depends_on:
+      - warden
+      - herald
+
+  warden:
+    image: warden:latest
+    environment:
+      - WARDEN_DB_URL=postgres://user:pass@db:5432/warden
+    # ... 其他配置
+
+  herald:
+    image: herald:latest
+    environment:
+      - HERALD_REDIS_URL=redis://redis:6379/0
+    # ... 其他配置
 ```
 
 ### 本地开发配置
@@ -569,24 +744,64 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 Error: Configuration error: invalid value for environment variable 'PASSWORDS': 'unknown:password'
 ```
 
+## 配置依赖关系
+
+### 配置项依赖
+
+- **Warden 集成**：
+  - `WARDEN_ENABLED=true` 时，必须设置 `WARDEN_URL`
+  - `WARDEN_API_KEY` 建议设置（用于服务认证）
+
+- **Herald 集成**：
+  - `HERALD_ENABLED=true` 时，必须设置 `HERALD_URL`
+  - 必须设置 `HERALD_API_KEY` 或 `HERALD_HMAC_SECRET` 之一（推荐生产环境使用 HMAC）
+
+- **Warden + Herald 组合使用**（可选）：
+  - 当需要 OTP 认证时，可以选择同时启用 Warden 和 Herald
+  - Warden 提供用户白名单验证和用户信息
+  - Herald 提供验证码发送和验证
+  - **注意**：这些集成都是可选的，Stargate 可以独立使用
+
+### 认证模式选择
+
+1. **密码认证模式**（简单，适合开发/测试）：
+   - 只需设置 `PASSWORDS`
+   - 不需要 Warden 和 Herald
+
+2. **Warden + Herald OTP 认证模式**（可选，适合需要高级功能的场景）：
+   - 需要启用 `WARDEN_ENABLED=true` 和 `HERALD_ENABLED=true`
+   - 提供用户白名单管理和 OTP 验证码功能
+   - 更安全，支持限流和审计
+   - **注意**：这是可选功能，Stargate 可以独立使用密码认证
+
 ## 配置最佳实践
 
 1. **生产环境安全**：
    - 使用 `bcrypt` 或 `sha512` 算法，避免使用 `plaintext`
    - 设置 `DEBUG=false`
-   - 使用强密码
+   - 使用强密码（密码认证模式）
+   - 或使用 Warden + Herald OTP 认证（推荐）
 
-2. **跨域会话**：
+2. **服务间安全**（如果启用了可选服务集成）：
+   - 生产环境使用 `HERALD_HMAC_SECRET` 而非 `HERALD_API_KEY`
+   - 确保 Warden 和 Herald 服务可访问
+   - 配置适当的网络策略和防火墙规则
+
+3. **跨域会话**：
    - 如果需要跨子域名共享会话，设置 `COOKIE_DOMAIN`
    - 格式：`.example.com`（注意前面的点）
 
-3. **多语言支持**：
+4. **多语言支持**：
    - 根据用户群体设置 `LANGUAGE`
    - 支持 `en` 和 `zh`
 
-4. **自定义界面**：
+5. **自定义界面**：
    - 使用 `LOGIN_PAGE_TITLE` 和 `LOGIN_PAGE_FOOTER_TEXT` 自定义登录页面
 
-5. **监控和调试**：
+6. **监控和调试**：
    - 开发环境设置 `DEBUG=true` 获取详细日志
    - 生产环境设置 `DEBUG=false` 减少日志输出
+
+7. **性能优化**：
+   - 设置 `WARDEN_CACHE_TTL` 以减少对 Warden 的请求
+   - 根据实际需求调整缓存时间

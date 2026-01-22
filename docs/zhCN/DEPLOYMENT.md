@@ -23,6 +23,61 @@ Stargate 支持以下部署方式：
 
 本文档主要介绍 Docker 和 Docker Compose 部署方式。
 
+## 服务依赖
+
+Stargate 可以与以下可选服务集成：
+
+### Warden 服务
+
+**功能：** 用户白名单管理和用户信息提供
+
+**部署要求：**
+- 需要数据库（PostgreSQL/MySQL/SQLite）
+- 提供 HTTP API 接口
+- 支持 API Key 认证
+
+**配置：**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+```
+
+### Herald 服务
+
+**功能：** OTP/验证码发送和验证
+
+**部署要求：**
+- 需要 Redis（存储 challenge 和限流状态）
+- 提供 HTTP API 接口
+- 支持 HMAC 签名或 mTLS 认证（生产环境推荐）
+
+**配置：**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-hmac-secret  # 生产环境推荐
+```
+
+### 服务间通信安全
+
+**生产环境要求：**
+
+1. **HMAC 签名认证**（推荐）：
+   - Stargate ↔ Herald 使用 HMAC-SHA256 签名
+   - 配置 `HERALD_HMAC_SECRET`
+   - 包含时间戳校验（防止重放攻击）
+
+2. **mTLS 认证**（可选，更安全）：
+   - 配置 TLS 客户端证书
+   - 设置 `HERALD_TLS_CLIENT_CERT_FILE` 和 `HERALD_TLS_CLIENT_KEY_FILE`
+   - 配置 CA 证书验证
+
+3. **网络隔离**：
+   - 服务间通信应在内网进行
+   - 使用防火墙规则限制访问
+   - 避免将服务暴露到公网
+
 ## Docker 部署
 
 ### 构建镜像
@@ -139,6 +194,114 @@ networks:
   traefik:
     external: true
 ```
+
+### 完整配置（Warden + Herald OTP 认证）
+
+生产环境推荐使用 Warden + Herald 的完整配置：
+
+```yaml
+services:
+  # Stargate 认证服务
+  stargate:
+    image: stargate:latest
+    environment:
+      - AUTH_HOST=auth.example.com
+      - WARDEN_ENABLED=true
+      - WARDEN_URL=http://warden:8080
+      - WARDEN_API_KEY=your-warden-api-key
+      - WARDEN_CACHE_TTL=300
+      - HERALD_ENABLED=true
+      - HERALD_URL=http://herald:8080
+      - HERALD_HMAC_SECRET=your-herald-hmac-secret
+      - DEBUG=false
+      - LANGUAGE=zh
+      - COOKIE_DOMAIN=.example.com
+    networks:
+      - traefik
+      - internal
+    depends_on:
+      - warden
+      - herald
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.auth.entrypoints=http,https
+      - traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)
+      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth
+
+  # Warden 用户白名单服务
+  warden:
+    image: warden:latest
+    environment:
+      - WARDEN_DB_URL=postgres://warden:password@postgres:5432/warden
+      - WARDEN_API_KEY=your-warden-api-key
+    networks:
+      - internal
+    depends_on:
+      - postgres
+
+  # Herald OTP/验证码服务
+  herald:
+    image: herald:latest
+    environment:
+      - HERALD_REDIS_URL=redis://redis:6379/0
+      - HERALD_HMAC_SECRET=your-herald-hmac-secret
+      - HERALD_EMAIL_API_URL=http://email-service:8080/v1/send
+      - HERALD_SMS_API_URL=http://sms-service:8080/v1/send
+    networks:
+      - internal
+    depends_on:
+      - redis
+
+  # PostgreSQL 数据库（Warden 使用）
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=warden
+      - POSTGRES_USER=warden
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - internal
+
+  # Redis（Herald 使用）
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - internal
+
+  # 示例受保护服务
+  your-app:
+    image: your-app:latest
+    networks:
+      - traefik
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.your-app.entrypoints=http,https
+      - traefik.http.routers.your-app.rule=Host(`app.example.com`)
+      - traefik.http.routers.your-app.middlewares=stargate
+
+networks:
+  traefik:
+    external: true
+  internal:
+    internal: true  # 内部网络，不暴露到外部
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+**说明：**
+
+- `internal` 网络用于服务间通信，不暴露到外部
+- `traefik` 网络用于与 Traefik 和外部服务通信
+- 所有服务间通信都在内网进行，提高安全性
+- 生产环境建议使用环境变量文件（`.env`）管理敏感配置
 
 ### 启动服务
 
@@ -517,6 +680,81 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 # 确保中间件地址正确
 - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
+```
+
+#### 5. Warden 服务问题
+
+**问题：** 用户无法登录，提示用户不在白名单中
+
+**排查步骤：**
+
+1. 检查 Warden 服务是否正常运行：`docker logs warden`
+2. 检查 `WARDEN_URL` 配置是否正确
+3. 检查 `WARDEN_API_KEY` 是否正确
+4. 确认用户在 Warden 数据库中已配置
+
+**解决方案：**
+
+```bash
+# 检查 Warden 健康状态
+curl http://warden:8080/health
+
+# 检查用户是否在白名单中
+curl -H "Authorization: Bearer $WARDEN_API_KEY" \
+     http://warden:8080/v1/users?mail=user@example.com
+```
+
+#### 6. Herald 服务问题
+
+**问题：** 收不到验证码或验证码错误
+
+**排查步骤：**
+
+1. 检查 Herald 服务是否正常运行：`docker logs herald`
+2. 检查 `HERALD_URL` 配置是否正确
+3. 检查 `HERALD_HMAC_SECRET` 或 `HERALD_API_KEY` 是否正确
+4. 检查 Redis 连接是否正常
+5. 检查 Herald 日志中的错误信息
+
+**常见错误：**
+
+- **401 Unauthorized**：HMAC 签名或 API Key 错误
+- **429 Too Many Requests**：触发限流，需要等待
+- **Connection Failed**：Herald 服务不可用或网络问题
+
+**解决方案：**
+
+```bash
+# 检查 Herald 健康状态
+curl http://herald:8080/healthz
+
+# 检查 Redis 连接
+docker exec herald redis-cli ping
+
+# 查看 Herald 日志
+docker logs herald | grep -i error
+```
+
+#### 7. 服务间通信问题
+
+**问题：** Stargate 无法连接到 Warden 或 Herald
+
+**排查步骤：**
+
+1. 检查服务是否在同一网络中
+2. 检查服务名称解析（DNS）
+3. 检查防火墙规则
+4. 检查服务健康状态
+
+**解决方案：**
+
+```bash
+# 从 Stargate 容器内测试连接
+docker exec stargate wget -O- http://warden:8080/health
+docker exec stargate wget -O- http://herald:8080/healthz
+
+# 检查网络配置
+docker network inspect <network_name>
 ```
 
 ### 调试技巧

@@ -121,40 +121,154 @@ type HashResolver interface {
 }
 ```
 
+## システムアーキテクチャ
+
+### アーキテクチャ図
+
+```mermaid
+graph TB
+    subgraph User["ユーザー"]
+        Browser[ブラウザ]
+        API[API クライアント]
+    end
+
+    subgraph Edge["エッジ層"]
+        Traefik[Traefik リバースプロキシ]
+    end
+
+    subgraph Auth["認証層"]
+        Stargate[Stargate<br/>認証/セッション管理]
+    end
+
+    subgraph Services["サービス層"]
+        Warden[Warden<br/>ユーザーホワイトリスト]
+        Herald[Herald<br/>OTP/検証コード]
+    end
+
+    subgraph Storage["ストレージ層"]
+        Redis[Redis<br/>セッション/レート制限]
+        DB[(データベース<br/>ユーザー情報)]
+    end
+
+    subgraph Providers["外部サービス"]
+        SMSProvider[SMS プロバイダー]
+        EmailProvider[メールプロバイダー]
+    end
+
+    Browser -->|1. 保護されたリソースにアクセス| Traefik
+    API -->|1. API リクエスト| Traefik
+    Traefik -->|2. Forward Auth| Stargate
+    Stargate -->|3. セッションを検証| Redis
+    Stargate -->|4. 未ログイン: ユーザーをクエリ| Warden
+    Warden -->|5. ユーザー情報を返す| DB
+    Stargate -->|6. チャレンジを作成| Herald
+    Herald -->|7. コードを送信| SMSProvider
+    Herald -->|7. コードを送信| EmailProvider
+    Herald -->|8. チャレンジを保存| Redis
+    Stargate -->|9. コードを検証| Herald
+    Stargate -->|10. セッションを作成| Redis
+    Stargate -->|11. 認証結果を返す| Traefik
+    Traefik -->|12. 許可/拒否| Browser
+    Traefik -->|12. 許可/拒否| API
+
+    style Stargate fill:#4A90E2,color:#fff
+    style Warden fill:#50C878,color:#fff
+    style Herald fill:#FF6B6B,color:#fff
+    style Redis fill:#FFA500,color:#fff
+```
+
+## スタンドアロン使用モード
+
+Stargateは、外部依存関係なしで完全に独立して使用できるように設計されています：
+
+- **パスワード認証モード**：設定されたパスワードを使用して認証を行い、複数の暗号化アルゴリズムをサポート
+- **セッション管理**：Cookieベースのセッション管理、クロスドメインセッション共有をサポート
+- **ForwardAuth**：標準のTraefik Forward Authインターフェースを提供
+
+これはStargateの主要な使用ケースで、ほとんどのアプリケーションシナリオに適しています。
+
+## オプションサービス統合
+
+Stargateは認証機能を拡張するためのオプションサービス統合をサポートしています。これらの統合はすべてオプションであり、Stargateは完全に独立して使用できます。
+
+### Warden統合（オプション）
+
+`WARDEN_ENABLED=true`の場合、StargateはWarden SDKを通じてWardenサービスと統合できます：
+
+- **ユーザーホワイトリスト検証**：ユーザーが許可リストに含まれているか確認
+- **ユーザー情報取得**：ユーザーのメール、電話、user_id、その他の識別情報を取得
+- **ユーザーステータスチェック**：ユーザーアカウントがアクティブかどうかを確認
+
+**統合方法：**
+- Warden Go SDKを使用（`github.com/soulteary/warden/pkg/warden`）
+- APIキー認証をサポート
+- キャッシングをサポート（設定可能なTTL）
+- ヘルスチェック統合
+
+**設定要件：**
+- `WARDEN_ENABLED=true`
+- `WARDEN_URL`を設定する必要があります
+
+### Herald統合（オプション）
+
+`HERALD_ENABLED=true`の場合、StargateはHeraldクライアントを通じてHeraldサービスと統合できます：
+
+- **検証コードチャレンジの作成**：Herald APIを呼び出して検証コードを作成および送信
+- **コード検証**：Herald APIを呼び出してユーザーが入力したコードを検証
+- **エラー処理**：Heraldが返すさまざまなエラーを処理（期限切れ、ロック、レート制限など）
+
+**統合方法：**
+- Herald Goクライアントを使用（`github.com/soulteary/stargate/pkg/herald`）
+- APIキー認証をサポート（開発環境）
+- HMAC署名認証をサポート（本番環境、推奨）
+- mTLSをサポート（オプション）
+- ヘルスチェック統合
+
+**設定要件：**
+- `HERALD_ENABLED=true`
+- `HERALD_URL`を設定する必要があります
+- `HERALD_API_KEY`または`HERALD_HMAC_SECRET`のいずれかを設定する必要があります
+
+**セキュリティ要件（本番環境）：**
+- サービス間通信はHMAC署名またはmTLSの使用を推奨
+- タイムスタンプ検証（リプレイ攻撃を防止）
+- リクエスト署名検証
+
 ## ワークフロー
 
-### 認証フロー
+### ForwardAuth認証フロー（メインパス）
 
 1. **ユーザーが保護されたリソースにアクセス**
-   - Traefik がリクエストをインターセプト
-   - Stargate エンドポイント `/_auth` に転送
+   - Traefikがリクエストをインターセプト
+   - Stargateエンドポイント `/_auth` に転送
 
-2. **Stargate が認証を検証**
-   - まず `Stargate-Password` ヘッダーを確認（API 認証）
-   - ヘッダー認証が失敗した場合、`stargate_session_id` Cookie を確認（Web 認証）
+2. **Stargateが認証を検証**
+   - まず `Stargate-Password` ヘッダーを確認（API認証）
+   - ヘッダー認証が失敗した場合、`stargate_session_id` Cookieを確認（Web認証）
+   - **セッションのみを検証し、外部サービスを呼び出さない**（高性能を保証）
 
 3. **認証成功**
-   - `X-Forwarded-User` ヘッダー（または設定されたユーザーヘッダー名）に "authenticated" を設定
-   - 200 OK を返す
-   - Traefik がリクエストの継続を許可
+   - `X-Forwarded-User` ヘッダー（または設定されたユーザーヘッダー名）にユーザー情報を設定
+   - 200 OKを返す
+   - Traefikがリクエストの継続を許可
 
 4. **認証失敗**
-   - HTML リクエスト: ログインページにリダイレクト (`/_login?callback=<originalURL>`)
-   - API リクエスト（JSON/XML）: 401 Unauthorized を返す
+   - HTMLリクエスト：ログインページにリダイレクト (`/_login?callback=<originalURL>`)
+   - APIリクエスト（JSON/XML）：401 Unauthorizedを返す
 
-### ログインフロー
+### パスワード認証ログインフロー
 
 1. **ユーザーがログインページにアクセス**
    - `GET /_login?callback=<url>`
    - 既にログインしている場合、セッション交換エンドポイントにリダイレクト
-   - ドメインが異なる場合、コールバックを Cookie (`stargate_callback`) に保存
+   - ドメインが異なる場合、コールバックをCookie (`stargate_callback`) に保存
 
 2. **ログインフォームの送信**
-   - `POST /_login` にパスワード
-   - パスワードを検証
-   - セッションを作成し、Cookie を設定
+   - `POST /_login` にパスワードと `auth_method=password`
+   - パスワードを検証（設定されたパスワードアルゴリズムを使用）
+   - セッションを作成し、Cookieを設定
    - **コールバック取得の優先順位**：
-     1. Cookie から（以前に設定されている場合）
+     1. Cookieから（以前に設定されている場合）
      2. フォームデータから
      3. クエリパラメータから
      4. 上記のいずれもなく、元のドメインが認証サービスドメインと異なる場合、元のドメインをコールバックとして使用
@@ -162,8 +276,37 @@ type HashResolver interface {
 3. **セッション交換**
    - コールバックが存在する場合、`{callback}/_session_exchange?id=<session_id>` にリダイレクト
    - `GET /_session_exchange?id=<session_id>`
-   - セッション Cookie を設定（`COOKIE_DOMAIN` が設定されている場合、指定されたドメインに設定）
+   - セッションCookieを設定（`COOKIE_DOMAIN` が設定されている場合、指定されたドメインに設定）
    - ルートパス `/` にリダイレクト
+
+### Warden + Herald OTP認証ログインフロー（オプション）
+
+WardenおよびHerald統合が有効な場合、OTP認証を使用できます：
+
+1. **ユーザーがログインページにアクセス**
+   - `GET /_login?callback=<url>`
+   - ログインフォームを表示（メール/電話番号入力をサポート）
+
+2. **ユーザーが識別子を入力し、検証コードをリクエスト**
+   - ユーザーがメールまたは電話番号を入力
+   - `POST /_send_verify_code` が検証コードリクエストを送信
+   - Wardenが有効な場合：Stargate → Wardenがユーザーをクエリ（ホワイトリスト検証、ステータスチェック）、user_id + email/phoneを取得
+   - Heraldが有効な場合：Stargate → Heraldがチャレンジを作成し、検証コード（SMSまたはメール）を送信
+   - Heraldがchallenge_id、expires_in、next_resend_inを返す
+
+3. **ユーザーが検証コードを送信**
+   - `POST /_login` に検証コードと `auth_method=warden`
+   - Heraldが有効な場合：Stargate → Herald verify(challenge_id, code)
+   - Heraldがok + user_id（+ オプションのamr/認証強度）を返す
+
+4. **セッション作成**
+   - Stargateがセッション（cookie/JWT）を発行
+   - Wardenが有効な場合：Wardenからユーザー情報を取得し、セッションクレームに書き込む
+   - セッションCookieを設定
+
+5. **セッション交換**
+   - コールバックが存在する場合、`{callback}/_session_exchange?id=<session_id>` にリダイレクト
+   - 後続のforwardAuthはStargateセッションのみを検証し、高性能を保証
 
 ## セキュリティの考慮事項
 
@@ -250,12 +393,42 @@ type HashResolver interface {
   - パスワード暗号化アルゴリズム (`internal/secure/secure_test.go`)
   - HTTP ハンドラー (`internal/handlers/handlers_test.go`)
 
+## データフローとセキュリティ境界
+
+### データフロー
+
+**ログインフローのデータフロー：**
+1. ユーザーが識別子（メール/電話）を入力 → Stargate
+2. Stargate → Warden：ユーザー情報をクエリ（HMAC/mTLSで保護）
+3. Warden → Stargate：user_id、メール、電話、ステータスを返す
+4. Stargate → Herald：チャレンジを作成（HMAC/mTLSで保護）
+5. Herald → プロバイダー：検証コードを送信（SMS/メール）
+6. ユーザーが検証コードを入力 → Stargate
+7. Stargate → Herald：コードを検証（HMAC/mTLSで保護）
+8. Herald → Stargate：検証結果を返す
+9. Stargate：セッションを作成 → Redis
+
+**ForwardAuthデータフロー（メインパス）：**
+1. Traefik → Stargate：認証チェックリクエスト
+2. Stargate：Redisからセッションを読み取る（またはCookieから解析）
+3. Stargate → Traefik：認証結果を返す（2xxまたは401/302）
+
+### セキュリティ境界
+
+- **サービス間通信**：HMAC署名またはmTLSで保護
+- **PII保護**：機密情報（メール/電話）はログでマスクされます
+- **コードセキュリティ**：Heraldはコードハッシュのみを保存し、平文は保存しません
+- **セッションセキュリティ**：セッションIDはUUIDを使用し、CookieはHttpOnlyとSameSiteを使用
+- **タイムスタンプ検証**：HMAC署名にはタイムスタンプが含まれ、リプレイ攻撃を防止
+
 ## 今後の改善
 
+- [x] Wardenユーザーホワイトリスト認証をサポート
+- [x] Herald OTP/検証コードサービス統合をサポート
+- [x] Redis外部セッションストレージをサポート
+- [x] Prometheusメトリクスのエクスポートを追加
 - [ ] より多くのパスワード暗号化アルゴリズムをサポート
 - [ ] OAuth2/OpenID Connect をサポート
 - [ ] マルチユーザーとロール管理をサポート
 - [ ] 管理インターフェースを追加
-- [ ] 外部セッションストレージ（Redis など）をサポート
-- [ ] Prometheus メトリクスのエクスポートを追加
 - [ ] 設定ファイル（YAML/JSON）をサポート

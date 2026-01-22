@@ -184,6 +184,89 @@ curl -X POST \
      http://auth.example.com/_login
 ```
 
+## Endpoint Invio Codice di Verifica
+
+### `POST /_send_verify_code`
+
+Richiesta di invio codice di verifica. Questo endpoint è utilizzato nel flusso di autenticazione OTP Warden + Herald.
+
+#### Corpo della Richiesta
+
+Dati del form (`application/x-www-form-urlencoded`) o JSON (`application/json`) :
+
+| Campo | Tipo | Richiesto | Descrizione |
+|-------|------|-----------|-------------|
+| `user_phone` | String | No | Numero di telefono utente (uno tra `user_phone` o `user_mail`) |
+| `user_mail` | String | No | Email utente (uno tra `user_phone` o `user_mail`) |
+
+#### Flusso di Elaborazione
+
+1. **Stargate → Warden** : Query informazioni utente
+   - Verificare se l'utente è nella whitelist
+   - Verificare lo stato utente (se attivo)
+   - Ottenere email e telefono dell'utente
+
+2. **Stargate → Herald** : Creare challenge e inviare codice di verifica
+   - Utilizzare email/telefono restituito da Warden come destinazione
+   - Chiamare API Herald per creare challenge
+   - Herald invia codice di verifica (SMS o Email)
+
+3. **Restituire Risultato** : Restituire challenge_id e informazioni correlate
+
+#### Risposta
+
+**Risposta di Successo (200 OK)**
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_xxxxxxxxxxxx",
+  "expires_in": 300,
+  "next_resend_in": 60,
+  "channel": "email",
+  "destination": "u***@example.com"
+}
+```
+
+**Risposta di Errore**
+
+| Codice di Stato | Descrizione | Corpo della Risposta |
+|-----------------|-------------|----------------------|
+| `400 Bad Request` | Parametri richiesta non validi (manca user_phone o user_mail) | Messaggio di errore |
+| `404 Not Found` | Utente non nella whitelist Warden | Messaggio di errore |
+| `429 Too Many Requests` | Limite di velocità attivato | Messaggio di errore |
+| `500 Internal Server Error` | Errore server o servizio Herald non disponibile | Messaggio di errore |
+
+#### Esempi
+
+```bash
+# Inviare codice di verifica (usando email)
+curl -X POST \
+     -d "user_mail=user@example.com" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# Inviare codice di verifica (usando telefono)
+curl -X POST \
+     -d "user_phone=13800138000" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# Usando formato JSON
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{"user_mail":"user@example.com"}' \
+     http://auth.example.com/_send_verify_code
+```
+
+#### Note
+
+- Richiede `WARDEN_ENABLED=true` e `HERALD_ENABLED=true`
+- L'utente deve essere nella whitelist Warden per inviare codice di verifica
+- Herald esegue limitazione della velocità, con limiti di frequenza per lo stesso utente/telefono/email
+- Il tempo di scadenza del codice è determinato dalla configurazione Herald (predefinito 300 secondi)
+- Il tempo di attesa per il reinvio è determinato dalla configurazione Herald (predefinito 60 secondi)
+
 ## Endpoint Logout
 
 ### `GET /_logout`

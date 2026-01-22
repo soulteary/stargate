@@ -184,6 +184,89 @@ curl -X POST \
      http://auth.example.com/_login
 ```
 
+## Endpunkt zum Senden von Verifizierungscode
+
+### `POST /_send_verify_code`
+
+Anfrage zum Senden eines Verifizierungscodes. Dieser Endpunkt wird im Warden + Herald OTP-Authentifizierungsablauf verwendet.
+
+#### Anfragekörper
+
+Formulardaten (`application/x-www-form-urlencoded`) oder JSON (`application/json`) :
+
+| Feld | Typ | Erforderlich | Beschreibung |
+|------|-----|--------------|--------------|
+| `user_phone` | String | Nein | Benutzertelefonnummer (eines von `user_phone` oder `user_mail`) |
+| `user_mail` | String | Nein | Benutzer-E-Mail (eines von `user_phone` oder `user_mail`) |
+
+#### Verarbeitungsablauf
+
+1. **Stargate → Warden** : Benutzerinformationen abfragen
+   - Überprüfen, ob der Benutzer in der Whitelist ist
+   - Benutzerstatus überprüfen (wenn aktiv)
+   - E-Mail und Telefon des Benutzers abrufen
+
+2. **Stargate → Herald** : Challenge erstellen und Verifizierungscode senden
+   - E-Mail/Telefon von Warden als Ziel verwenden
+   - Herald-API aufrufen, um Challenge zu erstellen
+   - Herald sendet Verifizierungscode (SMS oder E-Mail)
+
+3. **Ergebnis zurückgeben** : challenge_id und zugehörige Informationen zurückgeben
+
+#### Antwort
+
+**Erfolgreiche Antwort (200 OK)**
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_xxxxxxxxxxxx",
+  "expires_in": 300,
+  "next_resend_in": 60,
+  "channel": "email",
+  "destination": "u***@example.com"
+}
+```
+
+**Fehlerantwort**
+
+| Statuscode | Beschreibung | Antwortkörper |
+|------------|--------------|----------------|
+| `400 Bad Request` | Ungültige Anfrageparameter (user_phone oder user_mail fehlt) | Fehlermeldung |
+| `404 Not Found` | Benutzer nicht in Warden-Whitelist | Fehlermeldung |
+| `429 Too Many Requests` | Rate-Limit ausgelöst | Fehlermeldung |
+| `500 Internal Server Error` | Serverfehler oder Herald-Service nicht verfügbar | Fehlermeldung |
+
+#### Beispiele
+
+```bash
+# Verifizierungscode senden (mit E-Mail)
+curl -X POST \
+     -d "user_mail=user@example.com" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# Verifizierungscode senden (mit Telefon)
+curl -X POST \
+     -d "user_phone=13800138000" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# JSON-Format verwenden
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{"user_mail":"user@example.com"}' \
+     http://auth.example.com/_send_verify_code
+```
+
+#### Hinweise
+
+- Erfordert `WARDEN_ENABLED=true` und `HERALD_ENABLED=true`
+- Benutzer muss in Warden-Whitelist sein, um Verifizierungscode zu senden
+- Herald führt Rate-Limiting durch, mit Frequenzlimits für denselben Benutzer/Telefon/E-Mail
+- Code-Ablaufzeit wird durch Herald-Konfiguration bestimmt (Standard: 300 Sekunden)
+- Wiederversand-Abkühlzeit wird durch Herald-Konfiguration bestimmt (Standard: 60 Sekunden)
+
 ## Abmelde-Endpunkt
 
 ### `GET /_logout`

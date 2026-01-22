@@ -23,6 +23,61 @@ Stargate는 다음 배포 방법을 지원합니다:
 
 이 문서에서는 주로 Docker와 Docker Compose 배포 방법을 소개합니다.
 
+## 서비스 종속성
+
+Stargate는 다음 선택적 서비스와 통합할 수 있습니다:
+
+### Warden 서비스
+
+**기능:** 사용자 화이트리스트 관리 및 사용자 정보 제공
+
+**배포 요구 사항:**
+- 데이터베이스 필요 (PostgreSQL/MySQL/SQLite)
+- HTTP API 인터페이스 제공
+- API 키 인증 지원
+
+**설정:**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+```
+
+### Herald 서비스
+
+**기능:** OTP/인증 코드 전송 및 검증
+
+**배포 요구 사항:**
+- Redis 필요 (챌린지 및 속도 제한 상태 저장)
+- HTTP API 인터페이스 제공
+- HMAC 서명 또는 mTLS 인증 지원 (프로덕션 환경에서 권장)
+
+**설정:**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-hmac-secret  # 프로덕션 환경에서 권장
+```
+
+### 서비스 간 통신 보안
+
+**프로덕션 환경 요구 사항:**
+
+1. **HMAC 서명 인증** (권장):
+   - Stargate ↔ Herald는 HMAC-SHA256 서명 사용
+   - `HERALD_HMAC_SECRET` 설정
+   - 타임스탬프 검증 포함 (재생 공격 방지)
+
+2. **mTLS 인증** (선택 사항, 더 안전):
+   - TLS 클라이언트 인증서 설정
+   - `HERALD_TLS_CLIENT_CERT_FILE` 및 `HERALD_TLS_CLIENT_KEY_FILE` 설정
+   - CA 인증서 검증 설정
+
+3. **네트워크 격리:**
+   - 서비스 간 통신은 내부 네트워크에서 이루어져야 합니다
+   - 방화벽 규칙을 사용하여 액세스 제한
+   - 서비스를 공용 네트워크에 노출하지 않도록 합니다
+
 ## Docker 배포
 
 ### 이미지 빌드

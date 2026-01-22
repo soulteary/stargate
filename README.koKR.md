@@ -53,6 +53,8 @@ Stargate는 다음에 완벽합니다:
 - **여러 비밀번호 암호화 알고리즘**: plaintext(테스트), bcrypt, MD5, SHA512 등에서 선택
 - **안전한 세션 관리**: 사용자 정의 가능한 도메인 및 만료 시간을 가진 Cookie 기반 세션
 - **유연한 인증**: 비밀번호 기반 및 세션 기반 인증 모두 지원
+- **OTP/인증 코드 지원**: Herald 서비스와의 통합으로 SMS/Email 인증 코드 제공
+- **사용자 화이트리스트 관리**: Warden 서비스와의 통합으로 사용자 액세스 제어 제공
 
 ### 🌐 고급 기능
 
@@ -85,12 +87,28 @@ cd forward-auth
 ```
 
 **2단계:** 인증 구성(`codes/docker-compose.yml` 편집)
+
+**옵션 A: 비밀번호 인증(간단)**
 ```yaml
 services:
   stargate:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```
+
+**옵션 B: Warden + Herald OTP 인증(프로덕션)**
+```yaml
+services:
+  stargate:
+    environment:
+      - AUTH_HOST=auth.example.com
+      - WARDEN_ENABLED=true
+      - WARDEN_URL=http://warden:8080
+      - WARDEN_API_KEY=your-warden-api-key
+      - HERALD_ENABLED=true
+      - HERALD_URL=http://herald:8080
+      - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
 **3단계:** 서비스 시작
@@ -469,5 +487,16 @@ Issue를 열거나 Pull Request를 제출해 주세요. 모든 기여가 Stargat
 - ✅ **강력한 비밀번호 사용**: `plaintext`를 피하고 비밀번호 해싱에 `bcrypt` 또는 `sha512` 사용
 - ✅ **HTTPS 활성화**: Traefik 또는 리버스 프록시를 통해 HTTPS 구성
 - ✅ **Cookie 도메인 설정**: 하위 도메인 간 적절한 세션 관리를 위해 `COOKIE_DOMAIN` 구성
+- ✅ **선택적 서비스 통합**: 고급 기능이 필요한 경우 OTP 인증을 위해 Warden + Herald를 선택적으로 통합
+- ✅ **서비스 간 보안**: HMAC 서명 또는 mTLS를 사용한 Stargate ↔ Herald/Warden 통신
 - ✅ **모니터링 및 로깅**: 배포에 적절한 로깅 및 모니터링 설정
 - ✅ **정기 업데이트**: 보안 패치를 위해 Stargate를 최신 버전으로 유지
+
+## 🎯 설계 원칙
+
+Stargate는 독립적으로 사용할 수 있도록 설계되었습니다:
+
+- **독립 사용**: Stargate는 비밀번호 인증 모드를 사용하여 독립적으로 실행할 수 있으며 외부 종속성이 필요하지 않습니다
+- **선택적 통합**: Warden(사용자 화이트리스트) 및 Herald(OTP/인증 코드)와 선택적으로 통합할 수 있습니다
+- **고성능**: forwardAuth 메인 경로는 세션만 확인하여 빠른 응답을 보장합니다
+- **유연성**: 여러 인증 모드를 지원하며 필요에 따라 선택할 수 있습니다

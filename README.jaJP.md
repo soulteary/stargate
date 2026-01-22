@@ -53,6 +53,8 @@ Stargate は以下に最適です：
 - **複数のパスワード暗号化アルゴリズム**：plaintext（テスト用）、bcrypt、MD5、SHA512 などから選択
 - **安全なセッション管理**：カスタマイズ可能なドメインと有効期限を持つ Cookie ベースのセッション
 - **柔軟な認証**：パスワードベースとセッションベースの両方の認証をサポート
+- **OTP/検証コードサポート**：Heraldサービスとの統合によるSMS/Email検証コード
+- **ユーザーホワイトリスト管理**：Wardenサービスとの統合によるユーザーアクセス制御
 
 ### 🌐 高度な機能
 
@@ -85,12 +87,28 @@ cd forward-auth
 ```
 
 **ステップ 2：** 認証を設定（`codes/docker-compose.yml` を編集）
+
+**オプション A: パスワード認証（シンプル）**
 ```yaml
 services:
   stargate:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```
+
+**オプション B: Warden + Herald OTP認証（本番環境）**
+```yaml
+services:
+  stargate:
+    environment:
+      - AUTH_HOST=auth.example.com
+      - WARDEN_ENABLED=true
+      - WARDEN_URL=http://warden:8080
+      - WARDEN_API_KEY=your-warden-api-key
+      - HERALD_ENABLED=true
+      - HERALD_URL=http://herald:8080
+      - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
 **ステップ 3：** サービスを起動
@@ -170,6 +188,50 @@ PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
 **詳細な設定については、[docs/jaJP/CONFIG.md](docs/jaJP/CONFIG.md) を参照してください**
+
+## 🔗 オプションサービス統合
+
+Stargateは完全に独立して使用できます。また、以下のサービスとオプションで統合して機能を拡張することもできます：
+
+### Warden統合（オプション）
+
+Wardenはユーザーホワイトリスト管理とユーザー情報を提供します。**これはオプションです** - ユーザーホワイトリスト機能が必要ない場合は、有効にする必要はありません。
+
+有効にすると：
+- StargateはWardenに問い合わせて、ユーザーが許可リストに含まれているかどうかを確認します
+- Wardenはユーザー情報（email、phone、user_id、status）を返します
+- パフォーマンス向上のためのキャッシュをサポートします
+
+**設定：**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+WARDEN_CACHE_TTL=300  # キャッシュTTL（秒）
+```
+
+### Herald統合（オプション）
+
+HeraldはOTP/検証コードサービスを提供します。**これはオプションです** - 検証コード機能が必要ない場合は、有効にする必要はありません。
+
+有効にすると：
+- StargateはHeraldを呼び出して検証コード（SMS/Email）を作成および送信します
+- HeraldはすべてのOTPの複雑さを処理します：レート制限、クールダウン時間、試行回数制限、セキュリティ
+- StargateはHeraldを呼び出してユーザーが入力したコードを検証します
+
+**設定：**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+# 本番環境（推奨）：
+HERALD_HMAC_SECRET=your-hmac-secret
+# 開発環境：
+HERALD_API_KEY=your-api-key
+```
+
+**注意**：WardenとHeraldの統合はオプションです。Stargateはパスワード認証で独立して使用でき、これらの統合機能をオプションで有効にすることもできます。
+
+**完全な統合ガイドについては、[docs/jaJP/ARCHITECTURE.md](docs/jaJP/ARCHITECTURE.md) を参照してください**
 
 ## 📚 ドキュメント
 
@@ -469,5 +531,16 @@ Issue を開くか、Pull Request を送信してください。すべての貢�
 - ✅ **強力なパスワードを使用**：`plaintext` を避け、パスワードハッシュに `bcrypt` または `sha512` を使用
 - ✅ **HTTPS を有効化**：Traefik またはリバースプロキシ経由で HTTPS を設定
 - ✅ **Cookie ドメインを設定**：サブドメイン間で適切なセッション管理のために `COOKIE_DOMAIN` を設定
+- ✅ **オプションサービス統合**：高度な機能が必要な場合、OTP認証のために Warden + Herald をオプションで統合
+- ✅ **サービス間セキュリティ**：HMAC署名またはmTLSを使用した Stargate ↔ Herald/Warden 通信
 - ✅ **監視とログ**：デプロイメントに適切なログ記録と監視を設定
 - ✅ **定期的な更新**：セキュリティパッチのために Stargate を最新バージョンに保つ
+
+## 🎯 設計原則
+
+Stargateは独立して使用できるように設計されています：
+
+- **独立使用**：Stargateはパスワード認証モードを使用して独立して実行でき、外部依存関係は不要です
+- **オプション統合**：Warden（ユーザーホワイトリスト）とHerald（OTP/検証コード）とオプションで統合できます
+- **高性能**：forwardAuthメインパスはセッションのみを検証し、高速な応答を保証します
+- **柔軟性**：複数の認証モードをサポートし、ニーズに応じて選択できます

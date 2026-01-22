@@ -121,9 +121,122 @@ type HashResolver interface {
 }
 ```
 
+## Systemarchitektur
+
+### Architekturdiagramm
+
+```mermaid
+graph TB
+    subgraph User["Benutzer"]
+        Browser[Browser]
+        API[API-Client]
+    end
+
+    subgraph Edge["Edge-Schicht"]
+        Traefik[Traefik Reverse Proxy]
+    end
+
+    subgraph Auth["Authentifizierungsschicht"]
+        Stargate[Stargate<br/>Auth/Sitzungsverwaltung]
+    end
+
+    subgraph Services["Service-Schicht"]
+        Warden[Warden<br/>Benutzer-Whitelist]
+        Herald[Herald<br/>OTP/Verifizierungscode]
+    end
+
+    subgraph Storage["Speicherschicht"]
+        Redis[Redis<br/>Sitzung/Rate Limit]
+        DB[(Datenbank<br/>Benutzerinfo)]
+    end
+
+    subgraph Providers["Externe Dienste"]
+        SMSProvider[SMS-Anbieter]
+        EmailProvider[E-Mail-Anbieter]
+    end
+
+    Browser -->|1. Zugriff auf geschützte Ressource| Traefik
+    API -->|1. API-Anfrage| Traefik
+    Traefik -->|2. Forward Auth| Stargate
+    Stargate -->|3. Sitzung überprüfen| Redis
+    Stargate -->|4. Nicht angemeldet: Benutzer abfragen| Warden
+    Warden -->|5. Benutzerinfo zurückgeben| DB
+    Stargate -->|6. Challenge erstellen| Herald
+    Herald -->|7. Code senden| SMSProvider
+    Herald -->|7. Code senden| EmailProvider
+    Herald -->|8. Challenge speichern| Redis
+    Stargate -->|9. Code überprüfen| Herald
+    Stargate -->|10. Sitzung erstellen| Redis
+    Stargate -->|11. Auth-Ergebnis zurückgeben| Traefik
+    Traefik -->|12. Erlauben/Verweigern| Browser
+    Traefik -->|12. Erlauben/Verweigern| API
+
+    style Stargate fill:#4A90E2,color:#fff
+    style Warden fill:#50C878,color:#fff
+    style Herald fill:#FF6B6B,color:#fff
+    style Redis fill:#FFA500,color:#fff
+```
+
+## Eigenständiger Nutzungsmodus
+
+Stargate ist so konzipiert, dass es vollständig unabhängig ohne externe Abhängigkeiten verwendet werden kann :
+
+- **Passwort-Authentifizierungsmodus** : Verwendet konfigurierte Passwörter zur Authentifizierung, unterstützt mehrere Verschlüsselungsalgorithmen
+- **Sitzungsverwaltung** : Cookie-basierte Sitzungsverwaltung, unterstützt Cross-Domain-Sitzungsteilung
+- **ForwardAuth** : Bietet eine standardmäßige Traefik Forward Auth-Schnittstelle
+
+Dies ist der primäre Anwendungsfall für Stargate und eignet sich für die meisten Anwendungsszenarien.
+
+## Optionale Service-Integration
+
+Stargate unterstützt optionale Service-Integrationen, um die Authentifizierungsfunktionalität zu erweitern. Diese Integrationen sind alle optional, und Stargate kann vollständig unabhängig verwendet werden.
+
+### Warden-Integration (Optional)
+
+Wenn `WARDEN_ENABLED=true`, kann sich Stargate über Warden SDK mit dem Warden-Service integrieren:
+
+- **Benutzer-Whitelist-Verifizierung**: Überprüfen, ob der Benutzer in der erlaubten Liste ist
+- **Benutzerinformationsabruf**: E-Mail, Telefon, user_id und andere Identitätsinformationen des Benutzers abrufen
+- **Benutzerstatusprüfung**: Überprüfen, ob das Benutzerkonto aktiv ist
+
+**Integrationsmethode:**
+- Warden Go SDK verwenden (`github.com/soulteary/warden/pkg/warden`)
+- API-Key-Authentifizierung unterstützen
+- Caching unterstützen (konfigurierbares TTL)
+- Health-Check-Integration
+
+**Konfigurationsanforderungen:**
+- `WARDEN_ENABLED=true`
+- `WARDEN_URL` muss gesetzt sein
+
+### Herald-Integration (Optional)
+
+Wenn `HERALD_ENABLED=true`, kann sich Stargate über den Herald-Client mit dem Herald-Service integrieren:
+
+- **Verifizierungscode-Challenge erstellen**: Herald-API aufrufen, um Verifizierungscodes zu erstellen und zu senden
+- **Code-Verifizierung**: Herald-API aufrufen, um vom Benutzer eingegebene Codes zu überprüfen
+- **Fehlerbehandlung**: Verschiedene von Herald zurückgegebene Fehler behandeln (abgelaufen, gesperrt, rate limited, etc.)
+
+**Integrationsmethode:**
+- Herald Go-Client verwenden (`github.com/soulteary/stargate/pkg/herald`)
+- API-Key-Authentifizierung unterstützen (Entwicklung)
+- HMAC-Signatur-Authentifizierung unterstützen (Produktion, empfohlen)
+- mTLS unterstützen (optional)
+- Health-Check-Integration
+
+**Konfigurationsanforderungen:**
+- `HERALD_ENABLED=true`
+- `HERALD_URL` muss gesetzt sein
+- Muss entweder `HERALD_API_KEY` oder `HERALD_HMAC_SECRET` setzen
+
+**Sicherheitsanforderungen (Produktionsumgebung):**
+- Inter-Service-Kommunikation wird empfohlen, HMAC-Signatur oder mTLS zu verwenden
+- Zeitstempel-Verifizierung (verhindert Replay-Angriffe)
+- Anfrage-Signatur-Verifizierung
+
 ## Arbeitsabläufe
 
-### Authentifizierungsablauf
+### ForwardAuth-Authentifizierungsablauf (Hauptpfad)
 
 1. **Benutzer greift auf geschützte Ressource zu**
    - Traefik fängt die Anfrage ab
@@ -132,9 +245,10 @@ type HashResolver interface {
 2. **Stargate überprüft die Authentifizierung**
    - Überprüft zuerst den Header `Stargate-Password` (API-Authentifizierung)
    - Wenn Header-Authentifizierung fehlschlägt, überprüft das Cookie `stargate_session_id` (Web-Authentifizierung)
+   - **Überprüft nur die Sitzung, ruft keine externen Services auf** (stellt hohe Leistung sicher)
 
 3. **Authentifizierung erfolgreich**
-   - Setzt den Header `X-Forwarded-User` (oder den konfigurierten Benutzer-Header-Namen) mit dem Wert "authenticated"
+   - Setzt den Header `X-Forwarded-User` (oder den konfigurierten Benutzer-Header-Namen) mit Benutzerinformationen
    - Gibt 200 OK zurück
    - Traefik erlaubt der Anfrage fortzufahren
 
@@ -142,7 +256,7 @@ type HashResolver interface {
    - HTML-Anfragen: Weiterleitung zur Login-Seite (`/_login?callback=<originalURL>`)
    - API-Anfragen (JSON/XML): Gibt 401 Unauthorized zurück
 
-### Login-Ablauf
+### Passwort-Authentifizierungs-Login-Ablauf
 
 1. **Benutzer greift auf Login-Seite zu**
    - `GET /_login?callback=<url>`
@@ -150,8 +264,8 @@ type HashResolver interface {
    - Wenn die Domain unterschiedlich ist, speichert den Callback im Cookie (`stargate_callback`)
 
 2. **Login-Formular absenden**
-   - `POST /_login` mit Passwort
-   - Überprüft das Passwort
+   - `POST /_login` mit Passwort und `auth_method=password`
+   - Überprüft das Passwort (verwendet konfigurierten Passwort-Algorithmus)
    - Erstellt eine Sitzung und setzt das Cookie
    - **Callback-Abrufpriorität**:
      1. Vom Cookie (wenn zuvor gesetzt)
@@ -164,6 +278,35 @@ type HashResolver interface {
    - `GET /_session_exchange?id=<session_id>`
    - Setzt das Sitzungs-Cookie (wenn `COOKIE_DOMAIN` konfiguriert ist, setzt auf die angegebene Domain)
    - Weiterleitung zum Root-Pfad `/`
+
+### Warden + Herald OTP-Authentifizierungs-Login-Ablauf (Optional)
+
+Wenn Warden- und Herald-Integrationen aktiviert sind, kann OTP-Authentifizierung verwendet werden :
+
+1. **Benutzer greift auf Login-Seite zu**
+   - `GET /_login?callback=<url>`
+   - Zeigt Login-Formular an (unterstützt E-Mail/Telefonnummer-Eingabe)
+
+2. **Benutzer gibt Identifikator ein und fordert Verifizierungscode an**
+   - Benutzer gibt E-Mail oder Telefonnummer ein
+   - `POST /_send_verify_code` sendet Verifizierungscode-Anfrage
+   - Wenn Warden aktiviert ist : Stargate → Warden fragt Benutzer ab (Whitelist-Verifizierung, Statusprüfung), erhält user_id + email/phone
+   - Wenn Herald aktiviert ist : Stargate → Herald erstellt Challenge und sendet Verifizierungscode (SMS oder E-Mail)
+   - Herald gibt challenge_id, expires_in, next_resend_in zurück
+
+3. **Benutzer sendet Verifizierungscode**
+   - `POST /_login` mit Verifizierungscode und `auth_method=warden`
+   - Wenn Herald aktiviert ist : Stargate → Herald verify(challenge_id, code)
+   - Herald gibt ok + user_id (+ optionales amr/Authentifizierungsstärke) zurück
+
+4. **Sitzung erstellen**
+   - Stargate gibt Sitzung aus (Cookie/JWT)
+   - Wenn Warden aktiviert ist : Ruft Benutzerinformationen von Warden ab und schreibt in Sitzungs-Claims
+   - Setzt Sitzungs-Cookie
+
+5. **Sitzungsaustausch**
+   - Wenn Callback vorhanden ist, Weiterleitung zu `{callback}/_session_exchange?id=<session_id>`
+   - Nachfolgender forwardAuth überprüft nur Stargate-Sitzung, stellt hohe Leistung sicher
 
 ## Sicherheitsüberlegungen
 
@@ -250,12 +393,42 @@ Template-Datei `internal/web/templates/login.html` ändern.
   - Passwort-Verschlüsselungsalgorithmen (`internal/secure/secure_test.go`)
   - HTTP-Handler (`internal/handlers/handlers_test.go`)
 
+## Datenfluss und Sicherheitsgrenzen
+
+### Datenfluss
+
+**Datenfluss beim Login:**
+1. Benutzer gibt Identifikator (E-Mail/Telefon) ein → Stargate
+2. Stargate → Warden: Benutzerinformationen abfragen (geschützt durch HMAC/mTLS)
+3. Warden → Stargate: Gibt user_id, E-Mail, Telefon, Status zurück
+4. Stargate → Herald: Challenge erstellen (geschützt durch HMAC/mTLS)
+5. Herald → Provider: Verifizierungscode senden (SMS/E-Mail)
+6. Benutzer gibt Verifizierungscode ein → Stargate
+7. Stargate → Herald: Code überprüfen (geschützt durch HMAC/mTLS)
+8. Herald → Stargate: Gibt Verifizierungsergebnis zurück
+9. Stargate: Sitzung erstellen → Redis
+
+**Datenfluss ForwardAuth (Hauptpfad):**
+1. Traefik → Stargate: Authentifizierungsprüfungsanfrage
+2. Stargate: Liest Sitzung aus Redis (oder analysiert aus Cookie)
+3. Stargate → Traefik: Gibt Authentifizierungsergebnis zurück (2xx oder 401/302)
+
+### Sicherheitsgrenzen
+
+- **Inter-Service-Kommunikation**: Geschützt durch HMAC-Signatur oder mTLS
+- **PII-Schutz**: Sensible Informationen (E-Mail/Telefon) werden in Protokollen maskiert
+- **Code-Sicherheit**: Herald speichert nur Code-Hash, nicht Klartext
+- **Sitzungssicherheit**: Sitzungs-ID verwendet UUID, Cookie verwendet HttpOnly und SameSite
+- **Zeitstempel-Verifizierung**: HMAC-Signatur enthält Zeitstempel, um Replay-Angriffe zu verhindern
+
 ## Zukünftige Verbesserungen
 
+- [x] Unterstützung für Warden-Benutzer-Whitelist-Authentifizierung
+- [x] Unterstützung für Herald-OTP/Verifizierungscode-Service-Integration
+- [x] Unterstützung für externe Redis-Sitzungsspeicherung
+- [x] Prometheus-Metriken-Export hinzufügen
 - [ ] Unterstützung für mehr Passwort-Verschlüsselungsalgorithmen
 - [ ] Unterstützung für OAuth2/OpenID Connect
 - [ ] Unterstützung für Multi-Benutzer- und Rollenverwaltung
 - [ ] Administrationsoberfläche hinzufügen
-- [ ] Unterstützung für externe Sitzungsspeicherung (Redis, etc.)
-- [ ] Prometheus-Metriken-Export hinzufügen
 - [ ] Unterstützung für Konfigurationsdateien (YAML/JSON)

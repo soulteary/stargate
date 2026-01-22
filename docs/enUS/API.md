@@ -6,10 +6,12 @@ This document describes in detail all API endpoints of the Stargate Forward Auth
 
 - [Authentication Check Endpoint](#authentication-check-endpoint)
 - [Login Endpoint](#login-endpoint)
+- [Send Verification Code Endpoint](#send-verification-code-endpoint)
 - [Logout Endpoint](#logout-endpoint)
 - [Session Exchange Endpoint](#session-exchange-endpoint)
 - [Health Check Endpoint](#health-check-endpoint)
 - [Root Endpoint](#root-endpoint)
+- [Authentication Flows](#authentication-flows)
 
 ## Authentication Check Endpoint
 
@@ -119,15 +121,32 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 ### `POST /_login`
 
-Handles login requests, verifies password, and creates a session.
+Handles login requests, supports two authentication modes:
+
+1. **Password Authentication Mode**: Verifies password and creates session
+2. **Warden + Herald OTP Authentication Mode**: Verifies code and creates session
 
 #### Request Body
 
 Form data (`application/x-www-form-urlencoded`):
 
+**Password Authentication Mode:**
+
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
+| `auth_method` | String | No | Authentication method, value is `password` (default) |
 | `password` | String | Yes | User password |
+| `callback` | String | No | Callback URL after successful login |
+
+**Warden + Herald OTP Authentication Mode:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `auth_method` | String | Yes | Authentication method, value is `warden` |
+| `user_phone` | String | No | User phone number (one of `user_phone` or `user_mail`) |
+| `user_mail` | String | No | User email (one of `user_phone` or `user_mail`) |
+| `challenge_id` | String | Yes | challenge_id returned by Herald |
+| `code` | String | Yes | Verification code entered by user |
 | `callback` | String | No | Callback URL after successful login |
 
 #### Callback Retrieval Priority
@@ -169,20 +188,117 @@ The response varies depending on whether there is a callback and the request typ
 
 #### Examples
 
+**Password Authentication:**
+
 ```bash
 # Submit login form (with callback)
 curl -X POST \
-     -d "password=yourpassword&callback=app.example.com" \
-     -c cookies.txt \
-     http://auth.example.com/_login
-
-# Submit login form (without callback, will auto-infer)
-curl -X POST \
-     -d "password=yourpassword" \
-     -H "X-Forwarded-Host: app.example.com" \
+     -d "auth_method=password&password=yourpassword&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
+
+**Warden + Herald OTP Authentication:**
+
+```bash
+# Submit login form (with verification code)
+curl -X POST \
+     -d "auth_method=warden&user_mail=user@example.com&challenge_id=ch_xxx&code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+```
+
+#### Warden + Herald Authentication Flow Description
+
+1. User enters email or phone number, calls `POST /_send_verify_code` to send verification code
+2. Stargate calls Warden to query user information (whitelist verification, status check)
+3. Stargate calls Herald to create challenge and send verification code
+4. User enters verification code, calls `POST /_login` for verification
+5. Stargate calls Herald to verify the code
+6. After successful verification, Stargate creates session and returns
+
+## Send Verification Code Endpoint
+
+### `POST /_send_verify_code`
+
+Send verification code request. This endpoint is used in the Warden + Herald OTP authentication flow.
+
+#### Request Body
+
+Form data (`application/x-www-form-urlencoded`) or JSON (`application/json`):
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `user_phone` | String | No | User phone number (one of `user_phone` or `user_mail`) |
+| `user_mail` | String | No | User email (one of `user_phone` or `user_mail`) |
+
+#### Processing Flow
+
+1. **Stargate → Warden**: Query user information
+   - Verify if user is in whitelist
+   - Check user status (if active)
+   - Get user's email and phone
+
+2. **Stargate → Herald**: Create challenge and send verification code
+   - Use email/phone returned by Warden as destination
+   - Call Herald API to create challenge
+   - Herald sends verification code (SMS or Email)
+
+3. **Return Result**: Return challenge_id and related information
+
+#### Response
+
+**Success Response (200 OK)**
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_xxxxxxxxxxxx",
+  "expires_in": 300,
+  "next_resend_in": 60,
+  "channel": "email",
+  "destination": "u***@example.com"
+}
+```
+
+**Failure Response**
+
+| Status Code | Description | Response Body |
+|-------------|-------------|---------------|
+| `400 Bad Request` | Invalid request parameters (missing user_phone or user_mail) | Error message |
+| `404 Not Found` | User not in Warden whitelist | Error message |
+| `429 Too Many Requests` | Rate limit triggered | Error message |
+| `500 Internal Server Error` | Server error or Herald service unavailable | Error message |
+
+#### Examples
+
+```bash
+# Send verification code (using email)
+curl -X POST \
+     -d "user_mail=user@example.com" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# Send verification code (using phone)
+curl -X POST \
+     -d "user_phone=13800138000" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# Using JSON format
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{"user_mail":"user@example.com"}' \
+     http://auth.example.com/_send_verify_code
+```
+
+#### Notes
+
+- Requires `WARDEN_ENABLED=true` and `HERALD_ENABLED=true`
+- User must be in Warden whitelist to send verification code
+- Herald performs rate limiting, with frequency limits for same user/phone/email
+- Code expiration time is determined by Herald configuration (default 300 seconds)
+- Resend cooldown is determined by Herald configuration (default 60 seconds)
 
 ## Logout Endpoint
 
@@ -329,26 +445,54 @@ Error message
 
 Error messages support internationalization, returning Chinese or English messages based on the `LANGUAGE` environment variable.
 
-## Authentication Flow Examples
+## Authentication Flows
 
-### Web Application Authentication Flow
+### ForwardAuth Authentication Flow (Main Path)
+
+**Key Principle: forwardAuth main path only verifies session, does not call Warden/Herald**
 
 1. User accesses protected resource (e.g., `https://app.example.com/dashboard`)
 2. Traefik intercepts the request and forwards it to `https://auth.example.com/_auth`
-3. Stargate checks the session in the cookie
-4. If not authenticated, redirects to `https://auth.example.com/_login?callback=app.example.com`
-5. User enters password and submits
-6. Stargate verifies password, creates session, sets cookie
-7. Redirects to `https://app.example.com/_session_exchange?id=<session_id>`
-8. Session cookie is set to the `app.example.com` domain
-9. User accesses protected resource again, authentication succeeds
+3. Stargate **only verifies Session** (reads from Cookie or Redis)
+   - **Does not call Warden**
+   - **Does not call Herald**
+4. If authenticated, sets `X-Forwarded-User` header and returns 200
+5. If not authenticated, redirects to login page (HTML requests) or returns 401 (API requests)
+
+### Password Authentication Login Flow
+
+1. User accesses protected resource
+2. Traefik → Stargate `/_auth`: Check session, not logged in
+3. Redirects to `https://auth.example.com/_login?callback=app.example.com`
+4. User enters password and submits `POST /_login` (`auth_method=password`)
+5. Stargate verifies password, creates session, sets cookie
+6. Redirects to `https://app.example.com/_session_exchange?id=<session_id>`
+7. Session cookie is set to the `app.example.com` domain
+8. User accesses protected resource again, forwardAuth verifies session, authentication succeeds
+
+### Warden + Herald OTP Authentication Login Flow
+
+1. User accesses protected resource
+2. Traefik → Stargate `/_auth`: Check session, not logged in
+3. Redirects to `https://auth.example.com/_login?callback=app.example.com`
+4. User enters email or phone number, submits `POST /_send_verify_code`
+5. **Stargate → Warden**: Query user (whitelist verification, status check), get user_id + email/phone
+6. **Stargate → Herald**: Create challenge and send verification code (SMS or Email)
+7. Herald returns challenge_id, expires_in, next_resend_in
+8. User enters verification code, submits `POST /_login` (`auth_method=warden`)
+9. **Stargate → Herald**: verify(challenge_id, code)
+10. Herald returns ok + user_id (+ optional amr/authentication strength)
+11. Stargate issues session (cookie/JWT), gets user information from Warden and writes to session claims
+12. Redirects to `https://app.example.com/_session_exchange?id=<session_id>`
+13. Session cookie is set to the `app.example.com` domain
+14. User accesses protected resource again, forwardAuth **only verifies Stargate session**, does not trigger Warden/Herald
 
 ### API Authentication Flow
 
 1. API client sends request to protected resource
 2. Traefik intercepts the request and forwards it to `https://auth.example.com/_auth`
 3. API client includes `Stargate-Password: <password>` in the request header
-4. Stargate verifies password
+4. Stargate verifies password (**does not call Warden/Herald**)
 5. If verification succeeds, sets `X-Forwarded-User` header and returns 200
 6. Traefik allows the request to continue to the backend service
 

@@ -23,6 +23,61 @@ Stargate supporte les méthodes de déploiement suivantes :
 
 Ce document présente principalement les méthodes de déploiement Docker et Docker Compose.
 
+## Dépendances de Service
+
+Stargate peut s'intégrer avec les services optionnels suivants :
+
+### Service Warden
+
+**Fonction :** Gestion de la liste blanche d'utilisateurs et fourniture d'informations utilisateur
+
+**Exigences de Déploiement :**
+- Nécessite une base de données (PostgreSQL/MySQL/SQLite)
+- Fournit une interface API HTTP
+- Supporte l'authentification par clé API
+
+**Configuration :**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+```
+
+### Service Herald
+
+**Fonction :** Envoi et vérification OTP/code de vérification
+
+**Exigences de Déploiement :**
+- Nécessite Redis (stocke les challenges et l'état de limitation de débit)
+- Fournit une interface API HTTP
+- Supporte l'authentification par signature HMAC ou mTLS (recommandé pour la production)
+
+**Configuration :**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-hmac-secret  # Recommandé pour la production
+```
+
+### Sécurité de Communication Inter-Services
+
+**Exigences pour l'Environnement de Production :**
+
+1. **Authentification par Signature HMAC** (Recommandé) :
+   - Stargate ↔ Herald utilise la signature HMAC-SHA256
+   - Configurer `HERALD_HMAC_SECRET`
+   - Inclut la vérification de l'horodatage (prévent les attaques de rejeu)
+
+2. **Authentification mTLS** (Optionnel, plus sécurisé) :
+   - Configurer le certificat client TLS
+   - Définir `HERALD_TLS_CLIENT_CERT_FILE` et `HERALD_TLS_CLIENT_KEY_FILE`
+   - Configurer la vérification du certificat CA
+
+3. **Isolation Réseau :**
+   - La communication inter-services doit être sur le réseau interne
+   - Utiliser des règles de pare-feu pour restreindre l'accès
+   - Éviter d'exposer les services au réseau public
+
 ## Déploiement Docker
 
 ### Construire l'Image

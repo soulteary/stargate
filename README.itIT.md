@@ -53,6 +53,8 @@ Stargate è perfetto per:
 - **Più Algoritmi di Crittografia Password**: Scegli tra plaintext (test), bcrypt, MD5, SHA512 e altro ancora
 - **Gestione Sicura delle Sessioni**: Sessioni basate su Cookie con dominio e scadenza personalizzabili
 - **Autenticazione Flessibile**: Supporto per autenticazione basata su password e basata su sessione
+- **Supporto OTP/Codice di Verifica**: Integrazione con il servizio Herald per codici di verifica SMS/Email
+- **Gestione Whitelist Utenti**: Integrazione con il servizio Warden per il controllo di accesso utente
 
 ### 🌐 Capacità Avanzate
 
@@ -85,12 +87,28 @@ cd forward-auth
 ```
 
 **Passo 2:** Configura la tua autenticazione (modifica `codes/docker-compose.yml`)
+
+**Opzione A: Autenticazione Password (Semplice)**
 ```yaml
 services:
   stargate:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```
+
+**Opzione B: Autenticazione OTP Warden + Herald (Produzione)**
+```yaml
+services:
+  stargate:
+    environment:
+      - AUTH_HOST=auth.example.com
+      - WARDEN_ENABLED=true
+      - WARDEN_URL=http://warden:8080
+      - WARDEN_API_KEY=your-warden-api-key
+      - HERALD_ENABLED=true
+      - HERALD_URL=http://herald:8080
+      - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
 **Passo 3:** Avvia il servizio
@@ -469,5 +487,16 @@ Prima di distribuire in produzione, assicurati di aver completato queste best pr
 - ✅ **Usa Password Forti**: Evita `plaintext`, usa `bcrypt` o `sha512` per l'hashing delle password
 - ✅ **Abilita HTTPS**: Configura HTTPS via Traefik o il tuo proxy inverso
 - ✅ **Imposta Dominio Cookie**: Configura `COOKIE_DOMAIN` per una gestione sessione appropriata tra sottodomini
+- ✅ **Integrazione Servizi Opzionali**: Per funzionalità avanzate, integra opzionalmente Warden + Herald per l'autenticazione OTP
+- ✅ **Sicurezza Inter-Servizi**: Comunicazione Stargate ↔ Herald/Warden utilizzando firme HMAC o mTLS
 - ✅ **Monitora e Registra**: Configura registrazione e monitoraggio appropriati per il tuo deployment
 - ✅ **Aggiornamenti Regolari**: Mantieni Stargate aggiornato all'ultima versione per patch di sicurezza
+
+## 🎯 Principi di Progettazione
+
+Stargate è progettato per essere utilizzato in modo indipendente :
+
+- **Utilizzo Autonomo** : Stargate può funzionare indipendentemente utilizzando la modalità di autenticazione password, senza dipendenze esterne
+- **Integrazione Opzionale** : Può opzionalmente integrarsi con Warden (whitelist utenti) e Herald (OTP/codici di verifica)
+- **Alte Prestazioni** : Il percorso principale forwardAuth verifica solo la sessione, garantendo una risposta rapida
+- **Flessibilità** : Supporta più modalità di autenticazione, scegli in base alle tue esigenze

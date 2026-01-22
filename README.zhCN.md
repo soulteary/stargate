@@ -34,6 +34,7 @@ Stargate 非常适合以下场景：
 - **内部工具与仪表板**：快速为内部服务和管理面板添加认证
 - **API 网关集成**：与 Traefik、Nginx 或其他反向代理配合，作为统一的认证层
 - **开发与测试**：为开发环境提供简单的基于密码的认证
+- **企业级认证**：与 Warden（用户白名单）和 Herald（OTP/验证码）集成，提供生产级认证能力
 
 ## 📋 目录
 
@@ -52,6 +53,8 @@ Stargate 非常适合以下场景：
 - **多种密码加密算法**：支持 plaintext（测试用）、bcrypt、MD5、SHA512 等多种加密算法
 - **安全会话管理**：基于 Cookie 的会话管理，支持自定义域名和过期时间
 - **灵活的认证方式**：同时支持基于密码和基于会话的认证
+- **OTP/验证码支持**：与 Herald 服务集成，支持短信/邮件验证码
+- **用户白名单管理**：与 Warden 服务集成，提供用户访问控制
 
 ### 🌐 高级能力
 - **跨域会话共享**：在不同域名/子域名之间无缝共享认证会话
@@ -81,12 +84,28 @@ cd forward-auth
 ```
 
 **步骤 2：** 配置认证信息（编辑 `codes/docker-compose.yml`）
+
+**选项 A：密码认证（简单）**
 ```yaml
 services:
   stargate:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```
+
+**选项 B：Warden + Herald OTP 认证（生产环境）**
+```yaml
+services:
+  stargate:
+    environment:
+      - AUTH_HOST=auth.example.com
+      - WARDEN_ENABLED=true
+      - WARDEN_URL=http://warden:8080
+      - WARDEN_API_KEY=your-warden-api-key
+      - HERALD_ENABLED=true
+      - HERALD_URL=http://herald:8080
+      - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
 **步骤 3：** 启动服务
@@ -166,6 +185,50 @@ PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
 **详细配置说明请参阅：[docs/zhCN/CONFIG.md](docs/zhCN/CONFIG.md)**
+
+## 🔗 可选服务集成
+
+Stargate 可以完全独立使用，也可以选择性地与以下服务集成以扩展功能：
+
+### Warden 集成（可选）
+
+Warden 提供用户白名单管理和用户信息。**这是可选的**，如果不需要用户白名单功能，可以不启用。
+
+启用后：
+- Stargate 查询 Warden 以验证用户是否在允许列表中
+- Warden 返回用户信息（email、phone、user_id、status）
+- 支持缓存以提高性能
+
+**配置：**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+WARDEN_CACHE_TTL=300  # 缓存 TTL（秒）
+```
+
+### Herald 集成（可选）
+
+Herald 提供 OTP/验证码服务。**这是可选的**，如果不需要验证码功能，可以不启用。
+
+启用后：
+- Stargate 调用 Herald 创建并发送验证码（短信/邮件）
+- Herald 处理所有 OTP 复杂性：限流、冷却时间、尝试次数限制、安全性
+- Stargate 调用 Herald 验证用户输入的验证码
+
+**配置：**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+# 生产环境（推荐）：
+HERALD_HMAC_SECRET=your-hmac-secret
+# 开发环境：
+HERALD_API_KEY=your-api-key
+```
+
+**注意**：Warden 和 Herald 的集成都是可选的。Stargate 可以独立使用密码认证，也可以选择性地启用这些集成功能。
+
+**完整集成指南请参阅：[docs/zhCN/ARCHITECTURE.md](docs/zhCN/ARCHITECTURE.md)**
 
 ## 📚 文档导航
 
@@ -465,5 +528,16 @@ Language = EnvVariable{
 - ✅ **使用强密码**：避免使用 `plaintext`，使用 `bcrypt` 或 `sha512` 进行密码哈希
 - ✅ **启用 HTTPS**：通过 Traefik 或您的反向代理配置 HTTPS
 - ✅ **设置 Cookie 域名**：配置 `COOKIE_DOMAIN` 以在子域名间正确管理会话
+- ✅ **可选服务集成**：如需更高级功能，可选择集成 Warden + Herald 进行 OTP 认证
+- ✅ **服务安全**：Stargate ↔ Herald/Warden 通信使用 HMAC 签名或 mTLS
 - ✅ **监控与日志**：为您的部署设置适当的日志记录和监控
 - ✅ **定期更新**：保持 Stargate 更新到最新版本，以获取安全补丁
+
+## 🎯 设计原则
+
+Stargate 设计为可以完全独立使用：
+
+- **独立使用**：Stargate 可以独立运行，使用密码认证模式，无需任何外部依赖
+- **可选集成**：可以选择性地集成 Warden（用户白名单）和 Herald（OTP/验证码）服务
+- **高性能**：forwardAuth 主链路只校验 session，确保快速响应
+- **灵活性**：支持多种认证模式，可根据需求选择

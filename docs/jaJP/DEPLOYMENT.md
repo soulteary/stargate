@@ -23,6 +23,61 @@ Stargate は以下のデプロイメント方法をサポートします：
 
 このドキュメントでは、主に Docker と Docker Compose のデプロイメント方法を紹介します。
 
+## サービス依存関係
+
+Stargateは以下のオプションサービスと統合できます：
+
+### Wardenサービス
+
+**機能:** ユーザーホワイトリスト管理とユーザー情報の提供
+
+**デプロイメント要件:**
+- データベースが必要（PostgreSQL/MySQL/SQLite）
+- HTTP APIインターフェースを提供
+- APIキー認証をサポート
+
+**設定:**
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+WARDEN_API_KEY=your-api-key
+```
+
+### Heraldサービス
+
+**機能:** OTP/検証コードの送信と検証
+
+**デプロイメント要件:**
+- Redisが必要（チャレンジとレート制限状態を保存）
+- HTTP APIインターフェースを提供
+- HMAC署名またはmTLS認証をサポート（本番環境で推奨）
+
+**設定:**
+```bash
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_HMAC_SECRET=your-hmac-secret  # 本番環境で推奨
+```
+
+### サービス間通信のセキュリティ
+
+**本番環境の要件:**
+
+1. **HMAC署名認証**（推奨）:
+   - Stargate ↔ HeraldはHMAC-SHA256署名を使用
+   - `HERALD_HMAC_SECRET`を設定
+   - タイムスタンプ検証を含む（リプレイ攻撃を防止）
+
+2. **mTLS認証**（オプション、より安全）:
+   - TLSクライアント証明書を設定
+   - `HERALD_TLS_CLIENT_CERT_FILE`と`HERALD_TLS_CLIENT_KEY_FILE`を設定
+   - CA証明書の検証を設定
+
+3. **ネットワーク分離:**
+   - サービス間通信は内部ネットワーク上で行う必要があります
+   - ファイアウォールルールを使用してアクセスを制限
+   - サービスをパブリックネットワークに公開しないようにする
+
 ## Docker デプロイメント
 
 ### イメージのビルド

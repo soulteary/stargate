@@ -184,6 +184,89 @@ curl -X POST \
      http://auth.example.com/_login
 ```
 
+## 인증 코드 전송 엔드포인트
+
+### `POST /_send_verify_code`
+
+인증 코드 전송 요청. 이 엔드포인트는 Warden + Herald OTP 인증 흐름에서 사용됩니다.
+
+#### 요청 본문
+
+폼 데이터 (`application/x-www-form-urlencoded`) 또는 JSON (`application/json`) :
+
+| 필드 | 유형 | 필수 | 설명 |
+|------|------|------|------|
+| `user_phone` | String | 아니오 | 사용자 전화번호 (`user_phone` 또는 `user_mail` 중 하나) |
+| `user_mail` | String | 아니오 | 사용자 이메일 (`user_phone` 또는 `user_mail` 중 하나) |
+
+#### 처리 흐름
+
+1. **Stargate → Warden** : 사용자 정보 쿼리
+   - 사용자가 화이트리스트에 있는지 확인
+   - 사용자 상태 확인 (활성 상태인지)
+   - 사용자의 이메일과 전화 가져오기
+
+2. **Stargate → Herald** : 챌린지 생성 및 인증 코드 전송
+   - Warden에서 반환된 이메일/전화를 대상으로 사용
+   - Herald API를 호출하여 챌린지 생성
+   - Herald가 인증 코드 전송 (SMS 또는 이메일)
+
+3. **결과 반환** : challenge_id 및 관련 정보 반환
+
+#### 응답
+
+**성공 응답 (200 OK)**
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_xxxxxxxxxxxx",
+  "expires_in": 300,
+  "next_resend_in": 60,
+  "channel": "email",
+  "destination": "u***@example.com"
+}
+```
+
+**실패 응답**
+
+| 상태 코드 | 설명 | 응답 본문 |
+|----------|------|----------|
+| `400 Bad Request` | 잘못된 요청 매개변수 (user_phone 또는 user_mail 누락) | 오류 메시지 |
+| `404 Not Found` | 사용자가 Warden 화이트리스트에 없음 | 오류 메시지 |
+| `429 Too Many Requests` | 속도 제한 트리거됨 | 오류 메시지 |
+| `500 Internal Server Error` | 서버 오류 또는 Herald 서비스 사용 불가 | 오류 메시지 |
+
+#### 예제
+
+```bash
+# 인증 코드 전송 (이메일 사용)
+curl -X POST \
+     -d "user_mail=user@example.com" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# 인증 코드 전송 (전화 사용)
+curl -X POST \
+     -d "user_phone=13800138000" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# JSON 형식 사용
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{"user_mail":"user@example.com"}' \
+     http://auth.example.com/_send_verify_code
+```
+
+#### 참고 사항
+
+- `WARDEN_ENABLED=true` 및 `HERALD_ENABLED=true` 필요
+- 인증 코드를 전송하려면 사용자가 Warden 화이트리스트에 있어야 합니다
+- Herald는 속도 제한을 수행하며, 동일한 사용자/전화/이메일에 대해 빈도 제한이 있습니다
+- 코드 만료 시간은 Herald 설정에 의해 결정됩니다 (기본값: 300초)
+- 재전송 쿨다운 시간은 Herald 설정에 의해 결정됩니다 (기본값: 60초)
+
 ## 로그아웃 엔드포인트
 
 ### `GET /_logout`

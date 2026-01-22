@@ -85,8 +85,10 @@ codes/src/
 - 默认值支持
 
 **配置变量：**
+
+**基础配置：**
 - `AUTH_HOST`: 认证主机名（必需）
-- `PASSWORDS`: 密码配置（算法:密码列表）（必需）
+- `PASSWORDS`: 密码配置（算法:密码列表）（必需，密码认证模式）
 - `DEBUG`: 调试模式（默认：false）
 - `LANGUAGE`: 界面语言（默认：en，支持 en/zh）
 - `COOKIE_DOMAIN`: Cookie 域名（可选，用于跨域会话共享）
@@ -95,15 +97,32 @@ codes/src/
 - `USER_HEADER_NAME`: 认证成功后设置的用户头名称（默认：X-Forwarded-User）
 - `PORT`: 服务监听端口（仅本地开发，默认：80）
 
+**Warden 集成配置：**
+- `WARDEN_ENABLED`: 启用 Warden 集成（默认：false）
+- `WARDEN_URL`: Warden 服务基础 URL
+- `WARDEN_API_KEY`: Warden API Key（用于服务认证）
+- `WARDEN_CACHE_TTL`: Warden 缓存 TTL（秒，默认：300）
+
+**Herald 集成配置：**
+- `HERALD_ENABLED`: 启用 Herald 集成（默认：false）
+- `HERALD_URL`: Herald 服务基础 URL
+- `HERALD_API_KEY`: Herald API Key（开发环境）
+- `HERALD_HMAC_SECRET`: Herald HMAC 密钥（生产环境，推荐）
+- `HERALD_TLS_CA_CERT_FILE`: Herald TLS CA 证书文件（mTLS）
+- `HERALD_TLS_CLIENT_CERT_FILE`: Herald TLS 客户端证书文件（mTLS）
+- `HERALD_TLS_CLIENT_KEY_FILE`: Herald TLS 客户端密钥文件（mTLS）
+- `HERALD_TLS_SERVER_NAME`: Herald TLS 服务器名称（SNI）
+
 ### 3. 请求处理器 (`internal/handlers`)
 
 处理器负责处理 HTTP 请求：
 
-- **CheckRoute**: Traefik Forward Auth 认证检查
-- **LoginRoute/LoginAPI**: 登录页面和登录处理
+- **CheckRoute**: Traefik Forward Auth 认证检查（仅校验 session）
+- **LoginRoute/LoginAPI**: 登录页面和登录处理（支持密码和 Warden+Herald OTP）
+- **SendVerifyCodeAPI**: 发送验证码（调用 Herald 创建 challenge）
 - **LogoutRoute**: 登出处理
 - **SessionShareRoute**: 跨域会话共享
-- **HealthRoute**: 健康检查
+- **HealthRoute**: 健康检查（包含 Warden 和 Herald 健康状态）
 - **IndexRoute**: 根路径处理
 
 ### 4. 密码加密 (`internal/secure`)
@@ -121,9 +140,142 @@ type HashResolver interface {
 }
 ```
 
+## 系统架构
+
+### 架构图
+
+```mermaid
+graph TB
+    subgraph User["用户"]
+        Browser[浏览器]
+        API[API 客户端]
+    end
+
+    subgraph Edge["边缘层"]
+        Traefik[Traefik 反向代理]
+    end
+
+    subgraph Auth["认证层"]
+        Stargate[Stargate<br/>认证/会话管理]
+    end
+
+    subgraph Services["服务层"]
+        Warden[Warden<br/>用户白名单]
+        Herald[Herald<br/>OTP/验证码]
+    end
+
+    subgraph Storage["存储层"]
+        Redis[Redis<br/>会话/限流]
+        DB[(数据库<br/>用户信息)]
+    end
+
+    subgraph Providers["外部服务"]
+        SMSProvider[短信服务商]
+        EmailProvider[邮件服务商]
+    end
+
+    Browser -->|1. 访问受保护资源| Traefik
+    API -->|1. API 请求| Traefik
+    Traefik -->|2. Forward Auth| Stargate
+    Stargate -->|3. 校验 Session| Redis
+    Stargate -->|4. 未登录: 查询用户| Warden
+    Warden -->|5. 返回用户信息| DB
+    Stargate -->|6. 创建 Challenge| Herald
+    Herald -->|7. 发送验证码| SMSProvider
+    Herald -->|7. 发送验证码| EmailProvider
+    Herald -->|8. 存储 Challenge| Redis
+    Stargate -->|9. 验证码校验| Herald
+    Stargate -->|10. 创建 Session| Redis
+    Stargate -->|11. 返回认证结果| Traefik
+    Traefik -->|12. 允许/拒绝| Browser
+    Traefik -->|12. 允许/拒绝| API
+
+    style Stargate fill:#4A90E2,color:#fff
+    style Warden fill:#50C878,color:#fff
+    style Herald fill:#FF6B6B,color:#fff
+    style Redis fill:#FFA500,color:#fff
+```
+
+### 独立使用模式
+
+Stargate 设计为可以完全独立使用，无需依赖其他服务：
+
+- **密码认证模式**：使用配置的密码进行认证，支持多种加密算法
+- **会话管理**：基于 Cookie 的会话管理，支持跨域会话共享
+- **ForwardAuth**：提供标准的 Traefik Forward Auth 接口
+
+这是 Stargate 的主要使用场景，适合大多数应用场景。
+
+### 可选服务集成
+
+Stargate 可以选择性地与 Warden 和 Herald 服务集成，以提供更高级的认证功能：
+
+#### Warden 集成（可选）
+
+当启用 Warden 集成时：
+- 提供用户白名单管理功能
+- 支持基于用户列表的认证
+- 提供用户信息查询（email/phone/user_id/status）
+
+#### Herald 集成（可选）
+
+当启用 Herald 集成时：
+- 提供 OTP/验证码发送和验证功能
+- 支持短信和邮件验证码
+- 提供完整的验证码生命周期管理
+
+**注意**：Warden 和 Herald 的集成是可选的。Stargate 可以独立使用，也可以选择性地启用这些集成功能。
+
+## 可选服务集成
+
+Stargate 支持可选的服务集成，以扩展认证功能。这些集成都是可选的，Stargate 可以完全独立使用。
+
+### Warden 集成（可选）
+
+当 `WARDEN_ENABLED=true` 时，Stargate 可以通过 Warden SDK 与 Warden 服务集成：
+
+- **用户白名单验证**：检查用户是否在允许列表中
+- **用户信息获取**：获取用户的 email、phone、user_id 等身份信息
+- **用户状态检查**：验证用户账户是否处于活跃状态
+
+**集成方式：**
+- 使用 Warden Go SDK (`github.com/soulteary/warden/pkg/warden`)
+- 支持 API Key 认证
+- 支持缓存（可配置 TTL）
+- 健康检查集成
+
+**配置要求：**
+- `WARDEN_ENABLED=true`
+- `WARDEN_URL` 必须设置
+
+### Herald 集成（可选）
+
+当 `HERALD_ENABLED=true` 时，Stargate 可以通过 Herald 客户端与 Herald 服务集成：
+
+- **创建验证码 Challenge**：调用 Herald API 创建并发送验证码
+- **验证码校验**：调用 Herald API 验证用户输入的验证码
+- **错误处理**：处理 Herald 返回的各种错误（过期、锁定、限流等）
+
+**集成方式：**
+- 使用 Herald Go 客户端 (`github.com/soulteary/stargate/pkg/herald`)
+- 支持 API Key 认证（开发环境）
+- 支持 HMAC 签名认证（生产环境，推荐）
+- 支持 mTLS（可选）
+- 健康检查集成
+
+**配置要求：**
+- `HERALD_ENABLED=true`
+- `HERALD_URL` 必须设置
+- 必须设置 `HERALD_API_KEY` 或 `HERALD_HMAC_SECRET` 之一
+
+**安全要求（生产环境）：**
+- 服务间通信推荐使用 HMAC 签名或 mTLS
+- 时间戳校验（防止重放攻击）
+- 请求签名验证
+
 ## 工作流程
 
-### 认证流程
+### ForwardAuth 认证流程（主链路）
 
 1. **用户访问受保护资源**
    - Traefik 拦截请求
@@ -132,9 +284,10 @@ type HashResolver interface {
 2. **Stargate 检查认证**
    - 优先检查 `Stargate-Password` 头（API 认证）
    - 如果 Header 认证失败，检查 `stargate_session_id` Cookie（Web 认证）
+   - **仅校验 Session，不调用外部服务**（确保高性能）
 
 3. **认证成功**
-   - 设置 `X-Forwarded-User` 头（或配置的用户头名称），值为 "authenticated"
+   - 设置 `X-Forwarded-User` 头（或配置的用户头名称），值为用户信息
    - 返回 200 OK
    - Traefik 允许请求继续
 
@@ -142,7 +295,7 @@ type HashResolver interface {
    - HTML 请求：重定向到登录页（`/_login?callback=<原始URL>`）
    - API 请求（JSON/XML）：返回 401 Unauthorized
 
-### 登录流程
+### 密码认证登录流程
 
 1. **用户访问登录页**
    - `GET /_login?callback=<url>`
@@ -150,8 +303,8 @@ type HashResolver interface {
    - 如果域名不一致，会将 callback 存储在 Cookie 中（`stargate_callback`）
 
 2. **提交登录表单**
-   - `POST /_login` 携带密码
-   - 验证密码
+   - `POST /_login` 携带密码和 `auth_method=password`
+   - 验证密码（使用配置的密码算法）
    - 创建会话并设置 Cookie
    - **Callback 获取优先级**：
      1. 从 Cookie 中获取（如果之前已设置）
@@ -164,6 +317,35 @@ type HashResolver interface {
    - `GET /_session_exchange?id=<session_id>`
    - 设置会话 Cookie（如果配置了 `COOKIE_DOMAIN`，会设置到指定域名）
    - 重定向到根路径 `/`
+
+### Warden + Herald OTP 认证登录流程（可选）
+
+当启用了 Warden 和 Herald 集成时，可以使用 OTP 认证：
+
+1. **用户访问登录页**
+   - `GET /_login?callback=<url>`
+   - 显示登录表单（支持邮箱/手机号输入）
+
+2. **用户输入标识并请求验证码**
+   - 用户输入邮箱或手机号
+   - `POST /_send_verify_code` 发送验证码请求
+   - 如果启用了 Warden：Stargate → Warden 查询用户（白名单验证、状态检查），获得 user_id + email/phone
+   - 如果启用了 Herald：Stargate → Herald 创建 challenge 并发送验证码（SMS 或 Email）
+   - Herald 返回 challenge_id、expires_in、next_resend_in
+
+3. **用户提交验证码**
+   - `POST /_login` 携带验证码和 `auth_method=warden`
+   - 如果启用了 Herald：Stargate → Herald verify(challenge_id, code)
+   - Herald 返回 ok + user_id (+ 可选 amr/认证强度)
+
+4. **创建会话**
+   - Stargate 签发 session（cookie/JWT）
+   - 如果启用了 Warden：从 Warden 获取用户信息并写入 session claims
+   - 设置会话 Cookie
+
+5. **会话交换**
+   - 如果有 callback，重定向到 `{callback}/_session_exchange?id=<session_id>`
+   - 后续 forwardAuth 只校验 Stargate session，确保高性能
 
 ## 安全考虑
 
@@ -250,12 +432,42 @@ type HashResolver interface {
   - 密码加密算法（`internal/secure/secure_test.go`）
   - HTTP 处理器（`internal/handlers/handlers_test.go`）
 
+## 数据流与安全边界
+
+### 数据流
+
+**登录流程数据流：**
+1. 用户输入标识（email/phone）→ Stargate
+2. Stargate → Warden：查询用户信息（HMAC/mTLS 保护）
+3. Warden → Stargate：返回 user_id、email、phone、status
+4. Stargate → Herald：创建 challenge（HMAC/mTLS 保护）
+5. Herald → Provider：发送验证码（SMS/Email）
+6. 用户输入验证码 → Stargate
+7. Stargate → Herald：验证码校验（HMAC/mTLS 保护）
+8. Herald → Stargate：返回验证结果
+9. Stargate：创建 session → Redis
+
+**ForwardAuth 数据流（主链路）：**
+1. Traefik → Stargate：认证检查请求
+2. Stargate：从 Redis 读取 session（或从 Cookie 解析）
+3. Stargate → Traefik：返回认证结果（2xx 或 401/302）
+
+### 安全边界
+
+- **服务间通信**：使用 HMAC 签名或 mTLS 保护
+- **PII 保护**：敏感信息（email/phone）在日志中脱敏
+- **验证码安全**：Herald 只存储验证码 hash，不存储明文
+- **会话安全**：Session ID 使用 UUID，Cookie 使用 HttpOnly 和 SameSite
+- **时间戳校验**：HMAC 签名包含时间戳，防止重放攻击
+
 ## 未来改进方向
 
+- [x] 支持 Warden 用户白名单认证
+- [x] 支持 Herald OTP/验证码服务集成
+- [x] 支持 Redis 外部会话存储
+- [x] 添加 Prometheus 指标导出
 - [ ] 支持更多密码加密算法
 - [ ] 支持 OAuth2/OpenID Connect
 - [ ] 支持多用户和角色管理
 - [ ] 添加管理界面
-- [ ] 支持 Redis 等外部会话存储
-- [ ] 添加 Prometheus 指标导出
 - [ ] 支持配置文件（YAML/JSON）

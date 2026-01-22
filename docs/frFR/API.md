@@ -6,6 +6,7 @@ Ce document décrit en détail tous les points de terminaison API du service Sta
 
 - [Point de Terminaison de Vérification d'Authentification](#point-de-terminaison-de-vérification-dauthentification)
 - [Point de Terminaison de Connexion](#point-de-terminaison-de-connexion)
+- [Point de Terminaison d'Envoi de Code de Vérification](#point-de-terminaison-denvoi-de-code-de-vérification)
 - [Point de Terminaison de Déconnexion](#point-de-terminaison-de-déconnexion)
 - [Point de Terminaison d'Échange de Session](#point-de-terminaison-déchange-de-session)
 - [Point de Terminaison de Vérification de Santé](#point-de-terminaison-de-vérification-de-santé)
@@ -183,6 +184,89 @@ curl -X POST \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
+
+## Point de Terminaison d'Envoi de Code de Vérification
+
+### `POST /_send_verify_code`
+
+Requête d'envoi de code de vérification. Ce point de terminaison est utilisé dans le flux d'authentification OTP Warden + Herald.
+
+#### Corps de Requête
+
+Données de formulaire (`application/x-www-form-urlencoded`) ou JSON (`application/json`) :
+
+| Champ | Type | Requis | Description |
+|-------|------|--------|-------------|
+| `user_phone` | String | Non | Numéro de téléphone utilisateur (un parmi `user_phone` ou `user_mail`) |
+| `user_mail` | String | Non | Email utilisateur (un parmi `user_phone` ou `user_mail`) |
+
+#### Flux de Traitement
+
+1. **Stargate → Warden** : Requête d'informations utilisateur
+   - Vérifier si l'utilisateur est dans la liste blanche
+   - Vérifier le statut utilisateur (si actif)
+   - Obtenir l'email et le téléphone de l'utilisateur
+
+2. **Stargate → Herald** : Créer un challenge et envoyer un code de vérification
+   - Utiliser l'email/téléphone retourné par Warden comme destination
+   - Appeler l'API Herald pour créer un challenge
+   - Herald envoie un code de vérification (SMS ou Email)
+
+3. **Retourner le Résultat** : Retourner challenge_id et informations associées
+
+#### Réponse
+
+**Réponse de Succès (200 OK)**
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_xxxxxxxxxxxx",
+  "expires_in": 300,
+  "next_resend_in": 60,
+  "channel": "email",
+  "destination": "u***@example.com"
+}
+```
+
+**Réponse d'Échec**
+
+| Code de Statut | Description | Corps de Réponse |
+|----------------|-------------|-------------------|
+| `400 Bad Request` | Paramètres de requête invalides (user_phone ou user_mail manquant) | Message d'erreur |
+| `404 Not Found` | Utilisateur non présent dans la liste blanche Warden | Message d'erreur |
+| `429 Too Many Requests` | Limite de débit déclenchée | Message d'erreur |
+| `500 Internal Server Error` | Erreur serveur ou service Herald indisponible | Message d'erreur |
+
+#### Exemples
+
+```bash
+# Envoyer un code de vérification (en utilisant l'email)
+curl -X POST \
+     -d "user_mail=user@example.com" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# Envoyer un code de vérification (en utilisant le téléphone)
+curl -X POST \
+     -d "user_phone=13800138000" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# Utiliser le format JSON
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{"user_mail":"user@example.com"}' \
+     http://auth.example.com/_send_verify_code
+```
+
+#### Notes
+
+- Nécessite `WARDEN_ENABLED=true` et `HERALD_ENABLED=true`
+- L'utilisateur doit être dans la liste blanche Warden pour envoyer un code de vérification
+- Herald effectue une limitation de débit, avec des limites de fréquence pour le même utilisateur/téléphone/email
+- Le temps d'expiration du code est déterminé par la configuration Herald (par défaut 300 secondes)
+- Le délai de renvoi est déterminé par la configuration Herald (par défaut 60 secondes)
 
 ## Point de Terminaison de Déconnexion
 

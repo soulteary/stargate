@@ -184,6 +184,89 @@ curl -X POST \
      http://auth.example.com/_login
 ```
 
+## 検証コード送信エンドポイント
+
+### `POST /_send_verify_code`
+
+検証コード送信リクエスト。このエンドポイントは、Warden + Herald OTP認証フローで使用されます。
+
+#### リクエストボディ
+
+フォームデータ (`application/x-www-form-urlencoded`) または JSON (`application/json`) :
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `user_phone` | String | いいえ | ユーザーの電話番号 (`user_phone` または `user_mail` のいずれか) |
+| `user_mail` | String | いいえ | ユーザーのメール (`user_phone` または `user_mail` のいずれか) |
+
+#### 処理フロー
+
+1. **Stargate → Warden** : ユーザー情報をクエリ
+   - ユーザーがホワイトリストに含まれているか確認
+   - ユーザーステータスを確認（アクティブかどうか）
+   - ユーザーのメールと電話を取得
+
+2. **Stargate → Herald** : チャレンジを作成し、検証コードを送信
+   - Wardenから返されたメール/電話を宛先として使用
+   - Herald APIを呼び出してチャレンジを作成
+   - Heraldが検証コードを送信（SMSまたはメール）
+
+3. **結果を返す** : challenge_idと関連情報を返す
+
+#### レスポンス
+
+**成功レスポンス (200 OK)**
+
+```json
+{
+  "success": true,
+  "challenge_id": "ch_xxxxxxxxxxxx",
+  "expires_in": 300,
+  "next_resend_in": 60,
+  "channel": "email",
+  "destination": "u***@example.com"
+}
+```
+
+**失敗レスポンス**
+
+| ステータスコード | 説明 | レスポンスボディ |
+|-----------------|------|------------------|
+| `400 Bad Request` | 無効なリクエストパラメータ（user_phoneまたはuser_mailが欠落） | エラーメッセージ |
+| `404 Not Found` | ユーザーがWardenホワイトリストに存在しない | エラーメッセージ |
+| `429 Too Many Requests` | レート制限がトリガーされた | エラーメッセージ |
+| `500 Internal Server Error` | サーバーエラーまたはHeraldサービスが利用不可 | エラーメッセージ |
+
+#### 例
+
+```bash
+# 検証コードを送信（メールを使用）
+curl -X POST \
+     -d "user_mail=user@example.com" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# 検証コードを送信（電話を使用）
+curl -X POST \
+     -d "user_phone=13800138000" \
+     -H "Content-Type: application/x-www-form-urlencoded" \
+     http://auth.example.com/_send_verify_code
+
+# JSON形式を使用
+curl -X POST \
+     -H "Content-Type: application/json" \
+     -d '{"user_mail":"user@example.com"}' \
+     http://auth.example.com/_send_verify_code
+```
+
+#### 注意事項
+
+- `WARDEN_ENABLED=true` と `HERALD_ENABLED=true` が必要
+- 検証コードを送信するには、ユーザーがWardenホワイトリストに含まれている必要があります
+- Heraldはレート制限を実行し、同じユーザー/電話/メールに対して頻度制限があります
+- コードの有効期限はHeraldの設定によって決定されます（デフォルト: 300秒）
+- 再送信のクールダウン時間はHeraldの設定によって決定されます（デフォルト: 60秒）
+
 ## ログアウトエンドポイント
 
 ### `GET /_logout`
