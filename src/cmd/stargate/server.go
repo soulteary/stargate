@@ -14,6 +14,7 @@ import (
 	"github.com/gofiber/template/html"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
+	"github.com/soulteary/cli-kit/env"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
@@ -214,7 +215,8 @@ func createApp() *fiber.App {
 func startServer(app *fiber.App) error {
 	port := DefaultPort
 	// Support overriding default port via PORT environment variable (for local testing)
-	if envPort := os.Getenv("PORT"); envPort != "" {
+	// Use cli-kit env.GetTrimmed for consistent handling
+	if envPort := env.GetTrimmed("PORT", ""); envPort != "" {
 		if !strings.HasPrefix(envPort, ":") {
 			port = ":" + envPort
 		} else {
