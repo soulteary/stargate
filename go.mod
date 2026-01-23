@@ -12,7 +12,7 @@ require (
 	github.com/pterm/pterm v0.12.82
 	github.com/redis/go-redis/v9 v9.17.2
 	github.com/sirupsen/logrus v1.9.4
-	github.com/soulteary/cli-kit v0.1.0
+	github.com/soulteary/cli-kit v0.2.0
 	github.com/soulteary/redis-kit v0.1.1
 	github.com/soulteary/warden v0.4.0
 	github.com/valyala/fasthttp v1.69.0

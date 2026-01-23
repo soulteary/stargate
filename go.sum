@@ -428,8 +428,8 @@ github.com/sirupsen/logrus v1.2.0/go.mod h1:LxeOpSwHxABJmUn/MG1IvRgCAasNZTLOkJPx
 github.com/sirupsen/logrus v1.4.2/go.mod h1:tLMulIdttU9McNUspp0xgXVQah82FyeX6MwdIuYE2rE=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
-github.com/soulteary/cli-kit v0.1.0 h1:AIzc/ddOFID5mPNyswGnN+fVhfeK9I5Wi2Dzh6QDQB0=
-github.com/soulteary/cli-kit v0.1.0/go.mod h1:Z32KzEtl9FEFtKAsGhekTzPMUcg7Js7YvJzIyT/8Urk=
+github.com/soulteary/cli-kit v0.2.0 h1:aDJapRTyBW1QL4PEeyq8qfFpztBlVhJOd+MrhQjh+LQ=
+github.com/soulteary/cli-kit v0.2.0/go.mod h1:Z32KzEtl9FEFtKAsGhekTzPMUcg7Js7YvJzIyT/8Urk=
 github.com/soulteary/redis-kit v0.1.1 h1:4mCRuL0U2MTBn6bJmUlsaVUTGgygpELDSfCNu0zRKis=
 github.com/soulteary/redis-kit v0.1.1/go.mod h1:q18cqZ8QPaXDoODl1pr5jcbU/iDDMCBscVt/IMXEm7U=
 github.com/soulteary/warden v0.4.0 h1:Ps2tnTrsE78Hn93pZQbdFTKUku938GY6rHABwoazXGk=

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/soulteary/cli-kit/env"
+	"github.com/soulteary/cli-kit/validator"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/secure"
 )
@@ -59,22 +60,26 @@ var (
 		return true
 	}
 	ValidateStrictPossibleValues = func(v EnvVariable) bool {
-		for _, possibleValue := range v.PossibleValues {
-			if v.Value == possibleValue {
-				return true
-			}
+		// Use cli-kit validator for case-sensitive enum validation
+		// Skip validation if PossibleValues contains "*" (any value allowed)
+		if len(v.PossibleValues) > 0 && v.PossibleValues[0] == "*" {
+			return true
 		}
-
-		return false
+		if err := validator.ValidateEnum(v.Value, v.PossibleValues, true); err != nil {
+			return false
+		}
+		return true
 	}
 	ValidateCaseInsensitivePossibleValues = func(v EnvVariable) bool {
-		for _, possibleValue := range v.PossibleValues {
-			if strings.EqualFold(v.Value, possibleValue) {
-				return true
-			}
+		// Use cli-kit validator for case-insensitive enum validation
+		// Skip validation if PossibleValues contains "*" (any value allowed)
+		if len(v.PossibleValues) > 0 && v.PossibleValues[0] == "*" {
+			return true
 		}
-
-		return false
+		if err := validator.ValidateEnum(v.Value, v.PossibleValues, false); err != nil {
+			return false
+		}
+		return true
 	}
 
 	ValidatePasswords = func(v EnvVariable) bool {
