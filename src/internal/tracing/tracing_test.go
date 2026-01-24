@@ -64,7 +64,8 @@ func TestPropagation(t *testing.T) {
 
 func TestSpanOperations(t *testing.T) {
 	// Setup tracer
-	InitTracer("test-service", "1.0.0", "")
+	_, err := InitTracer("test-service", "1.0.0", "")
+	assert.NoError(t, err)
 	ctx := context.Background()
 
 	t.Run("StartSpan", func(t *testing.T) {
