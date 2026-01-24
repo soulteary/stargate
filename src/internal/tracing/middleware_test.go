@@ -10,7 +10,8 @@ import (
 
 func TestTracingMiddleware(t *testing.T) {
 	// Initialize tracer
-	InitTracer("test-service", "1.0.0", "")
+	_, err := InitTracer("test-service", "1.0.0", "")
+	assert.NoError(t, err)
 
 	app := fiber.New()
 	app.Use(TracingMiddleware("test-service"))

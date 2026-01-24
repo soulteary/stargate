@@ -19,9 +19,9 @@ func TracingMiddleware(serviceName string) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		// Extract trace context from request headers
 		reqHeaders := make(map[string]string)
-		c.Request().Header.VisitAll(func(key, value []byte) {
+		for key, value := range c.Request().Header.All() {
 			reqHeaders[string(key)] = string(value)
-		})
+		}
 		ctx := propagator.Extract(c.Context(), &headerCarrier{headers: reqHeaders})
 
 		// Determine span name from route path
@@ -75,9 +75,9 @@ func TracingMiddleware(serviceName string) fiber.Handler {
 
 		// Inject trace context into response headers
 		respHeaders := make(map[string]string)
-		c.Response().Header.VisitAll(func(key, value []byte) {
+		for key, value := range c.Response().Header.All() {
 			respHeaders[string(key)] = string(value)
-		})
+		}
 		propagator.Inject(ctx, &headerCarrier{headers: respHeaders})
 		// Update response headers
 		for k, v := range respHeaders {
