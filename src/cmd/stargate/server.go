@@ -20,7 +20,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/stargate/src/internal/middleware"
 	"github.com/soulteary/stargate/src/internal/storage"
-	"github.com/soulteary/stargate/src/internal/tracing"
+	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
 )
 
 // findTemplatesPath finds the correct path to templates directory.
@@ -173,7 +173,7 @@ func setupStaticFiles(app *fiber.App) {
 func setupMiddleware(app *fiber.App) {
 	// OpenTelemetry tracing middleware (if enabled)
 	if config.OTLPEnabled.ToBool() {
-		app.Use(tracing.TracingMiddleware("stargate"))
+		app.Use(internal_tracing.TracingMiddleware("stargate"))
 		logrus.Info("OpenTelemetry tracing middleware enabled")
 	}
 

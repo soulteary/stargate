@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
-	"github.com/soulteary/stargate/src/internal/tracing"
+	"github.com/soulteary/tracing-kit"
 )
 
 // runApplication is the main application logic extracted for testing.

@@ -5,13 +5,13 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	common_tracing "github.com/soulteary/tracing-kit"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestTracingMiddleware(t *testing.T) {
-	// Initialize tracer
-	_, err := InitTracer("test-service", "1.0.0", "")
-	assert.NoError(t, err)
+	defer common_tracing.TeardownTestTracer()
+	_, _ = common_tracing.SetupTestTracer(t)
 
 	app := fiber.New()
 	app.Use(TracingMiddleware("test-service"))

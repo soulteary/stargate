@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	common_tracing "github.com/soulteary/tracing-kit"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -14,7 +15,7 @@ import (
 // TracingMiddleware creates a Fiber middleware for OpenTelemetry tracing
 func TracingMiddleware(serviceName string) fiber.Handler {
 	propagator := otel.GetTextMapPropagator()
-	tracer := GetTracer()
+	tracer := common_tracing.GetTracer()
 
 	return func(c *fiber.Ctx) error {
 		// Extract trace context from request headers

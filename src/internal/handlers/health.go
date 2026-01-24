@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	rediskitclient "github.com/soulteary/redis-kit/client"
 	"github.com/soulteary/herald/pkg/herald"
+	rediskitclient "github.com/soulteary/redis-kit/client"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/storage"

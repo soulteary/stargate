@@ -12,7 +12,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
-	"github.com/soulteary/stargate/src/internal/tracing"
+	"github.com/soulteary/tracing-kit"
 	"go.opentelemetry.io/otel/attribute"
 )
 
