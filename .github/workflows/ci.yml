@@ -72,9 +72,15 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Get version information
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Build
         run: |
-          VERSION="dev-$(git rev-parse --short HEAD)"
+          VERSION=${{ steps.version.outputs.version }}
           CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/soulteary/stargate/src/cmd/stargate.Version=${VERSION}" -o ./bin/stargate ./src/cmd/stargate
 
       - name: Upload build artifacts
@@ -95,11 +101,20 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Get version information
+        id: version
+        run: |
+          VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ./docker/Dockerfile
           push: false
           tags: stargate:latest
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
