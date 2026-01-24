@@ -1,6 +1,10 @@
 package main
 
 import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
@@ -9,6 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/tracing"
 )
 
 // runApplication is the main application logic extracted for testing.
@@ -26,10 +31,52 @@ func runApplication() error {
 		return err
 	}
 
+	// Initialize OpenTelemetry tracing if enabled
+	if config.OTLPEnabled.ToBool() {
+		_, err := tracing.InitTracer(
+			"stargate",
+			Version,
+			config.OTLPEndpoint.Value,
+		)
+		if err != nil {
+			logrus.Warnf("Failed to initialize OpenTelemetry tracing: %v", err)
+		} else {
+			logrus.Info("OpenTelemetry tracing initialized")
+		}
+	}
+
 	// Create and start server
 	app := createApp()
-	if err := startServer(app); err != nil {
-		return err
+
+	// Setup graceful shutdown for tracer
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+
+	// Start server in a goroutine
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- startServer(app)
+	}()
+
+	// Wait for server error or shutdown signal
+	select {
+	case err := <-serverErr:
+		if err != nil {
+			return err
+		}
+	case sig := <-sigChan:
+		logrus.Infof("Received signal: %v, shutting down gracefully...", sig)
+
+		// Shutdown tracer
+		if config.OTLPEnabled.ToBool() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := tracing.Shutdown(ctx); err != nil {
+				logrus.Errorf("Failed to shutdown tracer: %v", err)
+			}
+		}
+
+		logrus.Info("Stargate service stopped")
 	}
 
 	return nil

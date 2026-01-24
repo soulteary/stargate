@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -13,6 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/stargate/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/audit"
@@ -20,6 +22,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
+	"github.com/soulteary/stargate/src/internal/tracing"
 	"github.com/soulteary/stargate/src/internal/utils"
 )
 
@@ -121,10 +124,25 @@ func (a *AuthAuthenticator) Authenticate(sess *session.Session) error {
 
 // loginAPIHandler is the internal handler that can be tested with mocked dependencies.
 func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator Authenticator) error {
+	// Get trace context from middleware
+	traceCtx := ctx.Locals("trace_context")
+	if traceCtx == nil {
+		traceCtx = ctx.Context()
+	}
+	spanCtx := traceCtx.(context.Context)
+
+	// Start span for login
+	loginCtx, loginSpan := tracing.StartSpan(spanCtx, "auth.login")
+	defer loginSpan.End()
+
 	password := ctx.FormValue("password")
 	authMethod := ctx.FormValue("auth_method") // "password" or "warden"
 	userPhone := ctx.FormValue("phone")
 	userMail := ctx.FormValue("mail")
+
+	loginSpan.SetAttributes(
+		attribute.String("auth.method", authMethod),
+	)
 
 	var userID string          // Declare userID at function scope
 	var verifyRespAMR []string // Store AMR from Herald response
@@ -141,23 +159,43 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		// Warden user list authentication
 		// Check if at least one identifier is provided
 		if userPhone == "" && userMail == "" {
+			tracing.RecordError(loginSpan, fmt.Errorf("no identifier provided"))
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.user_not_in_list"))
 		}
+
+		// Start span for Warden get user info
+		wardenCtx, wardenSpan := tracing.StartSpan(loginCtx, "warden.get_user_info")
+		wardenSpan.SetAttributes(
+			attribute.String("warden.identifier_type", func() string {
+				if userPhone != "" {
+					return "phone"
+				}
+				return "mail"
+			}()),
+		)
 
 		// Log the authentication attempt
 		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
 
 		// Step 1: Get complete user information from Warden (includes status check)
 		wardenStartTime := time.Now()
-		userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail)
+		userInfo := auth.GetUserInfo(wardenCtx, userPhone, userMail)
 		wardenDuration := time.Since(wardenStartTime)
 		if userInfo == nil {
+			wardenSpan.SetAttributes(attribute.Bool("warden.user_found", false))
+			wardenSpan.End()
+			tracing.RecordError(loginSpan, fmt.Errorf("user not found in Warden"))
 			metrics.RecordWardenCall("get_user_info", "failure", wardenDuration)
 			metrics.RecordAuthRequest("warden", "failure")
 			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
 			audit.GetAuditLogger().LogLogin("", "warden", ctx.IP(), false, "user_not_in_list")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
 		}
+		wardenSpan.SetAttributes(
+			attribute.Bool("warden.user_found", true),
+			attribute.String("warden.user_id", userInfo.UserID),
+		)
+		wardenSpan.End()
 		metrics.RecordWardenCall("get_user_info", "success", wardenDuration)
 
 		// Step 2: Use user_id from Warden if available, otherwise generate one
@@ -202,10 +240,18 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				ClientIP:    ctx.IP(),
 			}
 
+			// Start span for Herald verify challenge
+			heraldCtx, heraldSpan := tracing.StartSpan(loginCtx, "herald.verify_challenge")
+			heraldSpan.SetAttributes(
+				attribute.String("herald.challenge_id", challengeID),
+			)
+
 			startTime := time.Now()
-			verifyResp, err := heraldClient.VerifyChallenge(ctx.Context(), verifyReq)
+			verifyResp, err := heraldClient.VerifyChallenge(heraldCtx, verifyReq)
 			duration := time.Since(startTime)
 			if err != nil {
+				tracing.RecordError(heraldSpan, err)
+				heraldSpan.End()
 				metrics.RecordHeraldCall("verify_challenge", "failure", duration)
 				logrus.Errorf("Failed to verify challenge: %v", err)
 
@@ -229,6 +275,11 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			}
 
 			if !verifyResp.OK {
+				heraldSpan.SetAttributes(
+					attribute.String("herald.result", "failure"),
+					attribute.String("herald.reason", verifyResp.Reason),
+				)
+				heraldSpan.End()
 				metrics.RecordHeraldCall("verify_challenge", "failure", duration)
 				reason := verifyResp.Reason
 				if reason == "" {
@@ -269,6 +320,11 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			}
 
 			// Log successful verification
+			heraldSpan.SetAttributes(
+				attribute.String("herald.result", "success"),
+				attribute.String("herald.user_id", verifyResp.UserID),
+			)
+			heraldSpan.End()
 			metrics.RecordHeraldCall("verify_challenge", "success", duration)
 			audit.GetAuditLogger().LogVerifyCodeCheck(userID, ctx.IP(), true, "")
 

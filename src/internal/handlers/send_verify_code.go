@@ -1,12 +1,15 @@
 package handlers
 
 import (
+	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/stargate/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/audit"
@@ -14,6 +17,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
+	"github.com/soulteary/stargate/src/internal/tracing"
 	"github.com/soulteary/stargate/src/internal/utils"
 )
 
@@ -44,6 +48,17 @@ func getLocaleFromConfig() string {
 // SendVerifyCodeAPI handles POST requests to /_send_verify_code for sending verification codes via Herald
 func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
+		// Get trace context from middleware
+		traceCtx := ctx.Locals("trace_context")
+		if traceCtx == nil {
+			traceCtx = ctx.Context()
+		}
+		spanCtx := traceCtx.(context.Context)
+
+		// Start span for send verify code
+		sendCodeCtx, sendCodeSpan := tracing.StartSpan(spanCtx, "auth.send_verify_code")
+		defer sendCodeSpan.End()
+
 		userPhone := ctx.FormValue("phone")
 		userMail := ctx.FormValue("mail")
 
@@ -59,8 +74,20 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 
 		// Step 1: Get complete user information from Warden (as per Claude.md spec)
 		// This ensures we use the official email/phone from Warden, not user input
-		userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail)
+		wardenCtx, wardenSpan := tracing.StartSpan(sendCodeCtx, "warden.get_user_info")
+		wardenSpan.SetAttributes(
+			attribute.String("warden.identifier_type", func() string {
+				if userPhone != "" {
+					return "phone"
+				}
+				return "mail"
+			}()),
+		)
+		userInfo := auth.GetUserInfo(wardenCtx, userPhone, userMail)
 		if userInfo == nil {
+			wardenSpan.SetAttributes(attribute.Bool("warden.user_found", false))
+			wardenSpan.End()
+			tracing.RecordError(sendCodeSpan, fmt.Errorf("user not found in Warden"))
 			logrus.Warnf("User not found in Warden or not active: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
 		}
@@ -70,6 +97,12 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		if userID == "" {
 			userID = generateUserID(userInfo.Phone, userInfo.Mail)
 		}
+
+		wardenSpan.SetAttributes(
+			attribute.Bool("warden.user_found", true),
+			attribute.String("warden.user_id", userID),
+		)
+		wardenSpan.End()
 
 		// Step 3: Determine channel and destination from Warden data
 		// Use Warden's official email/phone as destination (not user input)
@@ -120,6 +153,13 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		}
 
 		// Step 5: Create challenge via Herald
+		heraldCtx, heraldSpan := tracing.StartSpan(sendCodeCtx, "herald.create_challenge")
+		heraldSpan.SetAttributes(
+			attribute.String("herald.user_id", userID),
+			attribute.String("herald.channel", channel),
+			attribute.String("herald.purpose", "login"),
+		)
+
 		createReq := &herald.CreateChallengeRequest{
 			UserID:      userID,
 			Channel:     channel,
@@ -131,9 +171,11 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		}
 
 		heraldStartTime := time.Now()
-		createResp, err := heraldClient.CreateChallenge(ctx.Context(), createReq)
+		createResp, err := heraldClient.CreateChallenge(heraldCtx, createReq)
 		heraldDuration := time.Since(heraldStartTime)
 		if err != nil {
+			tracing.RecordError(heraldSpan, err)
+			heraldSpan.End()
 			logrus.Errorf("Failed to create challenge: %v", err)
 
 			reason := "unknown_error"
@@ -167,6 +209,19 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		// Log successful verification code send
 		metrics.RecordHeraldCall("create_challenge", "success", heraldDuration)
 		audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), true, "")
+
+		heraldSpan.SetAttributes(
+			attribute.String("herald.challenge_id", createResp.ChallengeID),
+			attribute.Int("herald.expires_in", createResp.ExpiresIn),
+			attribute.String("herald.result", "success"),
+		)
+		heraldSpan.End()
+
+		sendCodeSpan.SetAttributes(
+			attribute.String("auth.user_id", userID),
+			attribute.String("auth.channel", channel),
+			attribute.String("auth.result", "success"),
+		)
 
 		// Return success response with challenge_id
 		ctx.Set("Content-Type", "application/json")

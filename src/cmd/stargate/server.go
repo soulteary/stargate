@@ -20,6 +20,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/stargate/src/internal/middleware"
 	"github.com/soulteary/stargate/src/internal/storage"
+	"github.com/soulteary/stargate/src/internal/tracing"
 )
 
 // findTemplatesPath finds the correct path to templates directory.
@@ -168,8 +169,14 @@ func setupStaticFiles(app *fiber.App) {
 }
 
 // setupMiddleware configures all middleware for the Fiber application.
-// This includes logging and favicon handling.
+// This includes logging, tracing, and favicon handling.
 func setupMiddleware(app *fiber.App) {
+	// OpenTelemetry tracing middleware (if enabled)
+	if config.OTLPEnabled.ToBool() {
+		app.Use(tracing.TracingMiddleware("stargate"))
+		logrus.Info("OpenTelemetry tracing middleware enabled")
+	}
+
 	// Setup logrus for fiber
 	app.Use(middleware.NewLogMiddleware())
 

@@ -2,6 +2,7 @@ package config
 
 import (
 	"strings"
+	"time"
 
 	"github.com/soulteary/cli-kit/env"
 	"github.com/soulteary/cli-kit/validator"
@@ -25,6 +26,19 @@ func (v *EnvVariable) String() string {
 
 func (v *EnvVariable) ToBool() bool {
 	return strings.ToLower(v.Value) == "true"
+}
+
+// ToDuration parses the value as a duration string (e.g., "5m", "1h", "30s")
+// Returns the parsed duration, or 0 if parsing fails
+func (v *EnvVariable) ToDuration() time.Duration {
+	if v.Value == "" {
+		return 0
+	}
+	duration, err := time.ParseDuration(v.Value)
+	if err != nil {
+		return 0
+	}
+	return duration
 }
 
 func (v *EnvVariable) Validate() error {

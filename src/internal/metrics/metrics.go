@@ -70,6 +70,25 @@ var (
 		},
 		[]string{"operation"}, // operation: check_user, get_user_info
 	)
+
+	// AuthRefreshTotal counts auth refresh operations
+	AuthRefreshTotal = promauto.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "stargate_auth_refresh_total",
+			Help: "Total number of auth refresh operations",
+		},
+		[]string{"result"}, // result: success, failure
+	)
+
+	// AuthRefreshDuration measures auth refresh operation duration
+	AuthRefreshDuration = promauto.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "stargate_auth_refresh_duration_seconds",
+			Help:    "Auth refresh operation duration in seconds",
+			Buckets: prometheus.DefBuckets,
+		},
+		[]string{"result"}, // result: success, failure
+	)
 )
 
 // RecordAuthRequest records an authentication request
@@ -97,4 +116,10 @@ func RecordSessionCreated() {
 // RecordSessionDestroyed records a session destruction
 func RecordSessionDestroyed() {
 	SessionDestroyedTotal.Inc()
+}
+
+// RecordAuthRefresh records an auth refresh operation
+func RecordAuthRefresh(result string, duration time.Duration) {
+	AuthRefreshTotal.WithLabelValues(result).Inc()
+	AuthRefreshDuration.WithLabelValues(result).Observe(duration.Seconds())
 }

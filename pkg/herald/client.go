@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 )
 
 // Client is the Herald API client
@@ -256,6 +258,11 @@ func (c *Client) CreateChallenge(ctx context.Context, req *CreateChallengeReques
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Inject trace context into headers
+	propagator := otel.GetTextMapPropagator()
+	propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
+
 	c.addAuthHeaders(httpReq, body)
 
 	resp, err := c.httpClient.Do(httpReq)
@@ -307,6 +314,11 @@ func (c *Client) VerifyChallenge(ctx context.Context, req *VerifyChallengeReques
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
+
+	// Inject trace context into headers
+	propagator := otel.GetTextMapPropagator()
+	propagator.Inject(ctx, propagation.HeaderCarrier(httpReq.Header))
+
 	c.addAuthHeaders(httpReq, body)
 
 	resp, err := c.httpClient.Do(httpReq)
