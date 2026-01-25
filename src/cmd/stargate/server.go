@@ -8,17 +8,18 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gofiber/template/html"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/cli-kit/env"
 	metricskit "github.com/soulteary/metrics-kit"
+	middlewarekit "github.com/soulteary/middleware-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/stargate/src/internal/metrics"
-	"github.com/soulteary/stargate/src/internal/middleware"
 	"github.com/soulteary/stargate/src/internal/storage"
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
 )
@@ -169,17 +170,51 @@ func setupStaticFiles(app *fiber.App) {
 }
 
 // setupMiddleware configures all middleware for the Fiber application.
-// This includes logging, tracing, and favicon handling.
+// This includes recover, security headers, logging, tracing, and favicon handling.
 func setupMiddleware(app *fiber.App) {
-	// OpenTelemetry tracing middleware (if enabled)
+	// 1. Panic recovery (highest priority - prevents server crashes)
+	app.Use(recover.New())
+	logrus.Debug("Panic recovery middleware enabled")
+
+	// 2. Security headers (XSS protection, clickjacking prevention, etc.)
+	app.Use(middlewarekit.SecurityHeaders(middlewarekit.DefaultSecurityHeadersConfig()))
+	logrus.Debug("Security headers middleware enabled")
+
+	// 3. OpenTelemetry tracing middleware (if enabled)
 	if config.OTLPEnabled.ToBool() {
 		app.Use(internal_tracing.TracingMiddleware("stargate"))
 		logrus.Info("OpenTelemetry tracing middleware enabled")
 	}
 
-	// Setup logrus for fiber
-	app.Use(middleware.NewLogMiddleware())
+	// 4. Request logging with middleware-kit (structured logging with zerolog)
+	app.Use(middlewarekit.RequestLogging(middlewarekit.LoggingConfig{
+		Logger:         &zerologLogger,
+		SkipPaths:      []string{"/healthz", "/metrics"},
+		IncludeLatency: true,
+	}))
+	logrus.Debug("Request logging middleware enabled")
 
+	// 5. Rate limiting (optional - uncomment to enable for production)
+	// To enable rate limiting, uncomment the following code:
+	//
+	// limiter := middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
+	// 	Rate:            100,           // 100 requests per minute
+	// 	Window:          time.Minute,
+	// 	MaxVisitors:     10000,
+	// 	CleanupInterval: time.Minute,
+	// })
+	// app.Use(middlewarekit.RateLimit(middlewarekit.RateLimitConfig{
+	// 	Limiter:   limiter,
+	// 	SkipPaths: []string{"/healthz", "/metrics"},
+	// 	Logger:    &zerologLogger,
+	// 	OnLimitReached: func(key string) {
+	// 		// Optional: increment Prometheus counter
+	// 		// metrics.RateLimitExceeded.Inc()
+	// 	},
+	// }))
+	// logrus.Info("Rate limiting middleware enabled")
+
+	// 6. Favicon middleware
 	logrus.Debug("adding favicon middleware")
 	faviconPath := findFaviconPath()
 	// Only add favicon middleware if the file exists
