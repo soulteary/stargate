@@ -13,6 +13,7 @@ require (
 	github.com/rs/zerolog v1.34.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/soulteary/cli-kit v1.0.0
+	github.com/soulteary/health-kit v1.0.0
 	github.com/soulteary/herald v0.3.0
 	github.com/soulteary/i18n-kit v1.0.0
 	github.com/soulteary/metrics-kit v1.0.0

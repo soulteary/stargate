@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
@@ -12,8 +13,10 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gofiber/template/html"
+	"github.com/redis/go-redis/v9"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/cli-kit/env"
+	health "github.com/soulteary/health-kit"
 	i18nkit "github.com/soulteary/i18n-kit"
 	metricskit "github.com/soulteary/metrics-kit"
 	middlewarekit "github.com/soulteary/middleware-kit"
@@ -113,14 +116,63 @@ func setupSessionStore() *session.Store {
 	return session.New(sessionConfig)
 }
 
+// setupHealthChecker creates a health check aggregator with all dependencies
+func setupHealthChecker(redisClient *redis.Client) *health.Aggregator {
+	healthConfig := health.DefaultConfig().
+		WithServiceName("stargate").
+		WithTimeout(5 * time.Second)
+
+	aggregator := health.NewAggregator(healthConfig)
+
+	// Herald health check (if enabled)
+	if config.HeraldEnabled.ToBool() {
+		heraldURL := config.HeraldURL.String()
+		if heraldURL != "" {
+			aggregator.AddChecker(health.NewHTTPChecker("herald", heraldURL+"/healthz").
+				WithTimeout(2 * time.Second))
+		} else {
+			aggregator.AddChecker(health.NewDisabledChecker("herald").
+				WithMessage("Herald URL not configured"))
+		}
+	} else {
+		aggregator.AddChecker(health.NewDisabledChecker("herald").
+			WithMessage("Herald is disabled"))
+	}
+
+	// Warden health check (if enabled)
+	if config.WardenEnabled.ToBool() {
+		wardenURL := config.WardenURL.String()
+		if wardenURL != "" {
+			aggregator.AddChecker(health.NewHTTPChecker("warden", wardenURL+"/health").
+				WithTimeout(2 * time.Second))
+		} else {
+			aggregator.AddChecker(health.NewDisabledChecker("warden").
+				WithMessage("Warden URL not configured"))
+		}
+	} else {
+		aggregator.AddChecker(health.NewDisabledChecker("warden").
+			WithMessage("Warden is disabled"))
+	}
+
+	// Redis health check (if session storage is enabled)
+	if config.SessionStorageEnabled.ToBool() && redisClient != nil {
+		aggregator.AddChecker(health.NewRedisChecker(redisClient))
+	} else {
+		aggregator.AddChecker(health.NewDisabledChecker("redis").
+			WithMessage("Session storage is disabled"))
+	}
+
+	return aggregator
+}
+
 // setupRoutes registers all HTTP routes for the application.
 // This includes authentication, login, logout, session exchange, and health check endpoints.
-func setupRoutes(app *fiber.App, store *session.Store) {
+func setupRoutes(app *fiber.App, store *session.Store, healthAggregator *health.Aggregator) {
 	logrus.Debug("registering routes")
 	// Initialize Herald client
 	handlers.InitHeraldClient()
 
-	app.Get(RouteHealth, handlers.HealthRoute())
+	app.Get(RouteHealth, health.FiberHandler(healthAggregator))
 	app.Get(RouteRoot, handlers.IndexRoute(store))
 	app.Get(RouteLogin, handlers.LoginRoute(store))
 	app.Post(RouteLogin, handlers.LoginAPI(store))
@@ -250,7 +302,31 @@ func createApp() *fiber.App {
 
 	setupMiddleware(app)
 	store := setupSessionStore()
-	setupRoutes(app, store)
+
+	// Setup health checker with Redis client if session storage is enabled
+	var redisClient *redis.Client
+	if config.SessionStorageEnabled.ToBool() {
+		// Parse Redis DB number
+		redisDB := 0
+		if config.SessionStorageRedisDB.Value != "" {
+			if db, err := strconv.Atoi(config.SessionStorageRedisDB.Value); err == nil {
+				redisDB = db
+			}
+		}
+		// Create Redis client for health check
+		var err error
+		redisClient, err = storage.NewRedisClientFromConfig(
+			config.SessionStorageRedisAddr.Value,
+			config.SessionStorageRedisPassword.Value,
+			redisDB,
+		)
+		if err != nil {
+			logrus.Warnf("Failed to create Redis client for health check: %v", err)
+		}
+	}
+	healthAggregator := setupHealthChecker(redisClient)
+
+	setupRoutes(app, store, healthAggregator)
 	setupStaticFiles(app)
 
 	return app
