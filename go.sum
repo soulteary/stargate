@@ -449,8 +449,8 @@ github.com/soulteary/herald v0.3.0 h1:pQxN7QcZkKBMkZ7qrLT2wYWfgxcDWZ/pyx3/3sjK0n
 github.com/soulteary/herald v0.3.0/go.mod h1:qoUmaP0bOhmIoJXyMR7xKCYu7hMRE6hd3JHgXTpTP3c=
 github.com/soulteary/metrics-kit v1.0.0 h1:4tpy1h6exgLTWgWA5H17g+l3QUCPJKpVTGyP4HnoKU0=
 github.com/soulteary/metrics-kit v1.0.0/go.mod h1:sMpOwB9SH5A0Pb8i1L//N8k/HvWK8zC+l634w3AH0Qo=
-github.com/soulteary/middleware-kit v0.0.0-20260125124958-a9564c3c45cd h1:4ICcjOGKMJe1ULtfyEpaoeiyt6ldlB/t1x0nd7X3/RA=
-github.com/soulteary/middleware-kit v0.0.0-20260125124958-a9564c3c45cd/go.mod h1:dih5kyBIWKOALV9yGXKHKsHMVs/IzAkNxcbi0gZwFZI=
+github.com/soulteary/middleware-kit v1.0.0 h1:uTZZ9kW/sYH7sXJDNRytnr8vPJIC/NMVzk4EsnPx9LM=
+github.com/soulteary/middleware-kit v1.0.0/go.mod h1:dih5kyBIWKOALV9yGXKHKsHMVs/IzAkNxcbi0gZwFZI=
 github.com/soulteary/redis-kit v1.0.0 h1:9HNj2//n3eK29+xqlPmoQ57D7U3vHV/BBfSbVv8sMy8=
 github.com/soulteary/redis-kit v1.0.0/go.mod h1:q18cqZ8QPaXDoODl1pr5jcbU/iDDMCBscVt/IMXEm7U=
 github.com/soulteary/tracing-kit v1.0.0 h1:GCplc9+yKgHK6ubsgtXGp7PA5DVMT+d5Cnj3NZo1IsQ=
