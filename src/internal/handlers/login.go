@@ -16,7 +16,7 @@ import (
 
 	"github.com/soulteary/herald/pkg/herald"
 	secure "github.com/soulteary/secure-kit"
-	"github.com/soulteary/stargate/src/internal/audit"
+	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -185,7 +185,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			metrics.RecordWardenCall("get_user_info", "failure", wardenDuration)
 			metrics.RecordAuthRequest("warden", "failure")
 			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
-			audit.GetAuditLogger().LogLogin("", "warden", ctx.IP(), false, "user_not_in_list")
+			auditlog.LogLogin(ctx.Context(), "", "warden", ctx.IP(), false, "user_not_in_list")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
 		}
 		wardenSpan.SetAttributes(
@@ -283,7 +283,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 					reason = "invalid"
 				}
 				logrus.Warnf("Challenge verification failed: reason=%s", reason)
-				audit.GetAuditLogger().LogVerifyCodeCheck(userID, ctx.IP(), false, reason)
+				auditlog.LogVerifyCodeCheck(ctx.Context(), userID, ctx.IP(), false, reason)
 
 				// Provide detailed error message based on reason (as per Claude.md section 9)
 				var errorMsg string
@@ -323,7 +323,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			)
 			heraldSpan.End()
 			metrics.RecordHeraldCall("verify_challenge", "success", duration)
-			audit.GetAuditLogger().LogVerifyCodeCheck(userID, ctx.IP(), true, "")
+			auditlog.LogVerifyCodeCheck(ctx.Context(), userID, ctx.IP(), true, "")
 
 			// Verify user ID matches
 			if verifyResp.UserID != userID {
@@ -352,7 +352,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			if !auth.VerifyOTP(otpSecret, otpCode) {
 				metrics.RecordAuthRequest("warden_otp", "failure")
 				logrus.Warnf("OTP verification failed: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
-				audit.GetAuditLogger().LogLogin(userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
+				auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "OTP 验证码错误")
 			}
 		} else {
@@ -371,12 +371,12 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		// Password authentication (default)
 		if password == "" {
 			metrics.RecordAuthRequest("password", "failure")
-			audit.GetAuditLogger().LogLogin("", "password", ctx.IP(), false, "empty_password")
+			auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), false, "empty_password")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
 		}
 		if !auth.CheckPassword(password) {
 			metrics.RecordAuthRequest("password", "failure")
-			audit.GetAuditLogger().LogLogin("", "password", ctx.IP(), false, "invalid_password")
+			auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), false, "invalid_password")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
 		}
 		authenticated = true
@@ -449,13 +449,13 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			loggedUserID = userID
 		}
 		metrics.RecordAuthRequest(authMethod, "success")
-		audit.GetAuditLogger().LogLogin(loggedUserID, authMethod, ctx.IP(), true, "")
+		auditlog.LogLogin(ctx.Context(), loggedUserID, authMethod, ctx.IP(), true, "")
 	} else {
 		metrics.RecordAuthRequest("password", "success")
-		audit.GetAuditLogger().LogLogin("", "password", ctx.IP(), true, "")
+		auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), true, "")
 	}
 	metrics.RecordSessionCreated()
-	audit.GetAuditLogger().LogSessionCreate(loggedUserID, ctx.IP())
+	auditlog.LogSessionCreate(ctx.Context(), loggedUserID, ctx.IP())
 
 	// Get callback parameter (priority: cookie, form data, query parameter)
 	callbackFromCookie := GetCallbackFromCookie(ctx)

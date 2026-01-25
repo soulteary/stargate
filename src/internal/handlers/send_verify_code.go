@@ -13,7 +13,7 @@ import (
 
 	"github.com/soulteary/herald/pkg/herald"
 	secure "github.com/soulteary/secure-kit"
-	"github.com/soulteary/stargate/src/internal/audit"
+	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -186,29 +186,29 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 					// Herald service is unavailable, suggest OTP fallback if enabled
 					otpEnabled := config.WardenOTPEnabled.ToBool()
 					if otpEnabled {
-						audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), false, reason)
+						auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
 						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请使用 OTP 验证")
 					}
-					audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), false, reason)
+					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
 					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
 				}
 				// Other errors (rate limit, etc.)
 				if heraldErr.StatusCode == http.StatusTooManyRequests {
 					reason = "rate_limited"
-					audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), false, reason)
+					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
 					return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "请求过于频繁，请稍后重试")
 				}
 				reason = heraldErr.Reason
 			}
 
 			// Default error handling
-			audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), false, reason)
+			auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "发送验证码失败: "+err.Error())
 		}
 
 		// Log successful verification code send
 		metrics.RecordHeraldCall("create_challenge", "success", heraldDuration)
-		audit.GetAuditLogger().LogVerifyCodeSend(userID, channel, destination, ctx.IP(), true, "")
+		auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), true, "")
 
 		heraldSpan.SetAttributes(
 			attribute.String("herald.challenge_id", createResp.ChallengeID),

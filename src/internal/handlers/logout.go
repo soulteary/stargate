@@ -4,7 +4,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
-	"github.com/soulteary/stargate/src/internal/audit"
+	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
@@ -62,8 +62,8 @@ func logoutHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, unauthenticator 
 
 	// Log logout and session destruction
 	metrics.RecordSessionDestroyed()
-	audit.GetAuditLogger().LogLogout(userID, ctx.IP())
-	audit.GetAuditLogger().LogSessionDestroy(userID, ctx.IP())
+	auditlog.LogLogout(ctx.Context(), userID, ctx.IP())
+	auditlog.LogSessionDestroy(ctx.Context(), userID, ctx.IP())
 
 	return ctx.SendString("Logged out")
 }
