@@ -12,12 +12,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/herald/pkg/herald"
+	secure "github.com/soulteary/secure-kit"
 	"github.com/soulteary/stargate/src/internal/audit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
-	"github.com/soulteary/stargate/src/internal/utils"
 	"github.com/soulteary/tracing-kit"
 )
 
@@ -88,7 +88,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			wardenSpan.SetAttributes(attribute.Bool("warden.user_found", false))
 			wardenSpan.End()
 			tracing.RecordError(sendCodeSpan, fmt.Errorf("user not found in Warden"))
-			logrus.Warnf("User not found in Warden or not active: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
+			logrus.Warnf("User not found in Warden or not active: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
 		}
 
@@ -114,7 +114,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		} else if destination == "" {
 			// Fallback: if Warden doesn't provide destination, use user input
 			// This should not happen if Warden is properly configured
-			logrus.Warnf("Warden user info missing destination, using user input: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
+			logrus.Warnf("Warden user info missing destination, using user input: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
 			destination = userMail
 			if userPhone != "" {
 				channel = "sms"

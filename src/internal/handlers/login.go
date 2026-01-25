@@ -2,8 +2,6 @@ package handlers
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"html"
 	"net/http"
@@ -17,12 +15,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/herald/pkg/herald"
+	secure "github.com/soulteary/secure-kit"
 	"github.com/soulteary/stargate/src/internal/audit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
-	"github.com/soulteary/stargate/src/internal/utils"
 	"github.com/soulteary/tracing-kit"
 )
 
@@ -104,8 +102,7 @@ func generateUserID(phone, mail string) string {
 	if identifier == "" {
 		identifier = mail
 	}
-	hash := sha256.Sum256([]byte(identifier))
-	return "u_" + hex.EncodeToString(hash[:])[:16]
+	return "u_" + secure.GetSHA256Hash(identifier)[:16]
 }
 
 // Authenticator defines an interface for authenticating sessions.
@@ -175,7 +172,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		)
 
 		// Log the authentication attempt
-		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
+		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
 
 		// Step 1: Get complete user information from Warden (includes status check)
 		wardenStartTime := time.Now()
@@ -187,7 +184,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			tracing.RecordError(loginSpan, fmt.Errorf("user not found in Warden"))
 			metrics.RecordWardenCall("get_user_info", "failure", wardenDuration)
 			metrics.RecordAuthRequest("warden", "failure")
-			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
+			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
 			audit.GetAuditLogger().LogLogin("", "warden", ctx.IP(), false, "user_not_in_list")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
 		}
@@ -354,7 +351,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			// Verify OTP code
 			if !auth.VerifyOTP(otpSecret, otpCode) {
 				metrics.RecordAuthRequest("warden_otp", "failure")
-				logrus.Warnf("OTP verification failed: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
+				logrus.Warnf("OTP verification failed: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
 				audit.GetAuditLogger().LogLogin(userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "OTP 验证码错误")
 			}
@@ -368,7 +365,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, "请选择验证方式：验证码或 OTP")
 		}
 
-		logrus.Infof("Warden authentication successful for: phone=%s, mail=%s", utils.MaskPhone(userPhone), utils.MaskEmail(userMail))
+		logrus.Infof("Warden authentication successful for: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
 		authenticated = true
 	} else {
 		// Password authentication (default)
@@ -420,7 +417,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				sess.Set("user_role", userInfo.Role)
 			}
 			logrus.Debugf("Stored user info in session: user_id=%s, phone=%s, mail=%s, scope=%v, role=%s",
-				userInfo.UserID, utils.MaskPhone(userInfo.Phone), utils.MaskEmail(userInfo.Mail), userInfo.Scope, userInfo.Role)
+				userInfo.UserID, secure.MaskPhone(userInfo.Phone), secure.MaskEmail(userInfo.Mail), userInfo.Scope, userInfo.Role)
 		} else {
 			// Fallback: store basic info if GetUserInfo failed (should not happen after CheckUserInList)
 			if userPhone != "" {

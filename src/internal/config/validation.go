@@ -6,8 +6,8 @@ import (
 
 	"github.com/soulteary/cli-kit/env"
 	"github.com/soulteary/cli-kit/validator"
+	secure "github.com/soulteary/secure-kit"
 	"github.com/soulteary/stargate/src/internal/i18n"
-	"github.com/soulteary/stargate/src/internal/secure"
 )
 
 type EnvVariable struct {

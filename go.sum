@@ -453,6 +453,8 @@ github.com/soulteary/middleware-kit v1.0.0 h1:uTZZ9kW/sYH7sXJDNRytnr8vPJIC/NMVzk
 github.com/soulteary/middleware-kit v1.0.0/go.mod h1:dih5kyBIWKOALV9yGXKHKsHMVs/IzAkNxcbi0gZwFZI=
 github.com/soulteary/redis-kit v1.0.0 h1:9HNj2//n3eK29+xqlPmoQ57D7U3vHV/BBfSbVv8sMy8=
 github.com/soulteary/redis-kit v1.0.0/go.mod h1:q18cqZ8QPaXDoODl1pr5jcbU/iDDMCBscVt/IMXEm7U=
+github.com/soulteary/secure-kit v1.0.0 h1:CTcPVbkxEod0jawefqChrgjh/JxCO9DiHsoBbFVcEdc=
+github.com/soulteary/secure-kit v1.0.0/go.mod h1:ZXtNJW6nX3w7d+qW9aKRJXYeIzLAJINkvbkPbV4GZsw=
 github.com/soulteary/tracing-kit v1.0.0 h1:GCplc9+yKgHK6ubsgtXGp7PA5DVMT+d5Cnj3NZo1IsQ=
 github.com/soulteary/tracing-kit v1.0.0/go.mod h1:gYw/iBOq0hFtBFzkq+upnrFN7iAfjYe18cISCO/BYto=
 github.com/soulteary/warden v0.7.0 h1:d3DFMQX0dg+tDmp49/9VLHwgSZkXr3DS7L4mOBquGcs=
