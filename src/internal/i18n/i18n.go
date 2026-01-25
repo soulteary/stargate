@@ -2,53 +2,33 @@ package i18n
 
 import (
 	"fmt"
-	"sync"
+
+	"github.com/gofiber/fiber/v2"
+	kit "github.com/soulteary/i18n-kit"
 )
 
-// Language represents the supported languages
-type Language string
+// Language type alias for backward compatibility
+type Language = kit.Language
 
+// Language constants for backward compatibility
 const (
-	// LangEN is English (default)
-	LangEN Language = "en"
-	// LangZH is Chinese
-	LangZH Language = "zh"
-	// LangFR is French
-	LangFR Language = "fr"
-	// LangIT is Italian
-	LangIT Language = "it"
-	// LangJA is Japanese
-	LangJA Language = "ja"
-	// LangDE is German
-	LangDE Language = "de"
-	// LangKO is Korean
-	LangKO Language = "ko"
+	LangEN = kit.LangEN
+	LangZH = kit.LangZH
+	LangFR = kit.LangFR
+	LangIT = kit.LangIT
+	LangJA = kit.LangJA
+	LangDE = kit.LangDE
+	LangKO = kit.LangKO
 )
 
-var (
-	currentLang Language = LangEN
-	mu          sync.RWMutex
-)
+// bundle is the global translation bundle
+var bundle *kit.Bundle
 
-// SetLanguage sets the current language
-func SetLanguage(lang Language) {
-	mu.Lock()
-	defer mu.Unlock()
-	if lang == LangEN || lang == LangZH || lang == LangFR || lang == LangIT || lang == LangJA || lang == LangDE || lang == LangKO {
-		currentLang = lang
-	}
-}
+func init() {
+	bundle = kit.NewBundle(kit.LangEN)
 
-// GetLanguage returns the current language
-func GetLanguage() Language {
-	mu.RLock()
-	defer mu.RUnlock()
-	return currentLang
-}
-
-// Translations map
-var translations = map[Language]map[string]string{
-	LangEN: {
+	// Add English translations
+	bundle.AddTranslations(kit.LangEN, map[string]string{
 		// Error messages
 		"error.auth_required":           "Authentication required",
 		"error.invalid_password":        "Invalid password",
@@ -75,8 +55,10 @@ var translations = map[Language]map[string]string{
 		"error.step_up_required":                   "Additional authentication required for this resource.",
 		// Success messages
 		"success.login": "Login successful",
-	},
-	LangZH: {
+	})
+
+	// Add Chinese translations
+	bundle.AddTranslations(kit.LangZH, map[string]string{
 		// Error messages
 		"error.auth_required":           "需要身份验证",
 		"error.invalid_password":        "密码无效",
@@ -103,8 +85,10 @@ var translations = map[Language]map[string]string{
 		"error.step_up_required":                   "访问此资源需要二次验证",
 		// Success messages
 		"success.login": "登录成功",
-	},
-	LangFR: {
+	})
+
+	// Add French translations
+	bundle.AddTranslations(kit.LangFR, map[string]string{
 		// Error messages
 		"error.auth_required":           "Authentification requise",
 		"error.invalid_password":        "Mot de passe invalide",
@@ -131,8 +115,10 @@ var translations = map[Language]map[string]string{
 		"error.step_up_required":                   "Authentification supplémentaire requise pour cette ressource.",
 		// Success messages
 		"success.login": "Connexion réussie",
-	},
-	LangIT: {
+	})
+
+	// Add Italian translations
+	bundle.AddTranslations(kit.LangIT, map[string]string{
 		// Error messages
 		"error.auth_required":           "Autenticazione richiesta",
 		"error.invalid_password":        "Password non valida",
@@ -159,8 +145,10 @@ var translations = map[Language]map[string]string{
 		"error.step_up_required":                   "Autenticazione aggiuntiva richiesta per questa risorsa.",
 		// Success messages
 		"success.login": "Accesso riuscito",
-	},
-	LangJA: {
+	})
+
+	// Add Japanese translations
+	bundle.AddTranslations(kit.LangJA, map[string]string{
 		// Error messages
 		"error.auth_required":           "認証が必要です",
 		"error.invalid_password":        "パスワードが無効です",
@@ -187,8 +175,10 @@ var translations = map[Language]map[string]string{
 		"error.step_up_required":                   "このリソースには追加の認証が必要です。",
 		// Success messages
 		"success.login": "ログイン成功",
-	},
-	LangDE: {
+	})
+
+	// Add German translations
+	bundle.AddTranslations(kit.LangDE, map[string]string{
 		// Error messages
 		"error.auth_required":           "Authentifizierung erforderlich",
 		"error.invalid_password":        "Ungültiges Passwort",
@@ -215,8 +205,10 @@ var translations = map[Language]map[string]string{
 		"error.step_up_required":                   "Zusätzliche Authentifizierung für diese Ressource erforderlich.",
 		// Success messages
 		"success.login": "Anmeldung erfolgreich",
-	},
-	LangKO: {
+	})
+
+	// Add Korean translations
+	bundle.AddTranslations(kit.LangKO, map[string]string{
 		// Error messages
 		"error.auth_required":           "인증이 필요합니다",
 		"error.invalid_password":        "잘못된 비밀번호",
@@ -243,34 +235,57 @@ var translations = map[Language]map[string]string{
 		"error.step_up_required":                   "이 리소스에 대한 추가 인증이 필요합니다.",
 		// Success messages
 		"success.login": "로그인 성공",
-	},
+	})
 }
 
-// T returns the translated string for the given key
-// If the key is not found, it returns the key itself
-func T(key string) string {
-	mu.RLock()
-	lang := currentLang
-	mu.RUnlock()
-
-	if langMap, ok := translations[lang]; ok {
-		if translation, ok := langMap[key]; ok {
-			return translation
-		}
-	}
-
-	// Fallback to English if translation not found
-	if langMap, ok := translations[LangEN]; ok {
-		if translation, ok := langMap[key]; ok {
-			return translation
-		}
-	}
-
-	// Return key if no translation found
-	return key
+// T returns the translated string for the given key using the language from Fiber context.
+// If the key is not found, it returns the key itself.
+func T(c *fiber.Ctx, key string) string {
+	return kit.TFromFiber(c, key)
 }
 
-// Tf returns a formatted translated string
-func Tf(key string, args ...interface{}) string {
-	return fmt.Sprintf(T(key), args...)
+// Tf returns a formatted translated string using the language from Fiber context.
+func Tf(c *fiber.Ctx, key string, args ...interface{}) string {
+	return fmt.Sprintf(T(c, key), args...)
+}
+
+// TWithLang returns the translated string for the given key using the specified language.
+// This is useful for contexts where Fiber context is not available (e.g., configuration validation).
+func TWithLang(lang Language, key string) string {
+	return bundle.GetTranslation(lang, key)
+}
+
+// TfWithLang returns a formatted translated string using the specified language.
+func TfWithLang(lang Language, key string, args ...interface{}) string {
+	return fmt.Sprintf(TWithLang(lang, key), args...)
+}
+
+// TStatic returns the translated string using the default language (English).
+// This is useful for contexts where Fiber context is not available,
+// such as during configuration validation at startup.
+func TStatic(key string) string {
+	return bundle.GetTranslation(kit.LangEN, key)
+}
+
+// TfStatic returns a formatted translated string using the default language (English).
+func TfStatic(key string, args ...interface{}) string {
+	return fmt.Sprintf(TStatic(key), args...)
+}
+
+// GetBundle returns the global translation bundle.
+// This is used by the middleware to inject the bundle into the Fiber context.
+func GetBundle() *kit.Bundle {
+	return bundle
+}
+
+// SetLanguage sets the default language for the bundle.
+// This is used during application initialization to set the fallback language.
+// Note: This is kept for backward compatibility with config initialization.
+func SetLanguage(lang Language) {
+	bundle.SetFallback(lang)
+}
+
+// GetLanguage returns the current default/fallback language.
+func GetLanguage() Language {
+	return bundle.GetFallback()
 }

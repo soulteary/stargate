@@ -44,7 +44,7 @@ func (a *AuthUnauthenticator) Unauthenticate(sess *session.Session) error {
 func logoutHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, unauthenticator Unauthenticator) error {
 	sess, err := sessionGetter.Get(ctx)
 	if err != nil {
-		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
+		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
 
 	// Get user ID from session for audit logging
@@ -57,7 +57,7 @@ func logoutHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, unauthenticator 
 
 	err = unauthenticator.Unauthenticate(sess)
 	if err != nil {
-		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.authenticate_failed"))
+		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.authenticate_failed"))
 	}
 
 	// Log logout and session destruction

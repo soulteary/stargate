@@ -41,6 +41,10 @@ func createTestContext(method, path string, headers map[string]string, body stri
 		ctx.Request().Header.Set(k, v)
 	}
 
+	// Set i18n bundle and language for testing (required by i18n-kit middleware)
+	ctx.Locals("i18n-bundle", i18n.GetBundle())
+	ctx.Locals("i18n-language", i18n.LangEN)
+
 	return ctx, app
 }
 
@@ -948,7 +952,7 @@ func TestLogoutRoute_SessionStoreError(t *testing.T) {
 
 	// Verify error response format
 	body := string(ctx.Response().Body())
-	testza.AssertContains(t, body, i18n.T("error.session_store_failed"))
+	testza.AssertContains(t, body, i18n.TStatic("error.session_store_failed"))
 }
 
 // TestLogoutRoute_UnauthenticateError tests error handling when unauthenticate fails
@@ -977,7 +981,7 @@ func TestLogoutRoute_UnauthenticateError(t *testing.T) {
 
 	// Verify error response format
 	body := string(ctx.Response().Body())
-	testza.AssertContains(t, body, i18n.T("error.authenticate_failed"))
+	testza.AssertContains(t, body, i18n.TStatic("error.authenticate_failed"))
 }
 
 // TestLogoutHandler_Success tests the internal logoutHandler with successful logout
@@ -1315,7 +1319,7 @@ func TestLoginAPI_SessionStoreError(t *testing.T) {
 
 	// Verify error response format
 	body := string(ctx.Response().Body())
-	testza.AssertContains(t, body, i18n.T("error.session_store_failed"))
+	testza.AssertContains(t, body, i18n.TStatic("error.session_store_failed"))
 }
 
 // TestLoginAPI_AuthenticateError tests error handling when authenticate fails
@@ -1351,7 +1355,7 @@ func TestLoginAPI_AuthenticateError(t *testing.T) {
 
 	// Verify error response format
 	body := string(ctx.Response().Body())
-	testza.AssertContains(t, body, i18n.T("error.authenticate_failed"))
+	testza.AssertContains(t, body, i18n.TStatic("error.authenticate_failed"))
 }
 
 // TestLoginAPI_EmptySessionID_Error tests error handling when session ID is always empty
@@ -1406,7 +1410,7 @@ func TestLoginRoute_SessionStoreError(t *testing.T) {
 
 	// Verify error response format
 	body := string(ctx.Response().Body())
-	testza.AssertContains(t, body, i18n.T("error.session_store_failed"))
+	testza.AssertContains(t, body, i18n.TStatic("error.session_store_failed"))
 }
 
 // TestCheckRoute_WardenAuth_ValidPhone tests Warden authentication with valid phone

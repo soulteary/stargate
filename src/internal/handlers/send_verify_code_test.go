@@ -47,7 +47,7 @@ func TestSendVerifyCodeAPI_NoIdentifier(t *testing.T) {
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
-	testza.AssertContains(t, string(ctx.Response().Body()), i18n.T("error.user_not_in_list"))
+	testza.AssertContains(t, string(ctx.Response().Body()), i18n.TStatic("error.user_not_in_list"))
 }
 
 func TestSendVerifyCodeAPI_HeraldDisabled(t *testing.T) {
@@ -103,7 +103,7 @@ func TestSendVerifyCodeAPI_WardenUserNotFound(t *testing.T) {
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
-	testza.AssertContains(t, string(ctx.Response().Body()), i18n.T("error.user_not_in_list"))
+	testza.AssertContains(t, string(ctx.Response().Body()), i18n.TStatic("error.user_not_in_list"))
 }
 
 func TestSendVerifyCodeAPI_Success(t *testing.T) {

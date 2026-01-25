@@ -27,7 +27,7 @@ func handleNotAuthenticated(ctx *fiber.Ctx) error {
 	}
 
 	// Non-HTML request: return 401 error
-	return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.auth_required"))
+	return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
 }
 
 // CheckRoute is the main authentication check handler for Traefik Forward Auth.
@@ -64,14 +64,14 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 		if err != nil {
 			tracing.RecordError(forwardAuthSpan, err)
 			// Session store error, return 500 error
-			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
+			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
 
 		// Handle Stargate-Password Header authentication
 		stargatePassword := ctx.Get("Stargate-Password")
 		if stargatePassword != "" {
 			if !auth.CheckPassword(stargatePassword) {
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
 			}
 
 			// Authentication successful, set user info header
@@ -133,7 +133,7 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 					return ctx.Redirect(stepUpURL)
 				}
 				// For API requests, return 403
-				return SendErrorResponse(ctx, fiber.StatusForbidden, i18n.T("error.step_up_required"))
+				return SendErrorResponse(ctx, fiber.StatusForbidden, i18n.T(ctx, "error.step_up_required"))
 			}
 		}
 

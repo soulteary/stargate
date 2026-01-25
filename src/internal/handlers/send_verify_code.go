@@ -64,7 +64,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 
 		// Check if at least one identifier is provided
 		if userPhone == "" && userMail == "" {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.user_not_in_list"))
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"))
 		}
 
 		// Check if Herald is enabled
@@ -89,7 +89,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			wardenSpan.End()
 			tracing.RecordError(sendCodeSpan, fmt.Errorf("user not found in Warden"))
 			logrus.Warnf("User not found in Warden or not active: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
 		}
 
 		// Step 2: Use user_id from Warden if available, otherwise generate one

@@ -447,6 +447,8 @@ github.com/soulteary/cli-kit v1.0.0 h1:1Q+o21vQS6jrdM4Fvd5NWZF2pgb8XPU0vb6kBRGtj
 github.com/soulteary/cli-kit v1.0.0/go.mod h1:Z32KzEtl9FEFtKAsGhekTzPMUcg7Js7YvJzIyT/8Urk=
 github.com/soulteary/herald v0.3.0 h1:pQxN7QcZkKBMkZ7qrLT2wYWfgxcDWZ/pyx3/3sjK0n4=
 github.com/soulteary/herald v0.3.0/go.mod h1:qoUmaP0bOhmIoJXyMR7xKCYu7hMRE6hd3JHgXTpTP3c=
+github.com/soulteary/i18n-kit v1.0.0 h1:N4NSokJhHmybvRhzDCVtKS9jL213pcsHsmHxVz7p3hs=
+github.com/soulteary/i18n-kit v1.0.0/go.mod h1:CWH41E142Pewg1RaNGcuNFulBfVvEOwW8w62jER22es=
 github.com/soulteary/metrics-kit v1.0.0 h1:4tpy1h6exgLTWgWA5H17g+l3QUCPJKpVTGyP4HnoKU0=
 github.com/soulteary/metrics-kit v1.0.0/go.mod h1:sMpOwB9SH5A0Pb8i1L//N8k/HvWK8zC+l634w3AH0Qo=
 github.com/soulteary/middleware-kit v1.0.0 h1:uTZZ9kW/sYH7sXJDNRytnr8vPJIC/NMVzk4EsnPx9LM=
