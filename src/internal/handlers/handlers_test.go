@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
+	health "github.com/soulteary/health-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -301,8 +302,14 @@ func TestSessionShareRoute_WithoutID(t *testing.T) {
 	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
 }
 
+// Note: Health check is now handled by health-kit in server.go
+// Health check tests should be in server_test.go or integration tests
 func TestHealthRoute(t *testing.T) {
-	handler := HealthRoute()
+	// Create a simple health aggregator for testing
+	healthConfig := health.DefaultConfig().WithServiceName("stargate")
+	aggregator := health.NewAggregator(healthConfig)
+	// No checkers added means all healthy
+	handler := health.FiberHandler(aggregator)
 
 	ctx, app := createTestContext("GET", "/health", nil, "")
 	defer app.ReleaseCtx(ctx)

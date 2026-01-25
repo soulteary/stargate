@@ -8,6 +8,7 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
+	health "github.com/soulteary/health-kit"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
@@ -153,9 +154,13 @@ func TestSetupRoutes(t *testing.T) {
 	app := fiber.New()
 	store := setupSessionStore()
 
+	// Create a simple health aggregator for testing
+	healthConfig := health.DefaultConfig().WithServiceName("stargate")
+	aggregator := health.NewAggregator(healthConfig)
+
 	// Test that setupRoutes doesn't panic
 	testza.AssertNotPanics(t, func() {
-		setupRoutes(app, store)
+		setupRoutes(app, store, aggregator)
 	})
 
 	// Verify routes are registered by testing health endpoint
