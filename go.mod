@@ -14,7 +14,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4
 	github.com/soulteary/cli-kit v1.0.0
 	github.com/soulteary/herald v0.3.0
-	github.com/soulteary/redis-kit v0.1.1
+	github.com/soulteary/redis-kit v1.0.0
 	github.com/soulteary/tracing-kit v1.0.0
 	github.com/soulteary/warden v0.7.0
 	github.com/stretchr/testify v1.11.1
