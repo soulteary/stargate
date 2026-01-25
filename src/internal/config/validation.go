@@ -49,7 +49,7 @@ func (v *EnvVariable) Validate() error {
 	}
 
 	if v.Required && v.Value == "" {
-		return NewValidationError(v.Name, i18n.T("error.config_required_not_set"), v.PossibleValues)
+		return NewValidationError(v.Name, i18n.TStatic("error.config_required_not_set"), v.PossibleValues)
 	}
 
 	if !v.Validator(*v) {
@@ -150,7 +150,7 @@ func (e ValidationError) Error() string {
 
 func (e ValidationError) String() string {
 	if len(e.AcceptedValues) > 0 && e.AcceptedValues[0] != "*" {
-		return i18n.Tf("error.config_invalid_values", e.KeyName, e.ProvidedValue, e.AcceptedValues)
+		return i18n.TfStatic("error.config_invalid_values", e.KeyName, e.ProvidedValue, e.AcceptedValues)
 	}
-	return i18n.Tf("error.config_invalid", e.KeyName, e.ProvidedValue)
+	return i18n.TfStatic("error.config_invalid", e.KeyName, e.ProvidedValue)
 }

@@ -14,11 +14,13 @@ import (
 	"github.com/gofiber/template/html"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/cli-kit/env"
+	i18nkit "github.com/soulteary/i18n-kit"
 	metricskit "github.com/soulteary/metrics-kit"
 	middlewarekit "github.com/soulteary/middleware-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
+	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
 	"github.com/soulteary/stargate/src/internal/storage"
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
@@ -170,7 +172,7 @@ func setupStaticFiles(app *fiber.App) {
 }
 
 // setupMiddleware configures all middleware for the Fiber application.
-// This includes recover, security headers, logging, tracing, and favicon handling.
+// This includes recover, security headers, logging, tracing, i18n, and favicon handling.
 func setupMiddleware(app *fiber.App) {
 	// 1. Panic recovery (highest priority - prevents server crashes)
 	app.Use(recover.New())
@@ -186,7 +188,13 @@ func setupMiddleware(app *fiber.App) {
 		logrus.Info("OpenTelemetry tracing middleware enabled")
 	}
 
-	// 4. Request logging with middleware-kit (structured logging with zerolog)
+	// 4. i18n middleware (language detection from Query > Cookie > Header > Accept-Language)
+	app.Use(i18nkit.FiberMiddleware(i18nkit.MiddlewareConfig{
+		Bundle: i18n.GetBundle(),
+	}))
+	logrus.Debug("i18n middleware enabled")
+
+	// 5. Request logging with middleware-kit (structured logging with zerolog)
 	app.Use(middlewarekit.RequestLogging(middlewarekit.LoggingConfig{
 		Logger:         &zerologLogger,
 		SkipPaths:      []string{"/healthz", "/metrics"},
@@ -194,7 +202,7 @@ func setupMiddleware(app *fiber.App) {
 	}))
 	logrus.Debug("Request logging middleware enabled")
 
-	// 5. Rate limiting (optional - uncomment to enable for production)
+	// 6. Rate limiting (optional - uncomment to enable for production)
 	// To enable rate limiting, uncomment the following code:
 	//
 	// limiter := middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
@@ -214,7 +222,7 @@ func setupMiddleware(app *fiber.App) {
 	// }))
 	// logrus.Info("Rate limiting middleware enabled")
 
-	// 6. Favicon middleware
+	// 7. Favicon middleware
 	logrus.Debug("adding favicon middleware")
 	faviconPath := findFaviconPath()
 	// Only add favicon middleware if the file exists

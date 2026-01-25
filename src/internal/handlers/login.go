@@ -157,7 +157,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		// Check if at least one identifier is provided
 		if userPhone == "" && userMail == "" {
 			tracing.RecordError(loginSpan, fmt.Errorf("no identifier provided"))
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.user_not_in_list"))
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"))
 		}
 
 		// Start span for Warden get user info
@@ -186,7 +186,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			metrics.RecordAuthRequest("warden", "failure")
 			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
 			audit.GetAuditLogger().LogLogin("", "warden", ctx.IP(), false, "user_not_in_list")
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.user_not_in_list"))
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
 		}
 		wardenSpan.SetAttributes(
 			attribute.Bool("warden.user_found", true),
@@ -263,12 +263,12 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 					}
 					// Other Herald errors (unauthorized, etc.)
 					if heraldErr.StatusCode == http.StatusUnauthorized {
-						return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.verify_code_unauthorized"))
+						return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_code_unauthorized"))
 					}
 				}
 
 				// Default error handling
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.verify_code_failed"))
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_code_failed"))
 			}
 
 			if !verifyResp.OK {
@@ -289,29 +289,29 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				var errorMsg string
 				switch reason {
 				case "expired":
-					errorMsg = i18n.T("error.verify_code_expired")
+					errorMsg = i18n.T(ctx, "error.verify_code_expired")
 				case "invalid":
-					errorMsg = i18n.T("error.verify_code_invalid")
+					errorMsg = i18n.T(ctx, "error.verify_code_invalid")
 					// Add remaining attempts if available
 					if verifyResp.RemainingAttempts != nil {
-						errorMsg = i18n.Tf("error.verify_code_invalid_with_attempts", *verifyResp.RemainingAttempts)
+						errorMsg = i18n.Tf(ctx, "error.verify_code_invalid_with_attempts", *verifyResp.RemainingAttempts)
 					}
 				case "locked":
-					errorMsg = i18n.T("error.verify_code_locked")
+					errorMsg = i18n.T(ctx, "error.verify_code_locked")
 				case "too_many_attempts":
-					errorMsg = i18n.T("error.verify_code_too_many")
+					errorMsg = i18n.T(ctx, "error.verify_code_too_many")
 				case "rate_limited":
-					errorMsg = i18n.T("error.verify_code_rate_limited")
+					errorMsg = i18n.T(ctx, "error.verify_code_rate_limited")
 					// Add wait time if available
 					if verifyResp.NextResendIn != nil {
-						errorMsg = i18n.Tf("error.verify_code_rate_limited_with_wait", *verifyResp.NextResendIn)
+						errorMsg = i18n.Tf(ctx, "error.verify_code_rate_limited_with_wait", *verifyResp.NextResendIn)
 					}
 				case "send_failed":
-					errorMsg = i18n.T("error.verify_code_send_failed")
+					errorMsg = i18n.T(ctx, "error.verify_code_send_failed")
 				case "unauthorized":
-					errorMsg = i18n.T("error.verify_code_unauthorized")
+					errorMsg = i18n.T(ctx, "error.verify_code_unauthorized")
 				default:
-					errorMsg = i18n.T("error.verify_code_failed")
+					errorMsg = i18n.T(ctx, "error.verify_code_failed")
 				}
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
 			}
@@ -372,23 +372,23 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		if password == "" {
 			metrics.RecordAuthRequest("password", "failure")
 			audit.GetAuditLogger().LogLogin("", "password", ctx.IP(), false, "empty_password")
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
 		}
 		if !auth.CheckPassword(password) {
 			metrics.RecordAuthRequest("password", "failure")
 			audit.GetAuditLogger().LogLogin("", "password", ctx.IP(), false, "invalid_password")
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.invalid_password"))
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
 		}
 		authenticated = true
 	}
 
 	if !authenticated {
-		return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T("error.authentication_failed"))
+		return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.authentication_failed"))
 	}
 
 	sess, err := sessionGetter.Get(ctx)
 	if err != nil {
-		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
+		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
 
 	// Set user information to session for warden authentication before authenticating
@@ -437,7 +437,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	// Authenticate and save session (this will save all session data including user info)
 	err = authenticator.Authenticate(sess)
 	if err != nil {
-		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.authenticate_failed"))
+		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.authenticate_failed"))
 	}
 
 	// Log successful login and session creation
@@ -506,13 +506,13 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			if sessionID == "" {
 				sess, err = sessionGetter.Get(ctx)
 				if err != nil {
-					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
+					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 				}
 				sessionID = sess.ID()
 			}
 			if sessionID == "" {
 				// If session ID is still empty, return error
-				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.missing_session_id"))
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.missing_session_id"))
 			}
 		}
 		proto := GetForwardedProto(ctx)
@@ -527,7 +527,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	if IsHTMLRequest(ctx) {
 		// HTML request returns success message and adds meta refresh redirect to origin domain
 		ctx.Set("Content-Type", "text/html; charset=utf-8")
-		successMsg := i18n.T("success.login")
+		successMsg := i18n.T(ctx, "success.login")
 
 		// Get origin host and protocol
 		originHost := GetForwardedHost(ctx)
@@ -547,7 +547,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	ctx.Set("Content-Type", "application/json")
 	response := fiber.Map{
 		"success": true,
-		"message": i18n.T("success.login"),
+		"message": i18n.T(ctx, "success.login"),
 	}
 	// If session ID exists, add it to response
 	if sessionID := sess.ID(); sessionID != "" {
@@ -586,14 +586,14 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 
 	sess, err := sessionGetter.Get(ctx)
 	if err != nil {
-		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.session_store_failed"))
+		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
 
 	if auth.IsAuthenticated(sess) {
 		// Use X-Forwarded-* headers to build correct redirect URL
 		sessionID := sess.ID()
 		if sessionID == "" {
-			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T("error.missing_session_id"))
+			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.missing_session_id"))
 		}
 		proto := GetForwardedProto(ctx)
 		if proto == "" {

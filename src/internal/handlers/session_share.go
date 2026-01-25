@@ -22,7 +22,7 @@ func SessionShareRoute() func(c *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		sessionID := ctx.Query("id")
 		if sessionID == "" {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T("error.missing_session_id"))
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.missing_session_id"))
 		}
 
 		cookie := &fiber.Cookie{
