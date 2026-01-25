@@ -4,7 +4,6 @@ go 1.25.4
 
 require (
 	github.com/MarvinJWendt/testza v0.5.2
-	github.com/gofiber/adaptor/v2 v2.2.1
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/gofiber/template v1.7.5
 	github.com/pquerna/otp v1.5.0
@@ -14,6 +13,7 @@ require (
 	github.com/sirupsen/logrus v1.9.4
 	github.com/soulteary/cli-kit v1.0.0
 	github.com/soulteary/herald v0.3.0
+	github.com/soulteary/metrics-kit v1.0.0
 	github.com/soulteary/redis-kit v1.0.0
 	github.com/soulteary/tracing-kit v1.0.0
 	github.com/soulteary/warden v0.7.0
