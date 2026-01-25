@@ -6,18 +6,18 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gofiber/adaptor/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gofiber/template/html"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/cli-kit/env"
+	metricskit "github.com/soulteary/metrics-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
+	"github.com/soulteary/stargate/src/internal/metrics"
 	"github.com/soulteary/stargate/src/internal/middleware"
 	"github.com/soulteary/stargate/src/internal/storage"
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
@@ -126,7 +126,7 @@ func setupRoutes(app *fiber.App, store *session.Store) {
 	app.Get(RouteSessionExchange, handlers.SessionShareRoute())
 	app.Get(RouteAuth, handlers.CheckRoute(store))
 	// Prometheus metrics endpoint
-	app.Get("/metrics", adaptor.HTTPHandler(promhttp.Handler()))
+	app.Get("/metrics", metricskit.FiberHandlerFor(metrics.Registry))
 }
 
 // findAssetsPath finds the correct path to assets directory.

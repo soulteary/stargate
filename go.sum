@@ -172,8 +172,6 @@ github.com/go-logr/stdr v1.2.2 h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=
 github.com/go-logr/stdr v1.2.2/go.mod h1:mMo/vtBO5dYbehREoey6XUKy/eSumjCCveDpRre4VKE=
 github.com/go-stack/stack v1.8.0/go.mod h1:v0f6uXyyMGvRgIKkXu+yp6POWl0qKG85gN/melR3HDY=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
-github.com/gofiber/adaptor/v2 v2.2.1 h1:givE7iViQWlsTR4Jh7tB4iXzrlKBgiraB/yTdHs9Lv4=
-github.com/gofiber/adaptor/v2 v2.2.1/go.mod h1:AhR16dEqs25W2FY/l8gSj1b51Azg5dtPDmm+pruNOrc=
 github.com/gofiber/fiber/v2 v2.42.0/go.mod h1:3+SGNjqMh5VQH5Vz2Wdi43zTIV16ktlFd3x3R6O1Zlc=
 github.com/gofiber/fiber/v2 v2.52.10 h1:jRHROi2BuNti6NYXmZ6gbNSfT3zj/8c0xy94GOU5elY=
 github.com/gofiber/fiber/v2 v2.52.10/go.mod h1:YEcBbO/FB+5M1IZNBP9FO3J9281zgPAreiI1oqg8nDw=
@@ -443,6 +441,8 @@ github.com/soulteary/cli-kit v1.0.0 h1:1Q+o21vQS6jrdM4Fvd5NWZF2pgb8XPU0vb6kBRGtj
 github.com/soulteary/cli-kit v1.0.0/go.mod h1:Z32KzEtl9FEFtKAsGhekTzPMUcg7Js7YvJzIyT/8Urk=
 github.com/soulteary/herald v0.3.0 h1:pQxN7QcZkKBMkZ7qrLT2wYWfgxcDWZ/pyx3/3sjK0n4=
 github.com/soulteary/herald v0.3.0/go.mod h1:qoUmaP0bOhmIoJXyMR7xKCYu7hMRE6hd3JHgXTpTP3c=
+github.com/soulteary/metrics-kit v1.0.0 h1:4tpy1h6exgLTWgWA5H17g+l3QUCPJKpVTGyP4HnoKU0=
+github.com/soulteary/metrics-kit v1.0.0/go.mod h1:sMpOwB9SH5A0Pb8i1L//N8k/HvWK8zC+l634w3AH0Qo=
 github.com/soulteary/redis-kit v1.0.0 h1:9HNj2//n3eK29+xqlPmoQ57D7U3vHV/BBfSbVv8sMy8=
 github.com/soulteary/redis-kit v1.0.0/go.mod h1:q18cqZ8QPaXDoODl1pr5jcbU/iDDMCBscVt/IMXEm7U=
 github.com/soulteary/tracing-kit v1.0.0 h1:GCplc9+yKgHK6ubsgtXGp7PA5DVMT+d5Cnj3NZo1IsQ=
