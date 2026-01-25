@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
+	"github.com/rs/zerolog"
 	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
@@ -124,9 +125,15 @@ func showBanner() {
 	time.Sleep(time.Millisecond) // Don't ask why, but this fixes the docker-compose log
 }
 
-// initLogger initializes the logging system
+// initLogger initializes the logging system (both logrus and zerolog)
 func initLogger() {
+	// Initialize logrus (existing logger for backward compatibility)
 	logrus.SetFormatter(&logrus.TextFormatter{})
+
+	// Initialize zerolog (used by middleware-kit)
+	zerologLogger = zerolog.New(os.Stdout).With().
+		Timestamp().
+		Logger()
 }
 
 // initConfig initializes the configuration

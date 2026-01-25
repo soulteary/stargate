@@ -10,6 +10,7 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/pterm/pterm v0.12.82
 	github.com/redis/go-redis/v9 v9.17.2
+	github.com/rs/zerolog v1.34.0
 	github.com/sirupsen/logrus v1.9.4
 	github.com/soulteary/cli-kit v1.0.0
 	github.com/soulteary/herald v0.3.0
@@ -23,6 +24,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.39.0
 	golang.org/x/crypto v0.47.0
 )
+
+require github.com/soulteary/middleware-kit v1.0.0
 
 require (
 	atomicgo.dev/assert v0.0.2 // indirect
