@@ -445,8 +445,8 @@ github.com/soulteary/herald v0.3.0 h1:pQxN7QcZkKBMkZ7qrLT2wYWfgxcDWZ/pyx3/3sjK0n
 github.com/soulteary/herald v0.3.0/go.mod h1:qoUmaP0bOhmIoJXyMR7xKCYu7hMRE6hd3JHgXTpTP3c=
 github.com/soulteary/redis-kit v0.1.1 h1:4mCRuL0U2MTBn6bJmUlsaVUTGgygpELDSfCNu0zRKis=
 github.com/soulteary/redis-kit v0.1.1/go.mod h1:q18cqZ8QPaXDoODl1pr5jcbU/iDDMCBscVt/IMXEm7U=
-github.com/soulteary/tracing-kit v0.1.0 h1:nWVDgxir7vYnD1auke6cqeLaxXRjq31P4K0LHQgqprA=
-github.com/soulteary/tracing-kit v0.1.0/go.mod h1:gYw/iBOq0hFtBFzkq+upnrFN7iAfjYe18cISCO/BYto=
+github.com/soulteary/tracing-kit v1.0.0 h1:GCplc9+yKgHK6ubsgtXGp7PA5DVMT+d5Cnj3NZo1IsQ=
+github.com/soulteary/tracing-kit v1.0.0/go.mod h1:gYw/iBOq0hFtBFzkq+upnrFN7iAfjYe18cISCO/BYto=
 github.com/soulteary/warden v0.7.0 h1:d3DFMQX0dg+tDmp49/9VLHwgSZkXr3DS7L4mOBquGcs=
 github.com/soulteary/warden v0.7.0/go.mod h1:9ov92B1CQ3FPoORqENalIikBihpzEaTrTjrMygo95oI=
 github.com/spaolacci/murmur3 v0.0.0-20180118202830-f09979ecbc72/go.mod h1:JwIasOWyU6f++ZhiEuf87xNszmSA2myDM2Kzu9HwQUA=
