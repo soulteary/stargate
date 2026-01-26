@@ -7,7 +7,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/sirupsen/logrus"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -202,16 +201,16 @@ func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
 						if err := sess.Save(); err != nil {
 							tracing.RecordError(refreshSpan, err)
 							metrics.RecordAuthRefresh("failure", refreshDuration)
-							logrus.Warnf("Failed to save session after auth refresh: %v", err)
+							log.Warn().Err(err).Msg("Failed to save session after auth refresh")
 						} else {
 							refreshSpan.SetAttributes(attribute.Bool("warden.refresh_success", true))
 							metrics.RecordAuthRefresh("success", refreshDuration)
-							logrus.Debugf("Auth info refreshed for user: phone=%s, mail=%s", userPhone, userMail)
+							log.Debug().Str("phone", userPhone).Str("mail", userMail).Msg("Auth info refreshed for user")
 						}
 					} else {
 						refreshSpan.SetAttributes(attribute.Bool("warden.refresh_success", false))
 						metrics.RecordAuthRefresh("failure", refreshDuration)
-						logrus.Warnf("Failed to refresh auth info: user not found in Warden")
+						log.Warn().Msg("Failed to refresh auth info: user not found in Warden")
 					}
 					refreshSpan.End()
 				}

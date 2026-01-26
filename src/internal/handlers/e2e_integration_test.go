@@ -16,12 +16,22 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/redis/go-redis/v9"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/redis-kit/cache"
 	"github.com/soulteary/redis-kit/client"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
+
+// testLoggerE2E creates a logger instance for testing
+func testLoggerE2E() *logger.Logger {
+	return logger.New(logger.Config{
+		Level:       logger.DebugLevel,
+		Format:      logger.FormatJSON,
+		ServiceName: "e2e-test",
+	})
+}
 
 // setupTestRedis creates a test Redis client using redis-kit
 func setupTestRedis(t *testing.T) *redis.Client {
@@ -378,7 +388,7 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 	t.Setenv("HERALD_HMAC_SECRET", "test-hmac-secret")
 	t.Setenv("LANGUAGE", "zh")
 
-	err := config.Initialize()
+	err := config.Initialize(testLoggerE2E())
 	testza.AssertNoError(t, err)
 
 	resetHeraldClientForTesting()

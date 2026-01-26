@@ -1,8 +1,4 @@
 package main
 
-import (
-	"github.com/rs/zerolog"
-)
-
-// zerologLogger is the global zerolog logger instance used by middleware-kit.
-var zerologLogger zerolog.Logger
+// This file is kept for backward compatibility but the functionality
+// has been moved to logger-kit integration in main.go

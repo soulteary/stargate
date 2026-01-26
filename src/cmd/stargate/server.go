@@ -14,10 +14,10 @@ import (
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gofiber/template/html"
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
 	"github.com/soulteary/cli-kit/env"
 	health "github.com/soulteary/health-kit"
 	i18nkit "github.com/soulteary/i18n-kit"
+	logger "github.com/soulteary/logger-kit"
 	metricskit "github.com/soulteary/metrics-kit"
 	middlewarekit "github.com/soulteary/middleware-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
@@ -40,7 +40,7 @@ func findTemplatesPath() string {
 	for _, path := range paths {
 		if _, err := os.Stat(path); err == nil {
 			absPath, _ := filepath.Abs(path)
-			logrus.Debug("Found templates at: ", absPath)
+			log.Debug().Str("path", absPath).Msg("Found templates")
 			return path
 		}
 	}
@@ -51,7 +51,7 @@ func findTemplatesPath() string {
 // setupTemplates initializes the HTML template engine.
 // It loads templates from the web/templates directory.
 func setupTemplates() *html.Engine {
-	logrus.Debug("initializing html templating")
+	log.Debug().Msg("Initializing html templating")
 	templatesPath := findTemplatesPath()
 	return html.New(templatesPath, ".html")
 }
@@ -60,7 +60,7 @@ func setupTemplates() *html.Engine {
 // It sets up cookie-based session management with configurable domain support.
 // If Redis storage is enabled via SESSION_STORAGE_ENABLED=true, it will use Redis for session storage.
 func setupSessionStore() *session.Store {
-	logrus.Debug("initializing session store")
+	log.Debug().Msg("Initializing session store")
 
 	sessionConfig := session.Config{
 		Expiration:     config.SessionExpiration,
@@ -78,7 +78,7 @@ func setupSessionStore() *session.Store {
 
 	// Check if Redis session storage is enabled
 	if config.SessionStorageEnabled.ToBool() {
-		logrus.Info("Redis session storage is enabled, initializing Redis client...")
+		log.Info().Msg("Redis session storage is enabled, initializing Redis client...")
 
 		// Parse Redis DB number
 		redisDB := 0
@@ -86,7 +86,7 @@ func setupSessionStore() *session.Store {
 			if db, err := strconv.Atoi(config.SessionStorageRedisDB.Value); err == nil {
 				redisDB = db
 			} else {
-				logrus.Warnf("Invalid SESSION_STORAGE_REDIS_DB value '%s', using default 0", config.SessionStorageRedisDB.Value)
+				log.Warn().Str("value", config.SessionStorageRedisDB.Value).Msg("Invalid SESSION_STORAGE_REDIS_DB value, using default 0")
 			}
 		}
 
@@ -95,22 +95,24 @@ func setupSessionStore() *session.Store {
 			config.SessionStorageRedisAddr.Value,
 			config.SessionStorageRedisPassword.Value,
 			redisDB,
+			log,
 		)
 		if err != nil {
-			logrus.Fatalf("Failed to initialize Redis client for session storage: %v", err)
+			log.Fatal().Err(err).Msg("Failed to initialize Redis client for session storage")
 		}
 
 		// Create Redis storage
 		redisStorage := storage.NewRedisStorage(
 			redisClient,
 			config.SessionStorageRedisKeyPrefix.Value,
+			log,
 		)
 
 		// Set the storage in session config
 		sessionConfig.Storage = redisStorage
-		logrus.Info("Session storage configured to use Redis")
+		log.Info().Msg("Session storage configured to use Redis")
 	} else {
-		logrus.Debug("Using default in-memory session storage")
+		log.Debug().Msg("Using default in-memory session storage")
 	}
 
 	return session.New(sessionConfig)
@@ -168,9 +170,9 @@ func setupHealthChecker(redisClient *redis.Client) *health.Aggregator {
 // setupRoutes registers all HTTP routes for the application.
 // This includes authentication, login, logout, session exchange, and health check endpoints.
 func setupRoutes(app *fiber.App, store *session.Store, healthAggregator *health.Aggregator) {
-	logrus.Debug("registering routes")
+	log.Debug().Msg("Registering routes")
 	// Initialize Herald client
-	handlers.InitHeraldClient()
+	handlers.InitHeraldClient(log)
 
 	app.Get(RouteHealth, health.FiberHandler(healthAggregator))
 	app.Get(RouteRoot, handlers.IndexRoute(store))
@@ -182,6 +184,12 @@ func setupRoutes(app *fiber.App, store *session.Store, healthAggregator *health.
 	app.Get(RouteAuth, handlers.CheckRoute(store))
 	// Prometheus metrics endpoint
 	app.Get("/metrics", metricskit.FiberHandlerFor(metrics.Registry))
+
+	// Register log level endpoint
+	logger.RegisterLevelEndpointFiber(app, "/log/level", logger.LevelHandlerConfig{
+		Logger:     log,
+		AllowedIPs: []string{"127.0.0.1"},
+	})
 }
 
 // findAssetsPath finds the correct path to assets directory.
@@ -218,7 +226,7 @@ func findFaviconPath() string {
 
 // setupStaticFiles registers static file serving for assets.
 func setupStaticFiles(app *fiber.App) {
-	logrus.Debug("registering static file server for assets")
+	log.Debug().Msg("Registering static file server for assets")
 	assetsPath := findAssetsPath()
 	app.Static("/assets", assetsPath)
 }
@@ -228,35 +236,37 @@ func setupStaticFiles(app *fiber.App) {
 func setupMiddleware(app *fiber.App) {
 	// 1. Panic recovery (highest priority - prevents server crashes)
 	app.Use(recover.New())
-	logrus.Debug("Panic recovery middleware enabled")
+	log.Debug().Msg("Panic recovery middleware enabled")
 
 	// 2. Security headers (XSS protection, clickjacking prevention, etc.)
 	app.Use(middlewarekit.SecurityHeaders(middlewarekit.DefaultSecurityHeadersConfig()))
-	logrus.Debug("Security headers middleware enabled")
+	log.Debug().Msg("Security headers middleware enabled")
 
 	// 3. OpenTelemetry tracing middleware (if enabled)
 	if config.OTLPEnabled.ToBool() {
 		app.Use(internal_tracing.TracingMiddleware("stargate"))
-		logrus.Info("OpenTelemetry tracing middleware enabled")
+		log.Info().Msg("OpenTelemetry tracing middleware enabled")
 	}
 
 	// 4. i18n middleware (language detection from Query > Cookie > Header > Accept-Language)
 	app.Use(i18nkit.FiberMiddleware(i18nkit.MiddlewareConfig{
 		Bundle: i18n.GetBundle(),
 	}))
-	logrus.Debug("i18n middleware enabled")
+	log.Debug().Msg("i18n middleware enabled")
 
-	// 5. Request logging with middleware-kit (structured logging with zerolog)
-	app.Use(middlewarekit.RequestLogging(middlewarekit.LoggingConfig{
-		Logger:         &zerologLogger,
-		SkipPaths:      []string{"/healthz", "/metrics"},
-		IncludeLatency: true,
+	// 5. Request logging with logger-kit
+	app.Use(logger.FiberMiddleware(logger.MiddlewareConfig{
+		Logger:           log,
+		SkipPaths:        []string{"/healthz", "/metrics"},
+		IncludeRequestID: true,
+		IncludeLatency:   true,
 	}))
-	logrus.Debug("Request logging middleware enabled")
+	log.Debug().Msg("Request logging middleware enabled")
 
 	// 6. Rate limiting (optional - uncomment to enable for production)
 	// To enable rate limiting, uncomment the following code:
 	//
+	// zerologLogger := log.Zerolog()
 	// limiter := middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
 	// 	Rate:            100,           // 100 requests per minute
 	// 	Window:          time.Minute,
@@ -272,10 +282,10 @@ func setupMiddleware(app *fiber.App) {
 	// 		// metrics.RateLimitExceeded.Inc()
 	// 	},
 	// }))
-	// logrus.Info("Rate limiting middleware enabled")
+	// log.Info().Msg("Rate limiting middleware enabled")
 
 	// 7. Favicon middleware
-	logrus.Debug("adding favicon middleware")
+	log.Debug().Msg("Adding favicon middleware")
 	faviconPath := findFaviconPath()
 	// Only add favicon middleware if the file exists
 	if _, err := os.Stat(faviconPath); err == nil {
@@ -283,7 +293,7 @@ func setupMiddleware(app *fiber.App) {
 			File: faviconPath,
 		}))
 	} else {
-		logrus.Debug("Favicon file not found, skipping favicon middleware: ", faviconPath)
+		log.Debug().Str("path", faviconPath).Msg("Favicon file not found, skipping favicon middleware")
 	}
 }
 
@@ -294,7 +304,7 @@ func setupMiddleware(app *fiber.App) {
 func createApp() *fiber.App {
 	engine := setupTemplates()
 
-	logrus.Debug("creating web server instance")
+	log.Debug().Msg("Creating web server instance")
 	app := fiber.New(fiber.Config{
 		Views:                 engine,
 		DisableStartupMessage: true,
@@ -319,9 +329,10 @@ func createApp() *fiber.App {
 			config.SessionStorageRedisAddr.Value,
 			config.SessionStorageRedisPassword.Value,
 			redisDB,
+			log,
 		)
 		if err != nil {
-			logrus.Warnf("Failed to create Redis client for health check: %v", err)
+			log.Warn().Err(err).Msg("Failed to create Redis client for health check")
 		}
 	}
 	healthAggregator := setupHealthChecker(redisClient)
@@ -348,8 +359,8 @@ func startServer(app *fiber.App) error {
 		} else {
 			port = envPort
 		}
-		logrus.Info("Using custom port from PORT environment variable: ", port)
+		log.Info().Str("port", port).Msg("Using custom port from PORT environment variable")
 	}
-	logrus.Debug("starting web server on port: ", port)
+	log.Debug().Str("port", port).Msg("Starting web server")
 	return app.Listen(port)
 }

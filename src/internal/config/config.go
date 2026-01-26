@@ -4,10 +4,13 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	logger "github.com/soulteary/logger-kit"
 
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
+
+// log is the package-level logger instance
+var log *logger.Logger
 
 // SessionExpiration is the session expiration time
 const SessionExpiration = 24 * time.Hour
@@ -298,7 +301,9 @@ var (
 	}
 )
 
-func Initialize() error {
+func Initialize(l *logger.Logger) error {
+	log = l
+
 	// First, initialize language setting (before other validations that might use i18n)
 	if err := Language.Validate(); err != nil {
 		return err
@@ -332,13 +337,13 @@ func Initialize() error {
 
 		// Only log non-empty configuration items
 		if variable.Value != "" {
-			logrus.Info("Config: ", variable.Name, " = ", variable.Value)
+			log.Info().Str("name", variable.Name).Str("value", variable.Value).Msg("Config loaded")
 		}
 	}
 
 	// Log language setting
 	if Language.Value != "" {
-		logrus.Info("Config: ", Language.Name, " = ", Language.Value)
+		log.Info().Str("name", Language.Name).Str("value", Language.Value).Msg("Config loaded")
 	}
 
 	// Initialize step-up matcher after configuration is loaded

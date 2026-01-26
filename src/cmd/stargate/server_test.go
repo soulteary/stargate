@@ -9,14 +9,24 @@ import (
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
 	health "github.com/soulteary/health-kit"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/config"
 )
+
+// testLoggerMain creates a logger instance for testing
+func testLoggerMain() *logger.Logger {
+	return logger.New(logger.Config{
+		Level:       logger.DebugLevel,
+		Format:      logger.FormatJSON,
+		ServiceName: "main-test",
+	})
+}
 
 func setupTestConfig(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("DEBUG", "false")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerMain())
 	testza.AssertNoError(t, err)
 }
 
@@ -131,7 +141,7 @@ func TestSetupSessionStore_WithoutCookieDomain(t *testing.T) {
 
 	// Clear cookie domain
 	_ = os.Unsetenv("COOKIE_DOMAIN")
-	_ = config.Initialize()
+	_ = config.Initialize(testLoggerMain())
 
 	store := setupSessionStore()
 	testza.AssertNotNil(t, store)
@@ -142,7 +152,7 @@ func TestSetupSessionStore_WithCookieDomain(t *testing.T) {
 
 	// Set cookie domain
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
-	_ = config.Initialize()
+	_ = config.Initialize(testLoggerMain())
 
 	store := setupSessionStore()
 	testza.AssertNotNil(t, store)

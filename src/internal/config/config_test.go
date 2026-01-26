@@ -5,7 +5,17 @@ import (
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
+	logger "github.com/soulteary/logger-kit"
 )
+
+// testLogger creates a logger instance for testing
+func testLogger() *logger.Logger {
+	return logger.New(logger.Config{
+		Level:       logger.DebugLevel,
+		Format:      logger.FormatJSON,
+		ServiceName: "config-test",
+	})
+}
 
 func TestEnvVariable_String(t *testing.T) {
 	v := EnvVariable{
@@ -215,7 +225,7 @@ func TestInitialize_Success(t *testing.T) {
 	t.Setenv("LOGIN_PAGE_TITLE", "Test Title")
 	t.Setenv("LOGIN_PAGE_FOOTER_TEXT", "Test Footer")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 }
 
@@ -223,7 +233,7 @@ func TestInitialize_MissingRequired(t *testing.T) {
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNotNil(t, err)
 }
 
@@ -248,7 +258,7 @@ func TestInitialize_Language_EN(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "en")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "en", Language.Value)
 }
@@ -258,7 +268,7 @@ func TestInitialize_Language_ZH(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "zh")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "zh", Language.Value)
 }
@@ -281,7 +291,7 @@ func TestInitialize_Language_CaseInsensitive(t *testing.T) {
 			t.Setenv("PASSWORDS", "plaintext:test123")
 			t.Setenv("LANGUAGE", tt.lang)
 
-			err := Initialize()
+			err := Initialize(testLogger())
 			testza.AssertNoError(t, err)
 			testza.AssertEqual(t, tt.expected, strings.ToLower(Language.Value))
 		})
@@ -293,7 +303,7 @@ func TestInitialize_Language_Default(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	// Don't set LANGUAGE to test default
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	// Default should be "en"
 	testza.AssertEqual(t, "en", Language.Value)
@@ -309,7 +319,7 @@ func TestInitialize_AllConfigVariables(t *testing.T) {
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
 	t.Setenv("LANGUAGE", "zh")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	testza.AssertEqual(t, "auth.example.com", AuthHost.Value)
@@ -327,7 +337,7 @@ func TestInitialize_WithDefaults(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	// Don't set optional variables to test defaults
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	testza.AssertEqual(t, "false", Debug.Value)
@@ -343,7 +353,7 @@ func TestInitialize_Language_FR(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "fr")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "fr", Language.Value)
 }
@@ -353,7 +363,7 @@ func TestInitialize_Language_IT(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "it")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "it", Language.Value)
 }
@@ -363,7 +373,7 @@ func TestInitialize_Language_JA(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "ja")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "ja", Language.Value)
 }
@@ -373,7 +383,7 @@ func TestInitialize_Language_DE(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "de")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "de", Language.Value)
 }
@@ -383,7 +393,7 @@ func TestInitialize_Language_KO(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "ko")
 
-	err := Initialize()
+	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "ko", Language.Value)
 }
