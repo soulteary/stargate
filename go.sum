@@ -477,6 +477,8 @@ github.com/soulteary/redis-kit v1.0.0 h1:9HNj2//n3eK29+xqlPmoQ57D7U3vHV/BBfSbVv8
 github.com/soulteary/redis-kit v1.0.0/go.mod h1:q18cqZ8QPaXDoODl1pr5jcbU/iDDMCBscVt/IMXEm7U=
 github.com/soulteary/secure-kit v1.0.0 h1:CTcPVbkxEod0jawefqChrgjh/JxCO9DiHsoBbFVcEdc=
 github.com/soulteary/secure-kit v1.0.0/go.mod h1:ZXtNJW6nX3w7d+qW9aKRJXYeIzLAJINkvbkPbV4GZsw=
+github.com/soulteary/session-kit v1.0.0 h1:Tkg6rCUWMTdnesH75fYGIZqwoDwy8z8c8yERxEcVnms=
+github.com/soulteary/session-kit v1.0.0/go.mod h1:OvI605aKyIeWzDPg1h9vicOk07IgzHuhb7hZu47LGrw=
 github.com/soulteary/tracing-kit v1.0.0 h1:GCplc9+yKgHK6ubsgtXGp7PA5DVMT+d5Cnj3NZo1IsQ=
 github.com/soulteary/tracing-kit v1.0.0/go.mod h1:gYw/iBOq0hFtBFzkq+upnrFN7iAfjYe18cISCO/BYto=
 github.com/soulteary/version-kit v1.0.0 h1:9XQqsl4QczXxMYsyzDLDI0G3LVobKSJ+aDAijYf5kXs=

@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/pquerna/otp/totp"
 	logger "github.com/soulteary/logger-kit"
 	secure "github.com/soulteary/secure-kit"
+	session "github.com/soulteary/session-kit"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/warden/pkg/warden"
 )
@@ -20,7 +20,47 @@ import (
 var log *logger.Logger
 
 // SessionCookieName is the name of the session cookie used for authentication.
+// Note: This constant is kept for backward compatibility. Consider using session-kit's Config.CookieName.
 const SessionCookieName = "stargate_session_id"
+
+// Re-export session-kit functions for session management.
+// This provides a unified interface for session operations in Stargate.
+var (
+	// Authenticate marks a fiber session as authenticated.
+	Authenticate = session.Authenticate
+	// Unauthenticate destroys a fiber session.
+	Unauthenticate = session.Unauthenticate
+	// IsAuthenticated checks if a fiber session is authenticated.
+	IsAuthenticated = session.IsAuthenticated
+	// SetUserID sets the user ID in a fiber session.
+	SetUserID = session.SetUserID
+	// GetUserID gets the user ID from a fiber session.
+	GetUserID = session.GetUserID
+	// SetEmail sets the email in a fiber session.
+	SetEmail = session.SetEmail
+	// GetEmail gets the email from a fiber session.
+	GetEmail = session.GetEmail
+	// SetPhone sets the phone in a fiber session.
+	SetPhone = session.SetPhone
+	// GetPhone gets the phone from a fiber session.
+	GetPhone = session.GetPhone
+	// SetAMR sets the authentication methods references in a fiber session.
+	SetAMR = session.SetAMR
+	// GetAMR gets the authentication methods references from a fiber session.
+	GetAMR = session.GetAMR
+	// AddAMR adds an authentication method reference to a fiber session.
+	AddAMR = session.AddAMR
+	// HasAMR checks if a fiber session has a specific authentication method.
+	HasAMR = session.HasAMR
+	// SetScopes sets the authorization scopes in a fiber session.
+	SetScopes = session.SetScopes
+	// GetScopes gets the authorization scopes from a fiber session.
+	GetScopes = session.GetScopes
+	// HasScope checks if a fiber session has a specific scope.
+	HasScope = session.HasScope
+	// UpdateLastAccess updates the last access timestamp in a fiber session.
+	UpdateLastAccess = session.UpdateLastAccess
+)
 
 // GetValidPasswords parses the password configuration and returns the algorithm and list of valid passwords.
 // The configuration format is: "algorithm:pass1|pass2|pass3"
@@ -91,37 +131,6 @@ func CheckPassword(password string) bool {
 	}
 
 	return false
-}
-
-// Authenticate marks a session as authenticated by setting the "authenticated" flag.
-//
-// Parameters:
-//   - session: The session to authenticate
-//
-// Returns an error if the session cannot be saved.
-func Authenticate(session *session.Session) error {
-	session.Set("authenticated", true)
-	return session.Save()
-}
-
-// Unauthenticate destroys a session, effectively logging out the user.
-//
-// Parameters:
-//   - session: The session to destroy
-//
-// Returns an error if the session cannot be destroyed.
-func Unauthenticate(session *session.Session) error {
-	return session.Destroy()
-}
-
-// IsAuthenticated checks if a session is authenticated.
-//
-// Parameters:
-//   - session: The session to check
-//
-// Returns true if the session has the "authenticated" flag set, false otherwise.
-func IsAuthenticated(session *session.Session) bool {
-	return session.Get("authenticated") != nil
 }
 
 // wardenClient is a global instance of the Warden client.
