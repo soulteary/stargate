@@ -14,6 +14,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/tracing-kit"
+	version "github.com/soulteary/version-kit"
 )
 
 // log is the global logger instance
@@ -38,7 +39,7 @@ func runApplication() error {
 	if config.OTLPEnabled.ToBool() {
 		_, err := tracing.InitTracer(
 			"stargate",
-			Version,
+			version.Version,
 			config.OTLPEndpoint.Value,
 		)
 		if err != nil {
@@ -121,7 +122,7 @@ func showBanner() {
 		putils.CenterText(
 			"Stargate\n" +
 				"Your Gateway to Secure Microservices\n" +
-				"Version: " + Version,
+				"Version: " + version.Version,
 		),
 	)
 	time.Sleep(time.Millisecond) // Don't ask why, but this fixes the docker-compose log
@@ -133,7 +134,7 @@ func initLogger() {
 		Level:          logger.ParseLevelFromEnv("LOG_LEVEL", logger.InfoLevel),
 		Format:         logger.FormatJSON,
 		ServiceName:    "stargate",
-		ServiceVersion: Version,
+		ServiceVersion: version.Version,
 	})
 }
 

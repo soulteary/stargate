@@ -22,6 +22,7 @@ require (
 	github.com/soulteary/redis-kit v1.0.0
 	github.com/soulteary/secure-kit v1.0.0
 	github.com/soulteary/tracing-kit v1.0.0
+	github.com/soulteary/version-kit v1.0.0
 	github.com/soulteary/warden v0.7.0
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasthttp v1.69.0

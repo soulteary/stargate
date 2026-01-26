@@ -18,7 +18,7 @@ ARG BUILD_DATE
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 RUN BUILD_DATE=${BUILD_DATE:-$(date +%FT%T%z)} && \
-    GO111MODULE=on GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags "-w -s -X 'github.com/soulteary/stargate/src/cmd/stargate.Version=$VERSION'" -o stargate ./src/cmd/stargate
+    GO111MODULE=on GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags "-w -s -X 'github.com/soulteary/version-kit.Version=$VERSION' -X 'github.com/soulteary/version-kit.Commit=$COMMIT' -X 'github.com/soulteary/version-kit.BuildDate=$BUILD_DATE'" -o stargate ./src/cmd/stargate
 # upx 压缩（如果失败则跳过，确保多平台构建兼容性）
 RUN if command -v upx > /dev/null 2>&1; then \
       upx -9 -o stargate.minify stargate 2>/dev/null && mv stargate.minify stargate || true; \

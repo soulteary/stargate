@@ -57,7 +57,9 @@ jobs:
         run: |
           mkdir -p dist
           VERSION=${{ steps.version.outputs.version }}
-          LDFLAGS="-s -w -X github.com/soulteary/stargate/src/cmd/stargate.Version=${VERSION}"
+          COMMIT=${{ github.sha }}
+          BUILD_DATE=$(date +%FT%T%z)
+          LDFLAGS="-s -w -X 'github.com/soulteary/version-kit.Version=${VERSION}' -X 'github.com/soulteary/version-kit.Commit=${COMMIT}' -X 'github.com/soulteary/version-kit.BuildDate=${BUILD_DATE}'"
           
           # Build for multiple platforms
           GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o dist/stargate-linux-amd64 ./src/cmd/stargate
