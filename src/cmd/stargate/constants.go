@@ -1,10 +1,6 @@
 package main
 
 const (
-	// Version is the application version
-	// This can be overridden at build time using -ldflags
-	Version = "dev"
-
 	// DefaultPort is the default server port
 	DefaultPort = ":80"
 

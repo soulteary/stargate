@@ -81,7 +81,9 @@ jobs:
       - name: Build
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          CGO_ENABLED=0 go build -ldflags "-s -w -X github.com/soulteary/stargate/src/cmd/stargate.Version=${VERSION}" -o ./bin/stargate ./src/cmd/stargate
+          COMMIT=${{ github.sha }}
+          BUILD_DATE=$(date +%FT%T%z)
+          CGO_ENABLED=0 go build -ldflags "-s -w -X 'github.com/soulteary/version-kit.Version=${VERSION}' -X 'github.com/soulteary/version-kit.Commit=${COMMIT}' -X 'github.com/soulteary/version-kit.BuildDate=${BUILD_DATE}'" -o ./bin/stargate ./src/cmd/stargate
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4

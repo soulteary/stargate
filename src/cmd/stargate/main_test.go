@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/config"
+	version "github.com/soulteary/version-kit"
 )
 
 func TestShowBanner(t *testing.T) {
@@ -26,10 +27,10 @@ func TestShowBanner_ContainsVersion(t *testing.T) {
 	testza.AssertNotPanics(t, func() {
 		showBanner()
 	})
-	// Verify Version constant is accessible and defined
-	// Version is a string constant (defaults to "dev" but can be overridden at build time)
-	testza.AssertTrue(t, len(Version) >= 0, "Version should be defined")
-	testza.AssertEqual(t, "dev", Version, "Default version should be 'dev'")
+	// Verify Version variable is accessible and defined
+	// Version is a string variable (defaults to "dev" but can be overridden at build time via ldflags)
+	testza.AssertTrue(t, len(version.Version) >= 0, "Version should be defined")
+	testza.AssertEqual(t, "dev", version.Version, "Default version should be 'dev'")
 }
 
 func TestInitLogger(t *testing.T) {
@@ -331,8 +332,8 @@ func TestShowBanner_ContentStructure(t *testing.T) {
 		showBanner()
 	})
 
-	// Verify Version constant is used
-	testza.AssertTrue(t, len(Version) >= 0, "Version should be defined")
+	// Verify Version variable is used
+	testza.AssertTrue(t, len(version.Version) >= 0, "Version should be defined")
 }
 
 // TestInitConfig_AllPaths tests all code paths in initConfig
@@ -470,10 +471,10 @@ func TestShowBanner_MultipleCalls(t *testing.T) {
 	})
 }
 
-// TestShowBanner_VersionIntegration tests that showBanner uses Version constant correctly
+// TestShowBanner_VersionIntegration tests that showBanner uses Version variable correctly
 func TestShowBanner_VersionIntegration(t *testing.T) {
 	// Verify Version is defined and used
-	testza.AssertTrue(t, len(Version) >= 0, "Version should be defined")
+	testza.AssertTrue(t, len(version.Version) >= 0, "Version should be defined")
 
 	// Call showBanner and verify it doesn't panic
 	testza.AssertNotPanics(t, func() {
