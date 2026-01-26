@@ -6,14 +6,24 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
+// testLoggerCheckHeaders creates a logger instance for testing
+func testLoggerCheckHeaders() *logger.Logger {
+	return logger.New(logger.Config{
+		Level:       logger.DebugLevel,
+		Format:      logger.FormatJSON,
+		ServiceName: "check-headers-test",
+	})
+}
+
 func setupCheckHeaderConfig(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerCheckHeaders())
 	testza.AssertNoError(t, err)
 }
 

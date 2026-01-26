@@ -10,12 +10,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
-	"github.com/rs/zerolog"
-	"github.com/sirupsen/logrus"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/tracing-kit"
 )
+
+// log is the global logger instance
+var log *logger.Logger
 
 // runApplication is the main application logic extracted for testing.
 // It performs all initialization steps and starts the server.
@@ -24,7 +26,7 @@ func runApplication() error {
 	// Display startup banner
 	showBanner()
 
-	// Initialize logger
+	// Initialize logger using logger-kit
 	initLogger()
 
 	// Initialize configuration
@@ -40,9 +42,9 @@ func runApplication() error {
 			config.OTLPEndpoint.Value,
 		)
 		if err != nil {
-			logrus.Warnf("Failed to initialize OpenTelemetry tracing: %v", err)
+			log.Warn().Err(err).Msg("Failed to initialize OpenTelemetry tracing")
 		} else {
-			logrus.Info("OpenTelemetry tracing initialized")
+			log.Info().Msg("OpenTelemetry tracing initialized")
 		}
 	}
 
@@ -66,18 +68,18 @@ func runApplication() error {
 			return err
 		}
 	case sig := <-sigChan:
-		logrus.Infof("Received signal: %v, shutting down gracefully...", sig)
+		log.Info().Str("signal", sig.String()).Msg("Received signal, shutting down gracefully...")
 
 		// Shutdown tracer
 		if config.OTLPEnabled.ToBool() {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := tracing.Shutdown(ctx); err != nil {
-				logrus.Errorf("Failed to shutdown tracer: %v", err)
+				log.Error().Err(err).Msg("Failed to shutdown tracer")
 			}
 		}
 
-		logrus.Info("Stargate service stopped")
+		log.Info().Msg("Stargate service stopped")
 	}
 
 	return nil
@@ -109,7 +111,7 @@ func main() {
 	// Use runApplication to handle all initialization and server startup
 	// This allows the same logic to be tested via runApplication()
 	if err := runApplication(); err != nil {
-		logrus.Fatal("Application failed to start: ", err)
+		log.Fatal().Err(err).Msg("Application failed to start")
 	}
 }
 
@@ -125,31 +127,33 @@ func showBanner() {
 	time.Sleep(time.Millisecond) // Don't ask why, but this fixes the docker-compose log
 }
 
-// initLogger initializes the logging system (both logrus and zerolog)
+// initLogger initializes the logging system using logger-kit
 func initLogger() {
-	// Initialize logrus (existing logger for backward compatibility)
-	logrus.SetFormatter(&logrus.TextFormatter{})
-
-	// Initialize zerolog (used by middleware-kit)
-	zerologLogger = zerolog.New(os.Stdout).With().
-		Timestamp().
-		Logger()
+	log = logger.New(logger.Config{
+		Level:          logger.ParseLevelFromEnv("LOG_LEVEL", logger.InfoLevel),
+		Format:         logger.FormatJSON,
+		ServiceName:    "stargate",
+		ServiceVersion: Version,
+	})
 }
 
 // initConfig initializes the configuration
 func initConfig() error {
-	if err := config.Initialize(); err != nil {
+	if err := config.Initialize(log); err != nil {
 		return err
 	}
 
 	if config.Debug.ToBool() {
-		logrus.SetLevel(logrus.DebugLevel)
-	} else {
-		logrus.SetLevel(logrus.InfoLevel)
+		log.SetLevel(logger.DebugLevel)
 	}
 
 	// Initialize Warden client after configuration is loaded
-	auth.InitWardenClient()
+	auth.InitWardenClient(log)
 
 	return nil
+}
+
+// GetLogger returns the global logger instance (for use by other packages)
+func GetLogger() *logger.Logger {
+	return log
 }

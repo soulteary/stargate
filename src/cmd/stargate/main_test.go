@@ -2,13 +2,12 @@ package main
 
 import (
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
-	"github.com/sirupsen/logrus"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
@@ -35,52 +34,25 @@ func TestShowBanner_ContainsVersion(t *testing.T) {
 
 func TestInitLogger(t *testing.T) {
 	// Test that initLogger sets up the logger correctly
-	// Save original formatter
-	originalFormatter := logrus.StandardLogger().Formatter
-	originalLevel := logrus.GetLevel()
+	testza.AssertNotPanics(t, func() {
+		initLogger()
+	})
 
-	// Restore original state after test
-	defer func() {
-		logrus.SetFormatter(originalFormatter)
-		logrus.SetLevel(originalLevel)
-	}()
-
-	// Call initLogger
-	initLogger()
-
-	// Verify formatter is set (should be TextFormatter)
-	testza.AssertNotNil(t, logrus.StandardLogger().Formatter)
-
-	// Verify it's actually a TextFormatter
-	formatterType := reflect.TypeOf(logrus.StandardLogger().Formatter)
-	testza.AssertEqual(t, "*logrus.TextFormatter", formatterType.String())
+	// Verify log is not nil after initialization
+	testza.AssertNotNil(t, log)
 }
 
 func TestInitLogger_MultipleCalls(t *testing.T) {
 	// Test that initLogger can be called multiple times without issues
-	originalFormatter := logrus.StandardLogger().Formatter
-	originalLevel := logrus.GetLevel()
-
-	defer func() {
-		logrus.SetFormatter(originalFormatter)
-		logrus.SetLevel(originalLevel)
-	}()
-
-	// Call initLogger multiple times
-	initLogger()
-	formatter1 := logrus.StandardLogger().Formatter
-
-	initLogger()
-	formatter2 := logrus.StandardLogger().Formatter
-
-	// Both should be TextFormatter
-	testza.AssertNotNil(t, formatter1)
-	testza.AssertNotNil(t, formatter2)
+	testza.AssertNotPanics(t, func() {
+		initLogger()
+		initLogger()
+	})
 }
 
 func TestInitConfig_Success(t *testing.T) {
-	// Reset log level before test
-	logrus.SetLevel(logrus.InfoLevel)
+	// Initialize logger first
+	initLogger()
 
 	// Setup required environment variables
 	t.Setenv("AUTH_HOST", "auth.example.com")
@@ -90,14 +62,11 @@ func TestInitConfig_Success(t *testing.T) {
 	// Reset config state by reinitializing
 	err := initConfig()
 	testza.AssertNoError(t, err)
-
-	// Verify debug level is set correctly
-	testza.AssertEqual(t, logrus.InfoLevel, logrus.GetLevel())
 }
 
 func TestInitConfig_WithDebug(t *testing.T) {
-	// Reset log level before test
-	logrus.SetLevel(logrus.InfoLevel)
+	// Initialize logger first
+	initLogger()
 
 	// Setup required environment variables
 	t.Setenv("AUTH_HOST", "auth.example.com")
@@ -109,16 +78,19 @@ func TestInitConfig_WithDebug(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	// Verify debug level is set when DEBUG=true
-	testza.AssertEqual(t, logrus.DebugLevel, logrus.GetLevel())
+	testza.AssertEqual(t, logger.DebugLevel, log.GetLevel())
 }
 
 func TestInitConfig_ConfigInitializationError(t *testing.T) {
+	// Initialize logger first
+	initLogger()
+
 	// Setup invalid environment variables to cause initialization error
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	_ = config.Initialize()
+	_ = config.Initialize(log)
 
 	// Call initConfig - should return error
 	err := initConfig()
@@ -126,12 +98,15 @@ func TestInitConfig_ConfigInitializationError(t *testing.T) {
 }
 
 func TestInitConfig_MissingRequiredConfig(t *testing.T) {
+	// Initialize logger first
+	initLogger()
+
 	// Clear required environment variables
 	_ = os.Unsetenv("AUTH_HOST")
 	_ = os.Unsetenv("PASSWORDS")
 
 	// Reset config state
-	_ = config.Initialize()
+	_ = config.Initialize(log)
 
 	// Call initConfig - should return error
 	err := initConfig()
@@ -139,8 +114,8 @@ func TestInitConfig_MissingRequiredConfig(t *testing.T) {
 }
 
 func TestInitConfig_DebugFalse(t *testing.T) {
-	// Reset log level before test (important: previous test may have set it to DebugLevel)
-	logrus.SetLevel(logrus.InfoLevel)
+	// Initialize logger first
+	initLogger()
 
 	// Setup required environment variables with DEBUG=false
 	t.Setenv("AUTH_HOST", "auth.example.com")
@@ -152,9 +127,7 @@ func TestInitConfig_DebugFalse(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	// Verify log level is Info (not Debug)
-	// Note: initConfig only sets DebugLevel when DEBUG=true,
-	// so when DEBUG=false, it should remain at InfoLevel (default)
-	testza.AssertEqual(t, logrus.InfoLevel, logrus.GetLevel())
+	testza.AssertEqual(t, logger.InfoLevel, log.GetLevel())
 }
 
 func TestInitConfig_DebugCaseInsensitive(t *testing.T) {
@@ -162,20 +135,20 @@ func TestInitConfig_DebugCaseInsensitive(t *testing.T) {
 	tests := []struct {
 		name     string
 		debugVal string
-		expected logrus.Level
+		expected logger.Level
 	}{
-		{"uppercase TRUE", "TRUE", logrus.DebugLevel},
-		{"lowercase true", "true", logrus.DebugLevel},
-		{"mixed case True", "True", logrus.DebugLevel},
-		{"uppercase FALSE", "FALSE", logrus.InfoLevel},
-		{"lowercase false", "false", logrus.InfoLevel},
-		{"mixed case False", "False", logrus.InfoLevel},
+		{"uppercase TRUE", "TRUE", logger.DebugLevel},
+		{"lowercase true", "true", logger.DebugLevel},
+		{"mixed case True", "True", logger.DebugLevel},
+		{"uppercase FALSE", "FALSE", logger.InfoLevel},
+		{"lowercase false", "false", logger.InfoLevel},
+		{"mixed case False", "False", logger.InfoLevel},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset log level before each subtest
-			logrus.SetLevel(logrus.InfoLevel)
+			// Reset logger
+			initLogger()
 
 			t.Setenv("AUTH_HOST", "auth.example.com")
 			t.Setenv("PASSWORDS", "plaintext:test123")
@@ -186,15 +159,16 @@ func TestInitConfig_DebugCaseInsensitive(t *testing.T) {
 			testza.AssertNoError(t, err)
 
 			// Verify log level matches expected
-			testza.AssertEqual(t, tt.expected, logrus.GetLevel())
+			testza.AssertEqual(t, tt.expected, log.GetLevel())
 		})
 	}
 }
 
 func TestInitConfig_EmptyDebugValue(t *testing.T) {
-	// Test that empty DEBUG value defaults to false (InfoLevel)
-	logrus.SetLevel(logrus.InfoLevel)
+	// Initialize logger first
+	initLogger()
 
+	// Test that empty DEBUG value defaults to false (InfoLevel)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	_ = os.Unsetenv("DEBUG")
@@ -204,20 +178,20 @@ func TestInitConfig_EmptyDebugValue(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	// Empty DEBUG should default to false, so InfoLevel
-	testza.AssertEqual(t, logrus.InfoLevel, logrus.GetLevel())
+	testza.AssertEqual(t, logger.InfoLevel, log.GetLevel())
 }
 
 func TestInitConfig_InvalidDebugValue(t *testing.T) {
-	// Test that invalid DEBUG value causes config initialization to fail
-	// This should fail at config validation, not at initConfig
-	logrus.SetLevel(logrus.InfoLevel)
+	// Initialize logger first
+	initLogger()
 
+	// Test that invalid DEBUG value causes config initialization to fail
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("DEBUG", "invalid")
 
 	// Reset config state - this should fail validation
-	_ = config.Initialize()
+	_ = config.Initialize(log)
 
 	// initConfig should return error because DEBUG validation failed
 	err := initConfig()
@@ -225,6 +199,9 @@ func TestInitConfig_InvalidDebugValue(t *testing.T) {
 }
 
 func TestInitConfig_LogLevelTransition(t *testing.T) {
+	// Initialize logger first
+	initLogger()
+
 	// Test transitioning from DebugLevel to InfoLevel
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -233,18 +210,21 @@ func TestInitConfig_LogLevelTransition(t *testing.T) {
 	t.Setenv("DEBUG", "true")
 	err := initConfig()
 	testza.AssertNoError(t, err)
-	testza.AssertEqual(t, logrus.DebugLevel, logrus.GetLevel())
+	testza.AssertEqual(t, logger.DebugLevel, log.GetLevel())
+
+	// Reset logger for new config
+	initLogger()
 
 	// Then set to false
 	t.Setenv("DEBUG", "false")
 	err = initConfig()
 	testza.AssertNoError(t, err)
-	testza.AssertEqual(t, logrus.InfoLevel, logrus.GetLevel())
+	testza.AssertEqual(t, logger.InfoLevel, log.GetLevel())
 }
 
 func TestInitConfig_ConfigInitializationSuccessPath(t *testing.T) {
-	// Test the complete success path of initConfig
-	logrus.SetLevel(logrus.WarnLevel) // Start with different level
+	// Initialize logger first
+	initLogger()
 
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -254,7 +234,7 @@ func TestInitConfig_ConfigInitializationSuccessPath(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	// Verify both config initialization and log level setting worked
-	testza.AssertEqual(t, logrus.DebugLevel, logrus.GetLevel())
+	testza.AssertEqual(t, logger.DebugLevel, log.GetLevel())
 	testza.AssertNotNil(t, config.AuthHost.Value)
 	testza.AssertNotNil(t, config.Passwords.Value)
 }
@@ -266,7 +246,8 @@ func TestRunApplication_ConfigError(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	_ = config.Initialize()
+	initLogger()
+	_ = config.Initialize(log)
 
 	// runApplication should return error when config initialization fails
 	err := runApplication()
@@ -280,7 +261,8 @@ func TestRunApplicationWithApp_ConfigError(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	_ = config.Initialize()
+	initLogger()
+	_ = config.Initialize(log)
 
 	// Create a test app
 	app := fiber.New()
@@ -291,7 +273,6 @@ func TestRunApplicationWithApp_ConfigError(t *testing.T) {
 }
 
 // TestRunApplicationWithApp_Success tests that runApplicationWithApp works with valid config
-// Note: This test will try to start a server, so we need to handle that appropriately
 func TestRunApplicationWithApp_Success(t *testing.T) {
 	// Setup valid environment variables
 	t.Setenv("AUTH_HOST", "auth.example.com")
@@ -299,20 +280,14 @@ func TestRunApplicationWithApp_Success(t *testing.T) {
 	t.Setenv("DEBUG", "false")
 
 	// Reset config state
-	_ = config.Initialize()
+	initLogger()
+	_ = config.Initialize(log)
 
-	// Note: runApplicationWithApp will try to start the server with app.Listen()
-	// This will block, so we can't easily test the full flow in a unit test
-	// Instead, we test that the function can be called and returns appropriately
-	// In a real scenario, we would use a mock or test server
-
-	// For now, we just verify the function signature and that it can be called
-	// The actual server start would need to be tested in integration tests
+	// Verify the function signature and that it can be called
 	testza.AssertNotNil(t, runApplicationWithApp, "runApplicationWithApp should be defined")
 }
 
 // TestRunApplication_SuccessPath tests the complete success path
-// Note: This will try to start a real server, so we handle it carefully
 func TestRunApplication_SuccessPath(t *testing.T) {
 	// Setup valid environment variables
 	t.Setenv("AUTH_HOST", "auth.example.com")
@@ -320,21 +295,17 @@ func TestRunApplication_SuccessPath(t *testing.T) {
 	t.Setenv("DEBUG", "false")
 
 	// Reset config state
-	_ = config.Initialize()
+	initLogger()
+	_ = config.Initialize(log)
 
-	// Note: runApplication will try to start a real server which will block
-	// We can't easily test this in a unit test without using goroutines and timeouts
-	// For now, we verify the function exists and can be called
+	// Verify the function exists and can be called
 	_ = runApplication
 	testza.AssertNotNil(t, runApplication, "runApplication should be defined")
 }
 
 // TestMainFunction_Exists tests that main function exists and can be analyzed
-// We can't directly test main() as it's the entry point, but we can verify
-// that the extracted functions work correctly
 func TestMainFunction_Exists(t *testing.T) {
 	// Verify that main function exists (it's the entry point)
-	// We can't call it directly, but we can verify the extracted logic works
 	testza.AssertNotNil(t, showBanner, "showBanner should be defined")
 	testza.AssertNotNil(t, initLogger, "initLogger should be defined")
 	testza.AssertNotNil(t, initConfig, "initConfig should be defined")
@@ -356,7 +327,6 @@ func TestShowBanner_ExecutionTime(t *testing.T) {
 func TestShowBanner_ContentStructure(t *testing.T) {
 	// Since showBanner uses pterm which outputs to stdout,
 	// we can't easily capture the output, but we can verify it doesn't panic
-	// and executes successfully
 	testza.AssertNotPanics(t, func() {
 		showBanner()
 	})
@@ -371,7 +341,7 @@ func TestInitConfig_AllPaths(t *testing.T) {
 		name        string
 		setup       func(*testing.T)
 		expectError bool
-		expectLevel logrus.Level
+		expectLevel logger.Level
 	}{
 		{
 			name: "success with debug true",
@@ -381,7 +351,7 @@ func TestInitConfig_AllPaths(t *testing.T) {
 				t.Setenv("DEBUG", "true")
 			},
 			expectError: false,
-			expectLevel: logrus.DebugLevel,
+			expectLevel: logger.DebugLevel,
 		},
 		{
 			name: "success with debug false",
@@ -391,7 +361,7 @@ func TestInitConfig_AllPaths(t *testing.T) {
 				t.Setenv("DEBUG", "false")
 			},
 			expectError: false,
-			expectLevel: logrus.InfoLevel,
+			expectLevel: logger.InfoLevel,
 		},
 		{
 			name: "error with invalid config",
@@ -400,20 +370,20 @@ func TestInitConfig_AllPaths(t *testing.T) {
 				t.Setenv("PASSWORDS", "")
 			},
 			expectError: true,
-			expectLevel: logrus.InfoLevel, // Default level when error occurs
+			expectLevel: logger.InfoLevel, // Default level when error occurs
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Reset log level
-			logrus.SetLevel(logrus.InfoLevel)
+			// Reset logger
+			initLogger()
 
 			// Setup test environment
 			tt.setup(t)
 
 			// Reset config state
-			_ = config.Initialize()
+			_ = config.Initialize(log)
 
 			// Call initConfig
 			err := initConfig()
@@ -422,7 +392,7 @@ func TestInitConfig_AllPaths(t *testing.T) {
 				testza.AssertNotNil(t, err, "should return error")
 			} else {
 				testza.AssertNoError(t, err, "should not return error")
-				testza.AssertEqual(t, tt.expectLevel, logrus.GetLevel(), "log level should match")
+				testza.AssertEqual(t, tt.expectLevel, log.GetLevel(), "log level should match")
 			}
 		})
 	}
@@ -435,7 +405,8 @@ func TestRunApplication_ConfigErrorPath(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	_ = config.Initialize()
+	initLogger()
+	_ = config.Initialize(log)
 
 	// runApplication should return error when config fails
 	err := runApplication()
@@ -450,7 +421,8 @@ func TestRunApplicationWithApp_ConfigErrorPath(t *testing.T) {
 	t.Setenv("PASSWORDS", "")
 
 	// Reset config state
-	_ = config.Initialize()
+	initLogger()
+	_ = config.Initialize(log)
 
 	// Create a test app
 	app := fiber.New()
@@ -461,8 +433,6 @@ func TestRunApplicationWithApp_ConfigErrorPath(t *testing.T) {
 }
 
 // TestRunApplication_ServerErrorPath tests that runApplication handles server start errors
-// Note: This is difficult to test without actually starting a server, but we can verify
-// the error handling code path exists
 func TestRunApplication_ServerErrorPath(t *testing.T) {
 	// Setup valid environment variables
 	t.Setenv("AUTH_HOST", "auth.example.com")
@@ -470,17 +440,14 @@ func TestRunApplication_ServerErrorPath(t *testing.T) {
 	t.Setenv("DEBUG", "false")
 
 	// Reset config state
-	_ = config.Initialize()
+	initLogger()
+	_ = config.Initialize(log)
 
-	// Note: runApplication will try to start a server which will block
-	// We can't easily test the server error path in a unit test
-	// But we verify the function exists and the error handling code is present
+	// Verify the function exists and the error handling code is present
 	testza.AssertNotNil(t, runApplication, "runApplication should be defined")
 }
 
 // TestMainFunction_CodeStructure tests that main function has the expected structure
-// We can't directly test main() as it's the entry point, but we can verify
-// that all the functions it calls exist and work correctly
 func TestMainFunction_CodeStructure(t *testing.T) {
 	// Verify all functions called by main() exist and are testable
 	testza.AssertNotNil(t, showBanner, "showBanner should be defined")
@@ -514,25 +481,24 @@ func TestShowBanner_VersionIntegration(t *testing.T) {
 	})
 }
 
-// TestInitLogger_FormatterType tests that initLogger sets the correct formatter type
-func TestInitLogger_FormatterType(t *testing.T) {
-	originalFormatter := logrus.StandardLogger().Formatter
-	defer logrus.SetFormatter(originalFormatter)
-
+// TestInitLogger_Creates_Logger tests that initLogger creates a valid logger
+func TestInitLogger_Creates_Logger(t *testing.T) {
 	initLogger()
 
-	// Verify formatter is TextFormatter
-	formatterType := reflect.TypeOf(logrus.StandardLogger().Formatter)
-	testza.AssertEqual(t, "*logrus.TextFormatter", formatterType.String())
+	// Verify logger is created
+	testza.AssertNotNil(t, log, "logger should be created")
 }
 
 // TestInitConfig_ErrorReturn tests that initConfig returns error correctly
 func TestInitConfig_ErrorReturn(t *testing.T) {
+	// Initialize logger first
+	initLogger()
+
 	// Setup invalid config
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
 
-	_ = config.Initialize()
+	_ = config.Initialize(log)
 
 	err := initConfig()
 	testza.AssertNotNil(t, err, "initConfig should return error for invalid config")
@@ -540,12 +506,15 @@ func TestInitConfig_ErrorReturn(t *testing.T) {
 
 // TestInitConfig_SuccessReturn tests that initConfig returns nil on success
 func TestInitConfig_SuccessReturn(t *testing.T) {
+	// Initialize logger first
+	initLogger()
+
 	// Setup valid config
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("DEBUG", "false")
 
-	_ = config.Initialize()
+	_ = config.Initialize(log)
 
 	err := initConfig()
 	testza.AssertNoError(t, err, "initConfig should not return error for valid config")

@@ -11,7 +11,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/sirupsen/logrus"
+	logger "github.com/soulteary/logger-kit"
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/herald/pkg/herald"
@@ -24,22 +24,31 @@ import (
 	"github.com/soulteary/tracing-kit"
 )
 
+// log is the package-level logger instance
+var log *logger.Logger
+
+// SetLogger sets the logger for this package
+func SetLogger(l *logger.Logger) {
+	log = l
+}
+
 var (
 	heraldClient     *herald.Client
 	heraldClientInit sync.Once
 )
 
 // InitHeraldClient initializes the Herald client if enabled
-func InitHeraldClient() {
+func InitHeraldClient(l *logger.Logger) {
+	log = l
 	heraldClientInit.Do(func() {
 		if !config.HeraldEnabled.ToBool() {
-			logrus.Debug("Herald is not enabled, skipping client initialization")
+			log.Debug().Msg("Herald is not enabled, skipping client initialization")
 			return
 		}
 
 		heraldURL := config.HeraldURL.String()
 		if heraldURL == "" {
-			logrus.Warn("HERALD_URL is not set, Herald client will not be initialized")
+			log.Warn().Msg("HERALD_URL is not set, Herald client will not be initialized")
 			return
 		}
 
@@ -53,46 +62,46 @@ func InitHeraldClient() {
 		hmacSecret := config.HeraldHMACSecret.String()
 		if hmacSecret != "" {
 			opts = opts.WithHMACSecret(hmacSecret)
-			logrus.Debug("Herald client will use HMAC authentication")
+			log.Debug().Msg("Herald client will use HMAC authentication")
 		} else if config.HeraldAPIKey.String() != "" {
-			logrus.Debug("Herald client will use API key authentication")
+			log.Debug().Msg("Herald client will use API key authentication")
 		} else {
-			logrus.Warn("Neither HERALD_HMAC_SECRET nor HERALD_API_KEY is set. Herald client may not authenticate properly.")
+			log.Warn().Msg("Neither HERALD_HMAC_SECRET nor HERALD_API_KEY is set. Herald client may not authenticate properly.")
 		}
 
 		// Add TLS/mTLS configuration if provided
 		if caCertFile := config.HeraldTLSCACertFile.String(); caCertFile != "" {
 			opts = opts.WithTLSCACert(caCertFile)
-			logrus.Debug("Herald client will verify server certificate using CA cert")
+			log.Debug().Msg("Herald client will verify server certificate using CA cert")
 		}
 		if clientCert := config.HeraldTLSClientCert.String(); clientCert != "" {
 			clientKey := config.HeraldTLSClientKey.String()
 			if clientKey != "" {
 				opts = opts.WithTLSClientCert(clientCert, clientKey)
-				logrus.Debug("Herald client will use mTLS with client certificate")
+				log.Debug().Msg("Herald client will use mTLS with client certificate")
 			} else {
-				logrus.Warn("HERALD_TLS_CLIENT_CERT_FILE is set but HERALD_TLS_CLIENT_KEY_FILE is not, mTLS will not be used")
+				log.Warn().Msg("HERALD_TLS_CLIENT_CERT_FILE is set but HERALD_TLS_CLIENT_KEY_FILE is not, mTLS will not be used")
 			}
 		}
 		if serverName := config.HeraldTLSServerName.String(); serverName != "" {
 			opts = opts.WithTLSServerName(serverName)
-			logrus.Debugf("Herald client will use server name %s for TLS verification", serverName)
+			log.Debug().Str("server_name", serverName).Msg("Herald client will use server name for TLS verification")
 		}
 
 		client, err := herald.NewClient(opts)
 		if err != nil {
-			logrus.Warnf("Failed to initialize Herald client: %v. Check HERALD_URL and HERALD_ENABLED configuration.", err)
+			log.Warn().Err(err).Msg("Failed to initialize Herald client. Check HERALD_URL and HERALD_ENABLED configuration.")
 			return
 		}
 
 		heraldClient = client
-		logrus.Info("Herald client initialized successfully")
+		log.Info().Msg("Herald client initialized successfully")
 	})
 }
 
-// getHeraldClient returns the herald client, initializing it if necessary
+// getHeraldClient returns the herald client.
+// Note: InitHeraldClient must be called with a logger before this function is used.
 func getHeraldClient() *herald.Client {
-	InitHeraldClient()
 	return heraldClient
 }
 
@@ -172,7 +181,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		)
 
 		// Log the authentication attempt
-		logrus.Debugf("Attempting Warden authentication: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
+		log.Debug().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Attempting Warden authentication")
 
 		// Step 1: Get complete user information from Warden (includes status check)
 		wardenStartTime := time.Now()
@@ -184,7 +193,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			tracing.RecordError(loginSpan, fmt.Errorf("user not found in Warden"))
 			metrics.RecordWardenCall("get_user_info", "failure", wardenDuration)
 			metrics.RecordAuthRequest("warden", "failure")
-			logrus.Warnf("Warden authentication failed for: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
+			log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden authentication failed")
 			auditlog.LogLogin(ctx.Context(), "", "warden", ctx.IP(), false, "user_not_in_list")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
 		}
@@ -250,7 +259,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				tracing.RecordError(heraldSpan, err)
 				heraldSpan.End()
 				metrics.RecordHeraldCall("verify_challenge", "failure", duration)
-				logrus.Errorf("Failed to verify challenge: %v", err)
+				log.Error().Err(err).Msg("Failed to verify challenge")
 
 				// Check if it's a connection error (Herald service unavailable)
 				if heraldErr, ok := err.(*herald.HeraldError); ok {
@@ -282,7 +291,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				if reason == "" {
 					reason = "invalid"
 				}
-				logrus.Warnf("Challenge verification failed: reason=%s", reason)
+				log.Warn().Str("reason", reason).Msg("Challenge verification failed")
 				auditlog.LogVerifyCodeCheck(ctx.Context(), userID, ctx.IP(), false, reason)
 
 				// Provide detailed error message based on reason (as per Claude.md section 9)
@@ -327,7 +336,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 
 			// Verify user ID matches
 			if verifyResp.UserID != userID {
-				logrus.Warnf("User ID mismatch: expected=%s, got=%s", userID, verifyResp.UserID)
+				log.Warn().Str("expected", userID).Str("got", verifyResp.UserID).Msg("User ID mismatch")
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "验证失败")
 			}
 
@@ -344,14 +353,14 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			// Get OTP secret
 			otpSecret := auth.GetOTPSecret()
 			if otpSecret == "" {
-				logrus.Warn("OTP secret is not configured")
+				log.Warn().Msg("OTP secret is not configured")
 				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "OTP 配置错误")
 			}
 
 			// Verify OTP code
 			if !auth.VerifyOTP(otpSecret, otpCode) {
 				metrics.RecordAuthRequest("warden_otp", "failure")
-				logrus.Warnf("OTP verification failed: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
+				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("OTP verification failed")
 				auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "OTP 验证码错误")
 			}
@@ -365,7 +374,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, "请选择验证方式：验证码或 OTP")
 		}
 
-		logrus.Infof("Warden authentication successful for: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
+		log.Info().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden authentication successful")
 		authenticated = true
 	} else {
 		// Password authentication (default)
@@ -416,8 +425,13 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			if userInfo.Role != "" {
 				sess.Set("user_role", userInfo.Role)
 			}
-			logrus.Debugf("Stored user info in session: user_id=%s, phone=%s, mail=%s, scope=%v, role=%s",
-				userInfo.UserID, secure.MaskPhone(userInfo.Phone), secure.MaskEmail(userInfo.Mail), userInfo.Scope, userInfo.Role)
+			log.Debug().
+				Str("user_id", userInfo.UserID).
+				Str("phone", secure.MaskPhone(userInfo.Phone)).
+				Str("mail", secure.MaskEmail(userInfo.Mail)).
+				Strs("scope", userInfo.Scope).
+				Str("role", userInfo.Role).
+				Msg("Stored user info in session")
 		} else {
 			// Fallback: store basic info if GetUserInfo failed (should not happen after CheckUserInList)
 			if userPhone != "" {

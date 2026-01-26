@@ -5,9 +5,19 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
+
+// testLoggerUtils creates a logger instance for testing
+func testLoggerUtils() *logger.Logger {
+	return logger.New(logger.Config{
+		Level:       logger.DebugLevel,
+		Format:      logger.FormatJSON,
+		ServiceName: "utils-test",
+	})
+}
 
 func createTestContextForUtils(method, path string, headers map[string]string) (*fiber.Ctx, *fiber.App) {
 	app := fiber.New()
@@ -119,7 +129,7 @@ func TestGetForwardedProto_EmptyHeader(t *testing.T) {
 func TestBuildCallbackURL(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
@@ -136,7 +146,7 @@ func TestBuildCallbackURL(t *testing.T) {
 func TestBuildCallbackURL_WithoutHeaders(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
@@ -339,7 +349,7 @@ func TestSendErrorResponse_MultipleTypes_XMLFirst(t *testing.T) {
 func TestNormalizeHost_WithPort(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
@@ -357,7 +367,7 @@ func TestNormalizeHost_WithPort(t *testing.T) {
 func TestNormalizeHost_WithoutPort(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
@@ -373,7 +383,7 @@ func TestNormalizeHost_WithoutPort(t *testing.T) {
 func TestNormalizeHost_SameDomainWithPort(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com:80")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
@@ -389,7 +399,7 @@ func TestNormalizeHost_SameDomainWithPort(t *testing.T) {
 func TestSetCallbackCookie_EmptyCallback(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", nil)
@@ -405,7 +415,7 @@ func TestSetCallbackCookie_WithCookieDomain(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
@@ -427,7 +437,7 @@ func TestClearCallbackCookie_WithCookieDomain(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", nil)
@@ -445,7 +455,7 @@ func TestClearCallbackCookie_WithCookieDomain(t *testing.T) {
 func TestIsDifferentDomain_SameDomain(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerUtils())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{

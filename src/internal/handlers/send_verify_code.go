@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
-	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/herald/pkg/herald"
@@ -88,7 +87,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			wardenSpan.SetAttributes(attribute.Bool("warden.user_found", false))
 			wardenSpan.End()
 			tracing.RecordError(sendCodeSpan, fmt.Errorf("user not found in Warden"))
-			logrus.Warnf("User not found in Warden or not active: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
+			log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User not found in Warden or not active")
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
 		}
 
@@ -114,7 +113,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		} else if destination == "" {
 			// Fallback: if Warden doesn't provide destination, use user input
 			// This should not happen if Warden is properly configured
-			logrus.Warnf("Warden user info missing destination, using user input: phone=%s, mail=%s", secure.MaskPhone(userPhone), secure.MaskEmail(userMail))
+			log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden user info missing destination, using user input")
 			destination = userMail
 			if userPhone != "" {
 				channel = "sms"
@@ -176,7 +175,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		if err != nil {
 			tracing.RecordError(heraldSpan, err)
 			heraldSpan.End()
-			logrus.Errorf("Failed to create challenge: %v", err)
+			log.Error().Err(err).Msg("Failed to create challenge")
 
 			reason := "unknown_error"
 			// Check if it's a connection error (Herald service unavailable)

@@ -7,7 +7,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
-	"github.com/sirupsen/logrus"
+	logger "github.com/soulteary/logger-kit"
 	rediskitclient "github.com/soulteary/redis-kit/client"
 )
 
@@ -15,21 +15,23 @@ import (
 type RedisStorage struct {
 	client    *redis.Client
 	keyPrefix string
+	log       *logger.Logger
 }
 
 // NewRedisStorage creates a new Redis storage for Fiber sessions
 // This implements the fiber.Storage interface using redis-kit client
-func NewRedisStorage(redisClient *redis.Client, keyPrefix string) fiber.Storage {
+func NewRedisStorage(redisClient *redis.Client, keyPrefix string, log *logger.Logger) fiber.Storage {
 	if keyPrefix == "" {
 		keyPrefix = "stargate:session:"
 	} else if len(keyPrefix) > 0 && keyPrefix[len(keyPrefix)-1] != ':' {
 		keyPrefix += ":"
 	}
 
-	logrus.Info("Redis session storage initialized with prefix: ", keyPrefix)
+	log.Info().Str("prefix", keyPrefix).Msg("Redis session storage initialized")
 	return &RedisStorage{
 		client:    redisClient,
 		keyPrefix: keyPrefix,
+		log:       log,
 	}
 }
 
@@ -152,7 +154,7 @@ func (s *RedisStorage) Close() error {
 }
 
 // NewRedisClientFromConfig creates a Redis client using redis-kit with configuration
-func NewRedisClientFromConfig(addr, password string, db int) (*redis.Client, error) {
+func NewRedisClientFromConfig(addr, password string, db int, log *logger.Logger) (*redis.Client, error) {
 	cfg := rediskitclient.DefaultConfig().
 		WithAddr(addr).
 		WithPassword(password).
@@ -172,6 +174,6 @@ func NewRedisClientFromConfig(addr, password string, db int) (*redis.Client, err
 		return nil, err
 	}
 
-	logrus.Info("Redis client connected successfully: ", addr)
+	log.Info().Str("addr", addr).Msg("Redis client connected successfully")
 	return client, nil
 }

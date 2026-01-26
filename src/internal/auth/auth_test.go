@@ -14,15 +14,25 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/pquerna/otp/totp"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
+
+// testLogger creates a logger instance for testing
+func testLogger() *logger.Logger {
+	return logger.New(logger.Config{
+		Level:       logger.DebugLevel,
+		Format:      logger.FormatJSON,
+		ServiceName: "auth-test",
+	})
+}
 
 func TestGetValidPasswords(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:pass1|pass2|pass3")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	expectedAlgo := "plaintext"
@@ -38,7 +48,7 @@ func TestGetValidPasswords_WithSpaces(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext: pass1 | pass2 | pass3 ")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	expectedAlgo := "plaintext"
@@ -54,7 +64,7 @@ func TestCheckPassword_Plaintext_Success(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123|test456")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	testza.AssertTrue(t, CheckPassword("test123"), "should accept valid password")
@@ -67,7 +77,7 @@ func TestCheckPassword_Plaintext_Failure(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123|test456")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	testza.AssertFalse(t, CheckPassword("wrong"), "should reject invalid password")
@@ -81,7 +91,7 @@ func TestCheckPassword_Bcrypt(t *testing.T) {
 	// The hash needs to be in the exact format expected by bcrypt
 	t.Setenv("PASSWORDS", "bcrypt:$2a$10$k8fBIpJInrE70BzYy5rO/OUSt1w2.IX0bWhiMdb2mJEhjheVHDhvK")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// The current implementation converts the hash to uppercase, which breaks bcrypt
@@ -101,7 +111,7 @@ func TestCheckPassword_MD5(t *testing.T) {
 	// MD5Resolver.Check now uses case-insensitive comparison
 	t.Setenv("PASSWORDS", "md5:22B75D6007E06F4A959D1B1D69B4C4BD")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// CheckPassword converts "test123" to "TEST123"
@@ -119,7 +129,7 @@ func TestCheckPassword_SHA512(t *testing.T) {
 	// SHA512Resolver.Check now uses case-insensitive comparison
 	t.Setenv("PASSWORDS", "sha512:79C377501595E6A0964F9531A661C1672BF3EF74798C130673B8D9E25DC1FD765B8EEE93F291A38518C9CA3B198AEDBEBD0A81E1B1C5780A60D9EB2F78209D81")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// CheckPassword converts "test123" to "TEST123"
@@ -197,7 +207,7 @@ func TestGetValidPasswords_Empty(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	// This should fail validation, but let's test the function behavior
 	if err == nil {
 		algorithm, passwords := GetValidPasswords()
@@ -210,7 +220,7 @@ func TestGetValidPasswords_InvalidFormat_NoColon(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintextpass1")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	// This should fail validation, but let's test the function behavior
 	if err == nil {
 		algorithm, passwords := GetValidPasswords()
@@ -223,7 +233,7 @@ func TestGetValidPasswords_EmptyPasswordList(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	// This should fail validation, but let's test the function behavior
 	if err == nil {
 		algorithm, passwords := GetValidPasswords()
@@ -236,7 +246,7 @@ func TestGetValidPasswords_SinglePassword(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:singlepass")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	algorithm, passwords := GetValidPasswords()
@@ -249,7 +259,7 @@ func TestCheckPassword_EmptyAlgorithm(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	// This should fail validation, but let's test the function behavior
 	if err == nil {
 		result := CheckPassword("test")
@@ -263,7 +273,7 @@ func TestCheckPassword_UnsupportedAlgorithm(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Test with spaces that should be removed
@@ -275,7 +285,7 @@ func TestCheckPassword_EmptyPasswordList(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	// This should fail validation, but let's test the function behavior
 	if err == nil {
 		result := CheckPassword("test")
@@ -290,7 +300,7 @@ func TestCheckPassword_WithSpacesInPassword(t *testing.T) {
 	// So we need to configure without spaces
 	t.Setenv("PASSWORDS", "plaintext:TEST123")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// CheckPassword converts "test123" to "TEST123" and removes spaces
@@ -305,7 +315,7 @@ func TestCheckPassword_CaseInsensitive(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:TestPassword")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	testza.AssertTrue(t, CheckPassword("testpassword"), "should be case insensitive")
@@ -366,13 +376,13 @@ func TestInitWardenClient_NotEnabled(t *testing.T) {
 	t.Setenv("WARDEN_ENABLED", "false")
 	t.Setenv("WARDEN_URL", "")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	// Should not panic and client should remain nil
 	testza.AssertNil(t, wardenClient)
 }
@@ -384,13 +394,13 @@ func TestInitWardenClient_NoURL(t *testing.T) {
 	t.Setenv("WARDEN_ENABLED", "true")
 	t.Setenv("WARDEN_URL", "")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	// Should not panic and client should remain nil
 	testza.AssertNil(t, wardenClient)
 }
@@ -403,13 +413,13 @@ func TestInitWardenClient_CustomTTL(t *testing.T) {
 	t.Setenv("WARDEN_URL", "http://localhost:8080")
 	t.Setenv("WARDEN_CACHE_TTL", "600")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	// Even if client creation fails (due to invalid URL or network), the function should not panic
 	// We're testing that custom TTL is parsed correctly
 }
@@ -422,13 +432,13 @@ func TestInitWardenClient_InvalidTTL(t *testing.T) {
 	t.Setenv("WARDEN_URL", "http://localhost:8080")
 	t.Setenv("WARDEN_CACHE_TTL", "invalid")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	// Should not panic even with invalid TTL (should use default)
 }
 
@@ -440,13 +450,13 @@ func TestInitWardenClient_NegativeTTL(t *testing.T) {
 	t.Setenv("WARDEN_URL", "http://localhost:8080")
 	t.Setenv("WARDEN_CACHE_TTL", "-10")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	// Should not panic even with negative TTL (should use default)
 }
 
@@ -458,13 +468,13 @@ func TestInitWardenClient_ZeroTTL(t *testing.T) {
 	t.Setenv("WARDEN_URL", "http://localhost:8080")
 	t.Setenv("WARDEN_CACHE_TTL", "0")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	// Should not panic even with zero TTL (should use default)
 }
 
@@ -474,7 +484,7 @@ func TestGetWardenClient_NotInitialized(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
@@ -490,7 +500,7 @@ func TestCheckUserInList_NotEnabled(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
@@ -507,7 +517,7 @@ func TestCheckUserInList_NoClient(t *testing.T) {
 	t.Setenv("WARDEN_ENABLED", "true")
 	t.Setenv("WARDEN_URL", "")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
@@ -523,7 +533,7 @@ func TestCheckUserInList_NilContext(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
@@ -539,7 +549,7 @@ func TestCheckUserInList_EmptyPhoneAndMail(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Reset client to nil for this test
@@ -554,7 +564,7 @@ func TestGetValidPasswords_MultipleColons(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:pass1:extra|pass2")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	algorithm, passwords := GetValidPasswords()
@@ -568,7 +578,7 @@ func TestGetValidPasswords_EmptyPasswordInList(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:pass1||pass3")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	// This should fail validation because empty passwords are not allowed
 	testza.AssertNotNil(t, err)
 	testza.AssertTrue(t, strings.Contains(err.Error(), "PASSWORDS"), "error should mention PASSWORDS")
@@ -579,7 +589,7 @@ func TestCheckPassword_EmptyInput(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	result := CheckPassword("")
@@ -591,7 +601,7 @@ func TestCheckPassword_WhitespaceOnly(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	result := CheckPassword("   ")
@@ -694,10 +704,10 @@ func TestInitWardenClient_Success(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	// Client should be initialized
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 }
@@ -768,10 +778,10 @@ func TestCheckUserInList_Success_WithPhone(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with valid phone
@@ -845,10 +855,10 @@ func TestCheckUserInList_Success_WithMail(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with valid email
@@ -929,10 +939,10 @@ func TestCheckUserInList_Success_WithBoth(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with both phone and email (should match by phone first)
@@ -997,10 +1007,10 @@ func TestCheckUserInList_Success_WithBoth_FallbackToMail(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with phone that doesn't exist but mail that does (should fallback to mail)
@@ -1053,10 +1063,10 @@ func TestCheckUserInList_Failure_UserNotInList(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with user not in list
@@ -1122,10 +1132,10 @@ func TestCheckUserInList_WithContext(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient()
+	InitWardenClient(testLogger())
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with custom context
@@ -1176,8 +1186,11 @@ func TestGetUserInfo_PrefersPhone(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
+
+	InitWardenClient(testLogger())
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	user := GetUserInfo(context.Background(), "13800138000", "user1@example.com")
 	testza.AssertNotNil(t, user, "should return user info for valid phone")
@@ -1231,8 +1244,11 @@ func TestGetUserInfo_FallbackToMail(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
+
+	InitWardenClient(testLogger())
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	user := GetUserInfo(context.Background(), "99999999999", "user2@example.com")
 	testza.AssertNotNil(t, user, "should return user info via mail fallback")
@@ -1271,8 +1287,11 @@ func TestGetUserInfo_InactiveUser(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", server.URL)
 	ResetWardenClientForTesting()
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
+
+	InitWardenClient(testLogger())
+	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	user := GetUserInfo(context.Background(), "13800138000", "")
 	testza.AssertNil(t, user, "should return nil for inactive user")
@@ -1316,7 +1335,7 @@ func TestGetOTPSecret(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_OTP_SECRET_KEY", "secret-key")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	testza.AssertEqual(t, "secret-key", GetOTPSecret())

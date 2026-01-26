@@ -12,10 +12,20 @@ import (
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
 	"github.com/soulteary/herald/pkg/herald"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
+
+// testLoggerSendVerifyCode creates a logger instance for testing
+func testLoggerSendVerifyCode() *logger.Logger {
+	return logger.New(logger.Config{
+		Level:       logger.DebugLevel,
+		Format:      logger.FormatJSON,
+		ServiceName: "send-verify-code-test",
+	})
+}
 
 func resetHeraldClientForTesting() {
 	heraldClient = nil
@@ -31,7 +41,7 @@ func TestSendVerifyCodeAPI_NoIdentifier(t *testing.T) {
 	setupSendVerifyCodeBaseEnv(t)
 	t.Setenv("HERALD_ENABLED", "true")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerSendVerifyCode())
 	testza.AssertNoError(t, err)
 
 	resetHeraldClientForTesting()
@@ -53,7 +63,7 @@ func TestSendVerifyCodeAPI_NoIdentifier(t *testing.T) {
 func TestSendVerifyCodeAPI_HeraldDisabled(t *testing.T) {
 	setupSendVerifyCodeBaseEnv(t)
 	t.Setenv("HERALD_ENABLED", "false")
-	err := config.Initialize()
+	err := config.Initialize(testLoggerSendVerifyCode())
 	testza.AssertNoError(t, err)
 
 	resetHeraldClientForTesting()
@@ -87,11 +97,13 @@ func TestSendVerifyCodeAPI_WardenUserNotFound(t *testing.T) {
 	defer wardenServer.Close()
 
 	t.Setenv("WARDEN_URL", wardenServer.URL)
-	err := config.Initialize()
-	testza.AssertNoError(t, err)
-
-	resetHeraldClientForTesting()
 	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	err := config.Initialize(testLog)
+	testza.AssertNoError(t, err)
+	auth.InitWardenClient(testLog)
+	SetLogger(testLog)
 
 	ctx, app := createTestContext("POST", "/_send_verify_code", map[string]string{
 		"Content-Type": "application/x-www-form-urlencoded",
@@ -164,11 +176,13 @@ func TestSendVerifyCodeAPI_Success(t *testing.T) {
 
 	t.Setenv("WARDEN_URL", wardenServer.URL)
 	t.Setenv("HERALD_URL", heraldServer.URL)
-	err := config.Initialize()
-	testza.AssertNoError(t, err)
-
-	resetHeraldClientForTesting()
 	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	err := config.Initialize(testLog)
+	testza.AssertNoError(t, err)
+	auth.InitWardenClient(testLog)
+	InitHeraldClient(testLog)
 
 	app := fiber.New()
 	app.Post("/_send_verify_code", SendVerifyCodeAPI())

@@ -10,11 +10,14 @@ import (
 
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/pquerna/otp/totp"
-	"github.com/sirupsen/logrus"
+	logger "github.com/soulteary/logger-kit"
 	secure "github.com/soulteary/secure-kit"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/warden/pkg/warden"
 )
+
+// log is the package-level logger instance
+var log *logger.Logger
 
 // SessionCookieName is the name of the session cookie used for authentication.
 const SessionCookieName = "stargate_session_id"
@@ -135,16 +138,17 @@ func ResetWardenClientForTesting() {
 
 // InitWardenClient initializes the Warden client if enabled.
 // This should be called after configuration is loaded.
-func InitWardenClient() {
+func InitWardenClient(l *logger.Logger) {
+	log = l
 	wardenClientInit.Do(func() {
 		if !config.WardenEnabled.ToBool() {
-			logrus.Debug("Warden is not enabled, skipping client initialization")
+			log.Debug().Msg("Warden is not enabled, skipping client initialization")
 			return
 		}
 
 		wardenURL := config.WardenURL.String()
 		if wardenURL == "" {
-			logrus.Warn("WARDEN_URL is not set, Warden client will not be initialized")
+			log.Warn().Msg("WARDEN_URL is not set, Warden client will not be initialized")
 			return
 		}
 
@@ -160,25 +164,23 @@ func InitWardenClient() {
 		opts := warden.DefaultOptions().
 			WithBaseURL(wardenURL).
 			WithAPIKey(config.WardenAPIKey.String()).
-			WithCacheTTL(cacheTTL).
-			WithLogger(warden.NewLogrusAdapter(logrus.StandardLogger()))
+			WithCacheTTL(cacheTTL)
 
 		// Create client
 		client, err := warden.NewClient(opts)
 		if err != nil {
-			logrus.Warnf("Failed to initialize Warden client: %v. Check WARDEN_URL and WARDEN_ENABLED configuration.", err)
+			log.Warn().Err(err).Msg("Failed to initialize Warden client. Check WARDEN_URL and WARDEN_ENABLED configuration.")
 			return
 		}
 
 		wardenClient = client
-		logrus.Info("Warden client initialized successfully")
+		log.Info().Msg("Warden client initialized successfully")
 	})
 }
 
-// getWardenClient returns the warden client, initializing it if necessary.
+// getWardenClient returns the warden client.
+// Note: InitWardenClient must be called with a logger before this function is used.
 func getWardenClient() *warden.Client {
-	// Try to initialize if not already done
-	InitWardenClient()
 	return wardenClient
 }
 
@@ -223,13 +225,13 @@ func safeContext(ctx context.Context) context.Context {
 // If Warden is not enabled or client is not initialized, returns false.
 func CheckUserInList(ctx context.Context, phone, mail string) bool {
 	if !config.WardenEnabled.ToBool() {
-		logrus.Debug("Warden is not enabled, skipping user list check")
+		log.Debug().Msg("Warden is not enabled, skipping user list check")
 		return false
 	}
 
 	client := getWardenClient()
 	if client == nil {
-		logrus.Warn("Warden client is not initialized, cannot check user in list. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
+		log.Warn().Msg("Warden client is not initialized, cannot check user in list. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
 		return false
 	}
 
@@ -249,16 +251,16 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 	mail = strings.TrimSpace(strings.ToLower(mail))
 
 	if phone == "" && mail == "" {
-		logrus.Debug("CheckUserInList called with both phone and mail empty")
+		log.Debug().Msg("CheckUserInList called with both phone and mail empty")
 		return false
 	}
 
-	logrus.Debugf("Checking user in Warden list: phone=%s, mail=%s", secure.MaskPhone(phone), secure.MaskEmail(mail))
+	log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("Checking user in Warden list")
 	exists := client.CheckUserInList(ctx, phone, mail)
 	if exists {
-		logrus.Debugf("User found and active: phone=%s, mail=%s", secure.MaskPhone(phone), secure.MaskEmail(mail))
+		log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("User found and active")
 	} else {
-		logrus.Debugf("User not found in Warden list or not active: phone=%s, mail=%s", secure.MaskPhone(phone), secure.MaskEmail(mail))
+		log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("User not found in Warden list or not active")
 	}
 	return exists
 }
@@ -269,13 +271,13 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 // If Warden is not enabled or client is not initialized, returns nil.
 func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser {
 	if !config.WardenEnabled.ToBool() {
-		logrus.Debug("Warden is not enabled, skipping user info fetch")
+		log.Debug().Msg("Warden is not enabled, skipping user info fetch")
 		return nil
 	}
 
 	client := getWardenClient()
 	if client == nil {
-		logrus.Warn("Warden client is not initialized, cannot get user info. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
+		log.Warn().Msg("Warden client is not initialized, cannot get user info. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
 		return nil
 	}
 
@@ -291,11 +293,11 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 	mail = strings.TrimSpace(strings.ToLower(mail))
 
 	if phone == "" && mail == "" {
-		logrus.Debug("GetUserInfo called with both phone and mail empty")
+		log.Debug().Msg("GetUserInfo called with both phone and mail empty")
 		return nil
 	}
 
-	logrus.Debugf("Fetching user info from Warden: phone=%s, mail=%s", secure.MaskPhone(phone), secure.MaskEmail(mail))
+	log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("Fetching user info from Warden")
 
 	var (
 		user *warden.AllowListUser
@@ -306,10 +308,10 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 		user, err = client.GetUserByIdentifier(ctx, phone, "", "")
 		if err != nil {
 			if sdkErr, ok := err.(*warden.Error); ok && sdkErr.Code == warden.ErrCodeNotFound && mail != "" {
-				logrus.Debugf("User not found by phone, falling back to mail: phone=%s, mail=%s", secure.MaskPhone(phone), secure.MaskEmail(mail))
+				log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("User not found by phone, falling back to mail")
 				user, err = client.GetUserByIdentifier(ctx, "", mail, "")
 			} else {
-				logrus.Debugf("Failed to get user info from Warden: %v (phone=%s, mail=%s)", err, secure.MaskPhone(phone), secure.MaskEmail(mail))
+				log.Debug().Err(err).Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("Failed to get user info from Warden")
 				return nil
 			}
 		}
@@ -318,22 +320,22 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 	}
 
 	if err != nil {
-		logrus.Debugf("Failed to get user info from Warden: %v (phone=%s, mail=%s)", err, secure.MaskPhone(phone), secure.MaskEmail(mail))
+		log.Debug().Err(err).Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("Failed to get user info from Warden")
 		return nil
 	}
 
 	if user == nil {
-		logrus.Debugf("User not found in Warden: phone=%s, mail=%s", secure.MaskPhone(phone), secure.MaskEmail(mail))
+		log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("User not found in Warden")
 		return nil
 	}
 
 	// Check if user is active
 	if !user.IsActive() {
-		logrus.Warnf("User status is not active: phone=%s, mail=%s, status=%s", secure.MaskPhone(phone), secure.MaskEmail(mail), user.Status)
+		log.Warn().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Str("status", user.Status).Msg("User status is not active")
 		return nil
 	}
 
-	logrus.Debugf("Fetched user info from Warden: user_id=%s, phone=%s, mail=%s, status=%s", user.UserID, secure.MaskPhone(user.Phone), secure.MaskEmail(user.Mail), user.Status)
+	log.Debug().Str("user_id", user.UserID).Str("phone", secure.MaskPhone(user.Phone)).Str("mail", secure.MaskEmail(user.Mail)).Str("status", user.Status).Msg("Fetched user info from Warden")
 	return user
 }
 
@@ -349,19 +351,19 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 // Returns true if the code is valid, false otherwise.
 func VerifyOTP(secret, code string) bool {
 	if secret == "" {
-		logrus.Debug("OTP secret is empty, cannot verify")
+		log.Debug().Msg("OTP secret is empty, cannot verify")
 		return false
 	}
 
 	if code == "" {
-		logrus.Debug("OTP code is empty, cannot verify")
+		log.Debug().Msg("OTP code is empty, cannot verify")
 		return false
 	}
 
 	// Validate code is 6 digits
 	code = strings.TrimSpace(code)
 	if len(code) != 6 {
-		logrus.Debugf("OTP code length is invalid: expected 6, got %d", len(code))
+		log.Debug().Int("length", len(code)).Msg("OTP code length is invalid: expected 6")
 		return false
 	}
 
@@ -369,11 +371,11 @@ func VerifyOTP(secret, code string) bool {
 	// Using 30 second window, allowing 1 time step skew (previous/current/next window)
 	valid := totp.Validate(code, secret)
 	if !valid {
-		logrus.Debug("OTP code verification failed")
+		log.Debug().Msg("OTP code verification failed")
 		return false
 	}
 
-	logrus.Debug("OTP code verified successfully")
+	log.Debug().Msg("OTP code verified successfully")
 	return true
 }
 

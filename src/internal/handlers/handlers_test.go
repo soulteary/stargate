@@ -12,11 +12,21 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
 	health "github.com/soulteary/health-kit"
+	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/valyala/fasthttp"
 )
+
+// testLogger creates a logger instance for testing
+func testLogger() *logger.Logger {
+	return logger.New(logger.Config{
+		Level:       logger.DebugLevel,
+		Format:      logger.FormatJSON,
+		ServiceName: "handlers-test",
+	})
+}
 
 func setupTestStore() *session.Store {
 	return session.New(session.Config{
@@ -52,7 +62,7 @@ func createTestContext(method, path string, headers map[string]string, body stri
 func TestCheckRoute_Authenticated(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -77,7 +87,7 @@ func TestCheckRoute_Authenticated(t *testing.T) {
 func TestCheckRoute_NotAuthenticated(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -98,7 +108,7 @@ func TestCheckRoute_NotAuthenticated(t *testing.T) {
 func TestCheckRoute_HeaderAuth_Valid(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -117,7 +127,7 @@ func TestCheckRoute_HeaderAuth_Valid(t *testing.T) {
 func TestCheckRoute_HeaderAuth_Invalid(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -136,7 +146,7 @@ func TestCheckRoute_HeaderAuth_Invalid(t *testing.T) {
 func TestLoginAPI_ValidPassword(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -155,7 +165,7 @@ func TestLoginAPI_ValidPassword(t *testing.T) {
 func TestLoginAPI_InvalidPassword(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -176,7 +186,7 @@ func TestLoginRoute_NotAuthenticated(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LOGIN_PAGE_TITLE", "Test Title")
 	t.Setenv("LOGIN_PAGE_FOOTER_TEXT", "Test Footer")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -202,7 +212,7 @@ func TestLoginRoute_NotAuthenticated(t *testing.T) {
 func TestLoginRoute_Authenticated(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -322,7 +332,7 @@ func TestHealthRoute(t *testing.T) {
 func TestCheckRoute_NotAuthenticated_HTMLRequest(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -343,7 +353,7 @@ func TestCheckRoute_NotAuthenticated_HTMLRequest(t *testing.T) {
 func TestCheckRoute_NotAuthenticated_APIRequest(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -363,7 +373,7 @@ func TestCheckRoute_NotAuthenticated_APIRequest(t *testing.T) {
 func TestLoginAPI_EmptyPassword(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -382,7 +392,7 @@ func TestLoginAPI_EmptyPassword(t *testing.T) {
 func TestLoginAPI_NoPasswordField(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -403,7 +413,7 @@ func TestLoginRoute_WithCallback(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LOGIN_PAGE_TITLE", "Test Title")
 	t.Setenv("LOGIN_PAGE_FOOTER_TEXT", "Test Footer")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -423,7 +433,7 @@ func TestLoginRoute_WithoutCallback(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LOGIN_PAGE_TITLE", "Test Title")
 	t.Setenv("LOGIN_PAGE_FOOTER_TEXT", "Test Footer")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -441,7 +451,7 @@ func TestLoginRoute_WithoutCallback(t *testing.T) {
 func TestLoginRoute_Authenticated_WithForwardedProto(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -481,7 +491,7 @@ func TestSessionShareRoute_WithCookieDomain(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	handler := SessionShareRoute()
@@ -505,7 +515,7 @@ func TestSessionShareRoute_WithoutCookieDomain(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_DOMAIN", "")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	handler := SessionShareRoute()
@@ -528,7 +538,7 @@ func TestCheckRoute_SetsUserHeader(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("USER_HEADER_NAME", "X-Custom-User")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -550,7 +560,7 @@ func TestCheckRoute_SetsUserHeader(t *testing.T) {
 func TestCheckRoute_SetsDefaultUserHeader(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -573,7 +583,7 @@ func TestCheckRoute_SetsDefaultUserHeader(t *testing.T) {
 func TestLoginAPI_WithCallbackInForm(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -608,7 +618,7 @@ func TestLoginAPI_WithCallbackInForm(t *testing.T) {
 func TestLoginAPI_WithCallbackInQuery(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -635,7 +645,7 @@ func TestLoginAPI_WithCallbackInQuery(t *testing.T) {
 func TestLoginAPI_WithCallbackInCookie(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -676,7 +686,7 @@ func TestLoginAPI_WithCallbackInCookie(t *testing.T) {
 func TestLoginAPI_NoCallback_UsesOriginHost(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -710,7 +720,7 @@ func TestLoginAPI_NoCallback_UsesOriginHost(t *testing.T) {
 func TestLoginAPI_NoCallback_SameDomain(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -741,7 +751,7 @@ func TestLoginAPI_NoCallback_SameDomain(t *testing.T) {
 func TestLoginAPI_CallbackPriority(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -778,7 +788,7 @@ func TestLoginAPI_CallbackPriority(t *testing.T) {
 func TestLoginAPI_RedirectsToSessionExchange(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -821,7 +831,7 @@ func TestLoginAPI_RedirectsToSessionExchange(t *testing.T) {
 func TestLoginAPI_NoCallback_APIRequest(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -853,7 +863,7 @@ func TestLoginAPI_NoCallback_APIRequest(t *testing.T) {
 func TestLoginRoute_NoCallback_RedirectsToRoot(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -885,7 +895,7 @@ func TestLoginRoute_NoCallback_RedirectsToRoot(t *testing.T) {
 func TestLoginRoute_WithForwardedProto_Empty(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -1138,7 +1148,7 @@ func TestLogoutRoute_ConcurrentAccess(t *testing.T) {
 func TestLogoutRoute_AfterLogin(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -1208,7 +1218,7 @@ func TestLogoutRoute_ResponseHeaders(t *testing.T) {
 func TestLoginAPI_EmptySessionID_FromCookie(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -1239,7 +1249,7 @@ func TestLoginAPI_EmptySessionID_FromCookie(t *testing.T) {
 func TestLoginAPI_EmptySessionID_RetryGetSession(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -1270,7 +1280,7 @@ func TestLoginAPI_EmptySessionID_RetryGetSession(t *testing.T) {
 func TestLoginAPI_EmptyProto_UsesContextProtocol(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -1305,7 +1315,7 @@ func (m *MockAuthenticator) Authenticate(sess *session.Session) error {
 func TestLoginAPI_SessionStoreError(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContext("POST", "/_login", map[string]string{
@@ -1333,7 +1343,7 @@ func TestLoginAPI_SessionStoreError(t *testing.T) {
 func TestLoginAPI_AuthenticateError(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -1384,7 +1394,7 @@ func TestLoginAPI_EmptySessionID_Error(t *testing.T) {
 func TestLoginAPI_EmptySessionID_RetryGetSessionError(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Since Fiber session always generates an ID on Get(), we can't easily test
@@ -1399,7 +1409,7 @@ func TestLoginAPI_EmptySessionID_RetryGetSessionError(t *testing.T) {
 func TestLoginRoute_SessionStoreError(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	ctx, app := createTestContext("GET", "/_login", nil, "")
@@ -1426,7 +1436,7 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
 	t.Setenv("WARDEN_URL", "http://localhost:8080")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Create a mock HTTP server for Warden
@@ -1489,9 +1499,9 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 
 	// Initialize Warden client with mock server
 	t.Setenv("WARDEN_URL", server.URL)
-	_ = config.Initialize()
+	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient()
+	auth.InitWardenClient(testLogger())
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -1515,7 +1525,7 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Create a mock HTTP server for Warden
@@ -1585,9 +1595,9 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 
 	// Initialize Warden client with mock server
 	t.Setenv("WARDEN_URL", server.URL)
-	_ = config.Initialize()
+	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient()
+	auth.InitWardenClient(testLogger())
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -1611,7 +1621,7 @@ func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Create a mock HTTP server for Warden
@@ -1653,9 +1663,9 @@ func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
 
 	// Initialize Warden client with mock server
 	t.Setenv("WARDEN_URL", server.URL)
-	_ = config.Initialize()
+	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient()
+	auth.InitWardenClient(testLogger())
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -1679,7 +1689,7 @@ func TestCheckRoute_WardenAuth_EmptyHeaders(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	store := setupTestStore()
@@ -1703,7 +1713,7 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Create a mock HTTP server for Warden
@@ -1773,9 +1783,9 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 
 	// Initialize Warden client with mock server
 	t.Setenv("WARDEN_URL", server.URL)
-	_ = config.Initialize()
+	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient()
+	auth.InitWardenClient(testLogger())
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -1801,7 +1811,7 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
 	t.Setenv("USER_HEADER_NAME", "X-Custom-User")
-	err := config.Initialize()
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
 	// Create a mock HTTP server for Warden
@@ -1856,9 +1866,9 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 
 	// Initialize Warden client with mock server
 	t.Setenv("WARDEN_URL", server.URL)
-	_ = config.Initialize()
+	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient()
+	auth.InitWardenClient(testLogger())
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
