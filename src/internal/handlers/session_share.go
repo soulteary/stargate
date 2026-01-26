@@ -1,10 +1,9 @@
 package handlers
 
 import (
-	"time"
-
 	"github.com/gofiber/fiber/v2"
 
+	session "github.com/soulteary/session-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -19,25 +18,22 @@ import (
 //
 // Returns a Fiber handler function.
 func SessionShareRoute() func(c *fiber.Ctx) error {
+	// Create session config for cookie creation
+	sessionConfig := session.DefaultConfig().
+		WithCookieName(auth.SessionCookieName).
+		WithExpiration(config.SessionExpiration).
+		WithCookieDomain(config.CookieDomain.Value).
+		WithSameSite("Lax").
+		WithHTTPOnly(true)
+
 	return func(ctx *fiber.Ctx) error {
 		sessionID := ctx.Query("id")
 		if sessionID == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.missing_session_id"))
 		}
 
-		cookie := &fiber.Cookie{
-			Name:     auth.SessionCookieName,
-			Value:    sessionID,
-			Expires:  time.Now().Add(config.SessionExpiration),
-			SameSite: fiber.CookieSameSiteLaxMode,
-			HTTPOnly: true,
-		}
-
-		// If Cookie domain is configured, set it
-		if config.CookieDomain.Value != "" {
-			cookie.Domain = config.CookieDomain.Value
-		}
-
+		// Use session-kit's CreateCookie for consistent cookie creation
+		cookie := session.CreateCookie(sessionConfig, sessionID)
 		ctx.Cookie(cookie)
 
 		return ctx.Redirect("/")

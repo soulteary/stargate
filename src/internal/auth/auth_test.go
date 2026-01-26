@@ -661,8 +661,9 @@ func TestIsAuthenticated_WithFalseValue(t *testing.T) {
 
 	// Set authenticated to false explicitly
 	sess.Set("authenticated", false)
-	// IsAuthenticated checks for nil, not false, so it should return true (value exists)
-	testza.AssertTrue(t, IsAuthenticated(sess), "should return true when authenticated flag exists, even if false")
+	// session-kit's IsAuthenticated checks that the value is true (not just exists)
+	// This is the correct behavior - false means not authenticated
+	testza.AssertFalse(t, IsAuthenticated(sess), "should return false when authenticated flag is explicitly false")
 }
 
 // TestIsAuthenticated_WithNonBoolValue tests that IsAuthenticated handles non-bool values
@@ -678,8 +679,9 @@ func TestIsAuthenticated_WithNonBoolValue(t *testing.T) {
 
 	// Set authenticated to a non-bool value
 	sess.Set("authenticated", "yes")
-	// IsAuthenticated checks for nil, so it should return true (value exists)
-	testza.AssertTrue(t, IsAuthenticated(sess), "should return true when authenticated flag exists, regardless of type")
+	// session-kit's IsAuthenticated checks that the value is a boolean true
+	// Non-bool values should return false for type safety
+	testza.AssertFalse(t, IsAuthenticated(sess), "should return false when authenticated flag is not a boolean")
 }
 
 // TestInitWardenClient_Success tests that InitWardenClient successfully initializes with valid config

@@ -10,7 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/favicon"
 	"github.com/gofiber/fiber/v2/middleware/recover"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	fibersession "github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gofiber/template/html"
 	"github.com/redis/go-redis/v9"
@@ -20,12 +20,12 @@ import (
 	logger "github.com/soulteary/logger-kit"
 	metricskit "github.com/soulteary/metrics-kit"
 	middlewarekit "github.com/soulteary/middleware-kit"
+	session "github.com/soulteary/session-kit"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
-	"github.com/soulteary/stargate/src/internal/storage"
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
 )
 
@@ -59,22 +59,25 @@ func setupTemplates() *html.Engine {
 // setupSessionStore initializes the session store with configured settings.
 // It sets up cookie-based session management with configurable domain support.
 // If Redis storage is enabled via SESSION_STORAGE_ENABLED=true, it will use Redis for session storage.
-func setupSessionStore() *session.Store {
+func setupSessionStore() *fibersession.Store {
 	log.Debug().Msg("Initializing session store")
 
-	sessionConfig := session.Config{
-		Expiration:     config.SessionExpiration,
-		KeyLookup:      "cookie:" + auth.SessionCookieName,
-		CookiePath:     "/",
-		KeyGenerator:   utils.UUID,
-		CookieHTTPOnly: true,
-		CookieSameSite: fiber.CookieSameSiteLaxMode,
-	}
+	// Create session-kit config with Stargate settings
+	sessionConfig := session.DefaultConfig().
+		WithExpiration(config.SessionExpiration).
+		WithCookieName(auth.SessionCookieName).
+		WithCookiePath("/").
+		WithHTTPOnly(true).
+		WithSameSite("Lax")
 
 	// If Cookie domain is configured, set it
 	if config.CookieDomain.Value != "" {
-		sessionConfig.CookieDomain = config.CookieDomain.Value
+		sessionConfig = sessionConfig.WithCookieDomain(config.CookieDomain.Value)
 	}
+
+	// Create session-kit Manager with appropriate storage
+	var sessionStorage session.Storage
+	var err error
 
 	// Check if Redis session storage is enabled
 	if config.SessionStorageEnabled.ToBool() {
@@ -83,39 +86,46 @@ func setupSessionStore() *session.Store {
 		// Parse Redis DB number
 		redisDB := 0
 		if config.SessionStorageRedisDB.Value != "" {
-			if db, err := strconv.Atoi(config.SessionStorageRedisDB.Value); err == nil {
+			if db, parseErr := strconv.Atoi(config.SessionStorageRedisDB.Value); parseErr == nil {
 				redisDB = db
 			} else {
 				log.Warn().Str("value", config.SessionStorageRedisDB.Value).Msg("Invalid SESSION_STORAGE_REDIS_DB value, using default 0")
 			}
 		}
 
-		// Create Redis client
-		redisClient, err := storage.NewRedisClientFromConfig(
+		// Use session-kit's NewStorageFromEnv for Redis storage
+		sessionStorage, err = session.NewStorageFromEnv(
+			true, // redisEnabled
 			config.SessionStorageRedisAddr.Value,
 			config.SessionStorageRedisPassword.Value,
 			redisDB,
-			log,
+			config.SessionStorageRedisKeyPrefix.Value,
 		)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to initialize Redis client for session storage")
+			log.Fatal().Err(err).Msg("Failed to initialize Redis session storage")
 		}
-
-		// Create Redis storage
-		redisStorage := storage.NewRedisStorage(
-			redisClient,
-			config.SessionStorageRedisKeyPrefix.Value,
-			log,
-		)
-
-		// Set the storage in session config
-		sessionConfig.Storage = redisStorage
 		log.Info().Msg("Session storage configured to use Redis")
 	} else {
+		// Use in-memory storage
+		sessionStorage, err = session.NewStorageFromEnv(
+			false, // redisEnabled
+			"", "", 0,
+			"session:",
+		)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to initialize memory session storage")
+		}
 		log.Debug().Msg("Using default in-memory session storage")
 	}
 
-	return session.New(sessionConfig)
+	// Create session Manager and get Fiber session config
+	sessionManager := session.NewManager(sessionStorage, sessionConfig)
+	fiberConfig := sessionManager.FiberSessionConfig()
+
+	// Set KeyGenerator (not provided by session-kit's FiberSessionConfig)
+	fiberConfig.KeyGenerator = utils.UUID
+
+	return fibersession.New(fiberConfig)
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
@@ -169,7 +179,7 @@ func setupHealthChecker(redisClient *redis.Client) *health.Aggregator {
 
 // setupRoutes registers all HTTP routes for the application.
 // This includes authentication, login, logout, session exchange, and health check endpoints.
-func setupRoutes(app *fiber.App, store *session.Store, healthAggregator *health.Aggregator) {
+func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *health.Aggregator) {
 	log.Debug().Msg("Registering routes")
 	// Initialize Herald client
 	handlers.InitHeraldClient(log)
@@ -323,16 +333,17 @@ func createApp() *fiber.App {
 				redisDB = db
 			}
 		}
-		// Create Redis client for health check
-		var err error
-		redisClient, err = storage.NewRedisClientFromConfig(
+		// Create Redis storage using session-kit, then get the underlying client
+		redisStorage, err := session.NewRedisStorageFromConfig(
 			config.SessionStorageRedisAddr.Value,
 			config.SessionStorageRedisPassword.Value,
 			redisDB,
-			log,
+			config.SessionStorageRedisKeyPrefix.Value,
 		)
 		if err != nil {
 			log.Warn().Err(err).Msg("Failed to create Redis client for health check")
+		} else {
+			redisClient = redisStorage.GetClient()
 		}
 	}
 	healthAggregator := setupHealthChecker(redisClient)
