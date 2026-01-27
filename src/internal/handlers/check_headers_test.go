@@ -23,8 +23,11 @@ func testLoggerCheckHeaders() *logger.Logger {
 func setupCheckHeaderConfig(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize(testLoggerCheckHeaders())
+	testLogger := testLoggerCheckHeaders()
+	err := config.Initialize(testLogger)
 	testza.AssertNoError(t, err)
+	// Initialize ForwardAuth handler for testing
+	InitForwardAuthHandler(testLogger)
 }
 
 func TestCheckRoute_SetsAuthHeadersFromSession(t *testing.T) {
