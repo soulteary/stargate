@@ -1,4 +1,10 @@
 // Package handlers provides HTTP request handlers for authentication and authorization.
+//
+// Note: Some utility functions in this file (GetForwardedHost, GetForwardedProto, etc.)
+// have counterparts in forwardauth-kit (ForwardedHeaders type). These Fiber-specific
+// implementations are kept for use in login.go and other handlers that work directly
+// with fiber.Ctx. The forwardauth-kit equivalents are used in the ForwardAuth check
+// handler through the Context interface abstraction.
 package handlers
 
 import (

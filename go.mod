@@ -10,9 +10,10 @@ require (
 	github.com/prometheus/client_golang v1.23.2
 	github.com/pterm/pterm v0.12.82
 	github.com/redis/go-redis/v9 v9.17.2
-	github.com/rs/zerolog v1.34.0 // indirect
+	github.com/rs/zerolog v1.34.0
 	github.com/soulteary/audit-kit v1.0.0
 	github.com/soulteary/cli-kit v1.0.0
+	github.com/soulteary/forwardauth-kit v1.0.0
 	github.com/soulteary/health-kit v1.0.0
 	github.com/soulteary/herald v0.3.0
 	github.com/soulteary/i18n-kit v1.0.0

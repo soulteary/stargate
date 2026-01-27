@@ -181,6 +181,8 @@ func setupHealthChecker(redisClient *redis.Client) *health.Aggregator {
 // This includes authentication, login, logout, session exchange, and health check endpoints.
 func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *health.Aggregator) {
 	log.Debug().Msg("Registering routes")
+	// Initialize ForwardAuth handler
+	handlers.InitForwardAuthHandler(log)
 	// Initialize Herald client
 	handlers.InitHeraldClient(log)
 

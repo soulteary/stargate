@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"sync"
 	"testing"
 
@@ -18,6 +19,24 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/valyala/fasthttp"
 )
+
+// TestMain runs before all tests to set up the test environment
+func TestMain(m *testing.M) {
+	// Set up required environment variables for config
+	_ = os.Setenv("AUTH_HOST", "auth.example.com")
+	_ = os.Setenv("PASSWORDS", "plaintext:test123")
+
+	// Initialize config and ForwardAuth handler
+	testLog := testLogger()
+	if err := config.Initialize(testLog); err != nil {
+		panic("Failed to initialize config: " + err.Error())
+	}
+	InitForwardAuthHandler(testLog)
+
+	// Run tests
+	code := m.Run()
+	os.Exit(code)
+}
 
 // testLogger creates a logger instance for testing
 func testLogger() *logger.Logger {
@@ -135,6 +154,7 @@ func TestCheckRoute_HeaderAuth_Invalid(t *testing.T) {
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
 		"Stargate-Password": "wrong",
+		"Accept":            "application/json", // API request should return 401
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -538,8 +558,10 @@ func TestCheckRoute_SetsUserHeader(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("USER_HEADER_NAME", "X-Custom-User")
-	err := config.Initialize(testLogger())
+	testLog := testLogger()
+	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLog) // Re-init to pick up custom USER_HEADER_NAME
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -560,8 +582,10 @@ func TestCheckRoute_SetsUserHeader(t *testing.T) {
 func TestCheckRoute_SetsDefaultUserHeader(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	err := config.Initialize(testLogger())
+	testLog := testLogger()
+	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLog) // Re-init to ensure default USER_HEADER_NAME is used
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -1436,8 +1460,10 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
 	t.Setenv("WARDEN_URL", "http://localhost:8080")
-	err := config.Initialize(testLogger())
+	testLog := testLogger()
+	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLog) // Re-init to pick up WARDEN_ENABLED=true
 
 	// Create a mock HTTP server for Warden
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1515,9 +1541,9 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
 
-	// Verify user header is set
+	// Verify user header is set (forwardauth-kit uses actual user_id when available)
 	userHeader := string(ctx.Response().Header.Peek("X-Forwarded-User"))
-	testza.AssertEqual(t, "authenticated", userHeader)
+	testza.AssertEqual(t, "user1", userHeader)
 }
 
 // TestCheckRoute_WardenAuth_ValidMail tests Warden authentication with valid email
@@ -1525,8 +1551,10 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize(testLogger())
+	testLog := testLogger()
+	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLog) // Re-init to pick up WARDEN_ENABLED=true
 
 	// Create a mock HTTP server for Warden
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1611,9 +1639,9 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
 
-	// Verify user header is set
+	// Verify user header is set (forwardauth-kit uses actual user_id when available)
 	userHeader := string(ctx.Response().Header.Peek("X-Forwarded-User"))
-	testza.AssertEqual(t, "authenticated", userHeader)
+	testza.AssertEqual(t, "user2", userHeader)
 }
 
 // TestCheckRoute_WardenAuth_InvalidUser tests Warden authentication with invalid user
@@ -1621,8 +1649,10 @@ func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize(testLogger())
+	testLog := testLogger()
+	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLog) // Re-init to pick up WARDEN_ENABLED=true
 
 	// Create a mock HTTP server for Warden
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1689,8 +1719,10 @@ func TestCheckRoute_WardenAuth_EmptyHeaders(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize(testLogger())
+	testLog := testLogger()
+	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLog) // Re-init to pick up WARDEN_ENABLED=true
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -1713,8 +1745,10 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	err := config.Initialize(testLogger())
+	testLog := testLogger()
+	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLog) // Re-init to pick up WARDEN_ENABLED=true
 
 	// Create a mock HTTP server for Warden
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1800,9 +1834,9 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
 
-	// Verify user header is set
+	// Verify user header is set (forwardauth-kit uses actual user_id when available)
 	userHeader := string(ctx.Response().Header.Peek("X-Forwarded-User"))
-	testza.AssertEqual(t, "authenticated", userHeader)
+	testza.AssertEqual(t, "user1", userHeader)
 }
 
 // TestCheckRoute_WardenAuth_WithCustomUserHeader tests Warden authentication with custom user header name
@@ -1811,8 +1845,10 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
 	t.Setenv("USER_HEADER_NAME", "X-Custom-User")
-	err := config.Initialize(testLogger())
+	testLog := testLogger()
+	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLog) // Re-init to pick up WARDEN_ENABLED=true
 
 	// Create a mock HTTP server for Warden
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1882,7 +1918,7 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
 
-	// Verify custom user header is set
+	// Verify custom user header is set (forwardauth-kit uses actual user_id when available)
 	userHeader := string(ctx.Response().Header.Peek("X-Custom-User"))
-	testza.AssertEqual(t, "authenticated", userHeader)
+	testza.AssertEqual(t, "user1", userHeader)
 }
