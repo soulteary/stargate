@@ -270,7 +270,39 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 						}
 						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
 					}
-					// Other Herald errors (unauthorized, etc.)
+					// Herald client returns (verifyResp, err) on 4xx; use verifyResp.Reason for user-facing message
+					if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
+						verifyResp != nil && !verifyResp.OK && verifyResp.Reason != "" {
+						reason := verifyResp.Reason
+						auditlog.LogVerifyCodeCheck(ctx.Context(), userID, ctx.IP(), false, reason)
+						var errorMsg string
+						switch reason {
+						case "expired":
+							errorMsg = i18n.T(ctx, "error.verify_code_expired")
+						case "invalid":
+							errorMsg = i18n.T(ctx, "error.verify_code_invalid")
+							if verifyResp.RemainingAttempts != nil {
+								errorMsg = i18n.Tf(ctx, "error.verify_code_invalid_with_attempts", *verifyResp.RemainingAttempts)
+							}
+						case "locked":
+							errorMsg = i18n.T(ctx, "error.verify_code_locked")
+						case "too_many_attempts":
+							errorMsg = i18n.T(ctx, "error.verify_code_too_many")
+						case "rate_limited":
+							errorMsg = i18n.T(ctx, "error.verify_code_rate_limited")
+							if verifyResp.NextResendIn != nil {
+								errorMsg = i18n.Tf(ctx, "error.verify_code_rate_limited_with_wait", *verifyResp.NextResendIn)
+							}
+						case "send_failed":
+							errorMsg = i18n.T(ctx, "error.verify_code_send_failed")
+						case "unauthorized":
+							errorMsg = i18n.T(ctx, "error.verify_code_unauthorized")
+						default:
+							errorMsg = i18n.T(ctx, "error.verify_code_failed")
+						}
+						return SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
+					}
+					// Real auth failure (e.g. bad HMAC), not verification failure
 					if heraldErr.StatusCode == http.StatusUnauthorized {
 						return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_code_unauthorized"))
 					}
