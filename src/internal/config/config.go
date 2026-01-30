@@ -50,10 +50,10 @@ var (
 
 	Passwords = EnvVariable{
 		Name:           "PASSWORDS",
-		Required:       true,
+		Required:       false, // Required only when WardenEnabled=false; see Initialize()
 		DefaultValue:   "",
 		PossibleValues: []string{"algorithm:pass1|pass2|pass3"},
-		Validator:      ValidatePasswords,
+		Validator:      ValidatePasswordsOrEmpty,
 	}
 
 	UserHeaderName = EnvVariable{
@@ -339,6 +339,11 @@ func Initialize(l *logger.Logger) error {
 		if variable.Value != "" {
 			log.Info().Str("name", variable.Name).Str("value", variable.Value).Msg("Config loaded")
 		}
+	}
+
+	// PASSWORDS is required when not using Warden (password-only mode). When WardenEnabled=true, pure Warden deployment may omit PASSWORDS.
+	if !WardenEnabled.ToBool() && Passwords.Value == "" {
+		return NewValidationError(Passwords.Name, i18n.TStatic("error.config_required_not_set"), Passwords.PossibleValues)
 	}
 
 	// Log language setting

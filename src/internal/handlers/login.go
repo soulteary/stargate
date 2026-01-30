@@ -22,6 +22,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
 	"github.com/soulteary/tracing-kit"
+	"github.com/soulteary/warden/pkg/warden"
 )
 
 // log is the package-level logger instance
@@ -150,8 +151,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		attribute.String("auth.method", authMethod),
 	)
 
-	var userID string          // Declare userID at function scope
-	var verifyRespAMR []string // Store AMR from Herald response
+	var userID string                        // Declare userID at function scope
+	var verifyRespAMR []string               // Store AMR from Herald response
+	var wardenUserInfo *warden.AllowListUser // Reused across warden branch to avoid repeated GetUserInfo
 
 	// Determine authentication method
 	// If auth_method is not specified, default to password authentication for backward compatibility
@@ -203,6 +205,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		)
 		wardenSpan.End()
 		metrics.RecordWardenCall("get_user_info", "success", wardenDuration)
+		wardenUserInfo = userInfo // Reuse for session write and audit to avoid repeated GetUserInfo
 
 		// Step 2: Use user_id from Warden if available, otherwise generate one
 		userID = userInfo.UserID
@@ -224,20 +227,20 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			if !config.HeraldEnabled.ToBool() {
 				// If Herald is not enabled and OTP is also not enabled, return error
 				if !otpEnabled {
-					return SendErrorResponse(ctx, fiber.StatusInternalServerError, "验证码服务未配置，请使用 OTP 或联系管理员")
+					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.herald_not_configured_use_otp_or_contact"))
 				}
 				// If OTP is enabled, suggest user to use OTP
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码服务未配置，请使用 OTP 验证")
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.herald_not_configured_use_otp"))
 			}
 
 			// Verify challenge via Herald
 			if challengeID == "" || verifyCode == "" {
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码和 challenge_id 不能为空")
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.verify_code_and_challenge_required"))
 			}
 
 			heraldClient := getHeraldClient()
 			if heraldClient == nil {
-				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "验证码服务不可用")
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.herald_unavailable"))
 			}
 
 			verifyReq := &herald.VerifyChallengeRequest{
@@ -266,9 +269,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 					if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
 						// Herald service is unavailable, suggest OTP fallback if enabled
 						if otpEnabled {
-							return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请使用 OTP 验证")
+							return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"))
 						}
-						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
+						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
 					}
 					// Herald client returns (verifyResp, err) on 4xx; use verifyResp.Reason for user-facing message
 					if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
@@ -369,7 +372,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			// Verify user ID matches
 			if verifyResp.UserID != userID {
 				log.Warn().Str("expected", userID).Str("got", verifyResp.UserID).Msg("User ID mismatch")
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "验证失败")
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
 			}
 
 			// Store AMR (Authentication Method Reference) from Herald response for later use
@@ -379,14 +382,14 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		} else if otpEnabled && useOTP {
 			// If OTP is enabled and user chose to use OTP
 			if otpCode == "" {
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, "OTP 验证码不能为空")
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.otp_code_required"))
 			}
 
 			// Get OTP secret
 			otpSecret := auth.GetOTPSecret()
 			if otpSecret == "" {
 				log.Warn().Msg("OTP secret is not configured")
-				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "OTP 配置错误")
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.otp_config_error"))
 			}
 
 			// Verify OTP code
@@ -394,16 +397,16 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				metrics.RecordAuthRequest("warden_otp", "failure")
 				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("OTP verification failed")
 				auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, "OTP 验证码错误")
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.otp_code_invalid"))
 			}
 		} else {
 			// Neither Herald verification nor OTP was used
 			// This should not happen if frontend validation works correctly
 			// But we add this check as a safety measure
 			if !otpEnabled {
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, "请提供验证码或使用 OTP")
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.provide_verify_code_or_otp"))
 			}
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, "请选择验证方式：验证码或 OTP")
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.choose_verify_method"))
 		}
 
 		log.Info().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden authentication successful")
@@ -434,38 +437,37 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 
 	// Set user information to session for warden authentication before authenticating
 	if authMethod == "warden" {
-		// Get complete user information from Warden
-		userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail)
-		if userInfo != nil {
+		// Reuse wardenUserInfo from earlier in the request to avoid repeated GetUserInfo
+		if wardenUserInfo != nil {
 			// Store complete user information in session
-			if userInfo.UserID != "" {
-				sess.Set("user_id", userInfo.UserID)
+			if wardenUserInfo.UserID != "" {
+				sess.Set("user_id", wardenUserInfo.UserID)
 			}
-			if userInfo.Phone != "" {
-				sess.Set("user_phone", userInfo.Phone)
+			if wardenUserInfo.Phone != "" {
+				sess.Set("user_phone", wardenUserInfo.Phone)
 			}
-			if userInfo.Mail != "" {
-				sess.Set("user_mail", userInfo.Mail)
+			if wardenUserInfo.Mail != "" {
+				sess.Set("user_mail", wardenUserInfo.Mail)
 			}
-			if userInfo.Status != "" {
-				sess.Set("user_status", userInfo.Status)
+			if wardenUserInfo.Status != "" {
+				sess.Set("user_status", wardenUserInfo.Status)
 			}
 			// Store scope and role for authorization headers
-			if len(userInfo.Scope) > 0 {
-				sess.Set("user_scope", userInfo.Scope)
+			if len(wardenUserInfo.Scope) > 0 {
+				sess.Set("user_scope", wardenUserInfo.Scope)
 			}
-			if userInfo.Role != "" {
-				sess.Set("user_role", userInfo.Role)
+			if wardenUserInfo.Role != "" {
+				sess.Set("user_role", wardenUserInfo.Role)
 			}
 			log.Debug().
-				Str("user_id", userInfo.UserID).
-				Str("phone", secure.MaskPhone(userInfo.Phone)).
-				Str("mail", secure.MaskEmail(userInfo.Mail)).
-				Strs("scope", userInfo.Scope).
-				Str("role", userInfo.Role).
+				Str("user_id", wardenUserInfo.UserID).
+				Str("phone", secure.MaskPhone(wardenUserInfo.Phone)).
+				Str("mail", secure.MaskEmail(wardenUserInfo.Mail)).
+				Strs("scope", wardenUserInfo.Scope).
+				Str("role", wardenUserInfo.Role).
 				Msg("Stored user info in session")
 		} else {
-			// Fallback: store basic info if GetUserInfo failed (should not happen after CheckUserInList)
+			// Fallback: store basic info if wardenUserInfo was not set (should not happen after successful warden auth)
 			if userPhone != "" {
 				sess.Set("user_phone", userPhone)
 			}
@@ -489,8 +491,8 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	// Log successful login and session creation
 	var loggedUserID string
 	if authMethod == "warden" {
-		if userInfo := auth.GetUserInfo(ctx.Context(), userPhone, userMail); userInfo != nil && userInfo.UserID != "" {
-			loggedUserID = userInfo.UserID
+		if wardenUserInfo != nil && wardenUserInfo.UserID != "" {
+			loggedUserID = wardenUserInfo.UserID
 		} else {
 			loggedUserID = userID
 		}
@@ -584,8 +586,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		escapedURL := html.EscapeString(redirectURL)
 
 		// Build HTML with meta refresh
-		htmlContent := fmt.Sprintf(`<html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=%s"><title>%s</title></head><body><h1>%s</h1><p>%s</p><p><a href="%s">点击这里如果页面没有自动跳转</a></p></body></html>`,
-			escapedURL, successMsg, successMsg, successMsg, escapedURL)
+		clickIfNoRedirect := i18n.T(ctx, "info.click_if_no_redirect")
+		htmlContent := fmt.Sprintf(`<html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=%s"><title>%s</title></head><body><h1>%s</h1><p>%s</p><p><a href="%s">%s</a></p></body></html>`,
+			escapedURL, successMsg, successMsg, successMsg, escapedURL, html.EscapeString(clickIfNoRedirect))
 		return ctx.Status(fiber.StatusOK).SendString(htmlContent)
 	}
 

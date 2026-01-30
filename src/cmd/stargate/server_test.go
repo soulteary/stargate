@@ -143,7 +143,7 @@ func TestSetupSessionStore_WithoutCookieDomain(t *testing.T) {
 	_ = os.Unsetenv("COOKIE_DOMAIN")
 	_ = config.Initialize(testLoggerMain())
 
-	store := setupSessionStore()
+	store, _ := setupSessionStore()
 	testza.AssertNotNil(t, store)
 }
 
@@ -154,7 +154,7 @@ func TestSetupSessionStore_WithCookieDomain(t *testing.T) {
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
 	_ = config.Initialize(testLoggerMain())
 
-	store := setupSessionStore()
+	store, _ := setupSessionStore()
 	testza.AssertNotNil(t, store)
 }
 
@@ -162,7 +162,7 @@ func TestSetupRoutes(t *testing.T) {
 	setupTestConfig(t)
 
 	app := fiber.New()
-	store := setupSessionStore()
+	store, _ := setupSessionStore()
 
 	// Create a simple health aggregator for testing
 	healthConfig := health.DefaultConfig().WithServiceName("stargate")
@@ -370,7 +370,7 @@ func TestSetupTemplates_EngineCreated(t *testing.T) {
 func TestSetupSessionStore_ConfigApplied(t *testing.T) {
 	setupTestConfig(t)
 
-	store := setupSessionStore()
+	store, _ := setupSessionStore()
 	testza.AssertNotNil(t, store)
 
 	// Verify store is functional by creating a test app

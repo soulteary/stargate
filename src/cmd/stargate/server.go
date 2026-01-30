@@ -29,23 +29,28 @@ import (
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
 )
 
-// findTemplatesPath finds the correct path to templates directory.
-// It checks both ./internal/web/templates (for local development) and ./web/templates (for Docker).
-func findTemplatesPath() string {
-	paths := []string{
-		"./internal/web/templates",
-		"./web/templates",
-		"./src/internal/web/templates",
-	}
-	for _, path := range paths {
+// findFirstExistingPath returns the first path in candidates that exists, or defaultPath if none exist.
+func findFirstExistingPath(candidates []string, defaultPath string) string {
+	for _, path := range candidates {
 		if _, err := os.Stat(path); err == nil {
-			absPath, _ := filepath.Abs(path)
-			log.Debug().Str("path", absPath).Msg("Found templates")
 			return path
 		}
 	}
-	// Default to internal path for local development
-	return "./internal/web/templates"
+	return defaultPath
+}
+
+// findTemplatesPath finds the correct path to templates directory.
+// It checks both ./internal/web/templates (for local development) and ./web/templates (for Docker).
+func findTemplatesPath() string {
+	path := findFirstExistingPath([]string{
+		"./internal/web/templates",
+		"./web/templates",
+		"./src/internal/web/templates",
+	}, "./internal/web/templates")
+	if absPath, err := filepath.Abs(path); err == nil {
+		log.Debug().Str("path", absPath).Msg("Found templates")
+	}
+	return path
 }
 
 // setupTemplates initializes the HTML template engine.
@@ -59,7 +64,8 @@ func setupTemplates() *html.Engine {
 // setupSessionStore initializes the session store with configured settings.
 // It sets up cookie-based session management with configurable domain support.
 // If Redis storage is enabled via SESSION_STORAGE_ENABLED=true, it will use Redis for session storage.
-func setupSessionStore() *fibersession.Store {
+// Returns the session store and the Redis client (non-nil only when Redis is enabled) for reuse by health check, avoiding a second connection.
+func setupSessionStore() (*fibersession.Store, *redis.Client) {
 	log.Debug().Msg("Initializing session store")
 
 	// Create session-kit config with Stargate settings
@@ -78,6 +84,7 @@ func setupSessionStore() *fibersession.Store {
 	// Create session-kit Manager with appropriate storage
 	var sessionStorage session.Storage
 	var err error
+	var redisClient *redis.Client
 
 	// Check if Redis session storage is enabled
 	if config.SessionStorageEnabled.ToBool() {
@@ -93,9 +100,8 @@ func setupSessionStore() *fibersession.Store {
 			}
 		}
 
-		// Use session-kit's NewStorageFromEnv for Redis storage
-		sessionStorage, err = session.NewStorageFromEnv(
-			true, // redisEnabled
+		// Use NewRedisStorageFromConfig once; reuse the same client for health check to avoid double connection
+		redisStorage, err := session.NewRedisStorageFromConfig(
 			config.SessionStorageRedisAddr.Value,
 			config.SessionStorageRedisPassword.Value,
 			redisDB,
@@ -104,6 +110,8 @@ func setupSessionStore() *fibersession.Store {
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to initialize Redis session storage")
 		}
+		sessionStorage = redisStorage
+		redisClient = redisStorage.GetClient()
 		log.Info().Msg("Session storage configured to use Redis")
 	} else {
 		// Use in-memory storage
@@ -125,7 +133,7 @@ func setupSessionStore() *fibersession.Store {
 	// Set KeyGenerator (not provided by session-kit's FiberSessionConfig)
 	fiberConfig.KeyGenerator = utils.UUID
 
-	return fibersession.New(fiberConfig)
+	return fibersession.New(fiberConfig), redisClient
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
@@ -206,34 +214,20 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 
 // findAssetsPath finds the correct path to assets directory.
 func findAssetsPath() string {
-	paths := []string{
+	return findFirstExistingPath([]string{
 		"./internal/web/templates/assets",
 		"./web/templates/assets",
 		"./src/internal/web/templates/assets",
-	}
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	// Default to internal path for local development
-	return "./internal/web/templates/assets"
+	}, "./internal/web/templates/assets")
 }
 
 // findFaviconPath finds the correct path to favicon file.
 func findFaviconPath() string {
-	paths := []string{
+	return findFirstExistingPath([]string{
 		"./internal/web/templates/assets/favicon.ico",
 		"./web/templates/assets/favicon.ico",
 		"./src/internal/web/templates/assets/favicon.ico",
-	}
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-	}
-	// Default to internal path for local development
-	return "./internal/web/templates/assets/favicon.ico"
+	}, "./internal/web/templates/assets/favicon.ico")
 }
 
 // setupStaticFiles registers static file serving for assets.
@@ -323,31 +317,7 @@ func createApp() *fiber.App {
 	})
 
 	setupMiddleware(app)
-	store := setupSessionStore()
-
-	// Setup health checker with Redis client if session storage is enabled
-	var redisClient *redis.Client
-	if config.SessionStorageEnabled.ToBool() {
-		// Parse Redis DB number
-		redisDB := 0
-		if config.SessionStorageRedisDB.Value != "" {
-			if db, err := strconv.Atoi(config.SessionStorageRedisDB.Value); err == nil {
-				redisDB = db
-			}
-		}
-		// Create Redis storage using session-kit, then get the underlying client
-		redisStorage, err := session.NewRedisStorageFromConfig(
-			config.SessionStorageRedisAddr.Value,
-			config.SessionStorageRedisPassword.Value,
-			redisDB,
-			config.SessionStorageRedisKeyPrefix.Value,
-		)
-		if err != nil {
-			log.Warn().Err(err).Msg("Failed to create Redis client for health check")
-		} else {
-			redisClient = redisStorage.GetClient()
-		}
-	}
+	store, redisClient := setupSessionStore()
 	healthAggregator := setupHealthChecker(redisClient)
 
 	setupRoutes(app, store, healthAggregator)

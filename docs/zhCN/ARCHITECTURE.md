@@ -125,6 +125,11 @@ src/
 - **HealthRoute**: 健康检查（包含 Warden 和 Herald 健康状态）
 - **IndexRoute**: 根路径处理
 
+**健康检查端点说明（避免与下游混淆）：**
+- **Stargate**：暴露 `GET /health`，作为自身及聚合健康检查入口。该端点会汇总 Stargate、Redis（若启用会话存储）、以及可选的 Warden / Herald 健康状态。
+- **Herald**：健康检查路径为 `GET /healthz`。当启用 Herald 时，Stargate 的 `/health` 会请求 `HERALD_URL/healthz` 以判断 Herald 是否可用。
+- **Warden**：健康检查路径为 `GET /health`。当启用 Warden 时，Stargate 的 `/health` 会请求 `WARDEN_URL/health` 以判断 Warden 是否可用。
+
 ### 4. 密码加密 (`internal/secure`)
 
 支持多种密码加密算法：

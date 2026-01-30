@@ -128,6 +128,14 @@ var (
 
 		return true
 	}
+
+	// ValidatePasswordsOrEmpty allows empty value (for pure Warden deployment); otherwise same as ValidatePasswords.
+	ValidatePasswordsOrEmpty = func(v EnvVariable) bool {
+		if v.Value == "" {
+			return true
+		}
+		return ValidatePasswords(v)
+	}
 )
 
 type ValidationError struct {

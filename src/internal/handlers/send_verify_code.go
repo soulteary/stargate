@@ -68,7 +68,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 
 		// Check if Herald is enabled
 		if !config.HeraldEnabled.ToBool() {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, "验证码服务未配置")
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.herald_not_configured"))
 		}
 
 		// Step 1: Get complete user information from Warden (as per Claude.md spec)
@@ -146,9 +146,9 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			// Herald client not initialized, check if OTP is available as fallback
 			otpEnabled := config.WardenOTPEnabled.ToBool()
 			if otpEnabled {
-				return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请使用 OTP 验证")
+				return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"))
 			}
-			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
+			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
 		}
 
 		// Step 5: Create challenge via Herald
@@ -186,23 +186,23 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 					otpEnabled := config.WardenOTPEnabled.ToBool()
 					if otpEnabled {
 						auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请使用 OTP 验证")
+						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"))
 					}
 					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "验证码服务暂时不可用，请稍后重试")
+					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
 				}
 				// Other errors (rate limit, etc.)
 				if heraldErr.StatusCode == http.StatusTooManyRequests {
 					reason = "rate_limited"
 					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-					return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "请求过于频繁，请稍后重试")
+					return SendErrorResponse(ctx, fiber.StatusTooManyRequests, i18n.T(ctx, "error.rate_limited_retry"))
 				}
 				reason = heraldErr.Reason
 			}
 
 			// Default error handling
 			auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "发送验证码失败: "+err.Error())
+			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.Tf(ctx, "error.send_verify_code_failed", err.Error()))
 		}
 
 		// Log successful verification code send
@@ -226,7 +226,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		ctx.Set("Content-Type", "application/json")
 		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
 			"success":      true,
-			"message":      "验证码已发送",
+			"message":      i18n.T(ctx, "success.verify_code_sent"),
 			"challenge_id": createResp.ChallengeID,
 			"expires_in":   createResp.ExpiresIn,
 		})

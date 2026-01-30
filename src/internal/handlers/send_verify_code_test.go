@@ -79,7 +79,7 @@ func TestSendVerifyCodeAPI_HeraldDisabled(t *testing.T) {
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
-	testza.AssertContains(t, string(ctx.Response().Body()), "验证码服务未配置")
+	testza.AssertContains(t, string(ctx.Response().Body()), i18n.TStatic("error.herald_not_configured"))
 }
 
 func TestSendVerifyCodeAPI_WardenUserNotFound(t *testing.T) {

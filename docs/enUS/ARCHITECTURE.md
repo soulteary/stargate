@@ -125,6 +125,11 @@ Handlers are responsible for processing HTTP requests:
 - **HealthRoute**: Health check (includes Warden and Herald health status)
 - **IndexRoute**: Root path processing
 
+**Health check endpoints (to avoid confusion with downstream services):**
+- **Stargate**: Exposes `GET /health` as the aggregated health entrypoint. It reports Stargate, Redis (when session storage is enabled), and optionally Warden/Herald status.
+- **Herald**: Uses `GET /healthz`. When Herald is enabled, Stargate's `/health` calls `HERALD_URL/healthz` to determine Herald availability.
+- **Warden**: Uses `GET /health`. When Warden is enabled, Stargate's `/health` calls `WARDEN_URL/health` to determine Warden availability.
+
 ### 4. Password Encryption (`internal/secure`)
 
 Supports multiple password encryption algorithms:

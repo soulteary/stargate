@@ -13,12 +13,13 @@ ARG VERSION=dev
 ARG COMMIT=unknown
 ARG BUILD_DATE
 
-# 如果没有提供 BUILD_DATE，则使用当前时间
-# 使用 TARGETOS 和 TARGETARCH 支持多平台构建（由 Docker Buildx 自动提供）
-ARG TARGETOS=linux
-ARG TARGETARCH=amd64
+# 多平台：TARGETOS/TARGETARCH 由 Docker Buildx 注入；本地 build 时用当前内核架构，避免 exec format error（如 ARM Mac）
+ARG TARGETOS
+ARG TARGETARCH
 RUN BUILD_DATE=${BUILD_DATE:-$(date +%FT%T%z)} && \
-    GO111MODULE=on GOOS=${TARGETOS} GOARCH=${TARGETARCH} CGO_ENABLED=0 go build -ldflags "-w -s -X 'github.com/soulteary/version-kit.Version=$VERSION' -X 'github.com/soulteary/version-kit.Commit=$COMMIT' -X 'github.com/soulteary/version-kit.BuildDate=$BUILD_DATE'" -o stargate ./src/cmd/stargate
+    ARCH=${TARGETARCH:-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/;s/armv7l/arm/')} && \
+    OS=${TARGETOS:-linux} && \
+    GO111MODULE=on GOOS=$OS GOARCH=$ARCH CGO_ENABLED=0 go build -ldflags "-w -s -X 'github.com/soulteary/version-kit.Version=$VERSION' -X 'github.com/soulteary/version-kit.Commit=$COMMIT' -X 'github.com/soulteary/version-kit.BuildDate=$BUILD_DATE'" -o stargate ./src/cmd/stargate
 # upx 压缩（如果失败则跳过，确保多平台构建兼容性）
 RUN if command -v upx > /dev/null 2>&1; then \
       upx -9 -o stargate.minify stargate 2>/dev/null && mv stargate.minify stargate || true; \
