@@ -20,6 +20,18 @@ import (
 	"github.com/soulteary/tracing-kit"
 )
 
+// sendVerifyCodeErrorJSON returns JSON in the shape expected by the login page Send Code UI:
+// { success: false, message: "...", reason: "..." }. Use this for all error paths of /_send_verify_code
+// so the front-end can display result.message and result.reason correctly.
+func sendVerifyCodeErrorJSON(ctx *fiber.Ctx, statusCode int, message, reason string) error {
+	ctx.Set("Content-Type", "application/json")
+	return ctx.Status(statusCode).JSON(fiber.Map{
+		"success": false,
+		"message": message,
+		"reason":  reason,
+	})
+}
+
 // getLocaleFromConfig converts language code to locale format
 // e.g., "en" -> "en-US", "zh" -> "zh-CN"
 func getLocaleFromConfig() string {
@@ -63,12 +75,12 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 
 		// Check if at least one identifier is provided
 		if userPhone == "" && userMail == "" {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"))
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "identifier_required")
 		}
 
 		// Check if Herald is enabled
 		if !config.HeraldEnabled.ToBool() {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.herald_not_configured"))
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.herald_not_configured"), "herald_not_configured")
 		}
 
 		// Step 1: Get complete user information from Warden (as per Claude.md spec)
@@ -88,7 +100,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			wardenSpan.End()
 			tracing.RecordError(sendCodeSpan, fmt.Errorf("user not found in Warden"))
 			log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User not found in Warden or not active")
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"), "user_not_in_list")
 		}
 
 		// Step 2: Use user_id from Warden if available, otherwise generate one
@@ -113,12 +125,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 				destination = strings.TrimSpace(userInfo.DingtalkUserID)
 			} else {
 				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User requested DingTalk but account has no dingtalk_userid")
-				ctx.Set("Content-Type", "application/json")
-				return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
-					"success": false,
-					"message": i18n.T(ctx, "error.dingtalk_not_bound"),
-					"reason":  "dingtalk_not_bound",
-				})
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), "dingtalk_not_bound")
 			}
 		} else {
 			// Respect deliver_via for sms vs email; default: phone if present else mail
@@ -186,9 +193,9 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			// Herald client not initialized, check if OTP is available as fallback
 			otpEnabled := config.WardenOTPEnabled.ToBool()
 			if otpEnabled {
-				return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"))
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"), "connection_failed")
 			}
-			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), "connection_failed")
 		}
 
 		// Step 5: Create challenge via Herald
@@ -226,23 +233,23 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 					otpEnabled := config.WardenOTPEnabled.ToBool()
 					if otpEnabled {
 						auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"))
+						return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"), reason)
 					}
 					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
+					return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), reason)
 				}
 				// Other errors (rate limit, etc.)
 				if heraldErr.StatusCode == http.StatusTooManyRequests {
 					reason = "rate_limited"
 					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-					return SendErrorResponse(ctx, fiber.StatusTooManyRequests, i18n.T(ctx, "error.rate_limited_retry"))
+					return sendVerifyCodeErrorJSON(ctx, fiber.StatusTooManyRequests, i18n.T(ctx, "error.rate_limited_retry"), reason)
 				}
 				reason = heraldErr.Reason
 			}
 
 			// Default error handling
 			auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.Tf(ctx, "error.send_verify_code_failed", err.Error()))
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusInternalServerError, i18n.Tf(ctx, "error.send_verify_code_failed", err.Error()), reason)
 		}
 
 		// Log successful verification code send
