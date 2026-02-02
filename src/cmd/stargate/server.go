@@ -193,12 +193,15 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	handlers.InitForwardAuthHandler(log)
 	// Initialize Herald client
 	handlers.InitHeraldClient(log)
+	handlers.InitHeraldTOTPClient(log)
 
 	app.Get(RouteHealth, health.FiberHandler(healthAggregator))
 	app.Get(RouteRoot, handlers.IndexRoute(store))
 	app.Get(RouteLogin, handlers.LoginRoute(store))
 	app.Post(RouteLogin, handlers.LoginAPI(store))
 	app.Post("/_send_verify_code", handlers.SendVerifyCodeAPI())
+	app.Get("/totp/enroll", handlers.TOTPEnrollRoute(store))
+	app.Post("/totp/enroll/confirm", handlers.TOTPEnrollConfirmAPI(store))
 	app.Get(RouteLogout, handlers.LogoutRoute(store))
 	app.Get(RouteSessionExchange, handlers.SessionShareRoute())
 	app.Get(RouteAuth, handlers.CheckRoute(store))

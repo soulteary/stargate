@@ -19,6 +19,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/heraldtotp"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
 	"github.com/soulteary/tracing-kit"
@@ -34,8 +35,10 @@ func SetLogger(l *logger.Logger) {
 }
 
 var (
-	heraldClient     *herald.Client
-	heraldClientInit sync.Once
+	heraldClient         *herald.Client
+	heraldClientInit     sync.Once
+	heraldTOTPClient     *heraldtotp.Client
+	heraldTOTPClientInit sync.Once
 )
 
 // InitHeraldClient initializes the Herald client if enabled
@@ -104,6 +107,41 @@ func InitHeraldClient(l *logger.Logger) {
 // Note: InitHeraldClient must be called with a logger before this function is used.
 func getHeraldClient() *herald.Client {
 	return heraldClient
+}
+
+// InitHeraldTOTPClient initializes the herald-totp client if HERALD_TOTP_ENABLED and HERALD_TOTP_BASE_URL are set.
+func InitHeraldTOTPClient(l *logger.Logger) {
+	log = l
+	heraldTOTPClientInit.Do(func() {
+		if !config.HeraldTOTPEnabled.ToBool() {
+			log.Debug().Msg("Herald TOTP is not enabled, skipping client initialization")
+			return
+		}
+		baseURL := config.HeraldTOTPBaseURL.String()
+		if baseURL == "" {
+			log.Debug().Msg("HERALD_TOTP_BASE_URL is not set, herald-totp client will not be initialized")
+			return
+		}
+		opts := heraldtotp.DefaultOptions().
+			WithBaseURL(strings.TrimSuffix(baseURL, "/")).
+			WithAPIKey(config.HeraldTOTPAPIKey.String()).
+			WithTimeout(10 * time.Second)
+		if hmacSecret := config.HeraldTOTPHMACSecret.String(); hmacSecret != "" {
+			opts = opts.WithHMACSecret(hmacSecret)
+		}
+		client, err := heraldtotp.NewClient(opts)
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to initialize herald-totp client")
+			return
+		}
+		heraldTOTPClient = client
+		log.Info().Msg("Herald TOTP client initialized successfully")
+	})
+}
+
+// getHeraldTOTPClient returns the herald-totp client (may be nil if not configured).
+func getHeraldTOTPClient() *heraldtotp.Client {
+	return heraldTOTPClient
 }
 
 // generateUserID generates a user ID from phone/mail
@@ -380,24 +418,43 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				verifyRespAMR = verifyResp.AMR
 			}
 		} else if otpEnabled && useOTP {
-			// If OTP is enabled and user chose to use OTP
+			// If OTP is enabled and user chose to use OTP (TOTP / Authenticator)
 			if otpCode == "" {
 				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.otp_code_required"))
 			}
 
-			// Get OTP secret
-			otpSecret := auth.GetOTPSecret()
-			if otpSecret == "" {
-				log.Warn().Msg("OTP secret is not configured")
-				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.otp_config_error"))
-			}
-
-			// Verify OTP code
-			if !auth.VerifyOTP(otpSecret, otpCode) {
-				metrics.RecordAuthRequest("warden_otp", "failure")
-				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("OTP verification failed")
-				auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.otp_code_invalid"))
+			// Prefer herald-totp (per-user TOTP) when configured
+			totpClient := getHeraldTOTPClient()
+			if totpClient != nil {
+				verifyReq := &heraldtotp.VerifyRequest{
+					Subject: userID,
+					Code:    otpCode,
+				}
+				if challengeID != "" {
+					verifyReq.ChallengeID = challengeID
+				}
+				verifyResp, err := totpClient.Verify(loginCtx, verifyReq)
+				if err != nil || verifyResp == nil || !verifyResp.OK {
+					metrics.RecordAuthRequest("warden_otp", "failure")
+					log.Warn().Err(err).Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("TOTP verification failed")
+					auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
+					return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.otp_code_invalid"))
+				}
+				metrics.RecordAuthRequest("warden_otp", "success")
+			} else {
+				// Fallback: legacy global OTP secret (WARDEN_OTP_SECRET_KEY)
+				otpSecret := auth.GetOTPSecret()
+				if otpSecret == "" {
+					log.Warn().Msg("OTP secret is not configured")
+					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.otp_config_error"))
+				}
+				if !auth.VerifyOTP(otpSecret, otpCode) {
+					metrics.RecordAuthRequest("warden_otp", "failure")
+					log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("OTP verification failed")
+					auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
+					return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.otp_code_invalid"))
+				}
+				metrics.RecordAuthRequest("warden_otp", "success")
 			}
 		} else {
 			// Neither Herald verification nor OTP was used
