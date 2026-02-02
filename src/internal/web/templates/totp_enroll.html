@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bind TOTP - {{.Title}}</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f3f4f6;color:#111827;line-height:1.5;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;}
+    .card{background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,0.1);max-width:420px;width:100%;overflow:hidden;}
+    .content{padding:32px;}
+    h1{font-size:1.5rem;margin-bottom:8px;}
+    .subtitle{color:#6b7280;font-size:0.875rem;margin-bottom:24px;}
+    #qrcode{margin:0 auto 24px;display:block;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;}
+    .form-group{margin-bottom:20px;}
+    .form-group label{display:block;font-size:0.875rem;font-weight:500;margin-bottom:8px;}
+    .form-group input{width:100%;padding:12px 16px;font-size:1rem;border:1px solid #e5e7eb;border-radius:12px;}
+    .btn{width:100%;padding:14px;font-size:1rem;font-weight:600;color:#fff;background:#111827;border:none;border-radius:12px;cursor:pointer;}
+    .btn:hover{background:#000;}
+    .backup-codes{margin-top:24px;padding:16px;background:#f0fdf4;border:1px solid #86efac;border-radius:12px;display:none;}
+    .backup-codes.show{display:block;}
+    .backup-codes h3{font-size:0.875rem;margin-bottom:12px;}
+    .backup-codes ul{font-family:monospace;font-size:0.875rem;list-style:none;}
+    .backup-codes li{margin-bottom:4px;}
+    .error{background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:16px;display:none;}
+    .error.show{display:block;color:#dc2626;}
+    .footer{margin-top:24px;text-align:center;font-size:0.875rem;color:#6b7280;}
+    .footer a{color:#111827;}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" integrity="sha256-+8q+cjT2t000oH6/l2bL0Vd9Vx5x5/Ee+0kAMQzJq2s=" crossorigin="anonymous"></script>
+</head>
+<body>
+  <main class="card">
+    <div class="content">
+      <h1>Bind Authenticator (TOTP)</h1>
+      <p class="subtitle">Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code below.</p>
+      <div id="error" class="error"></div>
+      <canvas id="qrcode" data-uri="{{.OtpauthURI}}"></canvas>
+      <form id="confirmForm" method="post" action="/totp/enroll/confirm">
+        <input type="hidden" name="enroll_id" value="{{.EnrollID}}">
+        <div class="form-group">
+          <label for="code">Verification code</label>
+          <input type="text" id="code" name="code" placeholder="000000" maxlength="6" pattern="[0-9]*" inputmode="numeric" autocomplete="one-time-code" required>
+        </div>
+        <button type="submit" class="btn">Confirm</button>
+      </form>
+      <div id="backupCodes" class="backup-codes">
+        <h3>Save these backup codes in a safe place. Each can be used once if you lose your device.</h3>
+        <ul id="backupCodesList"></ul>
+      </div>
+      <p class="footer"><a href="/">Back to home</a></p>
+    </div>
+  </main>
+  <script>
+    (function() {
+      var canvas = document.getElementById('qrcode');
+      var otpauthUri = canvas && canvas.getAttribute('data-uri');
+      if (otpauthUri) {
+        QRCode.toCanvas(document.getElementById('qrcode'), otpauthUri, { width: 200, margin: 1 }, function(err) {
+          if (err) document.getElementById('error').textContent = 'Failed to generate QR: ' + err;
+        });
+      }
+      document.getElementById('confirmForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var form = e.target;
+        var fd = new FormData(form);
+        var errEl = document.getElementById('error');
+        errEl.classList.remove('show');
+        errEl.textContent = '';
+        fetch(form.action, { method: 'POST', body: fd, credentials: 'same-origin' })
+          .then(function(r) { return r.json().then(function(j){ return { ok: r.ok, status: r.status, json: j }; }); })
+          .then(function(res) {
+            if (res.ok && res.json.ok) {
+              form.style.display = 'none';
+              var codes = res.json.backup_codes;
+              if (codes && codes.length) {
+                var ul = document.getElementById('backupCodesList');
+                codes.forEach(function(c) { var li = document.createElement('li'); li.textContent = c; ul.appendChild(li); });
+                document.getElementById('backupCodes').classList.add('show');
+              }
+            } else {
+              errEl.textContent = res.json.error || 'Verification failed';
+              errEl.classList.add('show');
+            }
+          })
+          .catch(function(err) {
+            errEl.textContent = err.message || 'Request failed';
+            errEl.classList.add('show');
+          });
+      });
+    })();
+  </script>
+</body>
+</html>
