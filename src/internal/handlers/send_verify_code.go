@@ -104,20 +104,60 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		wardenSpan.End()
 
 		// Step 3: Determine channel and destination from Warden data
-		// Use Warden's official email/phone as destination (not user input)
-		channel := "email"
-		destination := userInfo.Mail
-		if userInfo.Phone != "" {
-			channel = "sms"
-			destination = userInfo.Phone
-		} else if destination == "" {
-			// Fallback: if Warden doesn't provide destination, use user input
-			// This should not happen if Warden is properly configured
-			log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden user info missing destination, using user input")
-			destination = userMail
-			if userPhone != "" {
+		// If user requested DingTalk and has dingtalk_userid, use dingtalk channel; else use Warden's email/phone
+		var channel, destination string
+		deliverVia := ctx.FormValue("deliver_via")
+		if deliverVia == "dingtalk" {
+			if strings.TrimSpace(userInfo.DingtalkUserID) != "" {
+				channel = "dingtalk"
+				destination = strings.TrimSpace(userInfo.DingtalkUserID)
+			} else {
+				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User requested DingTalk but account has no dingtalk_userid")
+				ctx.Set("Content-Type", "application/json")
+				return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+					"success": false,
+					"message": i18n.T(ctx, "error.dingtalk_not_bound"),
+					"reason":  "dingtalk_not_bound",
+				})
+			}
+		} else {
+			// Respect deliver_via for sms vs email; default: phone if present else mail
+			switch deliverVia {
+			case "email":
+				channel = "email"
+				destination = userInfo.Mail
+				if destination == "" {
+					destination = userMail
+				}
+			case "sms":
 				channel = "sms"
-				destination = userPhone
+				destination = userInfo.Phone
+				if destination == "" {
+					destination = userPhone
+				}
+			default:
+				channel = "email"
+				destination = userInfo.Mail
+				if userInfo.Phone != "" {
+					channel = "sms"
+					destination = userInfo.Phone
+				} else if destination == "" {
+					destination = userMail
+					if userPhone != "" {
+						channel = "sms"
+						destination = userPhone
+					}
+				}
+			}
+			if destination == "" {
+				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden user info missing destination, using user input")
+				if userPhone != "" {
+					channel = "sms"
+					destination = userPhone
+				} else {
+					channel = "email"
+					destination = userMail
+				}
 			}
 		}
 

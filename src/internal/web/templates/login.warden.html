@@ -61,6 +61,23 @@
             </small>
           </div>
           {{if .HeraldEnabled}}
+          <div class="form-group" id="deliverViaGroup" style="display: none;">
+            <label class="sr-only">Receive code via</label>
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #374151; cursor: pointer;">
+                <input type="radio" name="deliver_via" value="sms" id="deliver_sms" style="width: auto;">
+                <span>SMS</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #374151; cursor: pointer;">
+                <input type="radio" name="deliver_via" value="email" id="deliver_email" style="width: auto;">
+                <span>Email</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #374151; cursor: pointer;">
+                <input type="radio" name="deliver_via" value="dingtalk" id="deliver_dingtalk" style="width: auto;">
+                <span>DingTalk (需已绑定)</span>
+              </label>
+            </div>
+          </div>
           <div class="form-group" id="verifyCodeGroup" style="display: none;">
             <label for="verify_code" class="sr-only">Verification Code</label>
             <div style="display: flex; gap: 8px;">
@@ -128,12 +145,28 @@
       let countdownTimer = null;
       let countdownSeconds = 60;
 
-      // Show verify code input when phone or mail is entered
+      const deliverViaGroup = document.getElementById('deliverViaGroup');
+      const deliverViaRadios = document.querySelectorAll('input[name="deliver_via"]');
+
+      // Show verify code and deliver-via when phone or mail is entered
       function updateVerifyCodeVisibility() {
-        if (verifyCodeGroup && heraldEnabled) {
+        if (heraldEnabled) {
           const hasInput = (phoneInput && phoneInput.value.trim()) || (mailInput && mailInput.value.trim());
-          verifyCodeGroup.style.display = hasInput ? 'block' : 'none';
+          if (deliverViaGroup) deliverViaGroup.style.display = hasInput ? 'block' : 'none';
+          if (verifyCodeGroup) verifyCodeGroup.style.display = hasInput ? 'block' : 'none';
+          if (hasInput) setDefaultDeliverVia();
         }
+      }
+
+      function setDefaultDeliverVia() {
+        const phone = phoneInput ? phoneInput.value.trim() : '';
+        const mail = mailInput ? mailInput.value.trim() : '';
+        const smsEl = document.getElementById('deliver_sms');
+        const emailEl = document.getElementById('deliver_email');
+        if (phone && smsEl) smsEl.checked = true;
+        else if (mail && emailEl) emailEl.checked = true;
+        else if (smsEl) smsEl.checked = true;
+        else if (emailEl) emailEl.checked = true;
       }
 
       // Handle OTP checkbox
@@ -173,6 +206,8 @@
             const formData = new FormData();
             if (phone) formData.append('phone', phone);
             if (mail) formData.append('mail', mail);
+            const deliverViaEl = document.querySelector('input[name="deliver_via"]:checked');
+            if (deliverViaEl && deliverViaEl.value) formData.append('deliver_via', deliverViaEl.value);
 
             const response = await fetch('/_send_verify_code', {
               method: 'POST',
@@ -187,13 +222,9 @@
               showSuccess('验证码已发送');
               hideError();
             } else {
-              // Handle error response
-              let errorType = 'send_failed';
+              // Handle error response (use reason when present for proper i18n mapping)
+              let errorType = result.reason || 'send_failed';
               let details = {};
-              
-              if (result.reason) {
-                errorType = result.reason;
-              }
               
               if (result.next_resend_in) {
                 details.waitTime = result.next_resend_in;
@@ -313,6 +344,10 @@
           'unauthorized': {
             message: '认证失败',
             suggestion: '请检查配置'
+          },
+          'dingtalk_not_bound': {
+            message: '该账号未绑定钉钉',
+            suggestion: '请使用短信或邮箱接收验证码'
           }
         };
         

@@ -393,6 +393,8 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 
 	resetHeraldClientForTesting()
 	auth.ResetWardenClientForTesting()
+	auth.InitWardenClient(testLoggerE2E())
+	InitHeraldClient(testLoggerE2E())
 
 	// Create Stargate app
 	store := session.New(session.Config{
