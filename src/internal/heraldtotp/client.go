@@ -100,7 +100,7 @@ func (c *Client) Status(ctx context.Context, subject string) (*StatusResponse, e
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, _ := io.ReadAll(resp.Body)
 	var out StatusResponse
 	if err := json.Unmarshal(body, &out); err != nil {
@@ -155,7 +155,7 @@ func (c *Client) EnrollStart(ctx context.Context, req *EnrollStartRequest) (*Enr
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	var out EnrollStartResponse
 	if err := json.Unmarshal(respBody, &out); err != nil {
@@ -197,7 +197,7 @@ func (c *Client) EnrollConfirm(ctx context.Context, req *EnrollConfirmRequest) (
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	var out EnrollConfirmResponse
 	if err := json.Unmarshal(respBody, &out); err != nil {
@@ -226,7 +226,7 @@ func (c *Client) Verify(ctx context.Context, req *VerifyRequest) (*VerifyRespons
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
 	var out VerifyResponse
 	_ = json.Unmarshal(respBody, &out)
