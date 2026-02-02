@@ -257,7 +257,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		otpCode := ctx.FormValue("otp_code")
 		useOTP := ctx.FormValue("use_otp") == "true"
 
-		otpEnabled := config.WardenOTPEnabled.ToBool()
+		// OTP enabled: Warden global OTP or Herald TOTP (per-user) when configured
+		otpEnabled := config.WardenOTPEnabled.ToBool() ||
+			(config.HeraldTOTPEnabled.ToBool() && config.HeraldTOTPBaseURL.String() != "")
 
 		// Step 4: Verify code via Herald (if not using OTP)
 		if !useOTP {
@@ -426,6 +428,17 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			// Prefer herald-totp (per-user TOTP) when configured
 			totpClient := getHeraldTOTPClient()
 			if totpClient != nil {
+				// Check if user has TOTP enrolled; if not, require verification code login first, then bind in settings
+				statusResp, err := totpClient.Status(loginCtx, userID)
+				if err != nil {
+					log.Warn().Err(err).Str("user_id", userID).Msg("herald-totp status check failed")
+					return SendErrorResponse(ctx, fiber.StatusBadGateway, i18n.T(ctx, "error.herald_unavailable_retry"))
+				}
+				if statusResp == nil || !statusResp.TotpEnabled {
+					metrics.RecordAuthRequest("warden_otp", "failure")
+					auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "totp_not_enrolled")
+					return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.totp_not_enrolled"))
+				}
 				verifyReq := &heraldtotp.VerifyRequest{
 					Subject: userID,
 					Code:    otpCode,
@@ -724,16 +737,18 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 	}
 
 	heraldEnabled := config.HeraldEnabled.ToBool()
-	otpEnabled := config.WardenOTPEnabled.ToBool()
+	otpEnabled := config.WardenOTPEnabled.ToBool() ||
+		(config.HeraldTOTPEnabled.ToBool() && config.HeraldTOTPBaseURL.String() != "")
 
 	return ctx.Render(templateName, fiber.Map{
-		"Callback":      callback,
-		"SessionID":     sess.ID(),
-		"Title":         config.LoginPageTitle.Value,
-		"FooterText":    config.LoginPageFooterText.Value,
-		"WardenEnabled": config.WardenEnabled.ToBool(),
-		"HeraldEnabled": heraldEnabled,
-		"OTPEnabled":    otpEnabled,
+		"Callback":          callback,
+		"SessionID":         sess.ID(),
+		"Title":             config.LoginPageTitle.Value,
+		"FooterText":        config.LoginPageFooterText.Value,
+		"WardenEnabled":     config.WardenEnabled.ToBool(),
+		"HeraldEnabled":     heraldEnabled,
+		"OTPEnabled":        otpEnabled,
+		"HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool() && config.HeraldTOTPBaseURL.String() != "",
 	})
 }
 

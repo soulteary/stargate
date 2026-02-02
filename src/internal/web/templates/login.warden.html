@@ -107,8 +107,11 @@
             >
             <div style="margin-top: 8px; display: flex; align-items: center; gap: 8px;">
               <input type="checkbox" id="use_otp" name="use_otp" value="true" style="width: auto;">
-              <label for="use_otp" style="font-size: 0.875rem; color: #6b7280; margin: 0;">Use OTP instead of verification code</label>
+              <label for="use_otp" style="font-size: 0.875rem; color: #6b7280; margin: 0;">{{if .HeraldTOTPEnabled}}Use TOTP (Authenticator) instead of verification code{{else}}Use OTP instead of verification code{{end}}</label>
             </div>
+            {{if .HeraldTOTPEnabled}}
+            <small style="display: block; margin-top: 8px; color: #6b7280; font-size: 0.8125rem;">Not bound yet? Sign in with verification code first, then bind TOTP at <a href="/totp/enroll" style="color: #111827;">/totp/enroll</a>.</small>
+            {{end}}
           </div>
           {{end}}
           <button type="submit" class="btn-verify">Verify Access</button>
