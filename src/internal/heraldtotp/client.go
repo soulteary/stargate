@@ -209,6 +209,46 @@ func (c *Client) EnrollConfirm(ctx context.Context, req *EnrollConfirmRequest) (
 	return &out, nil
 }
 
+// RevokeRequest is the request for POST /v1/revoke.
+type RevokeRequest struct {
+	Subject string `json:"subject"`
+}
+
+// RevokeResponse is the response from POST /v1/revoke.
+type RevokeResponse struct {
+	OK      bool   `json:"ok"`
+	Subject string `json:"subject"`
+}
+
+// Revoke removes TOTP credential and backup codes for the subject.
+func (c *Client) Revoke(ctx context.Context, subject string) (*RevokeResponse, error) {
+	u := c.baseURL + "/v1/revoke"
+	body, err := json.Marshal(RevokeRequest{Subject: subject})
+	if err != nil {
+		return nil, err
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	c.addAuthHeaders(httpReq, body)
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	respBody, _ := io.ReadAll(resp.Body)
+	var out RevokeResponse
+	if err := json.Unmarshal(respBody, &out); err != nil {
+		return nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("revoke returned %d: %s", resp.StatusCode, string(respBody))
+	}
+	return &out, nil
+}
+
 // Verify verifies a TOTP code for the subject.
 func (c *Client) Verify(ctx context.Context, req *VerifyRequest) (*VerifyResponse, error) {
 	u := c.baseURL + "/v1/verify"
