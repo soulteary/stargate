@@ -459,29 +459,40 @@
             }
           }
           
-          // Submit form via fetch to handle errors
+          // Submit form via fetch to handle errors.
+          // Use redirect: 'manual' so 302 to callback domain (e.g. whoami.lab.dev/_session_exchange)
+          // is not followed by fetch (which would trigger CORS). We read Location and navigate instead.
           try {
             const formData = new FormData(loginForm);
             const response = await fetch('/_login', {
               method: 'POST',
-              body: formData
+              body: formData,
+              redirect: 'manual',
+              credentials: 'same-origin'
             });
             
+            // 302/301/303/307/308: login success, redirect to callback's _session_exchange
+            if (response.type === 'opaqueredirect' || (response.status >= 301 && response.status <= 308)) {
+              var loc = response.headers.get('Location');
+              if (loc) {
+                window.location.href = loc;
+                return;
+              }
+            }
+            
             if (response.ok) {
-              // Success - redirect will be handled by server
+              // Success - JSON or HTML response (no redirect)
               const contentType = response.headers.get('content-type');
               if (contentType && contentType.includes('application/json')) {
                 const result = await response.json();
                 if (result.success) {
                   showSuccess('登录成功');
-                  // Redirect after short delay
                   setTimeout(() => {
                     window.location.href = result.redirect || '/';
                   }, 1000);
                 }
               } else {
-                // HTML response - server will handle redirect
-                window.location.href = response.url;
+                window.location.href = response.url || '/';
               }
             } else {
               // Handle error response
