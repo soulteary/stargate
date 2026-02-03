@@ -116,15 +116,19 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		wardenSpan.End()
 
 		// Step 3: Determine channel and destination from Warden data
-		// If user requested DingTalk and has dingtalk_userid, use dingtalk channel; else use Warden's email/phone
+		// If user requested DingTalk: use dingtalk_userid if set; else use phone for herald-dingtalk mobile lookup (DINGTALK_LOOKUP_MODE=mobile).
 		var channel, destination string
 		deliverVia := ctx.FormValue("deliver_via")
 		if deliverVia == "dingtalk" {
 			if strings.TrimSpace(userInfo.DingtalkUserID) != "" {
 				channel = "dingtalk"
 				destination = strings.TrimSpace(userInfo.DingtalkUserID)
+			} else if strings.TrimSpace(userInfo.Phone) != "" {
+				// 电话号反查钉钉ID：无 dingtalk_userid 但有手机号时，传手机号给 Herald，由 herald-dingtalk 按手机号解析 userid 并发送（需 DINGTALK_LOOKUP_MODE=mobile）
+				channel = "dingtalk"
+				destination = strings.TrimSpace(userInfo.Phone)
 			} else {
-				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User requested DingTalk but account has no dingtalk_userid")
+				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User requested DingTalk but account has no dingtalk_userid or phone")
 				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), "dingtalk_not_bound")
 			}
 		} else {
