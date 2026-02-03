@@ -369,7 +369,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				log.Warn().Str("reason", reason).Msg("Challenge verification failed")
 				auditlog.LogVerifyCodeCheck(ctx.Context(), userID, ctx.IP(), false, reason)
 
-				// Provide detailed error message based on reason (as per Claude.md section 9)
+				// Provide detailed error message based on reason
 				var errorMsg string
 				switch reason {
 				case "expired":

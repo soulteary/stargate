@@ -83,7 +83,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.herald_not_configured"), "herald_not_configured")
 		}
 
-		// Step 1: Get complete user information from Warden (as per Claude.md spec)
+		// Step 1: Get complete user information from Warden
 		// This ensures we use the official email/phone from Warden, not user input
 		wardenCtx, wardenSpan := tracing.StartSpan(sendCodeCtx, "warden.get_user_info")
 		wardenSpan.SetAttributes(
