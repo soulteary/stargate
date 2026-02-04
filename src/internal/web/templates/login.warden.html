@@ -64,19 +64,24 @@
           <div class="form-group" id="deliverViaGroup" style="display: none;">
             <label class="sr-only">Receive code via</label>
             <div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: center;">
+              {{if .LoginSMSEnabled}}
               <label style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #374151; cursor: pointer;">
                 <input type="radio" name="deliver_via" value="sms" id="deliver_sms" style="width: auto;">
                 <span>SMS</span>
               </label>
+              {{end}}
+              {{if .LoginEmailEnabled}}
               <label style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #374151; cursor: pointer;">
                 <input type="radio" name="deliver_via" value="email" id="deliver_email" style="width: auto;">
                 <span>Email</span>
               </label>
+              {{end}}
               <label style="display: flex; align-items: center; gap: 6px; font-size: 0.875rem; color: #374151; cursor: pointer;">
                 <input type="radio" name="deliver_via" value="dingtalk" id="deliver_dingtalk" style="width: auto;">
                 <span>DingTalk (需已绑定)</span>
               </label>
             </div>
+            <small style="display: block; margin-top: 8px; color: #6b7280; font-size: 0.8125rem;">可使用上方手机号或邮箱接收验证码</small>
           </div>
           <div class="form-group" id="verifyCodeGroup" style="display: none;">
             <label for="verify_code" class="sr-only">Verification Code</label>
@@ -143,6 +148,8 @@
       const loginForm = document.getElementById('loginForm');
       const heraldEnabled = {{if .HeraldEnabled}}true{{else}}false{{end}};
       const otpEnabled = {{if .OTPEnabled}}true{{else}}false{{end}};
+      const loginSMSEnabled = {{if .LoginSMSEnabled}}true{{else}}false{{end}};
+      const loginEmailEnabled = {{if .LoginEmailEnabled}}true{{else}}false{{end}};
       let currentChallengeId = null;
       
       let countdownTimer = null;
@@ -166,10 +173,12 @@
         const mail = mailInput ? mailInput.value.trim() : '';
         const smsEl = document.getElementById('deliver_sms');
         const emailEl = document.getElementById('deliver_email');
-        if (phone && smsEl) smsEl.checked = true;
-        else if (mail && emailEl) emailEl.checked = true;
-        else if (smsEl) smsEl.checked = true;
-        else if (emailEl) emailEl.checked = true;
+        const dingtalkEl = document.getElementById('deliver_dingtalk');
+        if (phone && loginSMSEnabled && smsEl) smsEl.checked = true;
+        else if (mail && loginEmailEnabled && emailEl) emailEl.checked = true;
+        else if (loginSMSEnabled && smsEl) smsEl.checked = true;
+        else if (loginEmailEnabled && emailEl) emailEl.checked = true;
+        else if (dingtalkEl) dingtalkEl.checked = true;
       }
 
       // Handle OTP checkbox
@@ -359,6 +368,10 @@
           'identifier_required': {
             message: '请填写手机号或邮箱',
             suggestion: '请输入上方手机号或邮箱后再点击发送验证码'
+          },
+          'channel_disabled': {
+            message: '该登录方式已禁用',
+            suggestion: '请使用其他方式（短信/邮箱/钉钉）或联系管理员'
           }
         };
         

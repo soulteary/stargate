@@ -105,6 +105,8 @@ The configuration system provides:
 
 **Herald Integration Configuration:**
 - `HERALD_ENABLED`: Enable Herald integration (default: false)
+- `LOGIN_SMS_ENABLED`: Allow verification code login via SMS (default: true)
+- `LOGIN_EMAIL_ENABLED`: Allow verification code login via email (default: true)
 - `HERALD_URL`: Herald service base URL
 - `HERALD_API_KEY`: Herald API Key (development environment)
 - `HERALD_HMAC_SECRET`: Herald HMAC secret (production environment, recommended)

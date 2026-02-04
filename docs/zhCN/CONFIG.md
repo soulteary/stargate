@@ -394,6 +394,50 @@ Herald 是 OTP/验证码服务。**这是可选的**，如果不需要验证码�
 HERALD_ENABLED=true
 ```
 
+#### `LOGIN_SMS_ENABLED`
+
+在启用 Herald 时是否允许通过短信验证码登录。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | Boolean |
+| **必需** | 否 |
+| **默认值** | `true` |
+| **可选值** | `true`, `false` |
+
+**说明：**
+
+- 为 `false` 时，不提供短信通道，请求短信验证码会被拒绝（或在邮箱启用时回退到邮箱）
+- 仅当 `HERALD_ENABLED=true` 且使用 Warden 登录时生效
+
+**示例：**
+
+```bash
+LOGIN_SMS_ENABLED=false
+```
+
+#### `LOGIN_EMAIL_ENABLED`
+
+在启用 Herald 时是否允许通过邮箱验证码登录。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | Boolean |
+| **必需** | 否 |
+| **默认值** | `true` |
+| **可选值** | `true`, `false` |
+
+**说明：**
+
+- 为 `false` 时，不提供邮箱通道，请求邮箱验证码会被拒绝（或在短信启用时回退到短信）
+- 仅当 `HERALD_ENABLED=true` 且使用 Warden 登录时生效
+
+**示例：**
+
+```bash
+LOGIN_EMAIL_ENABLED=false
+```
+
 #### `HERALD_URL`
 
 Herald 服务的基础 URL。

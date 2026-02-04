@@ -394,6 +394,50 @@ Enable Herald integration for OTP/verification code functionality.
 HERALD_ENABLED=true
 ```
 
+#### `LOGIN_SMS_ENABLED`
+
+Allow verification code login via SMS when Herald is enabled.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `true` |
+| **Possible Values** | `true`, `false` |
+
+**Description:**
+
+- When `false`, SMS is not offered as a deliver option and requests for SMS codes are rejected (or fall back to email if enabled)
+- Only applies when `HERALD_ENABLED=true` and Warden login is used
+
+**Example:**
+
+```bash
+LOGIN_SMS_ENABLED=false
+```
+
+#### `LOGIN_EMAIL_ENABLED`
+
+Allow verification code login via email when Herald is enabled.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `true` |
+| **Possible Values** | `true`, `false` |
+
+**Description:**
+
+- When `false`, email is not offered as a deliver option and requests for email codes are rejected (or fall back to SMS if enabled)
+- Only applies when `HERALD_ENABLED=true` and Warden login is used
+
+**Example:**
+
+```bash
+LOGIN_EMAIL_ENABLED=false
+```
+
 #### `HERALD_URL`
 
 Base URL of the Herald service.

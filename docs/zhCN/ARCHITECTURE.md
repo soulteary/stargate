@@ -105,6 +105,8 @@ src/
 
 **Herald 集成配置：**
 - `HERALD_ENABLED`: 启用 Herald 集成（默认：false）
+- `LOGIN_SMS_ENABLED`: 是否允许短信验证码登录（默认：true）
+- `LOGIN_EMAIL_ENABLED`: 是否允许邮箱验证码登录（默认：true）
 - `HERALD_URL`: Herald 服务基础 URL
 - `HERALD_API_KEY`: Herald API Key（开发环境）
 - `HERALD_HMAC_SECRET`: Herald HMAC 密钥（生产环境，推荐）
