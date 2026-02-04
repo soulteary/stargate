@@ -3,6 +3,7 @@ package config
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/MarvinJWendt/testza"
 	logger "github.com/soulteary/logger-kit"
@@ -22,6 +23,28 @@ func TestEnvVariable_String(t *testing.T) {
 		Value: "test-value",
 	}
 	testza.AssertEqual(t, "test-value", v.String())
+}
+
+func TestEnvVariable_ToDuration(t *testing.T) {
+	tests := []struct {
+		value    string
+		expected time.Duration
+	}{
+		{"", 0},
+		{"5m", 5 * time.Minute},
+		{"1h", time.Hour},
+		{"30s", 30 * time.Second},
+		{"1m30s", 90 * time.Second},
+		{"invalid", 0},
+		{"x", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			v := EnvVariable{Value: tt.value}
+			got := v.ToDuration()
+			testza.AssertEqual(t, tt.expected, got)
+		})
+	}
 }
 
 func TestEnvVariable_ToBool(t *testing.T) {

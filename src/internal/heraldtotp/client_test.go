@@ -143,3 +143,31 @@ func TestClient_Revoke_NonOK(t *testing.T) {
 		t.Fatal("expected error for 429 response")
 	}
 }
+
+// TestClient_WithHMACSecret verifies that WithHMACSecret sets HMAC auth and addAuthHeaders sends X-Timestamp, X-Service, X-Signature.
+func TestClient_WithHMACSecret(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Timestamp") == "" || r.Header.Get("X-Service") == "" || r.Header.Get("X-Signature") == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(StatusResponse{Subject: "user1", TotpEnabled: true})
+	}))
+	defer server.Close()
+
+	client, err := NewClient(DefaultOptions().
+		WithBaseURL(server.URL).
+		WithHMACSecret("test-hmac-secret").
+		WithTimeout(5 * time.Second))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+
+	statusResp, err := client.Status(context.Background(), "user1")
+	if err != nil {
+		t.Fatalf("Status with HMAC: %v", err)
+	}
+	if statusResp.Subject != "user1" || !statusResp.TotpEnabled {
+		t.Errorf("Status: got subject=%q totp_enabled=%v", statusResp.Subject, statusResp.TotpEnabled)
+	}
+}

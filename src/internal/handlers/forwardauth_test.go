@@ -49,3 +49,21 @@ func TestForwardAuthCheckRoute_ReturnsHandler(t *testing.T) {
 		t.Error("ForwardAuthCheckRoute(store) must not return nil")
 	}
 }
+
+// TestInitForwardAuthHandler_WithStepUpPaths verifies InitForwardAuthHandler runs with step-up paths
+// (covers parseStepUpPaths: comma-separated, trimmed).
+func TestInitForwardAuthHandler_WithStepUpPaths(t *testing.T) {
+	_ = os.Setenv("AUTH_HOST", "auth.test.com")
+	_ = os.Setenv("PASSWORDS", "plaintext:minimal")
+	_ = os.Setenv("STEP_UP_ENABLED", "true")
+	_ = os.Setenv("STEP_UP_PATHS", " /admin*, /api/secret*, ")
+	testLog := testLogger()
+	if err := config.Initialize(testLog); err != nil {
+		t.Fatalf("config.Initialize: %v", err)
+	}
+	InitForwardAuthHandler(testLog)
+	h := GetForwardAuthHandler()
+	if h == nil {
+		t.Error("GetForwardAuthHandler() must not be nil")
+	}
+}

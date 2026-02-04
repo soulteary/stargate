@@ -1299,6 +1299,67 @@ func TestGetUserInfo_InactiveUser(t *testing.T) {
 	testza.AssertNil(t, user, "should return nil for inactive user")
 }
 
+// TestGetUserInfo_WardenDisabled ensures GetUserInfo returns nil when Warden is disabled.
+func TestGetUserInfo_WardenDisabled(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "false")
+	err := config.Initialize(testLogger())
+	testza.AssertNoError(t, err)
+	// InitWardenClient sets the package-level logger so log.Debug() in GetUserInfo does not panic
+	InitWardenClient(testLogger())
+
+	user := GetUserInfo(context.Background(), "13800138000", "user@example.com")
+	testza.AssertNil(t, user, "should return nil when Warden is disabled")
+}
+
+// TestGetUserInfo_EmptyIdentifiers ensures GetUserInfo returns nil when both phone and mail are empty.
+func TestGetUserInfo_EmptyIdentifiers(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "http://localhost:9999")
+	ResetWardenClientForTesting()
+	err := config.Initialize(testLogger())
+	testza.AssertNoError(t, err)
+	InitWardenClient(testLogger())
+
+	user := GetUserInfo(context.Background(), "", "")
+	testza.AssertNil(t, user, "should return nil when both phone and mail are empty")
+}
+
+// TestGetUserInfo_WithContext ensures GetUserInfo works with a valid context (e.g. context.TODO()).
+func TestGetUserInfo_WithContext(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		user := struct {
+			Phone  string `json:"phone"`
+			Mail   string `json:"mail"`
+			UserID string `json:"user_id"`
+			Status string `json:"status"`
+		}{Phone: "13800138000", Mail: "u@ex.com", UserID: "u1", Status: "active"}
+		_ = json.NewEncoder(w).Encode(user)
+	}))
+	defer server.Close()
+
+	t.Setenv("WARDEN_URL", server.URL)
+	ResetWardenClientForTesting()
+	err := config.Initialize(testLogger())
+	testza.AssertNoError(t, err)
+	InitWardenClient(testLogger())
+
+	user := GetUserInfo(context.TODO(), "13800138000", "")
+	testza.AssertNotNil(t, user, "should return user with valid context")
+	testza.AssertEqual(t, "u1", user.UserID)
+}
+
 type panicContext struct{}
 
 func (panicContext) Deadline() (time.Time, bool) {

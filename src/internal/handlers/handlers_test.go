@@ -201,6 +201,51 @@ func TestLoginAPI_InvalidPassword(t *testing.T) {
 	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
 }
 
+// TestLoginAPI_WardenNoIdentifier ensures warden auth returns 400 when neither phone nor mail provided.
+func TestLoginAPI_WardenNoIdentifier(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	err := config.Initialize(testLogger())
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	handler := LoginAPI(store)
+
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "auth_method=warden")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+}
+
+// TestLoginAPI_WardenUserNotFound ensures warden auth returns 401 when GetUserInfo returns nil.
+func TestLoginAPI_WardenUserNotFound(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	// No WARDEN_URL so InitWardenClient will not have a real client; GetUserInfo returns nil
+	auth.ResetWardenClientForTesting()
+	err := config.Initialize(testLogger())
+	testza.AssertNoError(t, err)
+	auth.InitWardenClient(testLogger())
+
+	store := setupTestStore()
+	handler := LoginAPI(store)
+
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "auth_method=warden&phone=13800138000&mail=user@example.com")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
+}
+
 func TestLoginRoute_NotAuthenticated(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")

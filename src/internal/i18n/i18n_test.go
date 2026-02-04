@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
+	"github.com/gofiber/fiber/v2"
+	"github.com/valyala/fasthttp"
 )
 
 func TestTStatic_English_ExistingKey(t *testing.T) {
@@ -382,8 +384,58 @@ func TestTWithLang_AllLanguages_ConfigRequired(t *testing.T) {
 
 // TestGetBundle tests that GetBundle returns a non-nil bundle
 func TestGetBundle(t *testing.T) {
-	bundle := GetBundle()
-	testza.AssertNotNil(t, bundle, "bundle should not be nil")
+	b := GetBundle()
+	testza.AssertNotNil(t, b, "bundle should not be nil")
+}
+
+// TestT_WithFiberContext tests T() with Fiber context having i18n-bundle and i18n-language.
+func TestT_WithFiberContext(t *testing.T) {
+	app := fiber.New()
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+	ctx.Locals("i18n-bundle", GetBundle())
+	ctx.Locals("i18n-language", LangEN)
+
+	result := T(ctx, "error.auth_required")
+	testza.AssertEqual(t, "Authentication required", result)
+}
+
+// TestT_WithFiberContext_Chinese tests T() with language set to zh.
+func TestT_WithFiberContext_Chinese(t *testing.T) {
+	app := fiber.New()
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+	ctx.Locals("i18n-bundle", GetBundle())
+	ctx.Locals("i18n-language", LangZH)
+
+	result := T(ctx, "error.auth_required")
+	testza.AssertEqual(t, "需要身份验证", result)
+}
+
+// TestTf_WithFiberContext tests Tf() with Fiber context.
+func TestTf_WithFiberContext(t *testing.T) {
+	app := fiber.New()
+	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+	defer app.ReleaseCtx(ctx)
+	ctx.Locals("i18n-bundle", GetBundle())
+	ctx.Locals("i18n-language", LangEN)
+
+	result := Tf(ctx, "error.config_invalid", "TEST_VAR", "invalid-value")
+	testza.AssertContains(t, result, "TEST_VAR")
+	testza.AssertContains(t, result, "invalid-value")
+	testza.AssertContains(t, result, "Configuration error")
+}
+
+// TestSetLanguage_GetLanguage tests SetLanguage and GetLanguage.
+func TestSetLanguage_GetLanguage(t *testing.T) {
+	prev := GetLanguage()
+	defer SetLanguage(prev)
+
+	SetLanguage(LangZH)
+	testza.AssertEqual(t, LangZH, GetLanguage())
+
+	SetLanguage(LangEN)
+	testza.AssertEqual(t, LangEN, GetLanguage())
 }
 
 // TestLanguageConstants tests that language constants are correctly defined
