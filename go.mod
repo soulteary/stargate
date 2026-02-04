@@ -11,25 +11,25 @@ require (
 	github.com/pterm/pterm v0.12.82
 	github.com/redis/go-redis/v9 v9.17.3
 	github.com/rs/zerolog v1.34.0
-	github.com/soulteary/audit-kit v1.0.0
-	github.com/soulteary/cli-kit v1.2.1
+	github.com/soulteary/audit-kit v1.1.0
+	github.com/soulteary/cli-kit v1.3.1
 	github.com/soulteary/forwardauth-kit v1.0.0
 	github.com/soulteary/health-kit v1.0.0
-	github.com/soulteary/herald v0.4.3
+	github.com/soulteary/herald v0.5.3
 	github.com/soulteary/i18n-kit v1.0.0
-	github.com/soulteary/logger-kit v1.1.0
-	github.com/soulteary/metrics-kit v1.0.0
+	github.com/soulteary/logger-kit v1.2.0
+	github.com/soulteary/metrics-kit v1.1.0
 	github.com/soulteary/middleware-kit v1.1.0
 	github.com/soulteary/redis-kit v1.0.1
-	github.com/soulteary/secure-kit v1.1.1
+	github.com/soulteary/secure-kit v1.2.0
 	github.com/soulteary/session-kit v1.1.2
 	github.com/soulteary/tracing-kit v1.0.1
 	github.com/soulteary/version-kit v1.0.1
 	github.com/soulteary/warden v0.9.3
 	github.com/stretchr/testify v1.11.1
 	github.com/valyala/fasthttp v1.69.0
-	go.opentelemetry.io/otel v1.39.0
-	go.opentelemetry.io/otel/trace v1.39.0
+	go.opentelemetry.io/otel v1.40.0
+	go.opentelemetry.io/otel/trace v1.40.0
 	golang.org/x/crypto v0.47.0 // indirect
 )
 
@@ -72,18 +72,18 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.39.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.39.0 // indirect
-	go.opentelemetry.io/otel/metric v1.39.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.39.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.40.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.40.0 // indirect
+	go.opentelemetry.io/otel/metric v1.40.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.40.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.9.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.3 // indirect
 	golang.org/x/net v0.49.0 // indirect
 	golang.org/x/sys v0.40.0 // indirect
 	golang.org/x/term v0.39.0 // indirect
 	golang.org/x/text v0.33.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20260128011058-8636f8732409 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260128011058-8636f8732409 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20260203192932-546029d2fa20 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260203192932-546029d2fa20 // indirect
 	google.golang.org/grpc v1.78.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
