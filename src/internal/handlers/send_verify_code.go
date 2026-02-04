@@ -128,8 +128,27 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 				channel = "dingtalk"
 				destination = strings.TrimSpace(userInfo.Phone)
 			} else {
-				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User requested DingTalk but account has no dingtalk_userid or phone")
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), "dingtalk_not_bound")
+				// 用户选择了钉钉但账号未绑定钉钉且无手机号：回退到短信或邮箱发送，允许用户用手机/邮箱输入的方式获取验证码
+				hasPhone := strings.TrimSpace(userInfo.Phone) != "" || userPhone != ""
+				hasMail := strings.TrimSpace(userInfo.Mail) != "" || userMail != ""
+				if config.LoginSMSEnabled.ToBool() && hasPhone {
+					channel = "sms"
+					if userInfo.Phone != "" {
+						destination = userInfo.Phone
+					} else {
+						destination = userPhone
+					}
+				} else if config.LoginEmailEnabled.ToBool() && hasMail {
+					channel = "email"
+					if userInfo.Mail != "" {
+						destination = userInfo.Mail
+					} else {
+						destination = userMail
+					}
+				} else {
+					log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User requested DingTalk but account has no dingtalk_userid or phone, and SMS/email fallback not available")
+					return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), "dingtalk_not_bound")
+				}
 			}
 		} else {
 			// Respect deliver_via for sms vs email; default: phone if present else mail
@@ -169,6 +188,32 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 					channel = "email"
 					destination = userMail
 				}
+			}
+		}
+
+		// Enforce LOGIN_SMS_ENABLED / LOGIN_EMAIL_ENABLED: reject or fallback
+		if channel == "sms" && !config.LoginSMSEnabled.ToBool() {
+			if config.LoginEmailEnabled.ToBool() && (userInfo.Mail != "" || userMail != "") {
+				channel = "email"
+				if userInfo.Mail != "" {
+					destination = userInfo.Mail
+				} else {
+					destination = userMail
+				}
+			} else {
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_sms_disabled"), "channel_disabled")
+			}
+		}
+		if channel == "email" && !config.LoginEmailEnabled.ToBool() {
+			if config.LoginSMSEnabled.ToBool() && (userInfo.Phone != "" || userPhone != "") {
+				channel = "sms"
+				if userInfo.Phone != "" {
+					destination = userInfo.Phone
+				} else {
+					destination = userPhone
+				}
+			} else {
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_email_disabled"), "channel_disabled")
 			}
 		}
 
