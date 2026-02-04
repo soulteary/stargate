@@ -22,45 +22,18 @@ src/
 │   └── constants.go       # Routen- und Konfigurationskonstanten
 │
 ├── internal/              # Interne Pakete (nicht extern verfügbar)
-│   ├── auth/              # Authentifizierungslogik
-│   │   ├── auth.go        # Hauptauthentifizierungsfunktionalität
-│   │   └── auth_test.go   # Authentifizierungstests
-│   │
-│   ├── config/            # Konfigurationsverwaltung
-│   │   ├── config.go      # Konfigurationsvariablen-Definitionen und Initialisierung
-│   │   ├── validation.go  # Konfigurationsvalidierungslogik
-│   │   └── config_test.go # Konfigurationstests
-│   │
-│   ├── handlers/          # HTTP-Anfragehandler
-│   │   ├── check.go       # Authentifizierungsprüfungs-Handler
-│   │   ├── login.go       # Login-Handler
-│   │   ├── logout.go      # Logout-Handler
-│   │   ├── session_share.go # Sitzungsfreigabe-Handler
-│   │   ├── health.go       # Gesundheitsprüfungs-Handler
-│   │   ├── index.go       # Root-Pfad-Handler
-│   │   ├── utils.go       # Handler-Hilfsfunktionen
-│   │   └── handlers_test.go # Handler-Tests
-│   │
+│   ├── auditlog/          # Audit-Protokollierung
+│   ├── auth/              # Authentifizierungslogik (Passwortprüfung, Sitzung, Warden-Client)
+│   ├── config/            # Konfigurationsverwaltung (Umgebungsvariablen, Validierung, Step-up)
+│   ├── handlers/          # HTTP-Anfragehandler (forwardAuth, Login, Logout, Verifizierungscode, TOTP usw.)
+│   ├── heraldtotp/        # Herald-TOTP-Client
 │   ├── i18n/              # Internationalisierungsunterstützung
-│   │   └── i18n.go        # Mehrsprachige Übersetzungen
-│   │
-│   ├── middleware/        # HTTP-Middleware
-│   │   └── log.go         # Protokollierungs-Middleware
-│   │
-│   ├── secure/            # Passwort-Verschlüsselungsalgorithmen
-│   │   ├── interface.go   # Verschlüsselungsalgorithmus-Interface
-│   │   ├── plaintext.go   # Klartext-Passwort (nur für Tests)
-│   │   ├── bcrypt.go      # BCrypt-Algorithmus
-│   │   ├── md5.go         # MD5-Algorithmus
-│   │   ├── sha512.go      # SHA512-Algorithmus
-│   │   └── secure_test.go # Verschlüsselungsalgorithmus-Tests
-│   │
-│   └── web/               # Web-Ressourcen
-│       └── templates/     # HTML-Vorlagen
-│           ├── login.html # Login-Seitenvorlage
-│           └── assets/   # Statische Ressourcen
-│               └── favicon.ico
+│   ├── metrics/           # Prometheus-Metriken
+│   ├── tracing/           # OpenTelemetry-Tracing-Middleware
+│   └── web/               # Web-Ressourcen und HTML-Vorlagen
 ```
+
+Passwort- und Sicherheitslogik werden von `config` (Algorithmuskonfiguration), `auth` (Prüfung und Sitzung) und externen Paketen (z. B. secure-kit, session-kit) bereitgestellt. Es gibt keine separaten Verzeichnisse `internal/secure` oder `internal/middleware`.
 
 ## Hauptkomponenten
 
@@ -106,20 +79,9 @@ Die Handler sind verantwortlich für die Verarbeitung von HTTP-Anfragen:
 - **HealthRoute**: Gesundheitsprüfung
 - **IndexRoute**: Root-Pfad-Verarbeitung
 
-### 4. Passwort-Verschlüsselung (`internal/secure`)
+### 4. Passwort und Sicherheit
 
-Unterstützt mehrere Passwort-Verschlüsselungsalgorithmen:
-- `plaintext`: Klartext (nur für Tests)
-- `bcrypt`: BCrypt-Hash
-- `md5`: MD5-Hash
-- `sha512`: SHA512-Hash
-
-Alle Algorithmen implementieren das `HashResolver`-Interface:
-```go
-type HashResolver interface {
-    Check(h string, password string) bool
-}
-```
+Die Passwortprüfung erfolgt durch `internal/auth` zusammen mit `internal/config`: Die Konfiguration legt den Algorithmus (z. B. plaintext, bcrypt, md5, sha512) und die Passwortliste fest; auth nutzt externe Fähigkeiten wie secure-kit zur Prüfung. Sitzung und Authentifizierungsstatus werden von session-kit bereitgestellt.
 
 ## Systemarchitektur
 

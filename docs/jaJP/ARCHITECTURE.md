@@ -22,45 +22,18 @@ src/
 │   └── constants.go       # ルートと設定の定数
 │
 ├── internal/              # 内部パッケージ（外部に公開されない）
-│   ├── auth/              # 認証ロジック
-│   │   ├── auth.go        # 認証の主要機能
-│   │   └── auth_test.go   # 認証テスト
-│   │
-│   ├── config/            # 設定管理
-│   │   ├── config.go      # 設定変数の定義と初期化
-│   │   ├── validation.go  # 設定検証ロジック
-│   │   └── config_test.go # 設定テスト
-│   │
-│   ├── handlers/          # HTTP リクエストハンドラー
-│   │   ├── check.go       # 認証チェックハンドラー
-│   │   ├── login.go       # ログインハンドラー
-│   │   ├── logout.go      # ログアウトハンドラー
-│   │   ├── session_share.go # セッション共有ハンドラー
-│   │   ├── health.go      # ヘルスチェックハンドラー
-│   │   ├── index.go       # ルートパスハンドラー
-│   │   ├── utils.go       # ハンドラーユーティリティ関数
-│   │   └── handlers_test.go # ハンドラーテスト
-│   │
+│   ├── auditlog/          # 監査ログ
+│   ├── auth/              # 認証ロジック（パスワード検証、セッション、Warden クライアント）
+│   ├── config/            # 設定管理（環境変数、検証、ステップアップ）
+│   ├── handlers/          # HTTP リクエストハンドラー（forwardAuth、ログイン、ログアウト、確認コード、TOTP 等）
+│   ├── heraldtotp/        # Herald TOTP クライアント
 │   ├── i18n/              # 国際化サポート
-│   │   └── i18n.go        # 多言語翻訳
-│   │
-│   ├── middleware/        # HTTP ミドルウェア
-│   │   └── log.go         # ログミドルウェア
-│   │
-│   ├── secure/            # パスワード暗号化アルゴリズム
-│   │   ├── interface.go   # 暗号化アルゴリズムインターフェース
-│   │   ├── plaintext.go   # プレーンテキストパスワード（テストのみ）
-│   │   ├── bcrypt.go      # BCrypt アルゴリズム
-│   │   ├── md5.go         # MD5 アルゴリズム
-│   │   ├── sha512.go      # SHA512 アルゴリズム
-│   │   └── secure_test.go # 暗号化アルゴリズムテスト
-│   │
-│   └── web/               # Web リソース
-│       └── templates/     # HTML テンプレート
-│           ├── login.html # ログインページテンプレート
-│           └── assets/   # 静的リソース
-│               └── favicon.ico
+│   ├── metrics/           # Prometheus メトリクス
+│   ├── tracing/           # OpenTelemetry トレーシングミドルウェア
+│   └── web/               # Web リソースと HTML テンプレート
 ```
+
+パスワードとセキュリティのロジックは、`config`（アルゴリズム設定）、`auth`（検証とセッション）、および外部パッケージ（secure-kit、session-kit 等）により提供されます。`internal/secure` や `internal/middleware` のディレクトリはありません。
 
 ## 主要コンポーネント
 
@@ -106,20 +79,9 @@ src/
 - **HealthRoute**: ヘルスチェック
 - **IndexRoute**: ルートパスの処理
 
-### 4. パスワード暗号化 (`internal/secure`)
+### 4. パスワードとセキュリティ
 
-複数のパスワード暗号化アルゴリズムをサポート：
-- `plaintext`: プレーンテキスト（テストのみ）
-- `bcrypt`: BCrypt ハッシュ
-- `md5`: MD5 ハッシュ
-- `sha512`: SHA512 ハッシュ
-
-すべてのアルゴリズムは `HashResolver` インターフェースを実装します：
-```go
-type HashResolver interface {
-    Check(h string, password string) bool
-}
-```
+パスワード検証は `internal/auth` と `internal/config` で行われます。設定でアルゴリズム（plaintext、bcrypt、md5、sha512 等）とパスワードリストを指定し、auth は secure-kit 等の外部機能で検証します。セッションと認証状態は session-kit により提供されます。
 
 ## システムアーキテクチャ
 

@@ -217,3 +217,66 @@ func TestSendVerifyCodeAPI_Success(t *testing.T) {
 	testza.AssertEqual(t, "login", receivedRequest.Purpose)
 	testza.AssertEqual(t, "fr-FR", receivedRequest.Locale)
 }
+
+// TestSendVerifyCodeAPI_IdempotencyKeyPassthrough verifies that Idempotency-Key request header is forwarded to Herald.
+func TestSendVerifyCodeAPI_IdempotencyKeyPassthrough(t *testing.T) {
+	setupSendVerifyCodeBaseEnv(t)
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	wardenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := struct {
+			Phone  string `json:"phone"`
+			Mail   string `json:"mail"`
+			UserID string `json:"user_id"`
+			Status string `json:"status"`
+		}{
+			Phone:  "13800138000",
+			Mail:   "user@example.com",
+			UserID: "",
+			Status: "active",
+		}
+		_ = json.NewEncoder(w).Encode(user)
+	}))
+	defer wardenServer.Close()
+
+	var receivedIdempotencyKey string
+	heraldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/otp/challenges" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		receivedIdempotencyKey = r.Header.Get("Idempotency-Key")
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(herald.CreateChallengeResponse{
+			ChallengeID:  "ch-idem",
+			ExpiresIn:    300,
+			NextResendIn: 60,
+		})
+	}))
+	defer heraldServer.Close()
+
+	t.Setenv("WARDEN_URL", wardenServer.URL)
+	t.Setenv("HERALD_URL", heraldServer.URL)
+	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	err := config.Initialize(testLog)
+	testza.AssertNoError(t, err)
+	auth.InitWardenClient(testLog)
+	InitHeraldClient(testLog)
+
+	app := fiber.New()
+	app.Post("/_send_verify_code", SendVerifyCodeAPI())
+
+	idemKey := "req-uuid-12345"
+	req := httptest.NewRequest("POST", "/_send_verify_code", strings.NewReader("phone=13800138000"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Idempotency-Key", idemKey)
+
+	resp, err := app.Test(req)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+	testza.AssertEqual(t, idemKey, receivedIdempotencyKey, "Idempotency-Key should be forwarded to Herald")
+}

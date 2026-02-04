@@ -190,14 +190,20 @@ curl -X POST \
 
 検証コード送信リクエスト。このエンドポイントは、Warden + Herald OTP認証フローで使用されます。
 
+#### リクエストヘッダー（任意）
+
+| ヘッダー | 説明 |
+|----------|------|
+| `Idempotency-Key` | 任意。指定した場合、Stargate が Herald に転送する。Herald は TTL 内で同じ key の重複リクエストに同じ challenge 応答を返す。 |
+
 #### リクエストボディ
 
 フォームデータ (`application/x-www-form-urlencoded`) または JSON (`application/json`) :
 
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
-| `user_phone` | String | いいえ | ユーザーの電話番号 (`user_phone` または `user_mail` のいずれか) |
-| `user_mail` | String | いいえ | ユーザーのメール (`user_phone` または `user_mail` のいずれか) |
+| `phone` | String | いいえ | ユーザーの電話番号 (`phone` または `mail` のいずれか) |
+| `mail` | String | いいえ | ユーザーのメール (`phone` または `mail` のいずれか) |
 
 #### 処理フロー
 
@@ -232,7 +238,7 @@ curl -X POST \
 
 | ステータスコード | 説明 | レスポンスボディ |
 |-----------------|------|------------------|
-| `400 Bad Request` | 無効なリクエストパラメータ（user_phoneまたはuser_mailが欠落） | エラーメッセージ |
+| `400 Bad Request` | 無効なリクエストパラメータ（phoneまたはmailが欠落） | エラーメッセージ |
 | `404 Not Found` | ユーザーがWardenホワイトリストに存在しない | エラーメッセージ |
 | `429 Too Many Requests` | レート制限がトリガーされた | エラーメッセージ |
 | `500 Internal Server Error` | サーバーエラーまたはHeraldサービスが利用不可 | エラーメッセージ |
@@ -242,20 +248,20 @@ curl -X POST \
 ```bash
 # 検証コードを送信（メールを使用）
 curl -X POST \
-     -d "user_mail=user@example.com" \
+     -d "mail=user@example.com" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # 検証コードを送信（電話を使用）
 curl -X POST \
-     -d "user_phone=13800138000" \
+     -d "phone=13800138000" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # JSON形式を使用
 curl -X POST \
      -H "Content-Type: application/json" \
-     -d '{"user_mail":"user@example.com"}' \
+     -d '{"mail":"user@example.com"}' \
      http://auth.example.com/_send_verify_code
 ```
 

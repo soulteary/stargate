@@ -14,7 +14,6 @@ import (
 	"github.com/gofiber/fiber/v2/utils"
 	"github.com/gofiber/template/html"
 	"github.com/redis/go-redis/v9"
-	"github.com/soulteary/cli-kit/env"
 	health "github.com/soulteary/health-kit"
 	i18nkit "github.com/soulteary/i18n-kit"
 	logger "github.com/soulteary/logger-kit"
@@ -339,13 +338,11 @@ func createApp() *fiber.App {
 // Returns an error if the server cannot be started.
 func startServer(app *fiber.App) error {
 	port := DefaultPort
-	// Support overriding default port via PORT environment variable (for local testing)
-	// Use cli-kit env.GetTrimmed for consistent handling
-	if envPort := env.GetTrimmed("PORT", ""); envPort != "" {
-		if !strings.HasPrefix(envPort, ":") {
-			port = ":" + envPort
+	if configPort := config.Port.String(); configPort != "" {
+		if !strings.HasPrefix(configPort, ":") {
+			port = ":" + configPort
 		} else {
-			port = envPort
+			port = configPort
 		}
 		log.Info().Str("port", port).Msg("Using custom port from PORT environment variable")
 	}

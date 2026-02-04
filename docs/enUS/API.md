@@ -143,8 +143,8 @@ Form data (`application/x-www-form-urlencoded`):
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `auth_method` | String | Yes | Authentication method, value is `warden` |
-| `user_phone` | String | No | User phone number (one of `user_phone` or `user_mail`) |
-| `user_mail` | String | No | User email (one of `user_phone` or `user_mail`) |
+| `phone` | String | No | User phone number (one of `phone` or `mail`) |
+| `mail` | String | No | User email (one of `phone` or `mail`) |
 | `challenge_id` | String | Yes | challenge_id returned by Herald |
 | `code` | String | Yes | Verification code entered by user |
 | `callback` | String | No | Callback URL after successful login |
@@ -203,7 +203,7 @@ curl -X POST \
 ```bash
 # Submit login form (with verification code)
 curl -X POST \
-     -d "auth_method=warden&user_mail=user@example.com&challenge_id=ch_xxx&code=123456&callback=app.example.com" \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -223,14 +223,26 @@ curl -X POST \
 
 Send verification code request. This endpoint is used in the Warden + Herald OTP authentication flow.
 
+#### Request Headers (optional)
+
+| Header | Description |
+|--------|-------------|
+| `Idempotency-Key` | Optional. If present, Stargate forwards it to Herald; Herald returns the same challenge response for duplicate requests with the same key within TTL. |
+
 #### Request Body
 
 Form data (`application/x-www-form-urlencoded`) or JSON (`application/json`):
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `user_phone` | String | No | User phone number (one of `user_phone` or `user_mail`) |
-| `user_mail` | String | No | User email (one of `user_phone` or `user_mail`) |
+| `phone` | String | No | User phone number (one of `phone` or `mail`) |
+| `mail` | String | No | User email (one of `phone` or `mail`) |
+
+#### Request Headers (optional)
+
+| Header | Description |
+|--------|-------------|
+| `Idempotency-Key` | Passed through to Herald; same key within TTL returns cached challenge (no duplicate send). Omit for each new send. |
 
 #### Processing Flow
 
@@ -265,7 +277,7 @@ Form data (`application/x-www-form-urlencoded`) or JSON (`application/json`):
 
 | Status Code | Description | Response Body |
 |-------------|-------------|---------------|
-| `400 Bad Request` | Invalid request parameters (missing user_phone or user_mail) | Error message |
+| `400 Bad Request` | Invalid request parameters (missing phone or mail) | Error message |
 | `404 Not Found` | User not in Warden whitelist | Error message |
 | `429 Too Many Requests` | Rate limit triggered | Error message |
 | `500 Internal Server Error` | Server error or Herald service unavailable | Error message |
@@ -275,20 +287,20 @@ Form data (`application/x-www-form-urlencoded`) or JSON (`application/json`):
 ```bash
 # Send verification code (using email)
 curl -X POST \
-     -d "user_mail=user@example.com" \
+     -d "mail=user@example.com" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # Send verification code (using phone)
 curl -X POST \
-     -d "user_phone=13800138000" \
+     -d "phone=13800138000" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # Using JSON format
 curl -X POST \
      -H "Content-Type: application/json" \
-     -d '{"user_mail":"user@example.com"}' \
+     -d '{"mail":"user@example.com"}' \
      http://auth.example.com/_send_verify_code
 ```
 

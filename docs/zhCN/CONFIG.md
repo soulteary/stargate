@@ -136,7 +136,7 @@ DEBUG=true
 | **类型** | String |
 | **必需** | 否 |
 | **默认值** | `en` |
-| **可选值** | `en`（英文）, `zh`（中文） |
+| **可选值** | `en`（英文）, `zh`（中文）, `fr`（法语）, `it`（意大利语）, `ja`（日语）, `de`（德语）, `ko`（韩语） |
 
 **说明：**
 
@@ -252,13 +252,13 @@ COOKIE_DOMAIN=.example.com
 
 ### `PORT`
 
-服务监听端口（仅用于本地开发）。
+服务监听端口（仅用于本地开发）。由 config 包统一管理，与其它配置项一起通过环境变量加载与校验。
 
 | 属性 | 值 |
 |------|-----|
 | **类型** | String |
 | **必需** | 否 |
-| **默认值** | `80` |
+| **默认值** | 空（空时服务使用默认端口 `:80`） |
 
 **说明：**
 
@@ -837,7 +837,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 4. **多语言支持**：
    - 根据用户群体设置 `LANGUAGE`
-   - 支持 `en` 和 `zh`
+   - 支持 `en`、`zh`、`fr`、`it`、`ja`、`de`、`ko`
 
 5. **自定义界面**：
    - 使用 `LOGIN_PAGE_TITLE` 和 `LOGIN_PAGE_FOOTER_TEXT` 自定义登录页面

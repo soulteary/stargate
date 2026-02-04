@@ -252,13 +252,13 @@ Dopo aver impostato `COOKIE_DOMAIN=.example.com`:
 
 ### `PORT`
 
-Porta di ascolto del servizio (solo sviluppo locale).
+Porta di ascolto del servizio (solo sviluppo locale). Gestita dal package config insieme alle altre opzioni da variabili d'ambiente.
 
 | Attributo | Valore |
 |-----------|--------|
 | **Tipo** | String |
 | **Richiesto** | No |
-| **Predefinito** | `80` |
+| **Predefinito** | Vuoto (se vuoto, il server usa la porta predefinita `:80`) |
 
 **Descrizione:**
 

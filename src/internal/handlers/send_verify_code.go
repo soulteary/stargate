@@ -254,6 +254,10 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			attribute.String("herald.channel", channel),
 			attribute.String("herald.purpose", "login"),
 		)
+		// Pass through Idempotency-Key so Herald can deduplicate (CLAUDE.md §13.4)
+		if idemKey := ctx.Get("Idempotency-Key"); idemKey != "" {
+			heraldCtx = context.WithValue(heraldCtx, herald.IdempotencyKeyContextKey, idemKey)
+		}
 
 		createReq := &herald.CreateChallengeRequest{
 			UserID:      userID,
@@ -318,13 +322,17 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 			attribute.String("auth.result", "success"),
 		)
 
-		// Return success response with challenge_id
-		ctx.Set("Content-Type", "application/json")
-		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+		// Return success response with challenge_id and next_resend_in (for frontend resend cooldown)
+		resp := fiber.Map{
 			"success":      true,
 			"message":      i18n.T(ctx, "success.verify_code_sent"),
 			"challenge_id": createResp.ChallengeID,
 			"expires_in":   createResp.ExpiresIn,
-		})
+		}
+		if createResp.NextResendIn > 0 {
+			resp["next_resend_in"] = createResp.NextResendIn
+		}
+		ctx.Set("Content-Type", "application/json")
+		return ctx.Status(fiber.StatusOK).JSON(resp)
 	}
 }

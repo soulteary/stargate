@@ -190,14 +190,20 @@ curl -X POST \
 
 Richiesta di invio codice di verifica. Questo endpoint è utilizzato nel flusso di autenticazione OTP Warden + Herald.
 
+#### Intestazioni di Richiesta (opzionale)
+
+| Intestazione | Descrizione |
+|---------------|-------------|
+| `Idempotency-Key` | Opzionale. Se presente, Stargate la inoltra a Herald; Herald restituisce la stessa risposta di challenge per richieste duplicate con la stessa chiave entro la TTL. |
+
 #### Corpo della Richiesta
 
 Dati del form (`application/x-www-form-urlencoded`) o JSON (`application/json`) :
 
 | Campo | Tipo | Richiesto | Descrizione |
 |-------|------|-----------|-------------|
-| `user_phone` | String | No | Numero di telefono utente (uno tra `user_phone` o `user_mail`) |
-| `user_mail` | String | No | Email utente (uno tra `user_phone` o `user_mail`) |
+| `phone` | String | No | Numero di telefono utente (uno tra `phone` o `mail`) |
+| `mail` | String | No | Email utente (uno tra `phone` o `mail`) |
 
 #### Flusso di Elaborazione
 
@@ -232,7 +238,7 @@ Dati del form (`application/x-www-form-urlencoded`) o JSON (`application/json`) 
 
 | Codice di Stato | Descrizione | Corpo della Risposta |
 |-----------------|-------------|----------------------|
-| `400 Bad Request` | Parametri richiesta non validi (manca user_phone o user_mail) | Messaggio di errore |
+| `400 Bad Request` | Parametri richiesta non validi (manca phone o mail) | Messaggio di errore |
 | `404 Not Found` | Utente non nella whitelist Warden | Messaggio di errore |
 | `429 Too Many Requests` | Limite di velocità attivato | Messaggio di errore |
 | `500 Internal Server Error` | Errore server o servizio Herald non disponibile | Messaggio di errore |
@@ -242,20 +248,20 @@ Dati del form (`application/x-www-form-urlencoded`) o JSON (`application/json`) 
 ```bash
 # Inviare codice di verifica (usando email)
 curl -X POST \
-     -d "user_mail=user@example.com" \
+     -d "mail=user@example.com" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # Inviare codice di verifica (usando telefono)
 curl -X POST \
-     -d "user_phone=13800138000" \
+     -d "phone=13800138000" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # Usando formato JSON
 curl -X POST \
      -H "Content-Type: application/json" \
-     -d '{"user_mail":"user@example.com"}' \
+     -d '{"mail":"user@example.com"}' \
      http://auth.example.com/_send_verify_code
 ```
 

@@ -252,13 +252,13 @@ Après avoir défini `COOKIE_DOMAIN=.example.com` :
 
 ### `PORT`
 
-Port d'écoute du service (développement local uniquement).
+Port d'écoute du service (développement local uniquement). Géré par le package config avec les autres options d'environnement.
 
 | Attribut | Valeur |
 |----------|--------|
 | **Type** | String |
 | **Requis** | Non |
-| **Par Défaut** | `80` |
+| **Par Défaut** | Vide (si vide, le serveur utilise le port par défaut `:80`) |
 
 **Description :**
 

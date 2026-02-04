@@ -136,7 +136,7 @@ Interface language.
 | **Type** | String |
 | **Required** | No |
 | **Default** | `en` |
-| **Possible Values** | `en` (English), `zh` (Chinese) |
+| **Possible Values** | `en` (English), `zh` (Chinese), `fr` (French), `it` (Italian), `ja` (Japanese), `de` (German), `ko` (Korean) |
 
 **Description:**
 
@@ -252,13 +252,13 @@ After setting `COOKIE_DOMAIN=.example.com`:
 
 ### `PORT`
 
-Service listening port (local development only).
+Service listening port (local development only). Managed by the config package along with other env-based options.
 
 | Attribute | Value |
 |-----------|-------|
 | **Type** | String |
 | **Required** | No |
-| **Default** | `80` |
+| **Default** | Empty (when empty, server uses default port `:80`) |
 
 **Description:**
 
@@ -837,7 +837,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 4. **Multi-Language Support**:
    - Set `LANGUAGE` according to user base
-   - Supports `en` and `zh`
+   - Supports `en`, `zh`, `fr`, `it`, `ja`, `de`, `ko`
 
 5. **Custom Interface**:
    - Use `LOGIN_PAGE_TITLE` and `LOGIN_PAGE_FOOTER_TEXT` to customize the login page

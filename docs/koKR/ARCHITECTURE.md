@@ -22,45 +22,18 @@ src/
 │   └── constants.go       # 라우트 및 설정 상수
 │
 ├── internal/              # 내부 패키지 (외부에 노출되지 않음)
-│   ├── auth/              # 인증 로직
-│   │   ├── auth.go        # 인증의 주요 기능
-│   │   └── auth_test.go   # 인증 테스트
-│   │
-│   ├── config/            # 설정 관리
-│   │   ├── config.go      # 설정 변수 정의 및 초기화
-│   │   ├── validation.go  # 설정 검증 로직
-│   │   └── config_test.go # 설정 테스트
-│   │
-│   ├── handlers/          # HTTP 요청 핸들러
-│   │   ├── check.go       # 인증 확인 핸들러
-│   │   ├── login.go       # 로그인 핸들러
-│   │   ├── logout.go      # 로그아웃 핸들러
-│   │   ├── session_share.go # 세션 공유 핸들러
-│   │   ├── health.go       # 헬스 체크 핸들러
-│   │   ├── index.go        # 루트 경로 핸들러
-│   │   ├── utils.go        # 핸들러 유틸리티 함수
-│   │   └── handlers_test.go # 핸들러 테스트
-│   │
+│   ├── auditlog/          # 감사 로깅
+│   ├── auth/              # 인증 로직 (비밀번호 검증, 세션, Warden 클라이언트)
+│   ├── config/            # 설정 관리 (환경 변수, 검증, 스텝업)
+│   ├── handlers/          # HTTP 요청 핸들러 (forwardAuth, 로그인, 로그아웃, 인증 코드, TOTP 등)
+│   ├── heraldtotp/        # Herald TOTP 클라이언트
 │   ├── i18n/              # 국제화 지원
-│   │   └── i18n.go        # 다국어 번역
-│   │
-│   ├── middleware/        # HTTP 미들웨어
-│   │   └── log.go         # 로그 미들웨어
-│   │
-│   ├── secure/            # 비밀번호 암호화 알고리즘
-│   │   ├── interface.go   # 암호화 알고리즘 인터페이스
-│   │   ├── plaintext.go    # 평문 비밀번호 (테스트만)
-│   │   ├── bcrypt.go       # BCrypt 알고리즘
-│   │   ├── md5.go          # MD5 알고리즘
-│   │   ├── sha512.go       # SHA512 알고리즘
-│   │   └── secure_test.go  # 암호화 알고리즘 테스트
-│   │
-│   └── web/               # 웹 리소스
-│       └── templates/     # HTML 템플릿
-│           ├── login.html # 로그인 페이지 템플릿
-│           └── assets/   # 정적 리소스
-│               └── favicon.ico
+│   ├── metrics/           # Prometheus 메트릭
+│   ├── tracing/           # OpenTelemetry 추적 미들웨어
+│   └── web/               # 웹 리소스 및 HTML 템플릿
 ```
+
+비밀번호 및 보안 로직은 `config`(알고리즘 설정), `auth`(검증 및 세션) 및 외부 패키지(secure-kit, session-kit 등)에서 제공됩니다. `internal/secure` 또는 `internal/middleware` 디렉터리는 없습니다.
 
 ## 주요 컴포넌트
 
@@ -106,20 +79,9 @@ src/
 - **HealthRoute**: 헬스 체크
 - **IndexRoute**: 루트 경로 처리
 
-### 4. 비밀번호 암호화 (`internal/secure`)
+### 4. 비밀번호 및 보안
 
-여러 비밀번호 암호화 알고리즘 지원:
-- `plaintext`: 평문 (테스트만)
-- `bcrypt`: BCrypt 해시
-- `md5`: MD5 해시
-- `sha512`: SHA512 해시
-
-모든 알고리즘은 `HashResolver` 인터페이스를 구현합니다:
-```go
-type HashResolver interface {
-    Check(h string, password string) bool
-}
-```
+비밀번호 검증은 `internal/auth`와 `internal/config`에서 수행됩니다. 설정에서 알고리즘(plaintext, bcrypt, md5, sha512 등)과 비밀번호 목록을 지정하고, auth는 secure-kit 등 외부 기능으로 검증합니다. 세션 및 인증 상태는 session-kit에서 제공합니다.
 
 ## 시스템 아키텍처
 

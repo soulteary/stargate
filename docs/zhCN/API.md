@@ -143,8 +143,8 @@ curl http://auth.example.com/_login?callback=app.example.com
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
 | `auth_method` | String | 是 | 认证方式，值为 `warden` |
-| `user_phone` | String | 否 | 用户手机号（与 `user_mail` 二选一） |
-| `user_mail` | String | 否 | 用户邮箱（与 `user_phone` 二选一） |
+| `phone` | String | 否 | 用户手机号（与 `mail` 二选一） |
+| `mail` | String | 否 | 用户邮箱（与 `phone` 二选一） |
 | `challenge_id` | String | 是 | Herald 返回的 challenge_id |
 | `code` | String | 是 | 用户输入的验证码 |
 | `callback` | String | 否 | 登录成功后的回调 URL |
@@ -203,7 +203,7 @@ curl -X POST \
 ```bash
 # 提交登录表单（使用验证码）
 curl -X POST \
-     -d "auth_method=warden&user_mail=user@example.com&challenge_id=ch_xxx&code=123456&callback=app.example.com" \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -223,14 +223,20 @@ curl -X POST \
 
 发送验证码请求。此端点用于 Warden + Herald OTP 认证流程。
 
+#### 请求头（可选）
+
+| 请求头 | 说明 |
+|--------|------|
+| `Idempotency-Key` | 可选。若提供，Stargate 会将其透传给 Herald；Herald 在 TTL 内对相同 key 的重复请求返回同一 challenge 响应。 |
+
 #### 请求体
 
 表单数据（`application/x-www-form-urlencoded`）或 JSON（`application/json`）：
 
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
-| `user_phone` | String | 否 | 用户手机号（与 `user_mail` 二选一） |
-| `user_mail` | String | 否 | 用户邮箱（与 `user_phone` 二选一） |
+| `phone` | String | 否 | 用户手机号（与 `mail` 二选一） |
+| `mail` | String | 否 | 用户邮箱（与 `phone` 二选一） |
 
 #### 处理流程
 
@@ -265,7 +271,7 @@ curl -X POST \
 
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
-| `400 Bad Request` | 请求参数错误（缺少 user_phone 或 user_mail） | 错误消息 |
+| `400 Bad Request` | 请求参数错误（缺少 phone 或 mail） | 错误消息 |
 | `404 Not Found` | 用户不在 Warden 白名单中 | 错误消息 |
 | `429 Too Many Requests` | 触发限流 | 错误消息 |
 | `500 Internal Server Error` | 服务器错误或 Herald 服务不可用 | 错误消息 |
@@ -275,20 +281,20 @@ curl -X POST \
 ```bash
 # 发送验证码（使用邮箱）
 curl -X POST \
-     -d "user_mail=user@example.com" \
+     -d "mail=user@example.com" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # 发送验证码（使用手机号）
 curl -X POST \
-     -d "user_phone=13800138000" \
+     -d "phone=13800138000" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # 使用 JSON 格式
 curl -X POST \
      -H "Content-Type: application/json" \
-     -d '{"user_mail":"user@example.com"}' \
+     -d '{"mail":"user@example.com"}' \
      http://auth.example.com/_send_verify_code
 ```
 

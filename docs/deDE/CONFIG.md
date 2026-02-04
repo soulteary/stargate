@@ -252,13 +252,13 @@ Nach dem Setzen von `COOKIE_DOMAIN=.example.com`:
 
 ### `PORT`
 
-Abhörport des Dienstes (nur für lokale Entwicklung).
+Abhörport des Dienstes (nur für lokale Entwicklung). Wird wie andere Optionen über die config-Paket-Umgebungsvariablen geladen und validiert.
 
 | Attribut | Wert |
 |----------|------|
 | **Typ** | String |
 | **Erforderlich** | Nein |
-| **Standard** | `80` |
+| **Standard** | Leer (wenn leer, verwendet der Server den Standardport `:80`) |
 
 **Beschreibung:**
 

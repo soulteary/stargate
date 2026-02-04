@@ -4,6 +4,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
@@ -311,54 +312,47 @@ func TestCreateApp_AllRoutesRegistered(t *testing.T) {
 }
 
 func TestStartServer_PortLogic_DefaultPort(t *testing.T) {
+	_ = os.Unsetenv("PORT")
 	setupTestConfig(t)
 
-	// Unset PORT to test default
-	_ = os.Unsetenv("PORT")
-
-	// Test the port logic from startServer function
 	port := DefaultPort
-	// PORT is unset, so port should remain DefaultPort
-	_ = os.Getenv("PORT")
-
+	if configPort := config.Port.String(); configPort != "" {
+		if !strings.HasPrefix(configPort, ":") {
+			port = ":" + configPort
+		} else {
+			port = configPort
+		}
+	}
 	testza.AssertEqual(t, ":80", port)
 }
 
 func TestStartServer_PortLogic_CustomPort(t *testing.T) {
+	t.Setenv("PORT", "8080")
 	setupTestConfig(t)
 
-	// Test with custom port
-	t.Setenv("PORT", "8080")
-
 	port := DefaultPort
-	if envPort := os.Getenv("PORT"); envPort != "" {
-		// Simulate the logic from startServer
-		if envPort[0] != ':' {
-			port = ":" + envPort
+	if configPort := config.Port.String(); configPort != "" {
+		if !strings.HasPrefix(configPort, ":") {
+			port = ":" + configPort
 		} else {
-			port = envPort
+			port = configPort
 		}
 	}
-
 	testza.AssertEqual(t, ":8080", port)
 }
 
 func TestStartServer_PortLogic_CustomPortWithColon(t *testing.T) {
+	t.Setenv("PORT", ":9090")
 	setupTestConfig(t)
 
-	// Test with custom port that already has colon
-	t.Setenv("PORT", ":9090")
-
 	port := DefaultPort
-	if envPort := os.Getenv("PORT"); envPort != "" {
-		// Simulate the logic from startServer
-		if envPort[0] != ':' {
-			port = ":" + envPort
+	if configPort := config.Port.String(); configPort != "" {
+		if !strings.HasPrefix(configPort, ":") {
+			port = ":" + configPort
 		} else {
-			port = envPort
+			port = configPort
 		}
 	}
-
 	testza.AssertEqual(t, ":9090", port)
 }
 

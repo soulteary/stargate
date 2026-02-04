@@ -190,14 +190,20 @@ curl -X POST \
 
 인증 코드 전송 요청. 이 엔드포인트는 Warden + Herald OTP 인증 흐름에서 사용됩니다.
 
+#### 요청 헤더 (선택)
+
+| 헤더 | 설명 |
+|------|------|
+| `Idempotency-Key` | 선택. 있으면 Stargate가 Herald로 전달하며, Herald는 TTL 내 동일 key 중복 요청에 같은 challenge 응답을 반환한다. |
+
 #### 요청 본문
 
 폼 데이터 (`application/x-www-form-urlencoded`) 또는 JSON (`application/json`) :
 
 | 필드 | 유형 | 필수 | 설명 |
 |------|------|------|------|
-| `user_phone` | String | 아니오 | 사용자 전화번호 (`user_phone` 또는 `user_mail` 중 하나) |
-| `user_mail` | String | 아니오 | 사용자 이메일 (`user_phone` 또는 `user_mail` 중 하나) |
+| `phone` | String | 아니오 | 사용자 전화번호 (`phone` 또는 `mail` 중 하나) |
+| `mail` | String | 아니오 | 사용자 이메일 (`phone` 또는 `mail` 중 하나) |
 
 #### 처리 흐름
 
@@ -232,7 +238,7 @@ curl -X POST \
 
 | 상태 코드 | 설명 | 응답 본문 |
 |----------|------|----------|
-| `400 Bad Request` | 잘못된 요청 매개변수 (user_phone 또는 user_mail 누락) | 오류 메시지 |
+| `400 Bad Request` | 잘못된 요청 매개변수 (phone 또는 mail 누락) | 오류 메시지 |
 | `404 Not Found` | 사용자가 Warden 화이트리스트에 없음 | 오류 메시지 |
 | `429 Too Many Requests` | 속도 제한 트리거됨 | 오류 메시지 |
 | `500 Internal Server Error` | 서버 오류 또는 Herald 서비스 사용 불가 | 오류 메시지 |
@@ -242,20 +248,20 @@ curl -X POST \
 ```bash
 # 인증 코드 전송 (이메일 사용)
 curl -X POST \
-     -d "user_mail=user@example.com" \
+     -d "mail=user@example.com" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # 인증 코드 전송 (전화 사용)
 curl -X POST \
-     -d "user_phone=13800138000" \
+     -d "phone=13800138000" \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
 # JSON 형식 사용
 curl -X POST \
      -H "Content-Type: application/json" \
-     -d '{"user_mail":"user@example.com"}' \
+     -d '{"mail":"user@example.com"}' \
      http://auth.example.com/_send_verify_code
 ```
 

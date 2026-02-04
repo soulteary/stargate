@@ -80,6 +80,15 @@ var (
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
 
+	// Port is the service listening port (local development only). When empty, server uses default ":80".
+	Port = EnvVariable{
+		Name:           "PORT",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
 	WardenURL = EnvVariable{
 		Name:           "WARDEN_URL",
 		Required:       false,
@@ -374,7 +383,7 @@ func Initialize(l *logger.Logger) error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPBaseURL, &HeraldTOTPEnabled, &HeraldTOTPAPIKey, &HeraldTOTPHMACSecret, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPBaseURL, &HeraldTOTPEnabled, &HeraldTOTPAPIKey, &HeraldTOTPHMACSecret, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()

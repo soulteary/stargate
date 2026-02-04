@@ -22,45 +22,18 @@ src/
 │   └── constants.go       # Route and configuration constants
 │
 ├── internal/              # Internal packages (not exposed externally)
-│   ├── auth/              # Authentication logic
-│   │   ├── auth.go        # Authentication core functionality
-│   │   └── auth_test.go   # Authentication tests
-│   │
-│   ├── config/            # Configuration management
-│   │   ├── config.go      # Configuration variable definitions and initialization
-│   │   ├── validation.go  # Configuration validation logic
-│   │   └── config_test.go # Configuration tests
-│   │
-│   ├── handlers/          # HTTP request handlers
-│   │   ├── check.go       # Authentication check handler
-│   │   ├── login.go       # Login handler
-│   │   ├── logout.go      # Logout handler
-│   │   ├── session_share.go # Session sharing handler
-│   │   ├── health.go      # Health check handler
-│   │   ├── index.go       # Root path handler
-│   │   ├── utils.go       # Handler utility functions
-│   │   └── handlers_test.go # Handler tests
-│   │
+│   ├── auditlog/          # Audit logging
+│   ├── auth/              # Authentication logic (password check, session, Warden client)
+│   ├── config/            # Configuration management (env vars, validation, step-up)
+│   ├── handlers/          # HTTP request handlers (forwardAuth, login, logout, verify code, TOTP, etc.)
+│   ├── heraldtotp/        # Herald TOTP client
 │   ├── i18n/              # Internationalization support
-│   │   └── i18n.go        # Multi-language translations
-│   │
-│   ├── middleware/        # HTTP middleware
-│   │   └── log.go         # Logging middleware
-│   │
-│   ├── secure/            # Password encryption algorithms
-│   │   ├── interface.go   # Encryption algorithm interface
-│   │   ├── plaintext.go   # Plain text password (testing only)
-│   │   ├── bcrypt.go      # BCrypt algorithm
-│   │   ├── md5.go         # MD5 algorithm
-│   │   ├── sha512.go      # SHA512 algorithm
-│   │   └── secure_test.go # Encryption algorithm tests
-│   │
-│   └── web/               # Web resources
-│       └── templates/     # HTML templates
-│           ├── login.html # Login page template
-│           └── assets/   # Static resources
-│               └── favicon.ico
+│   ├── metrics/           # Prometheus metrics
+│   ├── tracing/           # OpenTelemetry tracing middleware
+│   └── web/               # Web resources and HTML templates
 ```
+
+Password and security logic is provided by `config` (algorithm configuration), `auth` (verification and session), and external packages (e.g. secure-kit, session-kit). There are no separate `internal/secure` or `internal/middleware` directories.
 
 ## Core Components
 
@@ -90,7 +63,7 @@ The configuration system provides:
 - `AUTH_HOST`: Authentication hostname (required)
 - `PASSWORDS`: Password configuration (algorithm:password list) (required, for password authentication mode)
 - `DEBUG`: Debug mode (default: false)
-- `LANGUAGE`: Interface language (default: en, supports en/zh)
+- `LANGUAGE`: Interface language (default: en, supports en/zh/fr/it/ja/de/ko)
 - `COOKIE_DOMAIN`: Cookie domain (optional, for cross-domain session sharing)
 - `LOGIN_PAGE_TITLE`: Login page title (default: Stargate - Login)
 - `LOGIN_PAGE_FOOTER_TEXT`: Login page footer text (default: Copyright © 2024 - Stargate)
@@ -132,20 +105,9 @@ Handlers are responsible for processing HTTP requests:
 - **Herald**: Uses `GET /healthz`. When Herald is enabled, Stargate's `/health` calls `HERALD_URL/healthz` to determine Herald availability.
 - **Warden**: Uses `GET /health`. When Warden is enabled, Stargate's `/health` calls `WARDEN_URL/health` to determine Warden availability.
 
-### 4. Password Encryption (`internal/secure`)
+### 4. Password and Security
 
-Supports multiple password encryption algorithms:
-- `plaintext`: Plain text (testing only)
-- `bcrypt`: BCrypt hash
-- `md5`: MD5 hash
-- `sha512`: SHA512 hash
-
-All algorithms implement the `HashResolver` interface:
-```go
-type HashResolver interface {
-    Check(h string, password string) bool
-}
-```
+Password verification is done by `internal/auth` together with `internal/config`: configuration specifies the algorithm (e.g. plaintext, bcrypt, md5, sha512) and password list; auth uses external capabilities such as secure-kit for verification. Session and authentication state are provided by session-kit.
 
 ## System Architecture
 

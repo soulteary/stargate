@@ -22,45 +22,18 @@ src/
 │   └── constants.go       # 路由和配置常量
 │
 ├── internal/              # 内部包（不对外暴露）
-│   ├── auth/              # 认证逻辑
-│   │   ├── auth.go        # 认证核心功能
-│   │   └── auth_test.go   # 认证测试
-│   │
-│   ├── config/            # 配置管理
-│   │   ├── config.go      # 配置变量定义和初始化
-│   │   ├── validation.go  # 配置验证逻辑
-│   │   └── config_test.go # 配置测试
-│   │
-│   ├── handlers/          # HTTP 请求处理器
-│   │   ├── check.go       # 认证检查处理器
-│   │   ├── login.go       # 登录处理器
-│   │   ├── logout.go      # 登出处理器
-│   │   ├── session_share.go # 会话共享处理器
-│   │   ├── health.go      # 健康检查处理器
-│   │   ├── index.go       # 根路径处理器
-│   │   ├── utils.go       # 处理器工具函数
-│   │   └── handlers_test.go # 处理器测试
-│   │
+│   ├── auditlog/          # 审计日志
+│   ├── auth/              # 认证逻辑（密码校验、会话、Warden 调用）
+│   ├── config/            # 配置管理（环境变量、验证、步进认证）
+│   ├── handlers/          # HTTP 请求处理器（forwardAuth、登录、登出、验证码、TOTP 等）
+│   ├── heraldtotp/        # Herald TOTP 客户端
 │   ├── i18n/              # 国际化支持
-│   │   └── i18n.go        # 多语言翻译
-│   │
-│   ├── middleware/        # HTTP 中间件
-│   │   └── log.go         # 日志中间件
-│   │
-│   ├── secure/            # 密码加密算法
-│   │   ├── interface.go   # 加密算法接口
-│   │   ├── plaintext.go   # 明文密码（仅测试）
-│   │   ├── bcrypt.go      # BCrypt 算法
-│   │   ├── md5.go         # MD5 算法
-│   │   ├── sha512.go      # SHA512 算法
-│   │   └── secure_test.go # 加密算法测试
-│   │
-│   └── web/               # Web 资源
-│       └── templates/     # HTML 模板
-│           ├── login.html # 登录页面模板
-│           └── assets/   # 静态资源
-│               └── favicon.ico
+│   ├── metrics/           # Prometheus 指标
+│   ├── tracing/           # OpenTelemetry 追踪中间件
+│   └── web/               # Web 资源与 HTML 模板
 ```
+
+密码与安全相关逻辑由 `config`（算法配置）、`auth`（校验与会话）及外部包（如 secure-kit、session-kit）提供，无独立 `internal/secure` 或 `internal/middleware` 目录。
 
 ## 核心组件
 
@@ -90,7 +63,7 @@ src/
 - `AUTH_HOST`: 认证主机名（必需）
 - `PASSWORDS`: 密码配置（算法:密码列表）（必需，密码认证模式）
 - `DEBUG`: 调试模式（默认：false）
-- `LANGUAGE`: 界面语言（默认：en，支持 en/zh）
+- `LANGUAGE`: 界面语言（默认：en，支持 en/zh/fr/it/ja/de/ko）
 - `COOKIE_DOMAIN`: Cookie 域名（可选，用于跨域会话共享）
 - `LOGIN_PAGE_TITLE`: 登录页面标题（默认：Stargate - Login）
 - `LOGIN_PAGE_FOOTER_TEXT`: 登录页面页脚文本（默认：Copyright © 2024 - Stargate）
@@ -132,20 +105,9 @@ src/
 - **Herald**：健康检查路径为 `GET /healthz`。当启用 Herald 时，Stargate 的 `/health` 会请求 `HERALD_URL/healthz` 以判断 Herald 是否可用。
 - **Warden**：健康检查路径为 `GET /health`。当启用 Warden 时，Stargate 的 `/health` 会请求 `WARDEN_URL/health` 以判断 Warden 是否可用。
 
-### 4. 密码加密 (`internal/secure`)
+### 4. 密码与安全
 
-支持多种密码加密算法：
-- `plaintext`: 明文（仅用于测试）
-- `bcrypt`: BCrypt 哈希
-- `md5`: MD5 哈希
-- `sha512`: SHA512 哈希
-
-所有算法实现 `HashResolver` 接口：
-```go
-type HashResolver interface {
-    Check(h string, password string) bool
-}
-```
+密码校验由 `internal/auth` 与 `internal/config` 配合完成：配置中指定算法（如 plaintext、bcrypt、md5、sha512）及密码列表，auth 使用外部 secure-kit 等能力进行校验。会话与认证状态由 session-kit 提供。
 
 ## 系统架构
 
