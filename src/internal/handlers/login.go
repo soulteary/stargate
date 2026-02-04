@@ -638,6 +638,16 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			proto = ctx.Protocol()
 		}
 		redirectURL := fmt.Sprintf("%s://%s/_session_exchange?id=%s", proto, callback, sessionID)
+		// When client accepts JSON (e.g. fetch with Accept: application/json), return 200 + redirect URL
+		// so the client can navigate; with redirect: 'manual', 302 Location is opaque and unreadable.
+		if strings.Contains(ctx.Get("Accept"), "application/json") {
+			ctx.Set("Content-Type", "application/json")
+			return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+				"success":  true,
+				"redirect": redirectURL,
+				"message":  i18n.T(ctx, "success.login"),
+			})
+		}
 		return ctx.Redirect(redirectURL)
 	}
 

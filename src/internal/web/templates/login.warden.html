@@ -468,7 +468,8 @@
               method: 'POST',
               body: formData,
               redirect: 'manual',
-              credentials: 'same-origin'
+              credentials: 'same-origin',
+              headers: { 'Accept': 'application/json' }
             });
             
             // 302/301/303/307/308: login success, redirect to callback's _session_exchange
@@ -487,9 +488,7 @@
                 const result = await response.json();
                 if (result.success) {
                   showSuccess('登录成功');
-                  setTimeout(() => {
-                    window.location.href = result.redirect || '/';
-                  }, 1000);
+                  window.location.href = result.redirect || '/';
                 }
               } else {
                 window.location.href = response.url || '/';

@@ -851,6 +851,46 @@ func TestLoginAPI_RedirectsToSessionExchange(t *testing.T) {
 	testza.AssertContains(t, location, sessionID)
 }
 
+// TestLoginAPI_WithCallback_AcceptJSON_Returns200WithRedirect tests that when client sends
+// Accept: application/json and login succeeds with callback, server returns 200 + JSON with redirect
+// (so fetch with redirect: 'manual' can read the URL and navigate; 302 Location is opaque).
+func TestLoginAPI_WithCallback_AcceptJSON_Returns200WithRedirect(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize(testLogger())
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	handler := LoginAPI(store)
+
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type":      "application/x-www-form-urlencoded",
+		"X-Forwarded-Host":  "app.example.com",
+		"X-Forwarded-Proto": "https",
+		"Host":              "auth.example.com",
+		"Accept":            "application/json",
+	}, "password=test123&callback=app.example.com")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+
+	contentType := string(ctx.Response().Header.Peek("Content-Type"))
+	testza.AssertContains(t, contentType, "application/json")
+
+	var result struct {
+		Success  bool   `json:"success"`
+		Redirect string `json:"redirect"`
+		Message  string `json:"message"`
+	}
+	err = json.Unmarshal(ctx.Response().Body(), &result)
+	testza.AssertNoError(t, err)
+	testza.AssertTrue(t, result.Success)
+	testza.AssertContains(t, result.Redirect, "app.example.com/_session_exchange")
+	testza.AssertContains(t, result.Redirect, "id=")
+}
+
 // TestLoginAPI_NoCallback_APIRequest tests that API request returns JSON when no callback
 func TestLoginAPI_NoCallback_APIRequest(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
