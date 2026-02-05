@@ -60,6 +60,43 @@ func TestGetValidPasswords_WithSpaces(t *testing.T) {
 	testza.AssertEqual(t, expectedPasswords, passwords, "passwords don't match")
 }
 
+func TestNormalizePhone(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"empty", "", ""},
+		{"trim", "  13800138000  ", "13800138000"},
+		{"spaces like auto-fill", "138 0013 8000", "13800138000"},
+		{"multiple spaces", "138  00  13  8000", "13800138000"},
+		{"NBSP", "138\u00a00013\u00a08000", "13800138000"},
+		{"dashes", "138-0013-8000", "13800138000"},
+		{"fullwidth hyphen", "138－0013－8000", "13800138000"},
+		{"mixed", " 138 - 0013 8000 ", "13800138000"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NormalizePhone(tt.input)
+			testza.AssertEqual(t, tt.expected, got)
+		})
+	}
+}
+
+func TestIsValidPhone(t *testing.T) {
+	valid := []string{"13800138000", "13900139000", "1234567890", "123456789012345"}
+	for _, s := range valid {
+		testza.AssertTrue(t, IsValidPhone(s), "should be valid: %q", s)
+	}
+	// 带空格的自动填充格式，规范化后应视为有效
+	testza.AssertTrue(t, IsValidPhone("138 0013 8000"), "normalized auto-fill format should be valid")
+
+	invalid := []string{"", "123", "123456789", "1234567890123456", "1380013800a", "138 0013 8000x"}
+	for _, s := range invalid {
+		testza.AssertFalse(t, IsValidPhone(s), "should be invalid: %q", s)
+	}
+}
+
 func TestCheckPassword_Plaintext_Success(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123|test456")

@@ -182,7 +182,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 
 	password := ctx.FormValue("password")
 	authMethod := ctx.FormValue("auth_method") // "password" or "warden"
-	userPhone := ctx.FormValue("phone")
+	userPhone := auth.NormalizePhone(ctx.FormValue("phone"))
 	userMail := ctx.FormValue("mail")
 
 	loginSpan.SetAttributes(
@@ -202,7 +202,11 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	var authenticated bool
 
 	if authMethod == "warden" {
-		// Warden user list authentication
+		// 手机号规范化后校验格式（如系统自动填充 "138 0013 8000" 已去空格，此处校验是否为有效号码）
+		if userPhone != "" && !auth.IsValidPhone(userPhone) {
+			tracing.RecordError(loginSpan, fmt.Errorf("invalid phone format"))
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.invalid_phone_format"))
+		}
 		// Check if at least one identifier is provided
 		if userPhone == "" && userMail == "" {
 			tracing.RecordError(loginSpan, fmt.Errorf("no identifier provided"))
