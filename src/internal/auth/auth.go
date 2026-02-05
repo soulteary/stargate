@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"github.com/pquerna/otp/totp"
 	logger "github.com/soulteary/logger-kit"
@@ -223,6 +224,34 @@ func safeContext(ctx context.Context) context.Context {
 	return safeCtx
 }
 
+// NormalizePhone 规范化手机号：去除首尾空白及中间空格、连字符等，便于与 Warden 比对。
+// 系统自动填充可能产生 "138 0013 8000" 这类带空格的格式，统一规范为纯数字再参与查询与校验。
+func NormalizePhone(phone string) string {
+	s := strings.TrimSpace(phone)
+	s = strings.ReplaceAll(s, " ", "")
+	s = strings.ReplaceAll(s, "\u00a0", "") // NBSP
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, "－", "") // 全角连字符
+	return s
+}
+
+// IsValidPhone 在规范化后校验是否为有效号码：仅包含数字且长度在合理范围内（如 10～15 位）。
+func IsValidPhone(phone string) bool {
+	s := NormalizePhone(phone)
+	if s == "" {
+		return false
+	}
+	if len(s) < 10 || len(s) > 15 {
+		return false
+	}
+	for _, r := range s {
+		if !unicode.IsDigit(r) {
+			return false
+		}
+	}
+	return true
+}
+
 // CheckUserInList checks if a user (by phone or mail) is in the Warden allow list.
 //
 // Parameters:
@@ -255,8 +284,8 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 		ctx = safeContext(ctx)
 	}
 
-	// Normalize input (trim spaces, lowercase mail)
-	phone = strings.TrimSpace(phone)
+	// Normalize input (phone: strip spaces/dashes; mail: trim + lowercase)
+	phone = NormalizePhone(phone)
 	mail = strings.TrimSpace(strings.ToLower(mail))
 
 	if phone == "" && mail == "" {
@@ -297,8 +326,8 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 		ctx = safeContext(ctx)
 	}
 
-	// Normalize input (trim spaces, lowercase mail)
-	phone = strings.TrimSpace(phone)
+	// Normalize input (phone: strip spaces/dashes; mail: trim + lowercase)
+	phone = NormalizePhone(phone)
 	mail = strings.TrimSpace(strings.ToLower(mail))
 
 	if phone == "" && mail == "" {

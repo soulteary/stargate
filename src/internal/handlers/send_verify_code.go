@@ -70,9 +70,13 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		sendCodeCtx, sendCodeSpan := tracing.StartSpan(spanCtx, "auth.send_verify_code")
 		defer sendCodeSpan.End()
 
-		userPhone := ctx.FormValue("phone")
+		userPhone := auth.NormalizePhone(ctx.FormValue("phone"))
 		userMail := ctx.FormValue("mail")
 
+		// 手机号规范化后校验格式（如系统自动填充 "138 0013 8000" 已去空格，此处校验是否为有效号码）
+		if userPhone != "" && !auth.IsValidPhone(userPhone) {
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.invalid_phone_format"), "invalid_phone_format")
+		}
 		// Check if at least one identifier is provided
 		if userPhone == "" && userMail == "" {
 			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "identifier_required")
