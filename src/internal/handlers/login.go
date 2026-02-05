@@ -144,6 +144,12 @@ func getHeraldTOTPClient() *heraldtotp.Client {
 	return heraldTOTPClient
 }
 
+// ResetHeraldTOTPClientForTest resets the Herald TOTP client and init state. Only for use in tests.
+func ResetHeraldTOTPClientForTest() {
+	heraldTOTPClient = nil
+	heraldTOTPClientInit = sync.Once{}
+}
+
 // generateUserID generates a user ID from phone/mail
 func generateUserID(phone, mail string) string {
 	identifier := phone

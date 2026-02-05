@@ -19,13 +19,13 @@ func TOTPRevokeRoute(store *session.Store) func(c *fiber.Ctx) error {
 		if !auth.IsAuthenticated(sess) {
 			return ctx.Redirect("/_login", fiber.StatusFound)
 		}
-		userID, _ := sess.Get("user_id").(string)
-		if userID == "" {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, "user_id not in session")
-		}
 		client := getHeraldTOTPClient()
 		if client == nil {
 			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable"))
+		}
+		userID, _ := sess.Get("user_id").(string)
+		if userID == "" {
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, "user_id not in session")
 		}
 		return ctx.Render("totp_revoke", fiber.Map{
 			"Title":             config.LoginPageTitle.Value,
@@ -45,13 +45,13 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c *fiber.Ctx) error {
 		if !auth.IsAuthenticated(sess) {
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "unauthorized"})
 		}
-		userID, _ := sess.Get("user_id").(string)
-		if userID == "" {
-			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "user_id not in session"})
-		}
 		client := getHeraldTOTPClient()
 		if client == nil {
 			return ctx.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"ok": false, "error": "TOTP service unavailable"})
+		}
+		userID, _ := sess.Get("user_id").(string)
+		if userID == "" {
+			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "user_id not in session"})
 		}
 		_, err = client.Revoke(ctx.Context(), userID)
 		if err != nil {
