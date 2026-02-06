@@ -771,6 +771,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		"HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool() && config.HeraldTOTPBaseURL.String() != "",
 		"LoginSMSEnabled":   config.LoginSMSEnabled.ToBool(),
 		"LoginEmailEnabled": config.LoginEmailEnabled.ToBool(),
+		"Debug":             config.Debug.ToBool(),
 	})
 }
 

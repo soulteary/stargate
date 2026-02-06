@@ -97,6 +97,12 @@
               >
               <button type="button" id="sendCodeBtn" class="btn-send-code" style="padding: 16px 24px; white-space: nowrap;">Send Code</button>
             </div>
+            {{if .Debug}}
+            <div id="debug-code-container" style="display: none; margin-top: 12px; padding: 12px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 8px;">
+              <div style="font-size: 0.875rem; color: #92400e;">调试验证码（仅开发环境）</div>
+              <div id="debug-code-value" style="font-family: monospace; font-size: 1.25rem; font-weight: 600; margin-top: 4px;"></div>
+            </div>
+            {{end}}
           </div>
           {{end}}
           {{if .OTPEnabled}}
@@ -150,6 +156,7 @@
       const otpEnabled = {{if .OTPEnabled}}true{{else}}false{{end}};
       const loginSMSEnabled = {{if .LoginSMSEnabled}}true{{else}}false{{end}};
       const loginEmailEnabled = {{if .LoginEmailEnabled}}true{{else}}false{{end}};
+      const debugMode = {{if .Debug}}true{{else}}false{{end}};
       let currentChallengeId = null;
       
       let countdownTimer = null;
@@ -233,6 +240,16 @@
               currentChallengeId = result.challenge_id;
               showSuccess('验证码已发送');
               hideError();
+              // Debug mode: show and autofill verification code when Herald returns debug_code
+              const debugContainer = document.getElementById('debug-code-container');
+              const debugValueEl = document.getElementById('debug-code-value');
+              if (debugMode && result.debug_code && debugContainer && debugValueEl && verifyCodeInput) {
+                debugValueEl.textContent = result.debug_code;
+                debugContainer.style.display = 'block';
+                verifyCodeInput.value = result.debug_code;
+              } else if (debugContainer) {
+                debugContainer.style.display = 'none';
+              }
             } else {
               // Handle error response (use reason when present for proper i18n mapping)
               let errorType = result.reason || 'send_failed';
