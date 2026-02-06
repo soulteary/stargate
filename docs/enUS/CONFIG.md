@@ -119,6 +119,7 @@ Enable debug mode.
 
 - When enabled, log level is set to `DEBUG`
 - Outputs more detailed debug information
+- When Herald is enabled, the verification code may be included in the `/_send_verify_code` response and displayed on the login page (e.g. "Verification code (debug): 123456") for easier local/testing—**never enable in production**
 - Recommended to set to `false` in production
 
 **Example:**

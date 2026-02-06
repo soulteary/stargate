@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -54,6 +55,44 @@ func getLocaleFromConfig() string {
 	default:
 		return "en-US"
 	}
+}
+
+// fetchTestCodeFromHerald fetches the verification code from Herald's test endpoint (GET /v1/test/code/:id).
+// Used only when DEBUG=true and Herald did not return debug_code in the create challenge response.
+// Returns the code or empty string on any error.
+func fetchTestCodeFromHerald(ctx context.Context, challengeID string) string {
+	baseURL := strings.TrimSuffix(config.HeraldURL.String(), "/")
+	if baseURL == "" || challengeID == "" {
+		return ""
+	}
+	url := baseURL + "/v1/test/code/" + challengeID
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return ""
+	}
+	if config.HeraldAPIKey.String() != "" {
+		req.Header.Set("X-API-Key", config.HeraldAPIKey.String())
+	}
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var result struct {
+		OK   bool   `json:"ok"`
+		Code string `json:"code"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return ""
+	}
+	if !result.OK || result.Code == "" {
+		return ""
+	}
+	return result.Code
 }
 
 // SendVerifyCodeAPI handles POST requests to /_send_verify_code for sending verification codes via Herald
@@ -335,6 +374,16 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		}
 		if createResp.NextResendIn > 0 {
 			resp["next_resend_in"] = createResp.NextResendIn
+		}
+		// Debug mode: include verification code for local/testing (only when DEBUG=true)
+		if config.Debug.ToBool() {
+			debugCode := createResp.DebugCode
+			if debugCode == "" {
+				debugCode = fetchTestCodeFromHerald(ctx.Context(), createResp.ChallengeID)
+			}
+			if debugCode != "" {
+				resp["debug_code"] = debugCode
+			}
 		}
 		ctx.Set("Content-Type", "application/json")
 		return ctx.Status(fiber.StatusOK).JSON(resp)

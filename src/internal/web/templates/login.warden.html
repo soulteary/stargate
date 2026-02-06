@@ -128,6 +128,7 @@
     <div id="success-container" class="success-container">
       <div class="success-icon">✓</div>
       <div class="success-message" id="success-message"></div>
+      <div id="debug-code-block" class="debug-code-block" style="display: none; margin-top: 12px; font-size: 0.875rem; color: #6b7280;">验证码（调试）：<strong id="debug-code-value"></strong></div>
     </div>
 
     <!-- Footer Note -->
@@ -231,7 +232,8 @@
             if (result.success) {
               // Store challenge_id for form submission
               currentChallengeId = result.challenge_id;
-              showSuccess('验证码已发送');
+              const debugCode = result.debug_code != null ? result.debug_code : (result.code != null ? result.code : null);
+              showSuccess('验证码已发送', debugCode);
               hideError();
             } else {
               // Handle error response (use reason when present for proper i18n mapping)
@@ -404,11 +406,13 @@
         }
       }
       
-      // Show success message
-      function showSuccess(message) {
+      // Show success message (optional debugCode: when DEBUG=true, verification code for debugging)
+      function showSuccess(message, debugCode) {
         const successContainer = document.getElementById('success-container');
         const successMessage = document.getElementById('success-message');
         const errorContainer = document.getElementById('error-container');
+        const debugCodeBlock = document.getElementById('debug-code-block');
+        const debugCodeValue = document.getElementById('debug-code-value');
         
         // Hide error container
         if (errorContainer) {
@@ -421,6 +425,15 @@
         }
         if (successMessage) {
           successMessage.textContent = message || '操作成功';
+        }
+        if (debugCodeBlock && debugCodeValue) {
+          if (debugCode) {
+            debugCodeValue.textContent = debugCode;
+            debugCodeBlock.style.display = 'block';
+          } else {
+            debugCodeValue.textContent = '';
+            debugCodeBlock.style.display = 'none';
+          }
         }
       }
 

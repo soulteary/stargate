@@ -273,6 +273,8 @@ Form data (`application/x-www-form-urlencoded`) or JSON (`application/json`):
 }
 ```
 
+When `DEBUG=true`, the response may also include `debug_code` (the verification code) so the login page can display it for local/testing. **Do not enable DEBUG in production.**
+
 **Failure Response**
 
 | Status Code | Description | Response Body |
@@ -311,6 +313,7 @@ curl -X POST \
 - Herald performs rate limiting, with frequency limits for same user/phone/email
 - Code expiration time is determined by Herald configuration (default 300 seconds)
 - Resend cooldown is determined by Herald configuration (default 60 seconds)
+- **Debug mode:** When `DEBUG=true`, Stargate includes the verification code in the response (from Herald's create response or via `GET /v1/test/code/:id`) and the login page displays it (e.g. "Verification code (debug): 123456"). Use only for local/testing; set `DEBUG=false` in production.
 
 ## Logout Endpoint
 

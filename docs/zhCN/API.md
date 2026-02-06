@@ -267,6 +267,8 @@ curl -X POST \
 }
 ```
 
+当 `DEBUG=true` 时，响应中可能额外包含 `debug_code`（验证码），便于登录页在本地/测试时直接展示。**生产环境请勿开启 DEBUG。**
+
 **失败响应**
 
 | 状态码 | 说明 | 响应体 |
@@ -305,6 +307,7 @@ curl -X POST \
 - Herald 会进行限流控制，同一用户/手机号/邮箱有发送频率限制
 - 验证码有效期由 Herald 配置决定（默认 300 秒）
 - 重发冷却时间由 Herald 配置决定（默认 60 秒）
+- **调试模式：** 当 `DEBUG=true` 时，Stargate 会在响应中附带验证码（来自 Herald 创建响应的 `debug_code` 或通过 `GET /v1/test/code/:id` 获取），登录页会展示「验证码（调试）：xxxxxx」。仅用于本地/测试，生产环境请设置 `DEBUG=false`。
 
 ## 登出端点
 

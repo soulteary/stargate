@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -351,4 +352,275 @@ func TestSendVerifyCodeAPI_LocaleFromConfig(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 	testza.AssertEqual(t, "de-DE", receivedLocale, "locale should come from getLocaleFromConfig when Accept-Language is not set")
+}
+
+// TestSendVerifyCodeAPI_DebugMode_IncludesDebugCodeWhenHeraldReturnsIt verifies that when DEBUG=true
+// and Herald create challenge response includes debug_code, the /_send_verify_code response includes it.
+func TestSendVerifyCodeAPI_DebugMode_IncludesDebugCodeWhenHeraldReturnsIt(t *testing.T) {
+	setupSendVerifyCodeBaseEnv(t)
+	t.Setenv("DEBUG", "true")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_API_KEY", "api-key")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	wardenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"phone": "13800138000", "mail": "user@example.com", "user_id": "", "status": "active",
+		})
+	}))
+	defer wardenServer.Close()
+
+	heraldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/otp/challenges" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(herald.CreateChallengeResponse{
+			ChallengeID:  "ch-debug",
+			ExpiresIn:    120,
+			NextResendIn: 30,
+			DebugCode:    "123456",
+		})
+	}))
+	defer heraldServer.Close()
+
+	t.Setenv("WARDEN_URL", wardenServer.URL)
+	t.Setenv("HERALD_URL", heraldServer.URL)
+	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	err := config.Initialize(testLog)
+	testza.AssertNoError(t, err)
+	auth.InitWardenClient(testLog)
+	InitHeraldClient(testLog)
+
+	app := fiber.New()
+	app.Post("/_send_verify_code", SendVerifyCodeAPI())
+
+	req := httptest.NewRequest("POST", "/_send_verify_code", strings.NewReader("phone=13800138000"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := app.Test(req)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+
+	var body struct {
+		Success     bool   `json:"success"`
+		ChallengeID string `json:"challenge_id"`
+		DebugCode   string `json:"debug_code"`
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	testza.AssertNoError(t, json.Unmarshal(bodyBytes, &body))
+	testza.AssertTrue(t, body.Success)
+	testza.AssertEqual(t, "ch-debug", body.ChallengeID)
+	testza.AssertEqual(t, "123456", body.DebugCode, "DEBUG=true and Herald returned debug_code: response must include debug_code")
+}
+
+// TestSendVerifyCodeAPI_DebugMode_FallbackGetTestCode verifies that when DEBUG=true and Herald
+// does not return debug_code in create response, Stargate falls back to GET /v1/test/code/:id.
+func TestSendVerifyCodeAPI_DebugMode_FallbackGetTestCode(t *testing.T) {
+	setupSendVerifyCodeBaseEnv(t)
+	t.Setenv("DEBUG", "true")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_API_KEY", "api-key")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	wardenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"phone": "13800138000", "mail": "user@example.com", "user_id": "", "status": "active",
+		})
+	}))
+	defer wardenServer.Close()
+
+	// Herald: POST /v1/otp/challenges returns no DebugCode; GET /v1/test/code/:id returns code
+	heraldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1/otp/challenges" && r.Method == http.MethodPost {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(herald.CreateChallengeResponse{
+				ChallengeID:  "ch-fallback",
+				ExpiresIn:    120,
+				NextResendIn: 30,
+				// DebugCode empty to trigger fallback
+			})
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/v1/test/code/") && r.Method == http.MethodGet {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{
+				"ok": true, "challenge_id": strings.TrimPrefix(r.URL.Path, "/v1/test/code/"), "code": "654321",
+			})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer heraldServer.Close()
+
+	t.Setenv("WARDEN_URL", wardenServer.URL)
+	t.Setenv("HERALD_URL", heraldServer.URL)
+	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	err := config.Initialize(testLog)
+	testza.AssertNoError(t, err)
+	auth.InitWardenClient(testLog)
+	InitHeraldClient(testLog)
+
+	app := fiber.New()
+	app.Post("/_send_verify_code", SendVerifyCodeAPI())
+
+	req := httptest.NewRequest("POST", "/_send_verify_code", strings.NewReader("phone=13800138000"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := app.Test(req)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+
+	var body struct {
+		Success     bool   `json:"success"`
+		ChallengeID string `json:"challenge_id"`
+		DebugCode   string `json:"debug_code"`
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	testza.AssertNoError(t, json.Unmarshal(bodyBytes, &body))
+	testza.AssertTrue(t, body.Success)
+	testza.AssertEqual(t, "ch-fallback", body.ChallengeID)
+	testza.AssertEqual(t, "654321", body.DebugCode, "DEBUG=true and fallback GET test/code: response must include debug_code")
+}
+
+// TestSendVerifyCodeAPI_NoDebugCodeWhenDebugFalse verifies that when DEBUG=false, the response
+// does not include debug_code even if Herald returns it (production safety).
+func TestSendVerifyCodeAPI_NoDebugCodeWhenDebugFalse(t *testing.T) {
+	setupSendVerifyCodeBaseEnv(t)
+	t.Setenv("DEBUG", "false")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_API_KEY", "api-key")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	wardenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"phone": "13800138000", "mail": "user@example.com", "user_id": "", "status": "active",
+		})
+	}))
+	defer wardenServer.Close()
+
+	heraldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/otp/challenges" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(herald.CreateChallengeResponse{
+			ChallengeID:  "ch-prod",
+			ExpiresIn:    120,
+			NextResendIn: 30,
+			DebugCode:    "999999",
+		})
+	}))
+	defer heraldServer.Close()
+
+	t.Setenv("WARDEN_URL", wardenServer.URL)
+	t.Setenv("HERALD_URL", heraldServer.URL)
+	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	err := config.Initialize(testLog)
+	testza.AssertNoError(t, err)
+	auth.InitWardenClient(testLog)
+	InitHeraldClient(testLog)
+
+	app := fiber.New()
+	app.Post("/_send_verify_code", SendVerifyCodeAPI())
+
+	req := httptest.NewRequest("POST", "/_send_verify_code", strings.NewReader("phone=13800138000"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := app.Test(req)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	var body map[string]interface{}
+	testza.AssertNoError(t, json.Unmarshal(bodyBytes, &body))
+	testza.AssertTrue(t, body["success"].(bool))
+	testza.AssertEqual(t, "ch-prod", body["challenge_id"])
+	_, hasKey := body["debug_code"]
+	testza.AssertFalse(t, hasKey, "DEBUG=false: response must not include debug_code")
+}
+
+// TestFetchTestCodeFromHerald tests the fallback GET /v1/test/code/:id helper.
+func TestFetchTestCodeFromHerald(t *testing.T) {
+	testLog := testLoggerSendVerifyCode()
+
+	// Success: server returns ok and code
+	t.Run("success", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			testza.AssertEqual(t, "/v1/test/code/ch-1", r.URL.Path)
+			testza.AssertEqual(t, http.MethodGet, r.Method)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "challenge_id": "ch-1", "code": "888888"})
+		}))
+		defer server.Close()
+
+		t.Setenv("HERALD_URL", server.URL)
+		err := config.Initialize(testLog)
+		testza.AssertNoError(t, err)
+
+		code := fetchTestCodeFromHerald(context.Background(), "ch-1")
+		testza.AssertEqual(t, "888888", code)
+	})
+
+	// Empty challengeID returns empty
+	t.Run("empty_challenge_id", func(t *testing.T) {
+		t.Setenv("HERALD_URL", "http://localhost:9999")
+		_ = config.Initialize(testLog)
+		code := fetchTestCodeFromHerald(context.Background(), "")
+		testza.AssertEqual(t, "", code)
+	})
+
+	// 404 or non-OK response returns empty
+	t.Run("non_ok_response", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		t.Setenv("HERALD_URL", server.URL)
+		_ = config.Initialize(testLog)
+		code := fetchTestCodeFromHerald(context.Background(), "ch-404")
+		testza.AssertEqual(t, "", code)
+	})
+
+	// API key is sent when configured
+	t.Run("sends_api_key", func(t *testing.T) {
+		var gotKey string
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			gotKey = r.Header.Get("X-API-Key")
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"ok": true, "code": "111111"})
+		}))
+		defer server.Close()
+
+		t.Setenv("HERALD_URL", server.URL)
+		t.Setenv("HERALD_API_KEY", "test-key")
+		_ = config.Initialize(testLog)
+		code := fetchTestCodeFromHerald(context.Background(), "ch-key")
+		testza.AssertEqual(t, "111111", code)
+		testza.AssertEqual(t, "test-key", gotKey)
+	})
 }
