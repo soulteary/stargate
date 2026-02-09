@@ -30,13 +30,12 @@
 
 **配置示例**:
 ```bash
-export MODE=production
 export AUTH_HOST=auth.example.com
 export PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 export COOKIE_DOMAIN=.example.com
-export COOKIE_SECURE=true
-export COOKIE_SAME_SITE=Strict
 ```
+
+**说明**：当前实现中 Cookie 的 Secure 由 `X-Forwarded-Proto` 等请求头推断，SameSite 固定为 `Lax`；未提供 `COOKIE_SECURE`、`COOKIE_SAME_SITE`、`SESSION_TTL` 等环境变量，详见 [CONFIG.md](CONFIG.md)。
 
 ### 2. 密码安全
 
@@ -60,19 +59,16 @@ export COOKIE_SAME_SITE=Strict
 
 ### 3. 会话安全
 
-**会话配置**:
+**会话配置**（以当前实现为准，完整配置项见 [CONFIG.md](CONFIG.md)）:
 - **Cookie 域名**: 设置 `COOKIE_DOMAIN` 以在子域之间共享会话
-- **Secure 标志**: 在生产环境中设置 `COOKIE_SECURE=true`（需要 HTTPS）
-- **SameSite**: 设置 `COOKIE_SAME_SITE=Strict` 以防止 CSRF 攻击
+- **Secure 标志**: 由反向代理/请求协议（如 `X-Forwarded-Proto: https`）推断，暂无 `COOKIE_SECURE` 环境变量
+- **SameSite**: 当前固定为 `Lax`，暂无 `COOKIE_SAME_SITE` 环境变量
 - **HttpOnly**: Cookie 自动设置为 HttpOnly 以防止 XSS 攻击
-- **过期时间**: 通过 `SESSION_TTL` 配置会话过期时间
+- **过期时间**: 当前为代码内固定 24 小时，暂无 `SESSION_TTL` 环境变量
 
 **配置示例**:
 ```bash
 export COOKIE_DOMAIN=.example.com
-export COOKIE_SECURE=true
-export COOKIE_SAME_SITE=Strict
-export SESSION_TTL=86400  # 24 小时
 ```
 
 ### 4. 网络安全

@@ -30,13 +30,12 @@ This document explains Stargate's security features, security configuration, and
 
 **Configuration Example**:
 ```bash
-export MODE=production
 export AUTH_HOST=auth.example.com
 export PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 export COOKIE_DOMAIN=.example.com
-export COOKIE_SECURE=true
-export COOKIE_SAME_SITE=Strict
 ```
+
+**Note**: In the current implementation, Cookie Secure is inferred from headers such as `X-Forwarded-Proto`; SameSite is fixed to `Lax`. The env vars `COOKIE_SECURE`, `COOKIE_SAME_SITE`, and `SESSION_TTL` are not implemented. See [CONFIG.md](CONFIG.md).
 
 ### 2. Password Security
 
@@ -60,19 +59,16 @@ export COOKIE_SAME_SITE=Strict
 
 ### 3. Session Security
 
-**Session Configuration**:
+**Session Configuration** (per current implementation; full options in [CONFIG.md](CONFIG.md)):
 - **Cookie Domain**: Set `COOKIE_DOMAIN` to share sessions across subdomains
-- **Secure Flag**: Set `COOKIE_SECURE=true` in production (requires HTTPS)
-- **SameSite**: Set `COOKIE_SAME_SITE=Strict` to prevent CSRF attacks
+- **Secure Flag**: Inferred from reverse proxy/request protocol (e.g. `X-Forwarded-Proto: https`); no `COOKIE_SECURE` env var
+- **SameSite**: Fixed to `Lax`; no `COOKIE_SAME_SITE` env var
 - **HttpOnly**: Cookies are automatically HttpOnly to prevent XSS attacks
-- **Expiration**: Configure session expiration via `SESSION_TTL`
+- **Expiration**: Fixed to 24 hours in code; no `SESSION_TTL` env var
 
 **Configuration Example**:
 ```bash
 export COOKIE_DOMAIN=.example.com
-export COOKIE_SECURE=true
-export COOKIE_SAME_SITE=Strict
-export SESSION_TTL=86400  # 24 hours
 ```
 
 ### 4. Network Security

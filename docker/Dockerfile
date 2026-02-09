@@ -1,10 +1,10 @@
-FROM golang:1.25-alpine3.22 AS Builder
+FROM golang:1.25-alpine3.22 AS builder
 RUN apk add git bash gcc musl-dev upx
 WORKDIR /app
 ENV GO111MODULE=on
 COPY go.mod .
 COPY go.sum .
-RUN go mod download
+RUN go mod tidy
 
 COPY . .
 
@@ -26,8 +26,8 @@ RUN if command -v upx > /dev/null 2>&1; then \
     fi
 
 FROM alpine:3.22
-COPY --from=Builder /app/stargate /bin/stargate
-COPY --from=Builder /app/src/internal/web/templates /app/web/templates
+COPY --from=builder /app/stargate /bin/stargate
+COPY --from=builder /app/src/internal/web/templates /app/web/templates
 RUN apk add --no-cache curl
 WORKDIR /app
 EXPOSE 80

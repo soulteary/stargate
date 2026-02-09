@@ -5,6 +5,7 @@ This document details all configuration options for Stargate.
 ## Table of Contents
 
 - [Configuration Methods](#configuration-methods)
+- [Configuration Quick Reference](#configuration-quick-reference)
 - [Required Configuration](#required-configuration)
 - [Optional Configuration](#optional-configuration)
 - [Password Configuration](#password-configuration)
@@ -38,6 +39,55 @@ services:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=plaintext:yourpassword
 ```
+
+## Configuration Quick Reference
+
+Below are all environment variables used in code. "Required" means the service will not start without it when applicable.
+
+| Variable | Type/Values | Default | Required |
+|----------|-------------|---------|----------|
+| `AUTH_HOST` | String | — | Yes |
+| `PASSWORDS` | See password config | — | Yes when Warden disabled |
+| `DEBUG` | true/false | false | No |
+| `LOGIN_PAGE_TITLE` | String | Stargate - Login | No |
+| `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | No |
+| `USER_HEADER_NAME` | String | X-Forwarded-User | No |
+| `COOKIE_DOMAIN` | String | empty | No |
+| `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | No |
+| `PORT` | String | empty (:80) | No |
+| `WARDEN_ENABLED` | true/false | false | No |
+| `WARDEN_URL` | String | empty | No |
+| `WARDEN_API_KEY` | String | empty | No |
+| `WARDEN_CACHE_TTL` | String | 300 | No |
+| `WARDEN_OTP_ENABLED` | true/false | false | No |
+| `WARDEN_OTP_SECRET_KEY` | String | empty | No |
+| `HERALD_ENABLED` | true/false | false | No |
+| `HERALD_URL` | String | empty | No |
+| `HERALD_API_KEY` | String | empty | No |
+| `HERALD_HMAC_SECRET` | String | empty | No |
+| `HERALD_TLS_CA_CERT_FILE` | path | empty | No |
+| `HERALD_TLS_CLIENT_CERT_FILE` | path | empty | No |
+| `HERALD_TLS_CLIENT_KEY_FILE` | path | empty | No |
+| `HERALD_TLS_SERVER_NAME` | String | empty | No |
+| `HERALD_TOTP_ENABLED` | true/false | false | No |
+| `HERALD_TOTP_BASE_URL` | String | empty | No |
+| `HERALD_TOTP_API_KEY` | String | empty | No |
+| `HERALD_TOTP_HMAC_SECRET` | String | empty | No |
+| `LOGIN_SMS_ENABLED` | true/false | true | No |
+| `LOGIN_EMAIL_ENABLED` | true/false | true | No |
+| `SESSION_STORAGE_ENABLED` | true/false | false | No |
+| `SESSION_STORAGE_REDIS_ADDR` | String | localhost:6379 | No |
+| `SESSION_STORAGE_REDIS_PASSWORD` | String | empty | No |
+| `SESSION_STORAGE_REDIS_DB` | String | 0 | No |
+| `SESSION_STORAGE_REDIS_KEY_PREFIX` | String | stargate:session: | No |
+| `AUDIT_LOG_ENABLED` | true/false | true | No |
+| `AUDIT_LOG_FORMAT` | json/text | json | No |
+| `STEP_UP_ENABLED` | true/false | false | No |
+| `STEP_UP_PATHS` | comma-separated paths | empty | No |
+| `OTLP_ENABLED` | true/false | false | No |
+| `OTLP_ENDPOINT` | String | empty | No |
+| `AUTH_REFRESH_ENABLED` | true/false | false | No |
+| `AUTH_REFRESH_INTERVAL` | duration | 5m | No |
 
 ## Required Configuration
 
@@ -250,6 +300,11 @@ After setting `COOKIE_DOMAIN=.example.com`:
 2. Session cookie is set to the `.example.com` domain
 3. User can use the same session on `app1.example.com` and `app2.example.com`
 
+**Cookie and session behavior (current implementation)**:
+- **Session expiration**: Fixed to 24 hours in code; there is no `SESSION_TTL` (or similar) env variable.
+- **Cookie Secure**: Set from request protocol (e.g. `X-Forwarded-Proto: https`); there is no `COOKIE_SECURE` env variable.
+- **Cookie SameSite**: Fixed to `Lax`; there is no `COOKIE_SAME_SITE` env variable.
+
 ### `PORT`
 
 Service listening port (local development only). Managed by the config package along with other env-based options.
@@ -365,6 +420,44 @@ TTL (Time To Live) for Warden user information cache.
 
 ```bash
 WARDEN_CACHE_TTL=300
+```
+
+#### `WARDEN_OTP_ENABLED`
+
+Enable Warden-built-in OTP verification (distinct from Herald OTP; legacy/built-in capability).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+**Description:**
+
+- When `true`, uses Warden-side OTP verification (requires `WARDEN_OTP_SECRET_KEY`)
+- Independent from Herald verification code service (`HERALD_ENABLED`); use one or both as needed
+
+**Example:**
+
+```bash
+WARDEN_OTP_ENABLED=true
+```
+
+#### `WARDEN_OTP_SECRET_KEY`
+
+Secret key for Warden OTP verification (only when `WARDEN_OTP_ENABLED=true`).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+**Example:**
+
+```bash
+WARDEN_OTP_SECRET_KEY=your-warden-otp-secret
 ```
 
 ### Herald Integration (Optional)
@@ -529,6 +622,253 @@ HERALD_API_KEY=your-api-key-here
 
 **Note:** If neither `HERALD_API_KEY` nor `HERALD_HMAC_SECRET` is set, Herald client may not authenticate properly and requests may fail.
 
+#### Herald mTLS (Optional)
+
+When using TLS client certificate authentication to Herald, the following options apply. Can be used alongside API Key / HMAC; client implementation decides precedence.
+
+#### `HERALD_TLS_CA_CERT_FILE`
+
+Path to CA certificate file for Herald server verification.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String (file path) |
+| **Required** | No |
+| **Default** | Empty |
+
+#### `HERALD_TLS_CLIENT_CERT_FILE`
+
+Path to client certificate file (mTLS).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String (file path) |
+| **Required** | No |
+| **Default** | Empty |
+
+#### `HERALD_TLS_CLIENT_KEY_FILE`
+
+Path to client private key file (mTLS).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String (file path) |
+| **Required** | No |
+| **Default** | Empty |
+
+#### `HERALD_TLS_SERVER_NAME`
+
+Server Name Indication (SNI) for TLS handshake and certificate validation.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+#### Herald TOTP (Optional, per-user 2FA)
+
+Integration with herald-totp for TOTP binding and verification (Authenticator channel). Separate from Herald OTP (SMS/email verification codes).
+
+#### `HERALD_TOTP_ENABLED`
+
+Enable Herald TOTP integration (bind/verify TOTP codes).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+#### `HERALD_TOTP_BASE_URL`
+
+Base URL of the herald-totp service.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No (should be set if `HERALD_TOTP_ENABLED=true`) |
+| **Default** | Empty |
+
+**Example:** `http://herald-totp:8080`
+
+#### `HERALD_TOTP_API_KEY`
+
+API key for herald-totp (simple auth).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+#### `HERALD_TOTP_HMAC_SECRET`
+
+HMAC secret for herald-totp (recommended for production).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+### Session Storage (Redis, Optional)
+
+When enabled, sessions are stored in Redis for multi-instance sharing and persistence; otherwise in-memory or cookie.
+
+#### `SESSION_STORAGE_ENABLED`
+
+Enable Redis session storage.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+#### `SESSION_STORAGE_REDIS_ADDR`
+
+Redis address.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | `localhost:6379` |
+
+#### `SESSION_STORAGE_REDIS_PASSWORD`
+
+Redis password (empty if none).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+#### `SESSION_STORAGE_REDIS_DB`
+
+Redis database index.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Integer (e.g. 0–15) |
+| **Required** | No |
+| **Default** | `0` |
+
+#### `SESSION_STORAGE_REDIS_KEY_PREFIX`
+
+Key prefix for session keys (to separate multiple Stargate deployments or other apps).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | `stargate:session:` |
+
+### Audit Log (Optional)
+
+#### `AUDIT_LOG_ENABLED`
+
+Enable audit logging.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `true` |
+| **Possible Values** | `true`, `false` |
+
+#### `AUDIT_LOG_FORMAT`
+
+Audit log output format.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | `json` |
+| **Possible Values** | `json`, `text` |
+
+### Step-up Authentication (Optional)
+
+Require a second factor (e.g. password or OTP) for selected paths.
+
+#### `STEP_UP_ENABLED`
+
+Enable step-up authentication.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+#### `STEP_UP_PATHS`
+
+Paths that require step-up; comma-separated; prefix matching supported.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+**Example:** `/admin,/api/sensitive`
+
+### OpenTelemetry (Optional)
+
+#### `OTLP_ENABLED`
+
+Enable OTLP telemetry export.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+#### `OTLP_ENDPOINT`
+
+OTLP collector endpoint (e.g. Jaeger/OTLP Collector).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+**Example:** `http://jaeger:4318/v1/traces`
+
+### Auth Refresh (Optional)
+
+#### `AUTH_REFRESH_ENABLED`
+
+Periodically refresh user/authorization info from Warden and update session during its lifetime.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+#### `AUTH_REFRESH_INTERVAL`
+
+Refresh interval (Go duration, e.g. `5m`, `1h`).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String (duration) |
+| **Required** | No |
+| **Default** | `5m` |
+
+**Example:** `AUTH_REFRESH_INTERVAL=10m`
+
 ## Password Configuration
 
 Stargate supports multiple password encryption algorithms. Password configuration format: `algorithm:password1|password2|password3`
@@ -625,6 +965,27 @@ PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d
 3. **Algorithm Consistency**: All passwords must use the same algorithm
 
 ## Configuration Examples
+
+### Stargate + Redis Only (Password Auth, Sessions in Redis)
+
+```bash
+# Required
+AUTH_HOST=auth.example.com
+PASSWORDS=plaintext:test123
+
+# Session storage in Redis (multi-instance or persistent sessions)
+SESSION_STORAGE_ENABLED=true
+SESSION_STORAGE_REDIS_ADDR=redis:6379
+SESSION_STORAGE_REDIS_PASSWORD=
+SESSION_STORAGE_REDIS_DB=0
+SESSION_STORAGE_REDIS_KEY_PREFIX=stargate:session:
+
+# Optional
+DEBUG=false
+LANGUAGE=zh
+```
+
+Use when you want password-only login but need sessions in Redis for multiple instances or to survive restarts.
 
 ### Basic Configuration (Password Authentication)
 
@@ -795,10 +1156,25 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 - **Warden Integration**:
   - When `WARDEN_ENABLED=true`, must set `WARDEN_URL`
   - `WARDEN_API_KEY` is recommended (for service authentication)
+  - If `WARDEN_OTP_ENABLED=true`, set `WARDEN_OTP_SECRET_KEY`
 
-- **Herald Integration**:
+- **Herald Integration (OTP SMS/email)**:
   - When `HERALD_ENABLED=true`, must set `HERALD_URL`
   - Must set either `HERALD_API_KEY` or `HERALD_HMAC_SECRET` (recommend HMAC for production)
+  - Optional: mTLS via `HERALD_TLS_*`; can be used alongside API Key/HMAC
+
+- **Herald TOTP Integration (per-user 2FA)**:
+  - When `HERALD_TOTP_ENABLED=true`, set `HERALD_TOTP_BASE_URL`
+  - Set either `HERALD_TOTP_API_KEY` or `HERALD_TOTP_HMAC_SECRET`
+
+- **Session Storage**:
+  - When `SESSION_STORAGE_ENABLED=true`, Redis must be reachable (default `SESSION_STORAGE_REDIS_ADDR=localhost:6379`)
+
+- **Step-up Authentication**:
+  - When `STEP_UP_ENABLED=true`, use `STEP_UP_PATHS` to define paths that require a second factor
+
+- **Auth Refresh**:
+  - When `AUTH_REFRESH_ENABLED=true`, Warden must be enabled (`WARDEN_ENABLED=true`); use `AUTH_REFRESH_INTERVAL` to tune refresh interval
 
 - **Warden + Herald Combined Usage** (Optional):
   - When OTP authentication is needed, can optionally enable both Warden and Herald
