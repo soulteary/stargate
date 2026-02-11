@@ -13,7 +13,7 @@ env:
 jobs:
   release:
     name: Release
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     permissions:
       contents: write
       packages: write
