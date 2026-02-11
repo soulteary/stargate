@@ -539,6 +539,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			if wardenUserInfo.Role != "" {
 				sess.Set("user_role", wardenUserInfo.Role)
 			}
+			if wardenUserInfo.Name != "" {
+				sess.Set("user_name", wardenUserInfo.Name)
+			}
 			log.Debug().
 				Str("user_id", wardenUserInfo.UserID).
 				Str("phone", secure.MaskPhone(wardenUserInfo.Phone)).

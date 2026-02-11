@@ -107,6 +107,7 @@ func InitForwardAuthHandler(l *logger.Logger) {
 				UserID: userInfo.UserID,
 				Email:  userInfo.Mail,
 				Phone:  userInfo.Phone,
+				Name:   userInfo.Name,
 				Scopes: userInfo.Scope, // Warden uses 'Scope', forwardauth-kit uses 'Scopes'
 				Role:   userInfo.Role,
 				Status: userInfo.Status,
