@@ -45,6 +45,7 @@ func TestCheckRoute_SetsAuthHeadersFromSession(t *testing.T) {
 	testza.AssertNoError(t, err)
 	sess.Set("user_id", "user-123")
 	sess.Set("user_mail", "user@example.com")
+	sess.Set("user_name", "Test User")
 	sess.Set("user_scope", []string{"read", "write"})
 	sess.Set("user_role", "admin")
 
@@ -58,6 +59,7 @@ func TestCheckRoute_SetsAuthHeadersFromSession(t *testing.T) {
 	testza.AssertEqual(t, "user-123", string(ctx.Response().Header.Peek("X-Forwarded-User")))
 	testza.AssertEqual(t, "user@example.com", string(ctx.Response().Header.Peek("X-Auth-Email")))
 	testza.AssertEqual(t, "user-123", string(ctx.Response().Header.Peek("X-Auth-User")))
+	testza.AssertEqual(t, "Test User", string(ctx.Response().Header.Peek("X-Auth-Name")))
 	testza.AssertEqual(t, "read,write", string(ctx.Response().Header.Peek("X-Auth-Scopes")))
 	testza.AssertEqual(t, "admin", string(ctx.Response().Header.Peek("X-Auth-Role")))
 }

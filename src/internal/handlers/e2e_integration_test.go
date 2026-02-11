@@ -59,6 +59,7 @@ type AllowListUser struct {
 	Mail   string   `json:"mail"`
 	UserID string   `json:"user_id"`
 	Status string   `json:"status"`
+	Name   string   `json:"name,omitempty"`
 	Scope  []string `json:"scope"`
 	Role   string   `json:"role"`
 }
@@ -365,6 +366,7 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 		Mail:   "test@example.com",
 		UserID: "test-user-123",
 		Status: "active",
+		Name:   "Test User",
 		Scope:  []string{"read", "write"},
 		Role:   "user",
 	}
@@ -524,6 +526,7 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 	// Verify authorization headers
 	testza.AssertEqual(t, testUser.UserID, string(testCtx.Response().Header.Peek("X-Auth-User")))
 	testza.AssertEqual(t, testUser.Mail, string(testCtx.Response().Header.Peek("X-Auth-Email")))
+	testza.AssertEqual(t, testUser.Name, string(testCtx.Response().Header.Peek("X-Auth-Name")))
 	testza.AssertEqual(t, "read,write", string(testCtx.Response().Header.Peek("X-Auth-Scopes")))
 	testza.AssertEqual(t, testUser.Role, string(testCtx.Response().Header.Peek("X-Auth-Role")))
 }
