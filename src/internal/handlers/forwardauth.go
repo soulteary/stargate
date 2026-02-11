@@ -128,6 +128,7 @@ func InitForwardAuthHandler(l *logger.Logger) {
 		UserHeaderName:   config.UserHeaderName.String(),
 		AuthUserHeader:   "X-Auth-User",
 		AuthEmailHeader:  "X-Auth-Email",
+		AuthNameHeader:   "X-Auth-Name",
 		AuthScopesHeader: "X-Auth-Scopes",
 		AuthRoleHeader:   "X-Auth-Role",
 		AuthAMRHeader:    "X-Auth-AMR",
