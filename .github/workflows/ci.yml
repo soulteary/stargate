@@ -36,8 +36,26 @@ jobs:
       - name: Download dependencies
         run: go mod download
 
+      - name: Start Redis for tests
+        run: |
+          docker run -d --name stargate-redis-test -p 6379:6379 redis:8-alpine
+          echo "等待 Redis 就绪..."
+          for i in $(seq 1 30); do
+            if docker exec stargate-redis-test redis-cli ping 2>/dev/null | grep -q PONG; then
+              echo "Redis 已就绪"
+              break
+            fi
+            echo "等待 Redis 启动... ($i/30)"
+            sleep 1
+          done
+          docker exec stargate-redis-test redis-cli ping || (echo "Redis 启动超时"; exit 1)
+
       - name: Run tests
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+
+      - name: Stop Redis
+        if: always()
+        run: docker rm -f stargate-redis-test 2>/dev/null || true
 
       - name: Generate coverage report
         run: go tool cover -html=coverage.out -o coverage.html
