@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 
@@ -1030,10 +1031,21 @@ func TestLoginRoute_WithForwardedProto_Empty(t *testing.T) {
 
 // TestIndexRoute_SessionStoreError tests error handling when session store fails
 func TestIndexRoute_SessionStoreError(t *testing.T) {
-	// This test is difficult to implement without mocking the session store
-	// The session store from fiber/session doesn't easily fail in normal conditions
-	// We'll skip this for now as it requires more complex setup
-	t.Skip("Session store error testing requires mocking")
+	mockStore := &MockSessionGetter{
+		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+			return nil, fiber.ErrInternalServerError
+		},
+	}
+	handler := IndexRoute(mockStore)
+
+	ctx, app := createTestContext("GET", "/", nil, "")
+	defer app.ReleaseCtx(ctx)
+
+	err := handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusInternalServerError, ctx.Response().StatusCode())
+	body := string(ctx.Response().Body())
+	testza.AssertTrue(t, strings.Contains(body, "session_store_failed") || strings.Contains(body, "session store"), "body should indicate session store failure: %s", body)
 }
 
 // MockSessionGetter is a mock implementation of SessionGetter for testing.

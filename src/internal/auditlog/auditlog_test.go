@@ -77,3 +77,12 @@ func TestGetLoggerWithoutInit(t *testing.T) {
 	l := GetLogger()
 	assert.NotNil(t, l)
 }
+
+func TestStop_WhenLoggerNil(t *testing.T) {
+	// Reset so logger is nil
+	logger = nil
+	loggerInit = sync.Once{}
+
+	err := Stop()
+	assert.NoError(t, err)
+}

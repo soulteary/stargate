@@ -122,6 +122,32 @@ func TestEnvVariable_Validate_Optional_Set(t *testing.T) {
 	testza.AssertEqual(t, "custom-value", v.Value)
 }
 
+func TestEnvVariable_Validate_Trimmed(t *testing.T) {
+	t.Setenv("TRIMMED_VAR", "  value  ")
+	v := EnvVariable{
+		Name:      "TRIMMED_VAR",
+		Trimmed:   true,
+		Validator: ValidateAny,
+	}
+	err := v.Validate()
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, "value", v.Value)
+}
+
+func TestEnvVariable_Validate_ValidatorFails(t *testing.T) {
+	t.Setenv("ENUM_VAR", "invalid")
+	v := EnvVariable{
+		Name:           "ENUM_VAR",
+		PossibleValues: []string{"a", "b"},
+		Validator:      ValidateStrictPossibleValues,
+	}
+	err := v.Validate()
+	testza.AssertNotNil(t, err)
+	ve := err.(*ValidationError)
+	testza.AssertEqual(t, "ENUM_VAR", ve.KeyName)
+	testza.AssertEqual(t, "invalid", ve.ProvidedValue)
+}
+
 func TestValidateNotEmptyString(t *testing.T) {
 	tests := []struct {
 		value    string

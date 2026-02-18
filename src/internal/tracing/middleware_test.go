@@ -67,3 +67,16 @@ func TestTracingMiddleware(t *testing.T) {
 		assert.Equal(t, 200, resp.StatusCode)
 	})
 }
+
+// TestHeaderCarrier_Keys covers headerCarrier.Keys() (OpenTelemetry TextMapCarrier) for coverage.
+func TestHeaderCarrier_Keys(t *testing.T) {
+	carrier := &headerCarrier{headers: map[string]string{"a": "1", "b": "2"}}
+	assert.Empty(t, carrier.Get("x"))
+	assert.Equal(t, "1", carrier.Get("a"))
+	carrier.Set("c", "3")
+	keys := carrier.Keys()
+	assert.Len(t, keys, 3)
+	assert.Contains(t, keys, "a")
+	assert.Contains(t, keys, "b")
+	assert.Contains(t, keys, "c")
+}

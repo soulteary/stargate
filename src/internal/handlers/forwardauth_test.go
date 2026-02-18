@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"errors"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v2/middleware/session"
 	"github.com/gofiber/fiber/v2/utils"
@@ -66,4 +68,14 @@ func TestInitForwardAuthHandler_WithStepUpPaths(t *testing.T) {
 	if h == nil {
 		t.Error("GetForwardAuthHandler() must not be nil")
 	}
+}
+
+// TestForwardAuthLogger_InfoWarnErrorAndFields exercises the forwardAuthLogger wrapper so that
+// Info(), Warn(), Error() and Bool(), Int(), Int64(), Dur() are covered (zerolog adapter for forwardauth-kit).
+func TestForwardAuthLogger_InfoWarnErrorAndFields(t *testing.T) {
+	l := &forwardAuthLogger{log: testLogger()}
+
+	l.Info().Str("key", "val").Msg("info message")
+	l.Warn().Bool("enabled", true).Msg("warn message")
+	l.Error().Err(errors.New("test err")).Int("code", 400).Int64("count", 1).Dur("latency", 10*time.Millisecond).Msg("error message")
 }

@@ -11,6 +11,12 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
+// SessionStoreForCheck is the minimal interface required by CheckRoute to get session.
+// *session.Store implements it; tests can pass a mock to simulate store.Get failure.
+type SessionStoreForCheck interface {
+	Get(ctx *fiber.Ctx) (*session.Session, error)
+}
+
 // CheckRoute is the main authentication check handler for Traefik Forward Auth.
 // It uses forwardauth-kit to handle authentication logic.
 //
@@ -18,10 +24,10 @@ import (
 // and returns 200 OK. On failure, it either redirects to login (HTML) or returns 401 (API).
 //
 // Parameters:
-//   - store: Session store for managing user sessions
+//   - store: Session store (or mock implementing SessionStoreForCheck) for managing user sessions
 //
 // Returns a Fiber handler function.
-func CheckRoute(store *session.Store) func(c *fiber.Ctx) error {
+func CheckRoute(store SessionStoreForCheck) func(c *fiber.Ctx) error {
 	// Get the ForwardAuth handler
 	handler := GetForwardAuthHandler()
 	if handler == nil {

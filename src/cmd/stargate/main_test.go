@@ -304,6 +304,13 @@ func TestRunApplication_SuccessPath(t *testing.T) {
 	testza.AssertNotNil(t, runApplication, "runApplication should be defined")
 }
 
+// TestGetLogger_ReturnsNonNilAfterInit covers GetLogger for coverage (used by other packages).
+func TestGetLogger_ReturnsNonNilAfterInit(t *testing.T) {
+	initLogger()
+	l := GetLogger()
+	testza.AssertNotNil(t, l, "GetLogger() must not be nil after initLogger()")
+}
+
 // TestMainFunction_Exists tests that main function exists and can be analyzed
 func TestMainFunction_Exists(t *testing.T) {
 	// Verify that main function exists (it's the entry point)

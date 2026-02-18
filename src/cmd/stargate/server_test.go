@@ -159,6 +159,46 @@ func TestSetupSessionStore_WithCookieDomain(t *testing.T) {
 	testza.AssertNotNil(t, store)
 }
 
+// TestSetupSessionStore_WithInvalidRedisDBEnv_RedisDisabled ensures setupSessionStore runs
+// when SESSION_STORAGE_REDIS_DB is set but Redis is disabled. The "invalid REDIS_DB" log path
+// is only hit when SESSION_STORAGE_ENABLED=true (requires Redis connection).
+func TestSetupSessionStore_WithInvalidRedisDBEnv_RedisDisabled(t *testing.T) {
+	setupTestConfig(t)
+	t.Setenv("SESSION_STORAGE_ENABLED", "false")
+	t.Setenv("SESSION_STORAGE_REDIS_DB", "not_a_number")
+	_ = config.Initialize(testLoggerMain())
+
+	store, _ := setupSessionStore()
+	testza.AssertNotNil(t, store)
+}
+
+// TestSetupHealthChecker_Combinations covers Herald/Warden/session-storage branches.
+// The branch "SessionStorageEnabled && redisClient != nil" is covered when running with Redis enabled (e.g. integration).
+func TestSetupHealthChecker_Combinations(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+	}{
+		{"herald_disabled_warden_disabled", map[string]string{"HERALD_ENABLED": "false", "WARDEN_ENABLED": "false"}},
+		{"herald_enabled_url_empty", map[string]string{"HERALD_ENABLED": "true", "HERALD_URL": "", "WARDEN_ENABLED": "false"}},
+		{"herald_enabled_url_set", map[string]string{"HERALD_ENABLED": "true", "HERALD_URL": "http://herald.local/", "WARDEN_ENABLED": "false"}},
+		{"warden_enabled_url_empty", map[string]string{"HERALD_ENABLED": "false", "WARDEN_ENABLED": "true", "WARDEN_URL": ""}},
+		{"warden_enabled_url_set", map[string]string{"HERALD_ENABLED": "false", "WARDEN_ENABLED": "true", "WARDEN_URL": "http://warden.local/"}},
+		{"session_storage_disabled", map[string]string{"HERALD_ENABLED": "false", "WARDEN_ENABLED": "false", "SESSION_STORAGE_ENABLED": "false"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			setupTestConfig(t)
+			for k, v := range tt.env {
+				t.Setenv(k, v)
+			}
+			_ = config.Initialize(testLoggerMain())
+			agg := setupHealthChecker(nil)
+			testza.AssertNotNil(t, agg)
+		})
+	}
+}
+
 func TestSetupRoutes(t *testing.T) {
 	setupTestConfig(t)
 

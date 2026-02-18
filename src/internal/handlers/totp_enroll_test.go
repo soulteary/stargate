@@ -64,6 +64,7 @@ func TestTOTPEnrollRoute_Authenticated_NoUserID_400(t *testing.T) {
 }
 
 func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
+	ResetHeraldTOTPClientForTest()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	// Do not set HERALD_TOTP_ENABLED so getHeraldTOTPClient() stays nil
@@ -83,9 +84,9 @@ func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
 
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
+	sess.Set("user_id", "u_test")
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
-	sess.Set("user_id", "u_test")
 	ctx.Request().Header.Set("Cookie", auth.SessionCookieName+"="+sess.ID())
 
 	err = handler(ctx)

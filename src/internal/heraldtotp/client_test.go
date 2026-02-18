@@ -125,6 +125,74 @@ func TestClient_Status_NonOK(t *testing.T) {
 	}
 }
 
+func TestClient_Status_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`not json`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(DefaultOptions().WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = client.Status(context.Background(), "user1")
+	if err == nil {
+		t.Fatal("expected error for invalid JSON body")
+	}
+}
+
+func TestClient_Verify_NonOK(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"ok":false}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(DefaultOptions().WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = client.Verify(context.Background(), &VerifyRequest{Subject: "user1", Code: "123456"})
+	if err == nil {
+		t.Fatal("expected error for 401 response")
+	}
+}
+
+func TestClient_EnrollStart_NonOK(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid request"}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(DefaultOptions().WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = client.EnrollStart(context.Background(), &EnrollStartRequest{Subject: "user1", Label: "u@e.com"})
+	if err == nil {
+		t.Fatal("expected error for 400 response")
+	}
+}
+
+func TestClient_EnrollConfirm_InvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{invalid`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(DefaultOptions().WithBaseURL(server.URL))
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = client.EnrollConfirm(context.Background(), &EnrollConfirmRequest{EnrollID: "e1", Code: "123456"})
+	if err == nil {
+		t.Fatal("expected error for invalid JSON body")
+	}
+}
+
 func TestClient_Revoke_NonOK(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusTooManyRequests)

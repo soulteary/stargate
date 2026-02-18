@@ -8,14 +8,20 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
+// IndexSessionStore is the minimal interface for IndexRoute to get session.
+// *session.Store implements it; tests can pass a mock to simulate store.Get failure.
+type IndexSessionStore interface {
+	Get(ctx *fiber.Ctx) (*session.Session, error)
+}
+
 // IndexRoute handles GET requests to the root path (/).
 // It checks if the user is authenticated and returns a simple status message.
 //
 // Parameters:
-//   - store: Session store for managing user sessions
+//   - store: Session store (or mock implementing IndexSessionStore) for managing user sessions
 //
 // Returns a Fiber handler function.
-func IndexRoute(store *session.Store) func(c *fiber.Ctx) error {
+func IndexRoute(store IndexSessionStore) func(c *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {
 		sess, err := store.Get(ctx)
 		if err != nil {
