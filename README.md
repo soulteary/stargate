@@ -1,7 +1,7 @@
 # Stargate - Forward Auth Service
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.26+-blue.svg)](https://golang.org)
 [![codecov](https://codecov.io/gh/soulteary/stargate/branch/main/graph/badge.svg)](https://codecov.io/gh/soulteary/stargate)
 [![Go Report Card](https://goreportcard.com/badge/github.com/soulteary/stargate)](https://goreportcard.com/report/github.com/soulteary/stargate)
 
@@ -117,7 +117,7 @@ docker-compose up -d
 
 ### Local Development
 
-For local development, ensure Go 1.25+ is installed, then:
+For local development, ensure Go 1.26+ is installed, then:
 
 ```bash
 chmod +x start-local.sh

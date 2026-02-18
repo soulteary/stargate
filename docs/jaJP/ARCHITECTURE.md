@@ -4,7 +4,7 @@
 
 ## 技術スタック
 
-- **言語**: Go 1.25
+- **言語**: Go 1.26
 - **Web フレームワーク**: [Fiber v2.52.10](https://github.com/gofiber/fiber)
 - **テンプレートエンジン**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **セッション管理**: Fiber Session Middleware
@@ -324,7 +324,7 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
 ### Docker デプロイメント
 
 - イメージサイズを削減するためのマルチステージビルド
-- ビルドステージとして `golang:1.25-alpine` を使用
+- ビルドステージとして `golang:1.26-alpine` を使用
 - セキュリティリスクを最小化するため、実行ステージとして `scratch` ベースイメージを使用
 - テンプレートファイルを `src/internal/web/templates` からイメージ内の `/app/web/templates` にコピー
 - 依存関係のダウンロードを加速するため、中国ミラーソース (`GOPROXY=https://goproxy.cn`) を使用

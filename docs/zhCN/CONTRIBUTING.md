@@ -31,7 +31,7 @@
 
 ### 前置要求
 
-- Go 1.25 或更高版本
+- Go 1.26 或更高版本
 - Redis（可选，用于会话存储测试）
 - Git
 - Traefik（可选，用于集成测试）
@@ -224,7 +224,7 @@ git push origin feature/your-feature-name
 
 **环境信息**
 - OS: [e.g. macOS 12.0]
-- Go 版本: [e.g. 1.25]
+- Go 版本: [e.g. 1.26]
 - Traefik 版本: [e.g. v2.10]（如适用）
 - Stargate 版本: [e.g. v1.0.0]
 ```

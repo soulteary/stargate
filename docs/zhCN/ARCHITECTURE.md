@@ -4,7 +4,7 @@
 
 ## 技术栈
 
-- **语言**: Go 1.25
+- **语言**: Go 1.26
 - **Web 框架**: [Fiber v2.52.10](https://github.com/gofiber/fiber)
 - **模板引擎**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **会话管理**: Fiber Session Middleware
@@ -370,7 +370,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 ### Docker 部署
 
 - 多阶段构建，减小镜像体积
-- 使用 `golang:1.25-alpine` 作为构建阶段
+- 使用 `golang:1.26-alpine` 作为构建阶段
 - 使用 `scratch` 基础镜像作为运行阶段，最小化安全风险
 - 模板文件从 `src/internal/web/templates` 复制到镜像中的 `/app/web/templates`
 - 使用国内镜像源（`GOPROXY=https://goproxy.cn`）加速依赖下载

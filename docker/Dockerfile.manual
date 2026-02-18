@@ -1,4 +1,4 @@
-FROM golang:1.25-alpine3.22 AS Builder
+FROM golang:1.26-alpine3.22 AS Builder
 RUN echo '' > /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.22/main"         >> /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.22/community"    >> /etc/apk/repositories && \

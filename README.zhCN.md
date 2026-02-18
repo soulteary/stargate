@@ -1,7 +1,7 @@
 # Stargate - Forward Auth Service
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.25+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.26+-blue.svg)](https://golang.org)
 [![codecov](https://codecov.io/gh/soulteary/stargate/branch/main/graph/badge.svg)](https://codecov.io/gh/soulteary/stargate)
 [![Go Report Card](https://goreportcard.com/badge/github.com/soulteary/stargate)](https://goreportcard.com/report/github.com/soulteary/stargate)
 
@@ -117,7 +117,7 @@ docker-compose up -d
 
 ### 本地开发
 
-本地开发需要 Go 1.25 或更高版本，然后：
+本地开发需要 Go 1.26 或更高版本，然后：
 
 ```bash
 chmod +x start-local.sh

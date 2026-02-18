@@ -4,7 +4,7 @@ This document describes the technical architecture and design decisions of the S
 
 ## Technology Stack
 
-- **Language**: Go 1.25
+- **Language**: Go 1.26
 - **Web Framework**: [Fiber v2.52.10](https://github.com/gofiber/fiber)
 - **Template Engine**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **Session Management**: Fiber Session Middleware
@@ -370,7 +370,7 @@ Modify the `internal/web/templates/login.html` template file.
 ### Docker Deployment
 
 - Multi-stage build to reduce image size
-- Uses `golang:1.25-alpine` as build stage
+- Uses `golang:1.26-alpine` as build stage
 - Uses `scratch` base image as runtime stage to minimize security risks
 - Template files copied from `src/internal/web/templates` to `/app/web/templates` in image
 - Uses Chinese mirror source (`GOPROXY=https://goproxy.cn`) to accelerate dependency downloads

@@ -31,7 +31,7 @@ When participating in this project, please respect all contributors, accept cons
 
 ### Prerequisites
 
-- Go 1.25 or higher
+- Go 1.26 or higher
 - Redis (optional, for session storage testing)
 - Git
 - Traefik (optional, for integration testing)
@@ -224,7 +224,7 @@ Clearly and concisely describe what actually happened.
 
 **Environment Information**
 - OS: [e.g. macOS 12.0]
-- Go Version: [e.g. 1.25]
+- Go Version: [e.g. 1.26]
 - Traefik Version: [e.g. v2.10] (if applicable)
 - Stargate Version: [e.g. v1.0.0]
 ```

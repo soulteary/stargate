@@ -91,7 +91,7 @@ docker build -t stargate:latest .
 
 #### 빌드 매개변수
 
-- **베이스 이미지**: `golang:1.25-alpine` (빌드 단계)
+- **베이스 이미지**: `golang:1.26-alpine` (빌드 단계)
 - **실행 이미지**: `scratch` (최소 이미지)
 - **작업 디렉토리**: `/app`
 - **공개 포트**: `80`

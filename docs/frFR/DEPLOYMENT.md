@@ -91,7 +91,7 @@ docker build -t stargate:latest .
 
 #### Paramètres de Build
 
-- **Image de Base** : `golang:1.25-alpine` (étape de build)
+- **Image de Base** : `golang:1.26-alpine` (étape de build)
 - **Image d'Exécution** : `scratch` (image minimale)
 - **Répertoire de Travail** : `/app`
 - **Port Exposé** : `80`

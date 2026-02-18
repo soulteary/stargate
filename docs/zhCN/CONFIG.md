@@ -713,6 +713,20 @@ herald-totp 服务的基础 URL。
 | **必需** | 否 |
 | **默认值** | 空 |
 
+#### `HERALD_TOTP_*` 与 stargate-suite `keys-step` 对照
+
+在 `stargate-suite` 的 Web UI 中，`keys-step` 会集中展示跨服务密钥项。与 Stargate 的 TOTP 集成相关项建议按下述对应关系配置：
+
+- `HERALD_TOTP_ENABLED=true`：启用 Stargate -> herald-totp 通道
+- `HERALD_TOTP_BASE_URL`：填写 herald-totp 服务地址（如 `http://herald-totp:8084`）
+- `HERALD_TOTP_API_KEY`：对应 herald-totp 服务的 API Key（开发可用）
+- `HERALD_TOTP_HMAC_SECRET`：对应 herald-totp 服务 HMAC 密钥（生产推荐）
+
+建议：
+
+- 开发环境可只配 `HERALD_TOTP_API_KEY`。
+- 生产环境优先 `HERALD_TOTP_HMAC_SECRET`，并结合 mTLS/网络策略限制调用源。
+
 ### 会话存储（Redis，可选）
 
 启用后会话将存储在 Redis，便于多实例共享与持久化；未启用时使用内存或 Cookie 存储。
@@ -767,6 +781,20 @@ Redis 数据库编号。
 | **类型** | String |
 | **必需** | 否 |
 | **默认值** | `stargate:session:` |
+
+#### 会话 Redis 配置建议（多场景）
+
+- **单实例开发**：可不启用 Redis（`SESSION_STORAGE_ENABLED=false`）。
+- **多实例/滚动升级**：启用 Redis 会话（`SESSION_STORAGE_ENABLED=true`），确保不同实例共享会话。
+- **推荐最小配置**：
+  - `SESSION_STORAGE_ENABLED=true`
+  - `SESSION_STORAGE_REDIS_ADDR=<redis-host>:6379`
+  - `SESSION_STORAGE_REDIS_DB=0`
+  - `SESSION_STORAGE_REDIS_KEY_PREFIX=stargate:session:`
+- **生产建议**：
+  - Redis 开启访问控制（密码/ACL/网络隔离）
+  - 为 Stargate 使用独立 DB 或前缀，避免与业务缓存混用
+  - 结合监控关注连接数、命中率、延迟和内存水位
 
 ### 审计日志（可选）
 

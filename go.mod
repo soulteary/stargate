@@ -1,6 +1,6 @@
 module github.com/soulteary/stargate
 
-go 1.25.7
+go 1.26.0
 
 require (
 	github.com/MarvinJWendt/testza v0.5.2
