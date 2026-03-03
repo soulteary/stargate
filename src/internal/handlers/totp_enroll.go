@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"html/template"
 
 	"github.com/gofiber/fiber/v2"
@@ -38,6 +39,15 @@ func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 		client := getHeraldTOTPClient()
 		if client == nil {
 			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable"))
+		}
+		// If already bound TOTP, redirect to revoke page
+		statusResp, err := client.Status(context.Background(), userID)
+		if err != nil {
+			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP status check failed")
+			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP status check failed")
+		}
+		if statusResp.TotpEnabled {
+			return ctx.Redirect("/totp/revoke", fiber.StatusFound)
 		}
 		startResp, err := client.EnrollStart(ctx.Context(), &heraldtotp.EnrollStartRequest{
 			Subject: userID,

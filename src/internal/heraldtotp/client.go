@@ -239,12 +239,16 @@ func (c *Client) Revoke(ctx context.Context, subject string) (*RevokeResponse, e
 	}
 	defer func() { _ = resp.Body.Close() }()
 	respBody, _ := io.ReadAll(resp.Body)
-	var out RevokeResponse
-	if err := json.Unmarshal(respBody, &out); err != nil {
-		return nil, err
-	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("revoke returned %d: %s", resp.StatusCode, string(respBody))
+	}
+	var out RevokeResponse
+	if err := json.Unmarshal(respBody, &out); err != nil {
+		trunc := string(respBody)
+		if len(trunc) > 200 {
+			trunc = trunc[:200] + "..."
+		}
+		return nil, fmt.Errorf("revoke returned %d: unexpected response (not JSON): %s", resp.StatusCode, trunc)
 	}
 	return &out, nil
 }

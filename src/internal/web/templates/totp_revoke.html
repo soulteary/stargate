@@ -45,6 +45,16 @@
     </div>
   </main>
   <script>
+    function revokeErrorMessage(reason) {
+      var messages = {
+        unauthorized: 'Service authentication failed. Please check HERALD_TOTP_API_KEY / HERALD_TOTP_HMAC_SECRET.',
+        unavailable: 'Unbind is not available with the current TOTP service. Please ask your administrator to upgrade the service.',
+        rate_limited: 'Too many attempts. Please try again later.',
+        service_unavailable: 'TOTP service is temporarily unavailable. Please try again later.',
+        service_error: 'Unbind failed. Please try again or contact support.'
+      };
+      return reason ? messages[reason] : null;
+    }
     (function() {
       document.getElementById('btnCancel').addEventListener('click', function() { window.location.href = '/'; });
       document.getElementById('revokeForm').addEventListener('submit', function(e) {
@@ -61,7 +71,8 @@
               form.style.display = 'none';
               successEl.classList.add('show');
             } else {
-              errEl.textContent = res.json.error || 'Unbind failed';
+              var msg = revokeErrorMessage(res.json.reason);
+              errEl.textContent = msg || res.json.error || 'Unbind failed';
               errEl.classList.add('show');
             }
           })

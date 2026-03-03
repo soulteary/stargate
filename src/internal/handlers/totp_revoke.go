@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
@@ -8,6 +10,26 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
+
+// revokeErrorReason maps herald-totp revoke error to a frontend-safe reason code.
+func revokeErrorReason(err error) string {
+	if err == nil {
+		return ""
+	}
+	s := err.Error()
+	switch {
+	case strings.Contains(s, "401") || strings.Contains(s, "unauthorized"):
+		return "unauthorized"
+	case strings.Contains(s, "404") || strings.Contains(s, "Cannot POST"):
+		return "unavailable"
+	case strings.Contains(s, "429") || strings.Contains(s, "rate_limit"):
+		return "rate_limited"
+	case strings.Contains(s, "502") || strings.Contains(s, "503") || strings.Contains(s, "connection refused") || strings.Contains(s, "timeout"):
+		return "service_unavailable"
+	default:
+		return "service_error"
+	}
+}
 
 // TOTPRevokeRoute handles GET /totp/revoke - shows TOTP unbind confirm page (requires auth).
 func TOTPRevokeRoute(store *session.Store) func(c *fiber.Ctx) error {
@@ -56,7 +78,8 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c *fiber.Ctx) error {
 		_, err = client.Revoke(ctx.Context(), userID)
 		if err != nil {
 			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP revoke failed")
-			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "revoke_failed"})
+			reason := revokeErrorReason(err)
+			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "revoke_failed", "reason": reason})
 		}
 		return ctx.JSON(fiber.Map{"ok": true, "subject": userID})
 	}
