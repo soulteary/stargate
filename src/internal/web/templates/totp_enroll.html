@@ -12,7 +12,9 @@
     .content{padding:32px;}
     h1{font-size:1.5rem;margin-bottom:8px;}
     .subtitle{color:#6b7280;font-size:0.875rem;margin-bottom:24px;}
-    #qrcode{margin:0 auto 24px;display:block;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;}
+    .qrcode-container{margin:0 auto 24px;padding:16px;background:#fff;border:1px solid #e5e7eb;border-radius:12px;min-height:200px;}
+    .qrcode-container canvas{display:block;margin:0 auto;}
+    .qrcode-container img{display:block;margin:0 auto;}
     .form-group{margin-bottom:20px;}
     .form-group label{display:block;font-size:0.875rem;font-weight:500;margin-bottom:8px;}
     .form-group input{width:100%;padding:12px 16px;font-size:1rem;border:1px solid #e5e7eb;border-radius:12px;}
@@ -28,7 +30,7 @@
     .footer{margin-top:24px;text-align:center;font-size:0.875rem;color:#6b7280;}
     .footer a{color:#111827;}
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" integrity="sha256-+8q+cjT2t000oH6/l2bL0Vd9Vx5x5/Ee+0kAMQzJq2s=" crossorigin="anonymous"></script>
+  <script src="/assets/qrcode.min.js"></script>
 </head>
 <body>
   <main class="card">
@@ -36,7 +38,7 @@
       <h1>Bind Authenticator (TOTP)</h1>
       <p class="subtitle">Scan the QR code with your authenticator app (Google Authenticator, Authy, etc.), then enter the 6-digit code below.</p>
       <div id="error" class="error"></div>
-      <canvas id="qrcode" data-uri="{{.OtpauthURI}}"></canvas>
+      <div id="qrcode" class="qrcode-container" data-uri="{{.OtpauthURI}}"></div>
       <form id="confirmForm" method="post" action="/totp/enroll/confirm">
         <input type="hidden" name="enroll_id" value="{{.EnrollID}}">
         <div class="form-group">
@@ -54,12 +56,18 @@
   </main>
   <script>
     (function() {
-      var canvas = document.getElementById('qrcode');
-      var otpauthUri = canvas && canvas.getAttribute('data-uri');
-      if (otpauthUri) {
-        QRCode.toCanvas(document.getElementById('qrcode'), otpauthUri, { width: 200, margin: 1 }, function(err) {
-          if (err) document.getElementById('error').textContent = 'Failed to generate QR: ' + err;
-        });
+      var container = document.getElementById('qrcode');
+      var otpauthUri = container && container.getAttribute('data-uri');
+      if (otpauthUri && typeof QRCode !== 'undefined') {
+        try {
+          new QRCode(container, { text: otpauthUri, width: 200, height: 200 });
+        } catch (err) {
+          document.getElementById('error').textContent = 'Failed to generate QR: ' + (err && err.message ? err.message : err);
+          document.getElementById('error').classList.add('show');
+        }
+      } else if (otpauthUri) {
+        document.getElementById('error').textContent = 'QR library failed to load. Please refresh the page.';
+        document.getElementById('error').classList.add('show');
       }
       document.getElementById('confirmForm').addEventListener('submit', function(e) {
         e.preventDefault();

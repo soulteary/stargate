@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"html/template"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
@@ -42,14 +44,14 @@ func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 			Label:   label,
 		})
 		if err != nil {
-			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP enroll start failed")
+			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP enroll start failed (check herald-totp: HERALD_TOTP_ENCRYPTION_KEY, Redis, API_KEY)")
 			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP enroll start failed")
 		}
 		return ctx.Render("totp_enroll", fiber.Map{
 			"Title":             config.LoginPageTitle.Value,
 			"FooterText":        config.LoginPageFooterText.Value,
 			"EnrollID":          startResp.EnrollID,
-			"OtpauthURI":        startResp.OtpauthURI,
+			"OtpauthURI":        template.URL(startResp.OtpauthURI), // avoid html/template sanitizing otpauth:// to #ZgotmplZ
 			"HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool(),
 		})
 	}
