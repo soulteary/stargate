@@ -23,6 +23,13 @@
         <div class="content-header">
           <h1 class="main-title">Access Verification</h1>
           <p class="subtitle">Enter your StarGate access token to continue</p>
+          {{if .HeraldTOTPEnabled}}
+          <div style="margin-top: 14px; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb; text-align: left; font-size: 0.8125rem; color: #4b5563;">
+            Already using Authenticator? Check <strong>Use TOTP</strong> and enter a 6-digit code.
+            If this account is not bound yet, sign in with verification code first, then bind at
+            <a href="/totp/enroll" style="color: #111827;">/totp/enroll</a>.
+          </div>
+          {{end}}
         </div>
 
         <!-- Error Container -->
@@ -121,7 +128,7 @@
               <label for="use_otp" style="font-size: 0.875rem; color: #6b7280; margin: 0;">{{if .HeraldTOTPEnabled}}Use TOTP (Authenticator) instead of verification code{{else}}Use OTP instead of verification code{{end}}</label>
             </div>
             {{if .HeraldTOTPEnabled}}
-            <small style="display: block; margin-top: 8px; color: #6b7280; font-size: 0.8125rem;">Not bound yet? Sign in with verification code first, then bind TOTP at <a href="/totp/enroll" style="color: #111827;">/totp/enroll</a>.</small>
+            <small style="display: block; margin-top: 8px; color: #6b7280; font-size: 0.8125rem;">6-digit Authenticator (TOTP) login is already supported. If not bound yet, sign in with verification code first, then bind at <a href="/totp/enroll" style="color: #111827;">/totp/enroll</a>.</small>
             {{end}}
           </div>
           {{end}}

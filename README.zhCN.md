@@ -200,6 +200,32 @@ HERALD_HMAC_SECRET=your-hmac-secret  # 生产环境
 HERALD_API_KEY=your-api-key  # 开发环境
 ```
 
+### Authenticator 动态二维码绑定 + 账号与 6 位 TOTP 登录（已支持）
+
+目标「绑定 Authenticator 用的动态二维码，之后用账号 + 6 位 TOTP 登录」在当前版本中已具备，不需要新增功能开发。建议按以下方式完成配置与使用：
+
+```bash
+# Stargate
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+HERALD_TOTP_ENABLED=true
+HERALD_TOTP_BASE_URL=http://herald-totp:8084
+HERALD_TOTP_API_KEY=your-totp-api-key            # 开发环境
+# 或
+HERALD_TOTP_HMAC_SECRET=your-totp-hmac-secret    # 生产环境
+
+# 可选：Herald（短信/邮件验证码，用于首次登录或回退）
+HERALD_ENABLED=true
+HERALD_URL=http://herald:8080
+HERALD_API_KEY=your-herald-api-key               # 开发环境
+# 或
+HERALD_HMAC_SECRET=your-herald-hmac-secret       # 生产环境
+```
+
+- **Warden**：确保能按手机号/邮箱返回 `user_id` 与联系方式（`phone`/`mail`）。
+- **herald-totp**：配置 `HERALD_TOTP_ENCRYPTION_KEY`（32 字节）及服务鉴权（`API_KEY` 或 `HMAC_SECRET`）。
+- **登录引导**：未绑定用户先用验证码登录，再访问 `/totp/enroll` 绑定；已绑定用户在登录页勾选 `Use TOTP`，输入 6 位码登录。
+
 **注意**：这两个集成都是可选的。Stargate 可以独立使用密码认证。
 
 **完整集成指南请参阅：[docs/zhCN/ARCHITECTURE.md](docs/zhCN/ARCHITECTURE.md)**
