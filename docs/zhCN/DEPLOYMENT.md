@@ -84,15 +84,16 @@ HERALD_HMAC_SECRET=your-hmac-secret  # 生产环境推荐
 
 #### 从源码构建
 
+在项目根目录下执行：
+
 ```bash
-cd codes
-docker build -t stargate:latest .
+docker build -f docker/Dockerfile -t stargate:latest .
 ```
 
 #### 构建参数
 
-- **基础镜像**：`golang:1.26-alpine`（构建阶段）
-- **运行镜像**：`scratch`（最小化镜像）
+- **基础镜像**：`golang:1.26-alpine3.22`（构建阶段）
+- **运行镜像**：`alpine:3.22`（运行阶段，含 curl 用于健康检查）
 - **工作目录**：`/app`
 - **暴露端口**：`80`
 
@@ -161,7 +162,7 @@ docker rm -f stargate
 
 ### 基础配置
 
-项目提供了 `docker-compose.yml` 示例文件：
+项目在项目根目录提供 `docker-compose.yml` 示例文件。在项目根目录下启动：
 
 ```yaml
 services:
@@ -306,7 +307,6 @@ volumes:
 ### 启动服务
 
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -485,7 +485,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -503,10 +503,10 @@ services:
       replicas: 3
 ```
 
-**注意：** Stargate 使用内存会话存储，多实例间不会共享会话。如果需要多实例部署，建议：
+**注意：** 未启用 Redis 会话存储（`SESSION_STORAGE_ENABLED=false`）时，会话仅保存在内存中，多实例间不共享。若需多实例部署，可：
 
+- 启用 Redis 会话存储（`SESSION_STORAGE_ENABLED=true` 并配置 `SESSION_STORAGE_REDIS_*`），或
 - 使用负载均衡器的会话保持（Sticky Session）
-- 或等待支持外部会话存储（Redis）功能
 
 #### 2. 负载均衡
 
@@ -549,7 +549,7 @@ fi
 
 #### 3. Prometheus 集成
 
-（待实现）未来版本将支持 Prometheus 指标导出。
+Stargate 通过 `GET /metrics` 暴露 Prometheus 指标。在 Prometheus 服务中配置抓取该端点即可。该端点默认已从请求日志与追踪中排除。
 
 ## 监控和维护
 
@@ -750,8 +750,8 @@ docker logs herald | grep -i error
 
 ```bash
 # 从 Stargate 容器内测试连接
-docker exec stargate wget -O- http://warden:8080/health
-docker exec stargate wget -O- http://herald:8080/healthz
+docker exec stargate curl -f http://warden:8080/health
+docker exec stargate curl -f http://herald:8080/healthz
 
 # 检查网络配置
 docker network inspect <network_name>
@@ -769,7 +769,7 @@ DEBUG=true
 
 ```bash
 # 从容器内测试
-docker exec stargate wget -O- http://localhost/health
+docker exec stargate curl -f http://localhost/health
 ```
 
 #### 3. 查看 Traefik 日志

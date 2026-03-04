@@ -139,7 +139,7 @@ chmod +x start-local.sh
 
 ### 快速参考
 
-- **API 端点**：`GET /_auth`（认证检查）、`GET /_login`（登录页面）、`POST /_login`（登录）、`GET /_logout`（登出）、`GET /_session_exchange`（跨域）、`GET /health`（健康检查）
+- **API 端点**：`GET /_auth`（认证检查）、`GET /_login`（登录页）、`POST /_login`（登录）、`POST /_send_verify_code`（发送 OTP）、`GET /_logout`（登出）、`GET /_session_exchange`（跨域）、`GET /totp/enroll`、`POST /totp/enroll/confirm`、`GET /totp/revoke`、`POST /totp/revoke`（Herald TOTP 启用时）、`GET /health`（健康检查）、`GET /metrics`（Prometheus）
 - **部署**：推荐使用 Docker Compose 快速开始。生产环境部署请参阅 [DEPLOYMENT.md](docs/zhCN/DEPLOYMENT.md)
 - **开发**：开发相关文档请参阅 [ARCHITECTURE.md](docs/zhCN/ARCHITECTURE.md)
 
@@ -208,22 +208,16 @@ HERALD_API_KEY=your-api-key  # 开发环境
 # Stargate
 WARDEN_ENABLED=true
 WARDEN_URL=http://warden:8080
-HERALD_TOTP_ENABLED=true
-HERALD_TOTP_BASE_URL=http://herald-totp:8084
-HERALD_TOTP_API_KEY=your-totp-api-key            # 开发环境
-# 或
-HERALD_TOTP_HMAC_SECRET=your-totp-hmac-secret    # 生产环境
-
-# 可选：Herald（短信/邮件验证码，用于首次登录或回退）
 HERALD_ENABLED=true
 HERALD_URL=http://herald:8080
+HERALD_TOTP_ENABLED=true
 HERALD_API_KEY=your-herald-api-key               # 开发环境
 # 或
 HERALD_HMAC_SECRET=your-herald-hmac-secret       # 生产环境
 ```
 
 - **Warden**：确保能按手机号/邮箱返回 `user_id` 与联系方式（`phone`/`mail`）。
-- **herald-totp**：配置 `HERALD_TOTP_ENCRYPTION_KEY`（32 字节）及服务鉴权（`API_KEY` 或 `HMAC_SECRET`）。
+- **Herald**：在 Herald 侧配置 TOTP 代理到 herald-totp（`HERALD_TOTP_ENABLED`、`HERALD_TOTP_BASE_URL` 等）。herald-totp 需配置 `HERALD_TOTP_ENCRYPTION_KEY`（32 字节）及服务鉴权（`API_KEY` 或 `HMAC_SECRET`）。
 - **登录引导**：未绑定用户先用验证码登录，再访问 `/totp/enroll` 绑定；已绑定用户在登录页勾选 `Use TOTP`，输入 6 位码登录。
 
 **注意**：这两个集成都是可选的。Stargate 可以独立使用密码认证。

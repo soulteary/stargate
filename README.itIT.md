@@ -143,7 +143,7 @@ Accedi alla pagina di login a `http://localhost:8080/_login?callback=localhost`
 
 ### Riferimento Rapido
 
-- **Endpoint API**: `GET /_auth` (verifica autenticazione), `GET /_login` (pagina di login), `POST /_login` (login), `GET /_logout` (logout), `GET /_session_exchange` (cross-domain), `GET /health` (verifica salute)
+- **Endpoint API**: `GET /_auth` (verifica auth), `GET /_login` (pagina login), `POST /_login` (login), `POST /_send_verify_code` (invia OTP), `GET /_logout` (logout), `GET /_session_exchange` (cross-domain), `GET /totp/enroll`, `POST /totp/enroll/confirm`, `GET /totp/revoke`, `POST /totp/revoke` (TOTP se Herald abilitato), `GET /health` (salute), `GET /metrics` (Prometheus)
 - **Deployment**: Docker Compose consigliato per avvio rapido. Vedi [DEPLOYMENT.md](docs/itIT/DEPLOYMENT.md) per il deployment in produzione.
 - **Sviluppo**: Per la documentazione relativa allo sviluppo, vedi [ARCHITECTURE.md](docs/itIT/ARCHITECTURE.md)
 

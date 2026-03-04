@@ -139,7 +139,7 @@ Comprehensive documentation is available to help you get the most out of Stargat
 
 ### Quick Reference
 
-- **API Endpoints**: `GET /_auth` (auth check), `GET /_login` (login page), `POST /_login` (login), `GET /_logout` (logout), `GET /_session_exchange` (cross-domain), `GET /health` (health check)
+- **API Endpoints**: `GET /_auth` (auth check), `GET /_login` (login page), `POST /_login` (login), `POST /_send_verify_code` (send OTP), `GET /_logout` (logout), `GET /_session_exchange` (cross-domain), `GET /totp/enroll`, `POST /totp/enroll/confirm`, `GET /totp/revoke`, `POST /totp/revoke` (TOTP when Herald TOTP enabled), `GET /health` (health check), `GET /metrics` (Prometheus)
 - **Deployment**: Docker Compose recommended for quick start. See [DEPLOYMENT.md](docs/enUS/DEPLOYMENT.md) for production deployment.
 - **Development**: For development-related documentation, see [ARCHITECTURE.md](docs/enUS/ARCHITECTURE.md)
 
@@ -208,22 +208,16 @@ The target flow "bind Authenticator with a dynamic QR code, then sign in with ac
 # Stargate
 WARDEN_ENABLED=true
 WARDEN_URL=http://warden:8080
-HERALD_TOTP_ENABLED=true
-HERALD_TOTP_BASE_URL=http://herald-totp:8084
-HERALD_TOTP_API_KEY=your-totp-api-key            # Development
-# or
-HERALD_TOTP_HMAC_SECRET=your-totp-hmac-secret    # Production
-
-# Optional: Herald (SMS/Email verification code for first sign-in or fallback)
 HERALD_ENABLED=true
 HERALD_URL=http://herald:8080
+HERALD_TOTP_ENABLED=true
 HERALD_API_KEY=your-herald-api-key               # Development
 # or
 HERALD_HMAC_SECRET=your-herald-hmac-secret       # Production
 ```
 
 - **Warden**: ensure lookup by phone/email returns `user_id` and contact fields (`phone`/`mail`).
-- **herald-totp**: set `HERALD_TOTP_ENCRYPTION_KEY` (32 bytes) and service auth (`API_KEY` or `HMAC_SECRET`).
+- **Herald**: configure Herald to proxy TOTP to herald-totp (`HERALD_TOTP_ENABLED`, `HERALD_TOTP_BASE_URL`, etc. on Herald). herald-totp needs `HERALD_TOTP_ENCRYPTION_KEY` (32 bytes) and service auth (`API_KEY` or `HMAC_SECRET`).
 - **Login UX**: users not yet bound sign in with verification code first, then bind at `/totp/enroll`; bound users check `Use TOTP` and submit a 6-digit code.
 
 **Note:** Both integrations are optional. Stargate can be used independently with password authentication.

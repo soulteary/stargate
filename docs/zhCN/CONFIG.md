@@ -70,9 +70,6 @@ services:
 | `HERALD_TLS_CLIENT_KEY_FILE` | 路径 | 空 | 否 |
 | `HERALD_TLS_SERVER_NAME` | String | 空 | 否 |
 | `HERALD_TOTP_ENABLED` | true/false | false | 否 |
-| `HERALD_TOTP_BASE_URL` | String | 空 | 否 |
-| `HERALD_TOTP_API_KEY` | String | 空 | 否 |
-| `HERALD_TOTP_HMAC_SECRET` | String | 空 | 否 |
 | `LOGIN_SMS_ENABLED` | true/false | true | 否 |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | 否 |
 | `SESSION_STORAGE_ENABLED` | true/false | false | 否 |
@@ -668,11 +665,11 @@ TLS 握手时使用的 Server Name Indication（SNI），用于证书校验。
 
 #### Herald TOTP（可选，每用户 2FA）
 
-与 herald-totp 服务集成，用于 TOTP 动态码绑定与校验（Authenticator 通道）。与 Herald OTP（短信/邮件验证码）为不同通道。
+TOTP 绑定与校验通过 **Herald** 完成（Herald 内部代理 herald-totp 服务）。与 Herald OTP（短信/邮件验证码）为不同通道。Stargate 只需配置 Herald 的 URL/鉴权及本开关；herald-totp 的地址与鉴权在 Herald 服务侧配置。
 
 #### `HERALD_TOTP_ENABLED`
 
-启用 Herald TOTP 集成（绑定/校验 TOTP 动态码）。
+启用 TOTP 能力（绑定/校验 TOTP 动态码）。为 `true` 时，Stargate 通过 Herald 客户端调用 Herald 的 `/v1/totp/*` 接口。
 
 | 属性 | 值 |
 |------|-----|
@@ -681,51 +678,7 @@ TLS 握手时使用的 Server Name Indication（SNI），用于证书校验。
 | **默认值** | `false` |
 | **可选值** | `true`, `false` |
 
-#### `HERALD_TOTP_BASE_URL`
-
-herald-totp 服务的基础 URL。
-
-| 属性 | 值 |
-|------|-----|
-| **类型** | String |
-| **必需** | 否（若 `HERALD_TOTP_ENABLED=true` 则应设置） |
-| **默认值** | 空 |
-
-**示例：** `http://herald-totp:8080`
-
-#### `HERALD_TOTP_API_KEY`
-
-与 herald-totp 通信的 API Key（简单认证）。
-
-| 属性 | 值 |
-|------|-----|
-| **类型** | String |
-| **必需** | 否 |
-| **默认值** | 空 |
-
-#### `HERALD_TOTP_HMAC_SECRET`
-
-与 herald-totp 通信的 HMAC 密钥（生产环境推荐）。
-
-| 属性 | 值 |
-|------|-----|
-| **类型** | String |
-| **必需** | 否 |
-| **默认值** | 空 |
-
-#### `HERALD_TOTP_*` 与 stargate-suite `keys-step` 对照
-
-在 `stargate-suite` 的 Web UI 中，`keys-step` 会集中展示跨服务密钥项。与 Stargate 的 TOTP 集成相关项建议按下述对应关系配置：
-
-- `HERALD_TOTP_ENABLED=true`：启用 Stargate -> herald-totp 通道
-- `HERALD_TOTP_BASE_URL`：填写 herald-totp 服务地址（如 `http://herald-totp:8084`）
-- `HERALD_TOTP_API_KEY`：对应 herald-totp 服务的 API Key（开发可用）
-- `HERALD_TOTP_HMAC_SECRET`：对应 herald-totp 服务 HMAC 密钥（生产推荐）
-
-建议：
-
-- 开发环境可只配 `HERALD_TOTP_API_KEY`。
-- 生产环境优先 `HERALD_TOTP_HMAC_SECRET`，并结合 mTLS/网络策略限制调用源。
+**说明：** 需同时启用 Herald（`HERALD_ENABLED`、`HERALD_URL`）且 Herald 服务已配置并代理 herald-totp（Herald 侧 `HERALD_TOTP_ENABLED`、`HERALD_TOTP_BASE_URL` 等）。
 
 ### 会话存储（Redis，可选）
 
@@ -1192,8 +1145,8 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
   - 可选：mTLS 通过 `HERALD_TLS_*` 配置；与 API Key/HMAC 可并存
 
 - **Herald TOTP 集成（每用户 2FA）**：
-  - `HERALD_TOTP_ENABLED=true` 时，建议设置 `HERALD_TOTP_BASE_URL`
-  - 需设置 `HERALD_TOTP_API_KEY` 或 `HERALD_TOTP_HMAC_SECRET` 之一
+  - Stargate 仅需设置 `HERALD_TOTP_ENABLED=true`（TOTP 经 Herald 代理）
+  - Herald 服务侧需配置 `HERALD_TOTP_ENABLED`、`HERALD_TOTP_BASE_URL` 及 `HERALD_TOTP_API_KEY` 或 `HERALD_TOTP_HMAC_SECRET`
 
 - **会话存储**：
   - `SESSION_STORAGE_ENABLED=true` 时，需保证 Redis 可访问（默认 `SESSION_STORAGE_REDIS_ADDR=localhost:6379`）

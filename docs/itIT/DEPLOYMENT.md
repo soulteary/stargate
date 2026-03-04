@@ -84,15 +84,16 @@ HERALD_HMAC_SECRET=your-hmac-secret  # Raccomandato per produzione
 
 #### Costruire dalla Sorgente
 
+Dalla root del progetto:
+
 ```bash
-cd codes
-docker build -t stargate:latest .
+docker build -f docker/Dockerfile -t stargate:latest .
 ```
 
 #### Parametri di Build
 
-- **Immagine Base**: `golang:1.26-alpine` (stage di build)
-- **Immagine di Esecuzione**: `scratch` (immagine minima)
+- **Immagine Base**: `golang:1.26-alpine3.22` (stage di build)
+- **Immagine di Esecuzione**: `alpine:3.22` (con curl per health check)
 - **Directory di Lavoro**: `/app`
 - **Porta Esposta**: `80`
 
@@ -198,7 +199,6 @@ networks:
 ### Avviare i Servizi
 
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -395,10 +395,10 @@ services:
       replicas: 3
 ```
 
-**Nota:** Stargate utilizza storage sessione in memoria, le sessioni non sono condivise tra le istanze. Se è necessario un deployment multi-istanza, si raccomanda di:
+**Nota:** Senza storage Redis (`SESSION_STORAGE_ENABLED=false`), le sessioni sono solo in memoria e non condivise tra istanze. Per deployment multi-istanza:
 
+- Abilitare storage sessione Redis (`SESSION_STORAGE_ENABLED=true` e configurare `SESSION_STORAGE_REDIS_*`), oppure
 - Utilizzare persistenza sessione del bilanciatore di carico (Sticky Session)
-- O attendere supporto storage sessione esterno (Redis)
 
 #### 2. Bilanciamento Carico
 
@@ -441,7 +441,7 @@ fi
 
 #### 3. Integrazione Prometheus
 
-(Da implementare) Le versioni future supporteranno esportazione metriche Prometheus.
+Stargate espone le metriche Prometheus su `GET /metrics`. Configurare Prometheus per lo scrape di questo endpoint. L'endpoint metriche è escluso per default da log e tracing delle richieste.
 
 ## Monitoraggio e Manutenzione
 
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # Testare dall'interno del container
-docker exec stargate wget -O- http://localhost/health
+docker exec stargate curl -f http://localhost/health
 ```
 
 #### 3. Visualizzare Log Traefik

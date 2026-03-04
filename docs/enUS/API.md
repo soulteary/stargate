@@ -9,7 +9,9 @@ This document describes in detail all API endpoints of the Stargate Forward Auth
 - [Send Verification Code Endpoint](#send-verification-code-endpoint)
 - [Logout Endpoint](#logout-endpoint)
 - [Session Exchange Endpoint](#session-exchange-endpoint)
+- [TOTP Endpoints](#totp-endpoints)
 - [Health Check Endpoint](#health-check-endpoint)
+- [Metrics Endpoint](#metrics-endpoint)
 - [Root Endpoint](#root-endpoint)
 - [Authentication Flows](#authentication-flows)
 
@@ -386,6 +388,41 @@ curl "http://auth.example.com/_session_exchange?id=<session_id>"
 4. Redirects to `app.example.com/`
 5. User can use this session across all `*.example.com` subdomains
 
+## TOTP Endpoints
+
+When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`), Stargate provides TOTP (authenticator app) bind/unbind and verification as part of login. These endpoints require an authenticated session.
+
+### `GET /totp/enroll`
+
+Displays the TOTP bind page. User can scan QR code and submit a 6-digit code to complete binding.
+
+- **Authentication**: Required (session cookie). Unauthenticated users are redirected to `/_login`.
+- **Response**: 200 OK with enrollment page HTML; or 302 to `/_login` if not authenticated; or 400/503 on configuration or Herald errors.
+
+### `POST /totp/enroll/confirm`
+
+Confirms TOTP binding with the code from the authenticator app.
+
+- **Authentication**: Required (session cookie).
+- **Request Body**: Form or JSON with `code` (6-digit TOTP code).
+- **Response**: Success redirects to a success page or root; failure returns error (e.g. 400 for invalid code).
+
+### `GET /totp/revoke`
+
+Displays the TOTP unbind confirmation page.
+
+- **Authentication**: Required (session cookie). Unauthenticated users are redirected to `/_login`.
+- **Response**: 200 OK with revoke confirmation page; or 302 to `/_login` if not authenticated.
+
+### `POST /totp/revoke`
+
+Confirms TOTP unbind (removes TOTP from the account).
+
+- **Authentication**: Required (session cookie).
+- **Response**: Success redirects or returns OK; failure returns error.
+
+**Notes:** TOTP creation and verification are performed by Herald (which may proxy to herald-totp). Stargate only orchestrates the UI and session; it does not implement OTP algorithms.
+
 ## Health Check Endpoint
 
 ### `GET /health`
@@ -411,6 +448,20 @@ curl http://auth.example.com/health
 - Docker health checks
 - Kubernetes liveness probes
 - Load balancer health checks
+
+## Metrics Endpoint
+
+### `GET /metrics`
+
+Prometheus metrics in text exposition format. Used for monitoring authentication requests, session creation/destruction, and Herald/Warden call latency and results.
+
+- **Authentication**: None (endpoint is typically not exposed to the public; restrict access via network or reverse proxy if needed).
+- **Response**: 200 OK with `Content-Type: text/plain` and Prometheus exposition format.
+
+**Typical Uses:**
+
+- Prometheus scrape target
+- Grafana dashboards
 
 ## Root Endpoint
 
