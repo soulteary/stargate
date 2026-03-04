@@ -5,11 +5,11 @@ Dieses Dokument beschreibt die technische Architektur und Designentscheidungen d
 ## Technologie-Stack
 
 - **Sprache**: Go 1.26
-- **Web-Framework**: [Fiber v2.52.10](https://github.com/gofiber/fiber)
+- **Web-Framework**: [Fiber v2.52.x](https://github.com/gofiber/fiber)
 - **Template-Engine**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
-- **Sitzungsverwaltung**: Fiber Session Middleware
-- **Protokollierung**: [Logrus v1.9.3](https://github.com/sirupsen/logrus)
-- **Terminal-Ausgabe**: [Pterm v0.12.82](https://github.com/pterm/pterm)
+- **Sitzungsverwaltung**: session-kit (Fiber-kompatibler Store; unterstützt Speicher und Redis)
+- **Protokollierung**: [Zerolog](https://github.com/rs/zerolog) über logger-kit
+- **Terminal-Ausgabe**: [Pterm](https://github.com/pterm/pterm)
 - **Test-Framework**: [Testza v0.5.2](https://github.com/MarvinJWendt/testza)
 
 ## Projektstruktur
@@ -26,7 +26,6 @@ src/
 │   ├── auth/              # Authentifizierungslogik (Passwortprüfung, Sitzung, Warden-Client)
 │   ├── config/            # Konfigurationsverwaltung (Umgebungsvariablen, Validierung, Step-up)
 │   ├── handlers/          # HTTP-Anfragehandler (forwardAuth, Login, Logout, Verifizierungscode, TOTP usw.)
-│   ├── heraldtotp/        # Herald-TOTP-Client
 │   ├── i18n/              # Internationalisierungsunterstützung
 │   ├── metrics/           # Prometheus-Metriken
 │   ├── tracing/           # OpenTelemetry-Tracing-Middleware
@@ -74,10 +73,14 @@ Die Handler sind verantwortlich für die Verarbeitung von HTTP-Anfragen:
 
 - **CheckRoute**: Traefik Forward Auth Authentifizierungsprüfung
 - **LoginRoute/LoginAPI**: Login-Seite und Login-Verarbeitung
+- **SendVerifyCodeAPI**: Verifizierungscode senden (ruft Herald zum Erstellen des Challenges auf)
+- **TOTPEnrollRoute / TOTPEnrollConfirmAPI**: TOTP-Bindeseite und Bestätigung (über Herald TOTP)
+- **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP-Unbind-Seite und Bestätigung (über Herald TOTP)
 - **LogoutRoute**: Logout-Verarbeitung
 - **SessionShareRoute**: Cross-Domain-Sitzungsfreigabe
-- **HealthRoute**: Gesundheitsprüfung
+- **HealthRoute**: Gesundheitsprüfung (inkl. Warden- und Herald-Status)
 - **IndexRoute**: Root-Pfad-Verarbeitung
+- **GET /metrics**: Prometheus-Metriken (metrics-kit)
 
 ### 4. Passwort und Sicherheit
 
@@ -298,9 +301,11 @@ Wenn Warden- und Herald-Integrationen aktiviert sind, kann OTP-Authentifizierung
 
 ### Hinzufügen neuer Passwort-Algorithmen
 
-1. Neue Algorithmus-Implementierung in `internal/secure/` erstellen
-2. `HashResolver`-Interface implementieren
-3. Algorithmus in `config/validation.go` registrieren
+Passwort-Algorithmen werden vom externen Paket [secure-kit](https://github.com/soulteary/secure-kit) bereitgestellt. Für einen neuen Algorithmus:
+
+1. `HashResolver`-Interface implementieren (z. B. in secure-kit oder lokaler Adapter)
+2. Algorithmus in `internal/config/validation.go` in der Map `SupportedAlgorithms` registrieren
+3. Sicherstellen, dass die Konfigurationsvalidierung den neuen Algorithmusnamen im `PASSWORDS`-Format akzeptiert
 
 ### Hinzufügen neuer Sprachen
 
@@ -314,8 +319,8 @@ Template-Datei `internal/web/templates/login.html` ändern.
 
 ## Leistungsoptimierung
 
-- Verwendet Fiber-Framework, basierend auf fasthttp, hervorragende Leistung
-- Sitzungen im Speicher gespeichert für schnellen Zugriff
+- Verwendet Fiber-Framework, basierend auf fasthttp, für hohe Leistung
+- Sitzungen im Speicher oder Redis (wenn `SESSION_STORAGE_ENABLED=true`) für schnellen Zugriff
 - Statische Ressourcen werden über den statischen Dateiserver von Fiber bereitgestellt
 - Unterstützt Debug-Modus, kann in der Produktion deaktiviert werden
 
@@ -324,10 +329,8 @@ Template-Datei `internal/web/templates/login.html` ändern.
 ### Docker-Bereitstellung
 
 - Multi-Stage-Build zur Reduzierung der Image-Größe
-- Verwendet `golang:1.26-alpine` als Build-Stufe
-- Verwendet `scratch`-Basis-Image als Ausführungsstufe, um Sicherheitsrisiken zu minimieren
+- Build-Stufe: `golang:1.26-alpine3.22`; Ausführungsstufe: `alpine:3.22` (mit curl für Health-Checks)
 - Template-Dateien von `src/internal/web/templates` nach `/app/web/templates` im Image kopiert
-- Verwendet chinesische Mirror-Quelle (`GOPROXY=https://goproxy.cn`), um Abhängigkeits-Downloads zu beschleunigen
 - Verwendet `-ldflags "-s -w"` beim Kompilieren, um die Binärgröße zu reduzieren
 - Die Anwendung findet automatisch Template-Pfade (unterstützt `./internal/web/templates` für lokale Entwicklung und `./web/templates` für Produktion)
 
@@ -339,10 +342,10 @@ Template-Datei `internal/web/templates/login.html` ändern.
 
 ## Protokollierung und Überwachung
 
-- Verwendet Logrus für die Protokollierung
+- Verwendet Zerolog (über logger-kit) für strukturierte Protokollierung
 - Unterstützt Debug-Modus (DEBUG=true)
 - Alle kritischen Operationen werden protokolliert
-- Gesundheitsprüfungs-Endpunkt für die Überwachung verfügbar
+- Gesundheitsprüfungs-Endpunkt (`GET /health`) und Prometheus-Metriken (`GET /metrics`) für die Überwachung verfügbar
 
 ## Tests
 
@@ -352,7 +355,7 @@ Template-Datei `internal/web/templates/login.html` ändern.
 - Testabdeckung umfasst:
   - Authentifizierungslogik (`internal/auth/auth_test.go`)
   - Konfigurationsvalidierung (`internal/config/config_test.go`)
-  - Passwort-Verschlüsselungsalgorithmen (`internal/secure/secure_test.go`)
+  - Passwortprüfung und Konfiguration (`internal/auth/auth_test.go`, `internal/config/config_test.go`); Algorithmen aus secure-kit
   - HTTP-Handler (`internal/handlers/handlers_test.go`)
 
 ## Datenfluss und Sicherheitsgrenzen

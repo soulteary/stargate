@@ -84,15 +84,16 @@ HERALD_HMAC_SECRET=your-hmac-secret  # Für Produktion empfohlen
 
 #### Aus Quellcode erstellen
 
+Im Projektroot:
+
 ```bash
-cd codes
-docker build -t stargate:latest .
+docker build -f docker/Dockerfile -t stargate:latest .
 ```
 
 #### Build-Parameter
 
-- **Basis-Image**: `golang:1.26-alpine` (Build-Stufe)
-- **Ausführungs-Image**: `scratch` (minimales Image)
+- **Basis-Image**: `golang:1.26-alpine3.22` (Build-Stufe)
+- **Ausführungs-Image**: `alpine:3.22` (Laufzeit; mit curl für Health-Checks)
 - **Arbeitsverzeichnis**: `/app`
 - **Exponierter Port**: `80`
 
@@ -198,7 +199,6 @@ networks:
 ### Dienste starten
 
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -395,10 +395,10 @@ services:
       replicas: 3
 ```
 
-**Hinweis:** Stargate verwendet In-Memory-Sitzungsspeicher, Sitzungen werden nicht zwischen Instanzen geteilt. Wenn eine Multi-Instance-Bereitstellung erforderlich ist, wird empfohlen:
+**Hinweis:** Wenn Redis-Sitzungsspeicher nicht aktiviert ist (`SESSION_STORAGE_ENABLED=false`), werden Sitzungen nur im Speicher gehalten und nicht zwischen Instanzen geteilt. Für Multi-Instance-Bereitstellung:
 
+- Redis-Sitzungsspeicher aktivieren (`SESSION_STORAGE_ENABLED=true` und `SESSION_STORAGE_REDIS_*` konfigurieren), oder
 - Sitzungspersistenz des Load Balancers (Sticky Session) verwenden
-- Oder auf Unterstützung für externen Sitzungsspeicher (Redis) warten
 
 #### 2. Lastverteilung
 
@@ -441,7 +441,7 @@ fi
 
 #### 3. Prometheus-Integration
 
-(In Implementierung) Zukünftige Versionen werden den Export von Prometheus-Metriken unterstützen.
+Stargate stellt Prometheus-Metriken unter `GET /metrics` bereit. Konfigurieren Sie Ihren Prometheus-Server zum Scrapen dieses Endpunkts. Der Metriken-Endpunkt wird standardmäßig von Anforderungsprotokollierung und Tracing ausgeschlossen.
 
 ## Überwachung und Wartung
 
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # Von innerhalb des Containers testen
-docker exec stargate wget -O- http://localhost/health
+docker exec stargate curl -f http://localhost/health
 ```
 
 #### 3. Traefik-Protokolle anzeigen

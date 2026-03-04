@@ -9,7 +9,9 @@
 - [发送验证码端点](#发送验证码端点)
 - [登出端点](#登出端点)
 - [会话交换端点](#会话交换端点)
+- [TOTP 端点](#totp-端点)
 - [健康检查端点](#健康检查端点)
+- [指标端点](#指标端点)
 - [根端点](#根端点)
 - [认证流程](#认证流程)
 
@@ -380,6 +382,41 @@ curl "http://auth.example.com/_session_exchange?id=<session_id>"
 4. 重定向到 `app.example.com/`
 5. 用户可以在所有 `*.example.com` 子域名下使用该会话
 
+## TOTP 端点
+
+当启用 Herald TOTP（`HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`）时，Stargate 提供 TOTP（认证器应用）绑定/解绑及登录时的验证。这些端点需要已认证会话。
+
+### `GET /totp/enroll`
+
+展示 TOTP 绑定页面。用户可扫描二维码并提交 6 位验证码完成绑定。
+
+- **认证**：需要（会话 Cookie）。未认证用户会重定向到 `/_login`。
+- **响应**：200 OK 返回绑定页 HTML；未认证时 302 到 `/_login`；配置或 Herald 错误时 400/503。
+
+### `POST /totp/enroll/confirm`
+
+使用认证器应用生成的 6 位码确认 TOTP 绑定。
+
+- **认证**：需要（会话 Cookie）。
+- **请求体**：表单或 JSON，包含 `code`（6 位 TOTP 码）。
+- **响应**：成功时重定向到成功页或根路径；失败返回错误（如 400 表示验证码错误）。
+
+### `GET /totp/revoke`
+
+展示 TOTP 解绑确认页。
+
+- **认证**：需要（会话 Cookie）。未认证用户会重定向到 `/_login`。
+- **响应**：200 OK 返回解绑确认页；未认证时 302 到 `/_login`。
+
+### `POST /totp/revoke`
+
+确认 TOTP 解绑（从账号移除 TOTP）。
+
+- **认证**：需要（会话 Cookie）。
+- **响应**：成功时重定向或返回 OK；失败返回错误。
+
+**说明**：TOTP 的创建与校验由 Herald（可能代理到 herald-totp）完成。Stargate 仅负责页面与会话编排，不实现 OTP 算法。
+
 ## 健康检查端点
 
 ### `GET /health`
@@ -405,6 +442,20 @@ curl http://auth.example.com/health
 - Docker 健康检查
 - Kubernetes 存活探针
 - 负载均衡器健康检查
+
+## 指标端点
+
+### `GET /metrics`
+
+Prometheus 指标，文本展示格式。用于监控认证请求、会话创建/销毁及 Herald/Warden 调用延迟与结果。
+
+- **认证**：无（此端点通常不对外暴露；如需可经网络或反向代理限制访问）。
+- **响应**：200 OK，`Content-Type: text/plain`，Prometheus 展示格式。
+
+**典型用途：**
+
+- Prometheus 抓取目标
+- Grafana 仪表盘
 
 ## 根端点
 

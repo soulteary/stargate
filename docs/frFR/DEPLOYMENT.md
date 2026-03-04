@@ -84,15 +84,16 @@ HERALD_HMAC_SECRET=your-hmac-secret  # Recommandé pour la production
 
 #### Construire depuis la Source
 
+À la racine du projet :
+
 ```bash
-cd codes
-docker build -t stargate:latest .
+docker build -f docker/Dockerfile -t stargate:latest .
 ```
 
 #### Paramètres de Build
 
-- **Image de Base** : `golang:1.26-alpine` (étape de build)
-- **Image d'Exécution** : `scratch` (image minimale)
+- **Image de Base** : `golang:1.26-alpine3.22` (étape de build)
+- **Image d'Exécution** : `alpine:3.22` (avec curl pour les health checks)
 - **Répertoire de Travail** : `/app`
 - **Port Exposé** : `80`
 
@@ -198,7 +199,6 @@ networks:
 ### Démarrer les Services
 
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -395,10 +395,10 @@ services:
       replicas: 3
 ```
 
-**Note :** Stargate utilise le stockage de session en mémoire, les sessions ne sont pas partagées entre les instances. Si un déploiement multi-instance est nécessaire, il est recommandé de :
+**Note :** Sans stockage Redis (`SESSION_STORAGE_ENABLED=false`), les sessions sont en mémoire et ne sont pas partagées entre instances. Pour un déploiement multi-instance :
 
+- Activer le stockage Redis (`SESSION_STORAGE_ENABLED=true` et configurer `SESSION_STORAGE_REDIS_*`), ou
 - Utiliser la persistance de session du répartiteur de charge (Sticky Session)
-- Ou attendre le support du stockage de session externe (Redis)
 
 #### 2. Répartition de Charge
 
@@ -441,7 +441,7 @@ fi
 
 #### 3. Intégration Prometheus
 
-(À implémenter) Les versions futures supporteront l'export de métriques Prometheus.
+Stargate expose les métriques Prometheus sur `GET /metrics`. Configurez Prometheus pour scraper cet endpoint. L'endpoint métriques est exclu par défaut de la journalisation et du tracing des requêtes.
 
 ## Surveillance et Maintenance
 
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # Tester depuis l'intérieur du conteneur
-docker exec stargate wget -O- http://localhost/health
+docker exec stargate curl -f http://localhost/health
 ```
 
 #### 3. Afficher les Journaux Traefik

@@ -143,7 +143,7 @@ Une documentation complète est disponible pour vous aider à tirer le meilleur 
 
 ### Référence Rapide
 
-- **Points de Terminaison API** : `GET /_auth` (vérification d'authentification), `GET /_login` (page de connexion), `POST /_login` (connexion), `GET /_logout` (déconnexion), `GET /_session_exchange` (cross-domain), `GET /health` (vérification de santé)
+- **Points de Terminaison API** : `GET /_auth` (vérification d’auth), `GET /_login` (page de connexion), `POST /_login` (connexion), `POST /_send_verify_code` (envoyer OTP), `GET /_logout` (déconnexion), `GET /_session_exchange` (cross-domain), `GET /totp/enroll`, `POST /totp/enroll/confirm`, `GET /totp/revoke`, `POST /totp/revoke` (TOTP si Herald activé), `GET /health` (santé), `GET /metrics` (Prometheus)
 - **Déploiement** : Docker Compose recommandé pour un démarrage rapide. Voir [DEPLOYMENT.md](docs/frFR/DEPLOYMENT.md) pour le déploiement en production.
 - **Développement** : Pour la documentation liée au développement, voir [ARCHITECTURE.md](docs/frFR/ARCHITECTURE.md)
 

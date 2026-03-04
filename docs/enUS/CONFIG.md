@@ -70,9 +70,6 @@ Below are all environment variables used in code. "Required" means the service w
 | `HERALD_TLS_CLIENT_KEY_FILE` | path | empty | No |
 | `HERALD_TLS_SERVER_NAME` | String | empty | No |
 | `HERALD_TOTP_ENABLED` | true/false | false | No |
-| `HERALD_TOTP_BASE_URL` | String | empty | No |
-| `HERALD_TOTP_API_KEY` | String | empty | No |
-| `HERALD_TOTP_HMAC_SECRET` | String | empty | No |
 | `LOGIN_SMS_ENABLED` | true/false | true | No |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | No |
 | `SESSION_STORAGE_ENABLED` | true/false | false | No |
@@ -668,11 +665,11 @@ Server Name Indication (SNI) for TLS handshake and certificate validation.
 
 #### Herald TOTP (Optional, per-user 2FA)
 
-Integration with herald-totp for TOTP binding and verification (Authenticator channel). Separate from Herald OTP (SMS/email verification codes).
+TOTP binding and verification are performed via **Herald** (Herald proxies to herald-totp internally). Separate from Herald OTP (SMS/email verification codes). Stargate only needs Herald URL/auth and this flag; herald-totp URL and auth are configured on the Herald service.
 
 #### `HERALD_TOTP_ENABLED`
 
-Enable Herald TOTP integration (bind/verify TOTP codes).
+Enable TOTP (bind/verify TOTP codes). When `true`, Stargate calls Herald's `/v1/totp/*` API using the Herald client.
 
 | Attribute | Value |
 |-----------|-------|
@@ -681,37 +678,7 @@ Enable Herald TOTP integration (bind/verify TOTP codes).
 | **Default** | `false` |
 | **Possible Values** | `true`, `false` |
 
-#### `HERALD_TOTP_BASE_URL`
-
-Base URL of the herald-totp service.
-
-| Attribute | Value |
-|-----------|-------|
-| **Type** | String |
-| **Required** | No (should be set if `HERALD_TOTP_ENABLED=true`) |
-| **Default** | Empty |
-
-**Example:** `http://herald-totp:8080`
-
-#### `HERALD_TOTP_API_KEY`
-
-API key for herald-totp (simple auth).
-
-| Attribute | Value |
-|-----------|-------|
-| **Type** | String |
-| **Required** | No |
-| **Default** | Empty |
-
-#### `HERALD_TOTP_HMAC_SECRET`
-
-HMAC secret for herald-totp (recommended for production).
-
-| Attribute | Value |
-|-----------|-------|
-| **Type** | String |
-| **Required** | No |
-| **Default** | Empty |
+**Note:** Herald must be enabled (`HERALD_ENABLED`, `HERALD_URL`) and Herald must be configured to proxy herald-totp (e.g. Herald's `HERALD_TOTP_ENABLED`, `HERALD_TOTP_BASE_URL`).
 
 ### Session Storage (Redis, Optional)
 
@@ -1164,8 +1131,8 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
   - Optional: mTLS via `HERALD_TLS_*`; can be used alongside API Key/HMAC
 
 - **Herald TOTP Integration (per-user 2FA)**:
-  - When `HERALD_TOTP_ENABLED=true`, set `HERALD_TOTP_BASE_URL`
-  - Set either `HERALD_TOTP_API_KEY` or `HERALD_TOTP_HMAC_SECRET`
+  - Stargate: set `HERALD_TOTP_ENABLED=true` only (TOTP is via Herald proxy)
+  - Herald service must be configured with `HERALD_TOTP_ENABLED`, `HERALD_TOTP_BASE_URL`, and `HERALD_TOTP_API_KEY` or `HERALD_TOTP_HMAC_SECRET`
 
 - **Session Storage**:
   - When `SESSION_STORAGE_ENABLED=true`, Redis must be reachable (default `SESSION_STORAGE_REDIS_ADDR=localhost:6379`)

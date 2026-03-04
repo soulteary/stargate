@@ -84,15 +84,16 @@ HERALD_HMAC_SECRET=your-hmac-secret  # 프로덕션 환경에서 권장
 
 #### 소스에서 빌드
 
+프로젝트 루트에서:
+
 ```bash
-cd codes
-docker build -t stargate:latest .
+docker build -f docker/Dockerfile -t stargate:latest .
 ```
 
 #### 빌드 매개변수
 
-- **베이스 이미지**: `golang:1.26-alpine` (빌드 단계)
-- **실행 이미지**: `scratch` (최소 이미지)
+- **베이스 이미지**: `golang:1.26-alpine3.22` (빌드 단계)
+- **실행 이미지**: `alpine:3.22` (헬스 체크용 curl 포함)
 - **작업 디렉토리**: `/app`
 - **공개 포트**: `80`
 
@@ -198,7 +199,6 @@ networks:
 ### 서비스 시작
 
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -395,10 +395,10 @@ services:
       replicas: 3
 ```
 
-**주의:** Stargate는 메모리 내 세션 저장소를 사용하므로, 인스턴스 간 세션이 공유되지 않습니다. 다중 인스턴스 배포가 필요한 경우, 다음을 권장합니다:
+**주의:** Redis 세션 저장소를 사용하지 않으면(`SESSION_STORAGE_ENABLED=false`) 세션은 메모리에만 저장되며 인스턴스 간 공유되지 않습니다. 다중 인스턴스 배포 시:
 
-- 로드 밸런서의 세션 영속성 (Sticky Session) 사용
-- 또는 외부 세션 저장소 (Redis) 지원을 기다림
+- Redis 세션 저장소 활성화(`SESSION_STORAGE_ENABLED=true` 및 `SESSION_STORAGE_REDIS_*` 설정), 또는
+- 로드 밸런서의 세션 영속성(Sticky Session) 사용
 
 #### 2. 로드 밸런싱
 
@@ -441,7 +441,7 @@ fi
 
 #### 3. Prometheus 통합
 
-(구현 예정) 향후 버전에서는 Prometheus 메트릭 내보내기를 지원합니다.
+Stargate는 `GET /metrics`에서 Prometheus 메트릭을 노출합니다. Prometheus 서버에서 이 엔드포인트를 스크래핑하도록 설정하세요. 메트릭 엔드포인트는 기본적으로 요청 로그 및 트레이싱에서 제외됩니다.
 
 ## 모니터링 및 유지보수
 
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # 컨테이너 내에서 테스트
-docker exec stargate wget -O- http://localhost/health
+docker exec stargate curl -f http://localhost/health
 ```
 
 #### 3. Traefik 로그 표시

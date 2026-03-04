@@ -84,15 +84,16 @@ HERALD_HMAC_SECRET=your-hmac-secret  # 本番環境で推奨
 
 #### ソースからビルド
 
+プロジェクトルートで：
+
 ```bash
-cd codes
-docker build -t stargate:latest .
+docker build -f docker/Dockerfile -t stargate:latest .
 ```
 
 #### ビルドパラメータ
 
-- **ベースイメージ**: `golang:1.26-alpine`（ビルドステージ）
-- **実行イメージ**: `scratch`（最小イメージ）
+- **ベースイメージ**: `golang:1.26-alpine3.22`（ビルドステージ）
+- **実行イメージ**: `alpine:3.22`（ヘルスチェック用 curl 含む）
 - **作業ディレクトリ**: `/app`
 - **公開ポート**: `80`
 
@@ -198,7 +199,6 @@ networks:
 ### サービスの起動
 
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -395,10 +395,10 @@ services:
       replicas: 3
 ```
 
-**注意:** Stargate はメモリ内セッションストレージを使用するため、インスタンス間でセッションは共有されません。マルチインスタンスデプロイメントが必要な場合、以下を推奨します：
+**注意:** Redis セッションストレージを有効にしていない場合（`SESSION_STORAGE_ENABLED=false`）、セッションはメモリのみでインスタンス間で共有されません。マルチインスタンスデプロイでは：
 
+- Redis セッションストレージを有効化（`SESSION_STORAGE_ENABLED=true` と `SESSION_STORAGE_REDIS_*` を設定）、または
 - ロードバランサーのセッション永続化（Sticky Session）を使用
-- または外部セッションストレージ（Redis）のサポートを待つ
 
 #### 2. ロードバランシング
 
@@ -441,7 +441,7 @@ fi
 
 #### 3. Prometheus 統合
 
-（実装予定）将来のバージョンでは Prometheus メトリクスのエクスポートをサポートします。
+Stargate は `GET /metrics` で Prometheus メトリクスを公開しています。Prometheus サーバーでこのエンドポイントをスクレープするよう設定してください。メトリクスエンドポイントはデフォルトでリクエストログ・トレースから除外されます。
 
 ## 監視とメンテナンス
 
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # コンテナ内からテスト
-docker exec stargate wget -O- http://localhost/health
+docker exec stargate curl -f http://localhost/health
 ```
 
 #### 3. Traefik ログを表示

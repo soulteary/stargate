@@ -143,7 +143,7 @@ Umfassende Dokumentation ist verfügbar, um Ihnen zu helfen, das Beste aus Starg
 
 ### Schnellreferenz
 
-- **API-Endpunkte**: `GET /_auth` (Auth-Prüfung), `GET /_login` (Login-Seite), `POST /_login` (Login), `GET /_logout` (Logout), `GET /_session_exchange` (Cross-Domain), `GET /health` (Gesundheitsprüfung)
+- **API-Endpunkte**: `GET /_auth` (Auth-Prüfung), `GET /_login` (Login-Seite), `POST /_login` (Login), `POST /_send_verify_code` (OTP senden), `GET /_logout` (Logout), `GET /_session_exchange` (Cross-Domain), `GET /totp/enroll`, `POST /totp/enroll/confirm`, `GET /totp/revoke`, `POST /totp/revoke` (TOTP bei Herald), `GET /health` (Gesundheitsprüfung), `GET /metrics` (Prometheus)
 - **Bereitstellung**: Docker Compose wird für den Schnellstart empfohlen. Siehe [DEPLOYMENT.md](docs/deDE/DEPLOYMENT.md) für die Produktionsbereitstellung.
 - **Entwicklung**: Für entwicklungsbezogene Dokumentation siehe [ARCHITECTURE.md](docs/deDE/ARCHITECTURE.md)
 

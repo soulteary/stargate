@@ -84,15 +84,16 @@ HERALD_HMAC_SECRET=your-hmac-secret  # Recommended for production
 
 #### Build from Source
 
+From the project root directory:
+
 ```bash
-cd codes
-docker build -t stargate:latest .
+docker build -f docker/Dockerfile -t stargate:latest .
 ```
 
 #### Build Parameters
 
-- **Base Image**: `golang:1.26-alpine` (build stage)
-- **Runtime Image**: `scratch` (minimal image)
+- **Base Image**: `golang:1.26-alpine3.22` (build stage)
+- **Runtime Image**: `alpine:3.22` (runtime stage; includes curl for health checks)
 - **Working Directory**: `/app`
 - **Exposed Port**: `80`
 
@@ -161,7 +162,7 @@ docker rm -f stargate
 
 ### Basic Configuration
 
-The project provides a `docker-compose.yml` example file:
+The project provides a `docker-compose.yml` example file in the project root. Start from the project root:
 
 ```yaml
 services:
@@ -198,7 +199,6 @@ networks:
 ### Start Services
 
 ```bash
-cd codes
 docker-compose up -d
 ```
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -395,10 +395,10 @@ services:
       replicas: 3
 ```
 
-**Note:** Stargate uses in-memory session storage, sessions are not shared between instances. If multi-instance deployment is needed, it is recommended to:
+**Note:** When Redis session storage is not enabled (`SESSION_STORAGE_ENABLED=false`), sessions are stored in memory and are not shared between instances. For multi-instance deployment, either:
 
-- Use load balancer session persistence (Sticky Session)
-- Or wait for external session storage (Redis) support
+- Enable Redis session storage (`SESSION_STORAGE_ENABLED=true` and configure `SESSION_STORAGE_REDIS_*`), or
+- Use load balancer session persistence (sticky session)
 
 #### 2. Load Balancing
 
@@ -441,7 +441,7 @@ fi
 
 #### 3. Prometheus Integration
 
-(To be implemented) Future versions will support Prometheus metrics export.
+Stargate exposes Prometheus metrics at `GET /metrics`. Configure your Prometheus server to scrape this endpoint. The metrics endpoint is excluded from request logging and tracing by default.
 
 ## Monitoring and Maintenance
 
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # Test from inside container
-docker exec stargate wget -O- http://localhost/health
+docker exec stargate curl -f http://localhost/health
 ```
 
 #### 3. View Traefik Logs
