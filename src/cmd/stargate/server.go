@@ -190,9 +190,8 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	log.Debug().Msg("Registering routes")
 	// Initialize ForwardAuth handler
 	handlers.InitForwardAuthHandler(log)
-	// Initialize Herald client
+	// Initialize Herald client (used for OTP and TOTP via Herald proxy)
 	handlers.InitHeraldClient(log)
-	handlers.InitHeraldTOTPClient(log)
 
 	app.Get(RouteHealth, health.FiberHandler(healthAggregator))
 	app.Get(RouteRoot, handlers.IndexRoute(store))

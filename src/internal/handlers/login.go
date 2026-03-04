@@ -19,7 +19,6 @@ import (
 	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
-	"github.com/soulteary/stargate/src/internal/heraldtotp"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
 	"github.com/soulteary/tracing-kit"
@@ -35,10 +34,8 @@ func SetLogger(l *logger.Logger) {
 }
 
 var (
-	heraldClient         *herald.Client
-	heraldClientInit     sync.Once
-	heraldTOTPClient     *heraldtotp.Client
-	heraldTOTPClientInit sync.Once
+	heraldClient     *herald.Client
+	heraldClientInit sync.Once
 )
 
 // InitHeraldClient initializes the Herald client if enabled
@@ -109,45 +106,10 @@ func getHeraldClient() *herald.Client {
 	return heraldClient
 }
 
-// InitHeraldTOTPClient initializes the herald-totp client if HERALD_TOTP_ENABLED and HERALD_TOTP_BASE_URL are set.
-func InitHeraldTOTPClient(l *logger.Logger) {
-	log = l
-	heraldTOTPClientInit.Do(func() {
-		if !config.HeraldTOTPEnabled.ToBool() {
-			log.Debug().Msg("Herald TOTP is not enabled, skipping client initialization")
-			return
-		}
-		baseURL := config.HeraldTOTPBaseURL.String()
-		if baseURL == "" {
-			log.Debug().Msg("HERALD_TOTP_BASE_URL is not set, herald-totp client will not be initialized")
-			return
-		}
-		opts := heraldtotp.DefaultOptions().
-			WithBaseURL(strings.TrimSuffix(baseURL, "/")).
-			WithAPIKey(config.HeraldTOTPAPIKey.String()).
-			WithTimeout(10 * time.Second)
-		if hmacSecret := config.HeraldTOTPHMACSecret.String(); hmacSecret != "" {
-			opts = opts.WithHMACSecret(hmacSecret)
-		}
-		client, err := heraldtotp.NewClient(opts)
-		if err != nil {
-			log.Warn().Err(err).Msg("Failed to initialize herald-totp client")
-			return
-		}
-		heraldTOTPClient = client
-		log.Info().Msg("Herald TOTP client initialized successfully")
-	})
-}
-
-// getHeraldTOTPClient returns the herald-totp client (may be nil if not configured).
-func getHeraldTOTPClient() *heraldtotp.Client {
-	return heraldTOTPClient
-}
-
-// ResetHeraldTOTPClientForTest resets the Herald TOTP client and init state. Only for use in tests.
-func ResetHeraldTOTPClientForTest() {
-	heraldTOTPClient = nil
-	heraldTOTPClientInit = sync.Once{}
+// ResetHeraldClientForTest resets the Herald client and init state. Only for use in tests.
+func ResetHeraldClientForTest() {
+	heraldClient = nil
+	heraldClientInit = sync.Once{}
 }
 
 // generateUserID generates a user ID from phone/mail
@@ -267,9 +229,8 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		otpCode := ctx.FormValue("otp_code")
 		useOTP := ctx.FormValue("use_otp") == "true"
 
-		// OTP enabled: Warden global OTP or Herald TOTP (per-user) when configured
-		otpEnabled := config.WardenOTPEnabled.ToBool() ||
-			(config.HeraldTOTPEnabled.ToBool() && config.HeraldTOTPBaseURL.String() != "")
+		// OTP enabled: Warden global OTP or Herald TOTP (per-user, via Herald proxy) when configured
+		otpEnabled := config.WardenOTPEnabled.ToBool() || config.HeraldTOTPEnabled.ToBool()
 
 		// Step 4: Verify code via Herald (if not using OTP)
 		if !useOTP {
@@ -435,13 +396,13 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.otp_code_required"))
 			}
 
-			// Prefer herald-totp (per-user TOTP) when configured
-			totpClient := getHeraldTOTPClient()
-			if totpClient != nil {
+			// Herald TOTP (per-user, via Herald proxy) when configured
+			heraldClient := getHeraldClient()
+			if heraldClient != nil && config.HeraldTOTPEnabled.ToBool() {
 				// Check if user has TOTP enrolled; if not, require verification code login first, then bind in settings
-				statusResp, err := totpClient.Status(loginCtx, userID)
+				statusResp, err := heraldClient.TOTPStatus(loginCtx, userID)
 				if err != nil {
-					log.Warn().Err(err).Str("user_id", userID).Msg("herald-totp status check failed")
+					log.Warn().Err(err).Str("user_id", userID).Msg("Herald TOTP status check failed")
 					return SendErrorResponse(ctx, fiber.StatusBadGateway, i18n.T(ctx, "error.herald_unavailable_retry"))
 				}
 				if statusResp == nil || !statusResp.TotpEnabled {
@@ -449,14 +410,14 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 					auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "totp_not_enrolled")
 					return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.totp_not_enrolled"))
 				}
-				verifyReq := &heraldtotp.VerifyRequest{
+				verifyReq := &herald.TOTPVerifyRequest{
 					Subject: userID,
 					Code:    otpCode,
 				}
 				if challengeID != "" {
 					verifyReq.ChallengeID = challengeID
 				}
-				verifyResp, err := totpClient.Verify(loginCtx, verifyReq)
+				verifyResp, err := heraldClient.TOTPVerify(loginCtx, verifyReq)
 				if err != nil || verifyResp == nil || !verifyResp.OK {
 					metrics.RecordAuthRequest("warden_otp", "failure")
 					log.Warn().Err(err).Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("TOTP verification failed")
@@ -760,8 +721,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 	}
 
 	heraldEnabled := config.HeraldEnabled.ToBool()
-	otpEnabled := config.WardenOTPEnabled.ToBool() ||
-		(config.HeraldTOTPEnabled.ToBool() && config.HeraldTOTPBaseURL.String() != "")
+	otpEnabled := config.WardenOTPEnabled.ToBool() || config.HeraldTOTPEnabled.ToBool()
 
 	return ctx.Render(templateName, fiber.Map{
 		"Callback":          callback,
@@ -771,7 +731,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		"WardenEnabled":     config.WardenEnabled.ToBool(),
 		"HeraldEnabled":     heraldEnabled,
 		"OTPEnabled":        otpEnabled,
-		"HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool() && config.HeraldTOTPBaseURL.String() != "",
+		"HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool(),
 		"LoginSMSEnabled":   config.LoginSMSEnabled.ToBool(),
 		"LoginEmailEnabled": config.LoginEmailEnabled.ToBool(),
 		"Debug":             config.Debug.ToBool(),

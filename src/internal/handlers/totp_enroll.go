@@ -7,9 +7,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
+	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
-	"github.com/soulteary/stargate/src/internal/heraldtotp"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
@@ -36,12 +36,12 @@ func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 			label = userID
 		}
 
-		client := getHeraldTOTPClient()
+		client := getHeraldClient()
 		if client == nil {
 			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable"))
 		}
 		// If already bound TOTP, redirect to revoke page
-		statusResp, err := client.Status(context.Background(), userID)
+		statusResp, err := client.TOTPStatus(context.Background(), userID)
 		if err != nil {
 			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP status check failed")
 			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP status check failed")
@@ -49,12 +49,12 @@ func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 		if statusResp.TotpEnabled {
 			return ctx.Redirect("/totp/revoke", fiber.StatusFound)
 		}
-		startResp, err := client.EnrollStart(ctx.Context(), &heraldtotp.EnrollStartRequest{
+		startResp, err := client.TOTPEnrollStart(ctx.Context(), &herald.TOTPEnrollStartRequest{
 			Subject: userID,
 			Label:   label,
 		})
 		if err != nil {
-			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP enroll start failed (check herald-totp: HERALD_TOTP_ENCRYPTION_KEY, Redis, API_KEY)")
+			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP enroll start failed (check Herald and herald-totp)")
 			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP enroll start failed")
 		}
 		return ctx.Render("totp_enroll", fiber.Map{
@@ -82,11 +82,11 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c *fiber.Ctx) error {
 		if enrollID == "" || code == "" {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "enroll_id and code required"})
 		}
-		client := getHeraldTOTPClient()
+		client := getHeraldClient()
 		if client == nil {
 			return ctx.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"ok": false, "error": "TOTP service unavailable"})
 		}
-		confirmResp, err := client.EnrollConfirm(ctx.Context(), &heraldtotp.EnrollConfirmRequest{
+		confirmResp, err := client.TOTPEnrollConfirm(ctx.Context(), &herald.TOTPEnrollConfirmRequest{
 			EnrollID: enrollID,
 			Code:     code,
 		})

@@ -10,9 +10,9 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp"
 
+	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
-	"github.com/soulteary/stargate/src/internal/heraldtotp"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
@@ -68,10 +68,10 @@ func TestTOTPEnrollRoute_Authenticated_NoUserID_400(t *testing.T) {
 }
 
 func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
-	ResetHeraldTOTPClientForTest()
+	ResetHeraldClientForTest()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
-	// Do not set HERALD_TOTP_ENABLED so getHeraldTOTPClient() stays nil
+	// Do not set HERALD_ENABLED / HERALD_URL so getHeraldClient() stays nil
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
@@ -99,28 +99,29 @@ func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
 }
 
 func TestTOTPEnrollRoute_AlreadyBound_RedirectsToRevoke(t *testing.T) {
-	// Mock herald-totp: GET /v1/status returns totp_enabled true
+	// Mock Herald TOTP proxy: GET /v1/totp/status returns totp_enabled true
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/status" {
+		if r.URL.Path != "/v1/totp/status" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(heraldtotp.StatusResponse{
+		_ = json.NewEncoder(w).Encode(herald.TOTPStatusResponse{
 			Subject:     "u_test",
 			TotpEnabled: true,
 		})
 	}))
 	defer server.Close()
 
-	ResetHeraldTOTPClientForTest()
+	ResetHeraldClientForTest()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_URL", server.URL)
 	t.Setenv("HERALD_TOTP_ENABLED", "true")
-	t.Setenv("HERALD_TOTP_BASE_URL", server.URL)
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	InitHeraldTOTPClient(testLogger())
+	InitHeraldClient(testLogger())
 
 	store := setupTestStore()
 	handler := TOTPEnrollRoute(store)
@@ -197,6 +198,7 @@ func TestTOTPEnrollConfirmAPI_MissingParams_400(t *testing.T) {
 }
 
 func TestTOTPEnrollConfirmAPI_ClientNil_503(t *testing.T) {
+	ResetHeraldClientForTest()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	err := config.Initialize(testLogger())

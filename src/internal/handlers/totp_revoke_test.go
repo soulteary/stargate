@@ -38,11 +38,12 @@ func TestTOTPRevokeRoute_NotAuthenticated_Redirects(t *testing.T) {
 func TestTOTPRevokeRoute_Authenticated_NoUserID_400(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_URL", "http://localhost")
 	t.Setenv("HERALD_TOTP_ENABLED", "true")
-	t.Setenv("HERALD_TOTP_BASE_URL", "http://localhost")
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	InitHeraldTOTPClient(testLogger())
+	InitHeraldClient(testLogger())
 
 	store := setupTestStore()
 	handler := TOTPRevokeRoute(store)
@@ -66,7 +67,7 @@ func TestTOTPRevokeRoute_Authenticated_NoUserID_400(t *testing.T) {
 }
 
 func TestTOTPRevokeRoute_Authenticated_ClientNil_503(t *testing.T) {
-	ResetHeraldTOTPClientForTest()
+	ResetHeraldClientForTest()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	err := config.Initialize(testLogger())
@@ -114,11 +115,12 @@ func TestTOTPRevokeConfirmAPI_NotAuthenticated_401(t *testing.T) {
 func TestTOTPRevokeConfirmAPI_NoUserID_400(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_URL", "http://localhost")
 	t.Setenv("HERALD_TOTP_ENABLED", "true")
-	t.Setenv("HERALD_TOTP_BASE_URL", "http://localhost")
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	InitHeraldTOTPClient(testLogger())
+	InitHeraldClient(testLogger())
 
 	store := setupTestStore()
 	handler := TOTPRevokeConfirmAPI(store)
@@ -138,7 +140,7 @@ func TestTOTPRevokeConfirmAPI_NoUserID_400(t *testing.T) {
 }
 
 func TestTOTPRevokeConfirmAPI_ClientNil_503(t *testing.T) {
-	ResetHeraldTOTPClientForTest()
+	ResetHeraldClientForTest()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	err := config.Initialize(testLogger())
