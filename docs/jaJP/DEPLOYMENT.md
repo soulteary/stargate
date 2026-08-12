@@ -92,8 +92,8 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### ビルドパラメータ
 
-- **ベースイメージ**: `golang:1.26-alpine3.22`（ビルドステージ）
-- **実行イメージ**: `alpine:3.22`（ヘルスチェック用 curl 含む）
+- **ベースイメージ**: `golang:1.26.5-alpine3.23`（ビルドステージ）
+- **実行イメージ**: `alpine:3.23`（ヘルスチェック用 curl 含む）
 - **作業ディレクトリ**: `/app`
 - **公開ポート**: `80`
 

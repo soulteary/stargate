@@ -92,8 +92,8 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### Build Parameters
 
-- **Base Image**: `golang:1.26-alpine3.22` (build stage)
-- **Runtime Image**: `alpine:3.22` (runtime stage; includes curl for health checks)
+- **Base Image**: `golang:1.26.5-alpine3.23` (build stage)
+- **Runtime Image**: `alpine:3.23` (runtime stage; includes curl for health checks)
 - **Working Directory**: `/app`
 - **Exposed Port**: `80`
 
