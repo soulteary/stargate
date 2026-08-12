@@ -15,7 +15,7 @@ require (
 	github.com/soulteary/cli-kit v1.7.0
 	github.com/soulteary/forwardauth-kit v1.3.0
 	github.com/soulteary/health-kit v1.3.0
-	github.com/soulteary/herald v0.9.0
+	github.com/soulteary/herald v0.10.0
 	github.com/soulteary/i18n-kit v1.2.0
 	github.com/soulteary/logger-kit v1.5.0
 	github.com/soulteary/metrics-kit v1.3.0
@@ -47,7 +47,6 @@ require (
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.10.0 // indirect
@@ -77,7 +76,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.45.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
-	go.yaml.in/yaml/v2 v2.4.4 // indirect
 	golang.org/x/net v0.57.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
