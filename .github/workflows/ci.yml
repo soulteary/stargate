@@ -7,23 +7,44 @@ on:
     branches: [ main, master, develop ]
 
 env:
-  GO_VERSION: '1.26.0'
+  DOCKER_BUILDKIT: 1
 
 jobs:
-  test:
-    name: Test
-    # runs-on: ubuntu-latest
+  # 代码格式检查
+  fmt:
+    name: 代码格式检查
     runs-on: self-hosted
     steps:
-      - name: Checkout code
+      - name: 检出代码
         uses: actions/checkout@v6
 
-      - name: Set up Go
+      - name: 设置 Go 环境
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: 'go.mod'
 
-      - name: Cache Go modules
+      - name: 检查代码格式
+        run: |
+          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+            echo "以下文件格式不正确:"
+            gofmt -s -d .
+            exit 1
+          fi
+
+  # 代码静态检查
+  vet:
+    name: 代码静态检查
+    runs-on: self-hosted
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: 缓存 Go 模块
         uses: actions/cache@v5
         with:
           path: |
@@ -33,10 +54,39 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Download dependencies
+      - name: 下载依赖
         run: go mod download
 
-      - name: Start Redis for tests
+      - name: 运行 go vet
+        run: go vet ./...
+
+  # 代码测试
+  test:
+    name: 代码测试
+    runs-on: self-hosted
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: 缓存 Go 模块
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: 下载依赖
+        run: go mod download
+
+      - name: 启动测试用 Redis
         run: |
           docker run -d --name stargate-redis-test -p 6379:6379 redis:8-alpine
           echo "等待 Redis 就绪..."
@@ -50,23 +100,23 @@ jobs:
           done
           docker exec stargate-redis-test redis-cli ping || (echo "Redis 启动超时"; exit 1)
 
-      - name: Run tests
+      - name: 运行测试
         run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
 
-      - name: Stop Redis
+      - name: 停止 Redis
         if: always()
         run: docker rm -f stargate-redis-test 2>/dev/null || true
 
-      - name: Generate coverage report
+      - name: 生成覆盖率报告
         run: go tool cover -html=coverage.out -o coverage.html
 
-      - name: Upload coverage report
+      - name: 上传覆盖率报告
         uses: actions/upload-artifact@v6
         with:
           name: coverage-report
           path: coverage.html
 
-      - name: Display coverage summary
+      - name: 显示覆盖率摘要
         run: go tool cover -func=coverage.out
 
       - name: Upload coverage reports to Codecov
@@ -78,19 +128,40 @@ jobs:
           name: codecov-umbrella
           fail_ci_if_error: false
 
-  build:
-    name: Build
+  # 代码质量检查（使用 golangci-lint）
+  lint:
+    name: 代码质量检查
     runs-on: self-hosted
     steps:
-      - name: Checkout code
+      - name: 检出代码
         uses: actions/checkout@v6
 
-      - name: Set up Go
+      - name: 设置 Go 环境
         uses: actions/setup-go@v6
         with:
-          go-version: ${{ env.GO_VERSION }}
+          go-version-file: 'go.mod'
 
-      - name: Cache Go modules
+      - name: 运行 golangci-lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: latest
+          args: --timeout=5m
+          only-new-issues: false
+
+  # 依赖项安全扫描
+  security-scan:
+    name: 依赖项安全扫描
+    runs-on: self-hosted
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: 缓存 Go 模块
         uses: actions/cache@v5
         with:
           path: |
@@ -100,54 +171,106 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
-      - name: Download dependencies
+      - name: 下载依赖
         run: go mod download
 
-      - name: Get version information
+      - name: 安装 govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      - name: 运行安全扫描
+        run: govulncheck ./...
+
+  # 完整构建检查
+  build:
+    name: 构建检查
+    runs-on: self-hosted
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v6
+
+      - name: 设置 Go 环境
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: 'go.mod'
+
+      - name: 缓存 Go 模块
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: 下载依赖
+        run: go mod download
+
+      - name: 获取版本信息
         id: version
         run: |
           VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build
+      - name: 构建项目
         run: |
           VERSION=${{ steps.version.outputs.version }}
           COMMIT=${{ github.sha }}
           BUILD_DATE=$(date +%FT%T%z)
-          CGO_ENABLED=0 go build -ldflags "-s -w -X 'github.com/soulteary/version-kit.Version=${VERSION}' -X 'github.com/soulteary/version-kit.Commit=${COMMIT}' -X 'github.com/soulteary/version-kit.BuildDate=${BUILD_DATE}'" -o ./bin/stargate ./src/cmd/stargate
+          LDFLAGS="-s -w -X 'github.com/soulteary/version-kit.Version=${VERSION}' -X 'github.com/soulteary/version-kit.Commit=${COMMIT}' -X 'github.com/soulteary/version-kit.BuildDate=${BUILD_DATE}'"
+          CGO_ENABLED=0 go build -ldflags "${LDFLAGS}" -o ./bin/stargate ./src/cmd/stargate
 
-      - name: Upload build artifacts
+      - name: 验证构建产物
+        run: |
+          if [ -f ./bin/stargate ]; then
+            echo "构建成功，文件存在"
+            ls -lh ./bin/stargate
+            file ./bin/stargate
+          else
+            echo "构建失败，文件不存在"
+            exit 1
+          fi
+
+      - name: 上传构建产物
         uses: actions/upload-artifact@v6
         with:
           name: stargate-binary
           path: ./bin/stargate
           retention-days: 7
 
+  # Docker 构建
   docker-build:
-    name: Docker Build
+    name: Docker 构建
     runs-on: self-hosted
     needs: [test]
     steps:
-      - name: Checkout code
+      - name: 检出代码
         uses: actions/checkout@v6
 
-      - name: Set up Docker Buildx
+      - name: 设置 Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Get version information
+      - name: 获取版本信息
         id: version
         run: |
           VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "dev-$(git rev-parse --short HEAD)")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "最近版本: $VERSION"
 
-      - name: Build Docker image
+      - name: 构建 Docker 镜像
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./docker/Dockerfile
           push: false
-          tags: stargate:latest
+          load: true
+          tags: stargate:test
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: 验证镜像
+        run: |
+          docker images stargate:test
+          docker inspect stargate:test
