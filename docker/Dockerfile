@@ -1,4 +1,4 @@
-FROM golang:1.26.5-alpine3.23 AS builder
+FROM golang:1.26.6-alpine3.23 AS builder
 RUN apk add git bash gcc musl-dev upx
 WORKDIR /app
 ENV GO111MODULE=on
