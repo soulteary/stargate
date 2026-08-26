@@ -143,8 +143,6 @@ PASSWORDS=plaintext:test123|admin456|user789
 # BCrypt 哈希
 PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 
-# SHA512 哈希
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
 ## 可选配置
@@ -852,7 +850,7 @@ OTLP 采集端地址（如 Jaeger/OTLP Collector）。
 
 ## 密码配置
 
-Stargate 支持多种密码加密算法。密码配置格式为：`算法:密码1|密码2|密码3`
+Stargate 支持明文（仅开发环境）和 bcrypt 密码验证。配置格式为：`算法:密码1|密码2|密码3`。密码区分大小写，空白字符具有实际意义。
 
 ### 支持的算法
 
@@ -893,55 +891,11 @@ go run -c 'golang.org/x/crypto/bcrypt' <<< 'password'
 PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 ```
 
-#### `md5` - MD5 哈希
-
-**说明：**
-
-- 使用 MD5 算法进行哈希
-- 安全性较低，不推荐用于生产环境
-- 密码必须使用 MD5 哈希值（32 位十六进制字符串）
-
-**生成 MD5 哈希：**
-
-```bash
-# Linux/macOS
-echo -n "password" | md5sum
-
-# 或使用在线工具
-```
-
-**示例：**
-
-```bash
-PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-#### `sha512` - SHA512 哈希
-
-**说明：**
-
-- 使用 SHA512 算法进行哈希
-- 安全性较高，推荐用于生产环境
-- 密码必须使用 SHA512 哈希值（128 位十六进制字符串）
-
-**生成 SHA512 哈希：**
-
-```bash
-# Linux/macOS
-echo -n "password" | shasum -a 512
-
-# 或使用在线工具
-```
-
-**示例：**
-
-```bash
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
+MD5 和未加盐 SHA-512 都是快速、无盐的通用哈希，并非密码哈希函数，因此配置时会被拒绝。
 
 ### 密码验证规则
 
-1. **密码规范化**：验证前会去除空格并转换为大写
+1. **精确匹配**：验证前不会移除空格或转换大小写
 2. **多密码支持**：可以配置多个密码，任一密码验证通过即可
 3. **算法一致性**：所有密码必须使用相同的算法
 
@@ -1178,7 +1132,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## 配置最佳实践
 
 1. **生产环境安全**：
-   - 使用 `bcrypt` 或 `sha512` 算法，避免使用 `plaintext`
+   - 使用 `bcrypt`，避免使用 `plaintext`
    - 设置 `DEBUG=false`
    - 使用强密码（密码认证模式）
    - 或使用 Warden + Herald OTP 认证（推荐）

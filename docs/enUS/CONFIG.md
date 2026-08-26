@@ -143,8 +143,6 @@ PASSWORDS=plaintext:test123|admin456|user789
 # BCrypt hash
 PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 
-# SHA512 hash
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
 ## Optional Configuration
@@ -838,7 +836,7 @@ Refresh interval (Go duration, e.g. `5m`, `1h`).
 
 ## Password Configuration
 
-Stargate supports multiple password encryption algorithms. Password configuration format: `algorithm:password1|password2|password3`
+Stargate supports plaintext (development only) and bcrypt password verification. Password configuration format: `algorithm:password1|password2|password3`. Password bytes are case-sensitive and whitespace is significant.
 
 ### Supported Algorithms
 
@@ -879,51 +877,7 @@ go run -c 'golang.org/x/crypto/bcrypt' <<< 'password'
 PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 ```
 
-#### `md5` - MD5 Hash
-
-**Description:**
-
-- Uses MD5 algorithm for hashing
-- Lower security, not recommended for production
-- Password must use MD5 hash value (32-character hexadecimal string)
-
-**Generate MD5 Hash:**
-
-```bash
-# Linux/macOS
-echo -n "password" | md5sum
-
-# Or use online tools
-```
-
-**Example:**
-
-```bash
-PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-#### `sha512` - SHA512 Hash
-
-**Description:**
-
-- Uses SHA512 algorithm for hashing
-- High security, recommended for production
-- Password must use SHA512 hash value (128-character hexadecimal string)
-
-**Generate SHA512 Hash:**
-
-```bash
-# Linux/macOS
-echo -n "password" | shasum -a 512
-
-# Or use online tools
-```
-
-**Example:**
-
-```bash
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
+MD5 and unsalted SHA-512 password hashes are rejected because they are fast, unsalted primitives and are not password hashing functions.
 
 ### Password Verification Rules
 
@@ -1164,7 +1118,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## Configuration Best Practices
 
 1. **Production Security**:
-   - Use `bcrypt` or `sha512` algorithms, avoid `plaintext`
+   - Use `bcrypt`; avoid `plaintext`
    - Set `DEBUG=false`
    - Use strong passwords (password authentication mode)
    - Or use Warden + Herald OTP authentication (recommended)
