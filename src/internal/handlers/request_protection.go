@@ -94,14 +94,16 @@ type passwordFailureBucket struct {
 }
 
 var (
-	passwordFailureMu      sync.Mutex
-	passwordFailureBuckets = make(map[string]passwordFailureBucket)
+	passwordFailureMu          sync.Mutex
+	passwordFailureBuckets     = make(map[string]passwordFailureBucket)
+	passwordFailureLastCleanup time.Time
 )
 
 func resetPasswordFailureBucketsForTesting() {
 	passwordFailureMu.Lock()
 	defer passwordFailureMu.Unlock()
 	passwordFailureBuckets = make(map[string]passwordFailureBucket)
+	passwordFailureLastCleanup = time.Time{}
 }
 
 func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) error {
@@ -112,6 +114,14 @@ func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) error {
 	now := time.Now()
 	key := ctx.IP()
 	passwordFailureMu.Lock()
+	if passwordFailureLastCleanup.IsZero() || now.Sub(passwordFailureLastCleanup) >= time.Minute {
+		for bucketKey, candidate := range passwordFailureBuckets {
+			if !now.Before(candidate.resets) {
+				delete(passwordFailureBuckets, bucketKey)
+			}
+		}
+		passwordFailureLastCleanup = now
+	}
 	bucket := passwordFailureBuckets[key]
 	if bucket.resets.IsZero() || !now.Before(bucket.resets) {
 		bucket = passwordFailureBucket{resets: now.Add(time.Minute)}
