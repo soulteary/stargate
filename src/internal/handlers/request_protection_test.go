@@ -36,7 +36,44 @@ func TestRequireSameOriginAllowsMatchingOrigin(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 	req := newRequestProtectionTestRequest(fiber.MethodPost, "/write")
-	req.Header.Set("Origin", "https://auth.example.com")
+	req.Header.Set("Origin", "http://auth.example.com")
+
+	resp, err := app.Test(req)
+	if err != nil {
+		t.Fatalf("execute request: %v", err)
+	}
+	testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
+}
+
+func TestRequireSameOriginRejectsSchemeAndPortMismatch(t *testing.T) {
+	app := fiber.New()
+	app.Post("/write", RequireSameOrigin(), func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	for _, origin := range []string{
+		"https://auth.example.com",
+		"http://auth.example.com:8080",
+		"http://auth.example.com/path",
+	} {
+		req := newRequestProtectionTestRequest(fiber.MethodPost, "/write")
+		req.Header.Set("Origin", origin)
+		resp, err := app.Test(req)
+		if err != nil {
+			t.Fatalf("execute request with origin %q: %v", origin, err)
+		}
+		testza.AssertEqual(t, fiber.StatusForbidden, resp.StatusCode)
+	}
+}
+
+func TestRequireSameOriginNormalizesDefaultPort(t *testing.T) {
+	app := fiber.New()
+	app.Post("/write", RequireSameOrigin(), func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+	req := newRequestProtectionTestRequest(fiber.MethodPost, "/write")
+	req.Host = "auth.example.com:80"
+	req.Header.Set("Origin", "http://auth.example.com")
 
 	resp, err := app.Test(req)
 	if err != nil {
