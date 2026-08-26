@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
@@ -214,12 +215,62 @@ func TestTOTPEnrollConfirmAPI_ClientNil_503(t *testing.T) {
 
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
-	err = auth.Authenticate(sess)
-	testza.AssertNoError(t, err)
 	sess.Set("user_id", "u_test")
-	ctx.Request().Header.Set("Cookie", auth.SessionCookieName+"="+sess.ID())
+	sess.Set(totpEnrollmentIDKey, "e1")
+	sess.Set(totpEnrollmentSubjectKey, "u_test")
+	sess.Set(totpEnrollmentStartedKey, time.Now().Unix())
+	sessionID := sess.ID()
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusServiceUnavailable, ctx.Response().StatusCode())
+}
+
+func TestTOTPEnrollConfirmAPI_RejectsUnboundEnrollment(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+
+	store := setupTestStore()
+	handler := TOTPEnrollConfirmAPI(store)
+	ctx, app := createTestContext("POST", "/totp/enroll/confirm", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "enroll_id=attacker-enrollment&code=123456")
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	sess.Set("user_id", "u_test")
+	sessionID := sess.ID()
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+
+	testza.AssertNoError(t, handler(ctx))
+	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+	testza.AssertContains(t, string(ctx.Response().Body()), "invalid_enrollment")
+}
+
+func TestTOTPEnrollRequiresRecentAuthentication(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+
+	store := setupTestStore()
+	ctx, app := createTestContext("POST", "/totp/enroll", nil, "")
+	defer app.ReleaseCtx(ctx)
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	sess.Set("user_id", "u_test")
+	sessionID := sess.ID()
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	sess, err = store.Get(ctx)
+	testza.AssertNoError(t, err)
+	sess.Set("created_at", time.Now().Add(-totpEnrollmentValidity-time.Minute).Unix())
+	testza.AssertNoError(t, sess.Save())
+
+	testza.AssertNoError(t, TOTPEnrollRoute(store)(ctx))
+	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
 }

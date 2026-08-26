@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"html/template"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
@@ -12,6 +13,25 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
+
+const (
+	totpEnrollmentValidity   = 10 * time.Minute
+	totpEnrollmentIDKey      = "totp_enrollment_id"
+	totpEnrollmentSubjectKey = "totp_enrollment_subject"
+	totpEnrollmentStartedKey = "totp_enrollment_started_at"
+)
+
+func hasRecentAuthentication(sess *session.Session) bool {
+	authenticatedAt, ok := sess.Get("created_at").(int64)
+	age := time.Since(time.Unix(authenticatedAt, 0))
+	return ok && age >= 0 && age <= totpEnrollmentValidity
+}
+
+func clearTOTPEnrollment(sess *session.Session) {
+	sess.Delete(totpEnrollmentIDKey)
+	sess.Delete(totpEnrollmentSubjectKey)
+	sess.Delete(totpEnrollmentStartedKey)
+}
 
 // TOTPEnrollRoute handles POST /totp/enroll - starts enrollment and shows the bind page.
 // Calls herald-totp enroll/start and renders page with QR (otpauth_uri) and enroll_id.
@@ -23,6 +43,9 @@ func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 		}
 		if !auth.IsAuthenticated(sess) {
 			return ctx.Redirect("/_login", fiber.StatusFound)
+		}
+		if !hasRecentAuthentication(sess) {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "recent authentication required")
 		}
 		userID, _ := sess.Get("user_id").(string)
 		if userID == "" {
@@ -57,6 +80,12 @@ func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP enroll start failed (check Herald and herald-totp)")
 			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP enroll start failed")
 		}
+		sess.Set(totpEnrollmentIDKey, startResp.EnrollID)
+		sess.Set(totpEnrollmentSubjectKey, userID)
+		sess.Set(totpEnrollmentStartedKey, time.Now().Unix())
+		if err := sess.Save(); err != nil {
+			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
+		}
 		return ctx.Render("totp_enroll", fiber.Map{
 			"Title":             config.LoginPageTitle.Value,
 			"FooterText":        config.LoginPageFooterText.Value,
@@ -77,10 +106,23 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c *fiber.Ctx) error {
 		if !auth.IsAuthenticated(sess) {
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "unauthorized"})
 		}
+		if !hasRecentAuthentication(sess) {
+			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "recent_authentication_required"})
+		}
 		enrollID := ctx.FormValue("enroll_id")
 		code := ctx.FormValue("code")
 		if enrollID == "" || code == "" {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "enroll_id and code required"})
+		}
+		boundEnrollID, _ := sess.Get(totpEnrollmentIDKey).(string)
+		boundSubject, _ := sess.Get(totpEnrollmentSubjectKey).(string)
+		startedAt, startedOK := sess.Get(totpEnrollmentStartedKey).(int64)
+		userID, _ := sess.Get("user_id").(string)
+		enrollmentAge := time.Since(time.Unix(startedAt, 0))
+		if boundEnrollID == "" || boundSubject == "" || userID == "" ||
+			enrollID != boundEnrollID || boundSubject != userID || !startedOK ||
+			enrollmentAge < 0 || enrollmentAge > totpEnrollmentValidity {
+			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "invalid_enrollment"})
 		}
 		client := getHeraldClient()
 		if client == nil {
@@ -93,6 +135,14 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c *fiber.Ctx) error {
 		if err != nil {
 			log.Warn().Err(err).Str("enroll_id", enrollID).Msg("TOTP enroll confirm failed")
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "invalid_code"})
+		}
+		if confirmResp.Subject != boundSubject || !confirmResp.TotpEnabled {
+			log.Error().Str("expected_subject", boundSubject).Str("confirmed_subject", confirmResp.Subject).Msg("TOTP enrollment subject mismatch")
+			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "enrollment_subject_mismatch"})
+		}
+		clearTOTPEnrollment(sess)
+		if err := sess.Save(); err != nil {
+			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"ok": false, "error": "session_save_failed"})
 		}
 		return ctx.JSON(fiber.Map{
 			"ok":           true,
