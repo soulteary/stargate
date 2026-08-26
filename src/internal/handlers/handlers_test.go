@@ -84,13 +84,15 @@ func createTestContext(method, path string, headers map[string]string, body stri
 }
 
 func responseCookieValue(ctx *fiber.Ctx, name string) string {
-	for _, part := range strings.Split(string(ctx.Response().Header.Peek("Set-Cookie")), ";") {
-		key, value, found := strings.Cut(strings.TrimSpace(part), "=")
-		if found && key == name {
-			return value
-		}
+	raw := ctx.Response().Header.PeekCookie(name)
+	if len(raw) == 0 {
+		return ""
 	}
-	return ""
+	var cookie fasthttp.Cookie
+	if err := cookie.ParseBytes(raw); err != nil {
+		return ""
+	}
+	return string(cookie.Value())
 }
 
 func TestCheckRoute_Authenticated(t *testing.T) {
@@ -1383,8 +1385,10 @@ func TestLogoutRoute_AfterLogin(t *testing.T) {
 	// Verify session is authenticated
 	sessionID := responseCookieValue(ctx1, auth.SessionCookieName)
 	testza.AssertNotEqual(t, "", sessionID)
-	ctx1.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
-	sess, err := store.Get(ctx1)
+	checkCtx, checkApp := createTestContext("GET", "/", nil, "")
+	defer checkApp.ReleaseCtx(checkCtx)
+	checkCtx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	sess, err := store.Get(checkCtx)
 	testza.AssertNoError(t, err)
 	testza.AssertTrue(t, auth.IsAuthenticated(sess), "session should be authenticated after login")
 
@@ -1392,19 +1396,18 @@ func TestLogoutRoute_AfterLogin(t *testing.T) {
 	ctx2, app2 := createTestContext("GET", "/_logout", nil, "")
 	defer app2.ReleaseCtx(ctx2)
 
-	// Copy session cookie from login response to logout request
-	cookie := ctx1.Response().Header.Peek("Set-Cookie")
-	if len(cookie) > 0 {
-		ctx2.Request().Header.Set("Cookie", string(cookie))
-	}
+	ctx2.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
 
 	err = logoutHandler(ctx2)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, ctx2.Response().StatusCode())
 	testza.AssertEqual(t, "Logged out", string(ctx2.Response().Body()))
 
-	// Verify session is no longer authenticated
-	sess2, err := store.Get(ctx2)
+	// Verify the destroyed session ID cannot authenticate a new request.
+	verifyCtx, verifyApp := createTestContext("GET", "/", nil, "")
+	defer verifyApp.ReleaseCtx(verifyCtx)
+	verifyCtx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	sess2, err := store.Get(verifyCtx)
 	testza.AssertNoError(t, err)
 	testza.AssertFalse(t, auth.IsAuthenticated(sess2), "session should not be authenticated after logout")
 }
