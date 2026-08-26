@@ -115,6 +115,25 @@ var (
 		Sensitive:      true,
 	}
 
+	WardenHMACKeyID = EnvVariable{
+		Name: "WARDEN_HMAC_KEY_ID", PossibleValues: []string{"*"}, Validator: ValidateAny,
+	}
+	WardenHMACSecret = EnvVariable{
+		Name: "WARDEN_HMAC_SECRET", PossibleValues: []string{"*"}, Validator: ValidateAny, Sensitive: true,
+	}
+	WardenTLSCACertFile = EnvVariable{
+		Name: "WARDEN_TLS_CA_CERT_FILE", PossibleValues: []string{"*"}, Validator: ValidateAny,
+	}
+	WardenTLSClientCert = EnvVariable{
+		Name: "WARDEN_TLS_CLIENT_CERT_FILE", PossibleValues: []string{"*"}, Validator: ValidateAny,
+	}
+	WardenTLSClientKey = EnvVariable{
+		Name: "WARDEN_TLS_CLIENT_KEY_FILE", PossibleValues: []string{"*"}, Validator: ValidateAny, Sensitive: true,
+	}
+	WardenTLSServerName = EnvVariable{
+		Name: "WARDEN_TLS_SERVER_NAME", PossibleValues: []string{"*"}, Validator: ValidateAny,
+	}
+
 	WardenEnabled = EnvVariable{
 		Name:           "WARDEN_ENABLED",
 		Required:       false,
@@ -207,6 +226,14 @@ var (
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny, // Empty value is also valid (means using API key instead)
 		Sensitive:      true,
+	}
+
+	HeraldHMACKeyID = EnvVariable{
+		Name:           "HERALD_HMAC_KEY_ID",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
 	}
 
 	HeraldTLSCACertFile = EnvVariable{
@@ -401,7 +428,7 @@ func Initialize(l *logger.Logger) error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &CallbackAllowedHosts, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &CallbackAllowedHosts, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
@@ -430,6 +457,12 @@ func Initialize(l *logger.Logger) error {
 		if strings.TrimSpace(WardenURL.Value) == "" {
 			return NewValidationError(WardenURL.Name, i18n.TStatic("error.config_required_not_set"), WardenURL.PossibleValues)
 		}
+	}
+	if (WardenHMACKeyID.Value == "") != (WardenHMACSecret.Value == "") {
+		return NewValidationError(WardenHMACSecret.Name, "HMAC key ID and secret must be configured together", WardenHMACSecret.PossibleValues)
+	}
+	if (WardenTLSClientCert.Value == "") != (WardenTLSClientKey.Value == "") {
+		return NewValidationError(WardenTLSClientCert.Name, "client certificate and key must be configured together", WardenTLSClientCert.PossibleValues)
 	}
 	if HeraldEnabled.ToBool() {
 		if strings.TrimSpace(HeraldURL.Value) == "" {
