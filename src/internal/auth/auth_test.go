@@ -452,7 +452,7 @@ func TestInitWardenClient_CustomTTL(t *testing.T) {
 	// We're testing that custom TTL is parsed correctly
 }
 
-// TestInitWardenClient_InvalidTTL tests that InitWardenClient uses default TTL when invalid TTL is provided
+// TestInitWardenClient_InvalidTTL tests that startup rejects an invalid cache TTL.
 func TestInitWardenClient_InvalidTTL(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -461,16 +461,11 @@ func TestInitWardenClient_InvalidTTL(t *testing.T) {
 	t.Setenv("WARDEN_CACHE_TTL", "invalid")
 
 	err := config.Initialize(testLogger())
-	testza.AssertNoError(t, err)
-
-	// Reset client to nil for this test
-	wardenClient = nil
-
-	testza.AssertNoError(t, InitWardenClient(testLogger()))
-	// Should not panic even with invalid TTL (should use default)
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "WARDEN_CACHE_TTL")
 }
 
-// TestInitWardenClient_NegativeTTL tests that InitWardenClient uses default TTL when negative TTL is provided
+// TestInitWardenClient_NegativeTTL tests that startup rejects a negative cache TTL.
 func TestInitWardenClient_NegativeTTL(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -479,16 +474,11 @@ func TestInitWardenClient_NegativeTTL(t *testing.T) {
 	t.Setenv("WARDEN_CACHE_TTL", "-10")
 
 	err := config.Initialize(testLogger())
-	testza.AssertNoError(t, err)
-
-	// Reset client to nil for this test
-	wardenClient = nil
-
-	testza.AssertNoError(t, InitWardenClient(testLogger()))
-	// Should not panic even with negative TTL (should use default)
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "WARDEN_CACHE_TTL")
 }
 
-// TestInitWardenClient_ZeroTTL tests that InitWardenClient uses default TTL when zero TTL is provided
+// TestInitWardenClient_ZeroTTL tests that startup rejects a zero cache TTL.
 func TestInitWardenClient_ZeroTTL(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -497,13 +487,8 @@ func TestInitWardenClient_ZeroTTL(t *testing.T) {
 	t.Setenv("WARDEN_CACHE_TTL", "0")
 
 	err := config.Initialize(testLogger())
-	testza.AssertNoError(t, err)
-
-	// Reset client to nil for this test
-	wardenClient = nil
-
-	testza.AssertNoError(t, InitWardenClient(testLogger()))
-	// Should not panic even with zero TTL (should use default)
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "WARDEN_CACHE_TTL")
 }
 
 // TestGetWardenClient_NotInitialized tests that getWardenClient returns nil when client is not initialized

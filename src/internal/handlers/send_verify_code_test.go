@@ -585,12 +585,12 @@ func TestSendVerifyCodeAPI_HeraldRateLimited(t *testing.T) {
 	testza.AssertContains(t, bodyStr, "success")
 }
 
-
 func TestSendVerifyCodeAPIRejectsUntrustedFallbackDestination(t *testing.T) {
 	setupSendVerifyCodeBaseEnv(t)
 	t.Setenv("HERALD_ENABLED", "true")
 	t.Setenv("HERALD_API_KEY", "api-key")
 	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("LOGIN_SMS_ENABLED", "false")
 
 	// Warden recognizes the victim by phone but has no canonical email.
 	wardenServer := newWardenUserServer(t, "13800138000", "")
