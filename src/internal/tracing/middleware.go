@@ -2,6 +2,7 @@ package tracing
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
 	common_tracing "github.com/soulteary/tracing-kit"
@@ -11,6 +12,14 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.21.0"
 	"go.opentelemetry.io/otel/trace"
 )
+
+func sanitizeTraceURL(rawURL string) string {
+	path, _, _ := strings.Cut(rawURL, "?")
+	if path == "" {
+		return "/"
+	}
+	return path
+}
 
 // TracingMiddleware creates a Fiber middleware for OpenTelemetry tracing
 func TracingMiddleware(serviceName string) fiber.Handler {
@@ -31,7 +40,7 @@ func TracingMiddleware(serviceName string) fiber.Handler {
 			spanName = c.Path()
 		}
 		if spanName == "" {
-			spanName = c.Method() + " " + c.OriginalURL()
+			spanName = c.Method() + " " + sanitizeTraceURL(c.OriginalURL())
 		}
 
 		// Start span
@@ -41,7 +50,7 @@ func TracingMiddleware(serviceName string) fiber.Handler {
 			trace.WithSpanKind(trace.SpanKindServer),
 			trace.WithAttributes(
 				semconv.HTTPMethod(c.Method()),
-				semconv.HTTPURL(c.OriginalURL()),
+				semconv.HTTPURL(sanitizeTraceURL(c.OriginalURL())),
 				attribute.String("http.user_agent", c.Get("User-Agent")),
 				attribute.String("http.remote_addr", c.IP()),
 			),
