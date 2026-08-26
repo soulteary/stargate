@@ -4,7 +4,7 @@ WORKDIR /app
 ENV GO111MODULE=on
 COPY go.mod .
 COPY go.sum .
-RUN go mod tidy
+RUN go mod download
 
 COPY . .
 
@@ -28,7 +28,12 @@ RUN if command -v upx > /dev/null 2>&1; then \
 FROM alpine:3.23
 COPY --from=builder /app/stargate /bin/stargate
 COPY --from=builder /app/src/internal/web/templates /app/web/templates
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl && \
+    addgroup -S stargate && \
+    adduser -S -D -H -u 10001 -G stargate stargate && \
+    chown -R stargate:stargate /app
 WORKDIR /app
-EXPOSE 80
+ENV PORT=8080
+USER 10001:10001
+EXPOSE 8080
 CMD ["stargate"]

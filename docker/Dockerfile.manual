@@ -28,7 +28,7 @@ ARG TARGETARCH
 RUN BUILD_DATE=${BUILD_DATE:-$(date +%FT%T%z)} && \
     ARCH=${TARGETARCH:-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/;s/armv7l/arm/')} && \
     OS=${TARGETOS:-linux} && \
-    GO111MODULE=on GOOS=$OS GOARCH=$ARCH CGO_ENABLED=0 go build -ldflags "-w -s -X 'github.com/soulteary/stargate/src/cmd/stargate.Version=$VERSION'" -o stargate ./src/cmd/stargate
+    GO111MODULE=on GOOS=$OS GOARCH=$ARCH CGO_ENABLED=0 go build -ldflags "-w -s -X 'github.com/soulteary/version-kit.Version=$VERSION' -X 'github.com/soulteary/version-kit.Commit=$COMMIT' -X 'github.com/soulteary/version-kit.BuildDate=$BUILD_DATE'" -o stargate ./src/cmd/stargate
 # upx 压缩（如果失败则跳过，确保多平台构建兼容性）
 RUN if command -v upx > /dev/null 2>&1; then \
       upx -9 -o stargate.minify stargate 2>/dev/null && mv stargate.minify stargate || true; \
@@ -40,8 +40,13 @@ COPY --from=Builder /app/src/internal/web/templates /app/web/templates
 ENV TZ=Asia/Shanghai
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
 RUN apk add tzdata curl && \
+    addgroup -S stargate && \
+    adduser -S -D -H -u 10001 -G stargate stargate && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
-    rm -rf /var/cache/apk/*
+    rm -rf /var/cache/apk/* && \
+    chown -R stargate:stargate /app
 WORKDIR /app
-EXPOSE 80
+ENV PORT=8080
+USER 10001:10001
+EXPOSE 8080
 CMD ["stargate"]

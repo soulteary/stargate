@@ -101,7 +101,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
-            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
@@ -125,27 +125,6 @@ jobs:
           files: |
             dist/*
           name: Release ${{ steps.version.outputs.tag }}
-          body: |
-            ## Changes
-            
-            See [CHANGELOG](CHANGELOG.md) for details.
-            
-            ## Downloads
-            
-            ### Docker Image
-            ```bash
-            docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.tag }}
-            ```
-            
-            ### Binaries
-            - Linux AMD64: `stargate-linux-amd64`
-            - Linux ARM64: `stargate-linux-arm64`
-            - macOS AMD64: `stargate-darwin-amd64`
-            - macOS ARM64: `stargate-darwin-arm64`
-            - Windows AMD64: `stargate-windows-amd64.exe`
-            - Windows ARM64: `stargate-windows-arm64.exe`
-            
-            ### Checksums
-            See `checksums.txt` for SHA256 checksums.
+          generate_release_notes: true
           draft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
