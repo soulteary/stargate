@@ -447,9 +447,10 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 	))
 	loginReq.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	loginReq.Header.Set("Accept", "application/json")
-	// Set X-Forwarded-Host to match AUTH_HOST config so IsDifferentDomain returns false
-	// This prevents the login handler from setting a callback and redirecting
-	loginReq.Header.Set("X-Forwarded-Host", "auth.example.com")
+	// Use the auth service as the direct request host so IsDifferentDomain
+	// returns false. Forwarded hosts are intentionally ignored unless the peer
+	// is configured as a trusted proxy.
+	loginReq.Host = "auth.example.com"
 
 	loginResp, err := app.Test(loginReq)
 	testza.AssertNoError(t, err)
