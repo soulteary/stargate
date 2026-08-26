@@ -4,7 +4,7 @@
 
 ## 기술 스택
 
-- **언어**: Go 1.26
+- **언어**: Go 1.27
 - **웹 프레임워크**: [Fiber v2.52.x](https://github.com/gofiber/fiber)
 - **템플릿 엔진**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **세션 관리**: session-kit(Fiber 호환 스토어; 메모리·Redis)
