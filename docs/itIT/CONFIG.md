@@ -439,3 +439,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 5. **Monitoraggio e Debug**:
    - Impostare `DEBUG=true` nell'ambiente di sviluppo per log dettagliati
    - Impostare `DEBUG=false` nell'ambiente di produzione per ridurre l'output dei log
+
+## Autenticazione legacy tramite header password
+
+L'autenticazione `Stargate-Password` è disabilitata per impostazione predefinita. Abilitarla solo per client legacy attendibili con `PASSWORD_HEADER_AUTH_ENABLED=true`. Usare HTTPS, applicare limiti di frequenza e rimuovere l'header nel reverse proxy prima di inoltrare la richiesta al backend.
