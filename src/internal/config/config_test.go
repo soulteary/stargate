@@ -25,6 +25,29 @@ func TestEnvVariable_String(t *testing.T) {
 	testza.AssertEqual(t, "test-value", v.String())
 }
 
+func TestEnvVariable_SafeValue_RedactsSensitiveValues(t *testing.T) {
+	v := EnvVariable{Value: "super-secret", Sensitive: true}
+	testza.AssertEqual(t, redactedValue, v.SafeValue())
+
+	v.Sensitive = false
+	testza.AssertEqual(t, "super-secret", v.SafeValue())
+}
+
+func TestEnvVariable_Validate_RedactsSensitiveInvalidValue(t *testing.T) {
+	t.Setenv("SECRET_CONFIG", "invalid-secret")
+	v := EnvVariable{
+		Name:           "SECRET_CONFIG",
+		Sensitive:      true,
+		PossibleValues: []string{"valid"},
+		Validator:      ValidateStrictPossibleValues,
+	}
+
+	err := v.Validate()
+	testza.AssertNotNil(t, err)
+	testza.AssertEqual(t, redactedValue, err.(*ValidationError).ProvidedValue)
+	testza.AssertNotContains(t, err.Error(), "invalid-secret")
+}
+
 func TestEnvVariable_ToDuration(t *testing.T) {
 	tests := []struct {
 		value    string

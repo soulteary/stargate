@@ -18,6 +18,17 @@ type EnvVariable struct {
 	PossibleValues []string
 	Validator      func(v EnvVariable) bool
 	Trimmed        bool // If true, use env.GetTrimmed instead of env.Get
+	Sensitive      bool // If true, never expose the value in logs or validation errors
+}
+
+const redactedValue = "[REDACTED]"
+
+// SafeValue returns a representation suitable for logs and errors.
+func (v EnvVariable) SafeValue() string {
+	if v.Sensitive && v.Value != "" {
+		return redactedValue
+	}
+	return v.Value
 }
 
 func (v *EnvVariable) String() string {
@@ -53,7 +64,7 @@ func (v *EnvVariable) Validate() error {
 	}
 
 	if !v.Validator(*v) {
-		return NewValidationError(v.Name, v.Value, v.PossibleValues)
+		return NewValidationError(v.Name, v.SafeValue(), v.PossibleValues)
 	}
 
 	return nil

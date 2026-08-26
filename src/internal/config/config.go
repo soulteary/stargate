@@ -54,6 +54,7 @@ var (
 		DefaultValue:   "",
 		PossibleValues: []string{"algorithm:pass1|pass2|pass3"},
 		Validator:      ValidatePasswordsOrEmpty,
+		Sensitive:      true,
 	}
 
 	UserHeaderName = EnvVariable{
@@ -103,6 +104,7 @@ var (
 		DefaultValue:   "",
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
+		Sensitive:      true,
 	}
 
 	WardenEnabled = EnvVariable{
@@ -137,6 +139,7 @@ var (
 		DefaultValue:   "",
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
+		Sensitive:      true,
 	}
 
 	HeraldURL = EnvVariable{
@@ -153,6 +156,7 @@ var (
 		DefaultValue:   "",
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
+		Sensitive:      true,
 	}
 
 	HeraldEnabled = EnvVariable{
@@ -169,6 +173,7 @@ var (
 		DefaultValue:   "",
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny, // Empty value is also valid (means using API key instead)
+		Sensitive:      true,
 	}
 
 	HeraldTLSCACertFile = EnvVariable{
@@ -234,6 +239,7 @@ var (
 		DefaultValue:   "",
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
+		Sensitive:      true,
 	}
 
 	SessionStorageRedisDB = EnvVariable{
@@ -372,7 +378,11 @@ func Initialize(l *logger.Logger) error {
 
 		// Only log non-empty configuration items
 		if variable.Value != "" {
-			log.Info().Str("name", variable.Name).Str("value", variable.Value).Msg("Config loaded")
+			if variable.Sensitive {
+				log.Info().Str("name", variable.Name).Bool("configured", true).Msg("Config loaded")
+			} else {
+				log.Info().Str("name", variable.Name).Str("value", variable.Value).Msg("Config loaded")
+			}
 		}
 	}
 
