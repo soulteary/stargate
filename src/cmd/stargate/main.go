@@ -55,6 +55,7 @@ func runApplication() error {
 	// Setup graceful shutdown for tracer
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(sigChan)
 
 	// Start server in a goroutine
 	serverErr := make(chan error, 1)
@@ -70,6 +71,9 @@ func runApplication() error {
 		}
 	case sig := <-sigChan:
 		log.Info().Str("signal", sig.String()).Msg("Received signal, shutting down gracefully...")
+		if err := app.ShutdownWithTimeout(10 * time.Second); err != nil {
+			log.Error().Err(err).Msg("Failed to shut down HTTP server cleanly")
+		}
 
 		// Shutdown tracer
 		if config.OTLPEnabled.ToBool() {
