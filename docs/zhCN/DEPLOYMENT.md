@@ -92,10 +92,10 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### 构建参数
 
-- **基础镜像**：`golang:1.26.5-alpine3.23`（构建阶段）
+- **基础镜像**：`golang:1.26.6-alpine3.23`（构建阶段）
 - **运行镜像**：`alpine:3.23`（运行阶段，包含 CA 证书和用于 HTTPS/健康检查的 BusyBox `wget`）
 - **工作目录**：`/app`
-- **暴露端口**：`80`
+- **暴露端口**：`8080`
 
 ### 运行容器
 
@@ -772,7 +772,7 @@ DEBUG=true
 
 ```bash
 # 从容器内测试
-docker exec stargate wget -q -O - http://localhost:8080/healthz
+docker exec stargate wget -q -O - http://127.0.0.1:8080/healthz
 ```
 
 #### 3. 查看 Traefik 日志
