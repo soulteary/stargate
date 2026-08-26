@@ -67,7 +67,7 @@ fi
 
 # 检查 Go 是否安装
 if ! command -v go &> /dev/null; then
-    echo -e "${RED}错误: 未找到 Go，请先安装 Go 1.26.6+${NC}"
+    echo -e "${RED}错误: 未找到 Go，请先安装 Go 1.27.0+${NC}"
     exit 1
 fi
 
