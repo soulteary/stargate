@@ -4,7 +4,7 @@ Ce document décrit l'architecture technique et les décisions de conception du 
 
 ## Pile Technologique
 
-- **Langage** : Go 1.26
+- **Langage** : Go 1.27
 - **Framework Web** : [Fiber v2.52.x](https://github.com/gofiber/fiber)
 - **Moteur de Template** : [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **Gestion de Session** : session-kit (store compatible Fiber ; mémoire et Redis)
