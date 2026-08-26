@@ -119,105 +119,49 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 		)
 		wardenSpan.End()
 
-		// Step 3: Determine channel and destination from Warden data
-		// If user requested DingTalk: use dingtalk_userid if set; else use phone for herald-dingtalk mobile lookup (DINGTALK_LOOKUP_MODE=mobile).
+		// Step 3: Select a delivery channel using only contact data returned by
+		// Warden. Request identifiers are lookup inputs, not trusted destinations:
+		// binding a victim user_id to an attacker-supplied fallback address would
+		// turn the verification challenge into an account-takeover primitive.
+		canonicalPhone := strings.TrimSpace(userInfo.Phone)
+		canonicalMail := strings.TrimSpace(userInfo.Mail)
+		canonicalDingTalkID := strings.TrimSpace(userInfo.DingtalkUserID)
+
 		var channel, destination string
 		deliverVia := ctx.FormValue("deliver_via")
-		if deliverVia == "dingtalk" {
-			if strings.TrimSpace(userInfo.DingtalkUserID) != "" {
-				channel = "dingtalk"
-				destination = strings.TrimSpace(userInfo.DingtalkUserID)
-			} else if strings.TrimSpace(userInfo.Phone) != "" {
-				// 电话号反查钉钉ID：无 dingtalk_userid 但有手机号时，传手机号给 Herald，由 herald-dingtalk 按手机号解析 userid 并发送（需 DINGTALK_LOOKUP_MODE=mobile）
-				channel = "dingtalk"
-				destination = strings.TrimSpace(userInfo.Phone)
+		switch deliverVia {
+		case "dingtalk":
+			if canonicalDingTalkID != "" {
+				channel, destination = "dingtalk", canonicalDingTalkID
+			} else if canonicalPhone != "" {
+				// Herald may resolve the DingTalk user by the canonical Warden phone.
+				channel, destination = "dingtalk", canonicalPhone
 			} else {
-				// 用户选择了钉钉但账号未绑定钉钉且无手机号：回退到短信或邮箱发送，允许用户用手机/邮箱输入的方式获取验证码
-				hasPhone := strings.TrimSpace(userInfo.Phone) != "" || userPhone != ""
-				hasMail := strings.TrimSpace(userInfo.Mail) != "" || userMail != ""
-				if config.LoginSMSEnabled.ToBool() && hasPhone {
-					channel = "sms"
-					if userInfo.Phone != "" {
-						destination = userInfo.Phone
-					} else {
-						destination = userPhone
-					}
-				} else if config.LoginEmailEnabled.ToBool() && hasMail {
-					channel = "email"
-					if userInfo.Mail != "" {
-						destination = userInfo.Mail
-					} else {
-						destination = userMail
-					}
-				} else {
-					log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("User requested DingTalk but account has no dingtalk_userid or phone, and SMS/email fallback not available")
-					return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), "dingtalk_not_bound")
-				}
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), "dingtalk_not_bound")
 			}
-		} else {
-			// Respect deliver_via for sms vs email; default: phone if present else mail
-			switch deliverVia {
-			case "email":
-				channel = "email"
-				destination = userInfo.Mail
-				if destination == "" {
-					destination = userMail
-				}
-			case "sms":
-				channel = "sms"
-				destination = userInfo.Phone
-				if destination == "" {
-					destination = userPhone
-				}
-			default:
-				channel = "email"
-				destination = userInfo.Mail
-				if userInfo.Phone != "" {
-					channel = "sms"
-					destination = userInfo.Phone
-				} else if destination == "" {
-					destination = userMail
-					if userPhone != "" {
-						channel = "sms"
-						destination = userPhone
-					}
-				}
-			}
-			if destination == "" {
-				log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden user info missing destination, using user input")
-				if userPhone != "" {
-					channel = "sms"
-					destination = userPhone
-				} else {
-					channel = "email"
-					destination = userMail
-				}
-			}
-		}
-
-		// Enforce LOGIN_SMS_ENABLED / LOGIN_EMAIL_ENABLED: reject or fallback
-		if channel == "sms" && !config.LoginSMSEnabled.ToBool() {
-			if config.LoginEmailEnabled.ToBool() && (userInfo.Mail != "" || userMail != "") {
-				channel = "email"
-				if userInfo.Mail != "" {
-					destination = userInfo.Mail
-				} else {
-					destination = userMail
-				}
+		case "email":
+			if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
+				channel, destination = "email", canonicalMail
+			} else if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
+				channel, destination = "sms", canonicalPhone
 			} else {
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_sms_disabled"), "channel_disabled")
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "destination_unavailable")
 			}
-		}
-		if channel == "email" && !config.LoginEmailEnabled.ToBool() {
-			if config.LoginSMSEnabled.ToBool() && (userInfo.Phone != "" || userPhone != "") {
-				channel = "sms"
-				if userInfo.Phone != "" {
-					destination = userInfo.Phone
-				} else {
-					destination = userPhone
-				}
+		case "sms":
+			if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
+				channel, destination = "sms", canonicalPhone
+			} else if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
+				channel, destination = "email", canonicalMail
 			} else {
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_email_disabled"), "channel_disabled")
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "destination_unavailable")
+			}
+		default:
+			if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
+				channel, destination = "sms", canonicalPhone
+			} else if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
+				channel, destination = "email", canonicalMail
+			} else {
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "destination_unavailable")
 			}
 		}
 
