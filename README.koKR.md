@@ -121,7 +121,7 @@ docker-compose up -d
 
 ### 로컬 개발
 
-로컬 개발의 경우 Go 1.26+가 설치되어 있는지 확인한 다음:
+로컬 개발의 경우 Go 1.27+가 설치되어 있는지 확인한 다음:
 
 ```bash
 chmod +x start-local.sh
