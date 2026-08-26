@@ -6,6 +6,9 @@ on:
   pull_request:
     branches: [ main, master, develop ]
 
+permissions:
+  contents: read
+
 env:
   DOCKER_BUILDKIT: 1
 
@@ -13,7 +16,7 @@ jobs:
   # 代码格式检查
   fmt:
     name: 代码格式检查
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -34,7 +37,7 @@ jobs:
   # 代码静态检查
   vet:
     name: 代码静态检查
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -63,7 +66,7 @@ jobs:
   # 代码测试
   test:
     name: 代码测试
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -131,7 +134,7 @@ jobs:
   # 代码质量检查（使用 golangci-lint）
   lint:
     name: 代码质量检查
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -151,7 +154,7 @@ jobs:
   # 依赖项安全扫描
   security-scan:
     name: 依赖项安全扫描
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -183,7 +186,7 @@ jobs:
   # 完整构建检查
   build:
     name: 构建检查
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     steps:
       - name: 检出代码
         uses: actions/checkout@v6
@@ -241,7 +244,7 @@ jobs:
   # Docker 构建
   docker-build:
     name: Docker 构建
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     needs: [test]
     steps:
       - name: 检出代码
