@@ -23,6 +23,7 @@ Stargate supporta due metodi di autenticazione, verificati nel seguente ordine d
 
 1. **Autenticazione Header** (richieste API)
    - Header richiesta: `Stargate-Password: <password>`
+   - Disabilitata per impostazione predefinita. Impostare `PASSWORD_HEADER_AUTH_ENABLED=true` solo per client legacy attendibili.
    - Adatto per richieste API, script di automazione, ecc.
 
 2. **Autenticazione Cookie** (richieste Web)
