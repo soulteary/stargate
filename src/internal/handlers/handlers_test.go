@@ -165,6 +165,12 @@ func TestCheckRoute_HeaderAuth_Invalid(t *testing.T) {
 	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
 }
 
+func enableTrustedHeaderAuth(t *testing.T) {
+	t.Helper()
+	t.Setenv("HEADER_AUTH_ENABLED", "true")
+	t.Setenv("HEADER_AUTH_SHARED_SECRET", "trusted-proxy-secret")
+}
+
 func TestLoginAPI_ValidPassword(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -1572,6 +1578,7 @@ func TestLoginRoute_SessionStoreError(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_ValidPhone tests Warden authentication with valid phone
 func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
+	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1649,7 +1656,8 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 	handler := CheckRoute(store)
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
-		"X-User-Phone": "13800138000",
+		"X-User-Phone":           "13800138000",
+		"X-Stargate-Header-Auth": "trusted-proxy-secret",
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -1664,6 +1672,7 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_ValidMail tests Warden authentication with valid email
 func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
+	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1747,7 +1756,8 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 	handler := CheckRoute(store)
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
-		"X-User-Mail": "user2@example.com",
+		"X-User-Mail":            "user2@example.com",
+		"X-Stargate-Header-Auth": "trusted-proxy-secret",
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -1762,6 +1772,7 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_InvalidUser tests Warden authentication with invalid user
 func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
+	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1817,7 +1828,8 @@ func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
 	handler := CheckRoute(store)
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
-		"X-User-Phone": "99999999999", // Not in list
+		"X-User-Phone":           "99999999999", // Not in list
+		"X-Stargate-Header-Auth": "trusted-proxy-secret",
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -1832,6 +1844,7 @@ func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_EmptyHeaders tests Warden authentication with empty headers
 func TestCheckRoute_WardenAuth_EmptyHeaders(t *testing.T) {
+	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1858,6 +1871,7 @@ func TestCheckRoute_WardenAuth_EmptyHeaders(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_WithBothHeaders tests Warden authentication with both phone and mail headers
 func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
+	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1941,8 +1955,9 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 	handler := CheckRoute(store)
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
-		"X-User-Phone": "13800138000",
-		"X-User-Mail":  "user1@example.com",
+		"X-User-Phone":           "13800138000",
+		"X-User-Mail":            "user1@example.com",
+		"X-Stargate-Header-Auth": "trusted-proxy-secret",
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -1957,6 +1972,7 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_WithCustomUserHeader tests Warden authentication with custom user header name
 func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
+	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -2026,7 +2042,8 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 	handler := CheckRoute(store)
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
-		"X-User-Phone": "13800138000",
+		"X-User-Phone":           "13800138000",
+		"X-Stargate-Header-Auth": "trusted-proxy-secret",
 	}, "")
 	defer app.ReleaseCtx(ctx)
 

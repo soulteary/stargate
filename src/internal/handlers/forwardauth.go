@@ -92,7 +92,7 @@ func InitForwardAuthHandler(l *logger.Logger) {
 		},
 
 		// Header-based authentication (Warden)
-		HeaderAuthEnabled:   config.WardenEnabled.ToBool(),
+		HeaderAuthEnabled:   config.HeaderAuthEnabled.ToBool(),
 		HeaderAuthUserPhone: "X-User-Phone",
 		HeaderAuthUserMail:  "X-User-Mail",
 		HeaderAuthCheckFunc: func(phone, mail string) bool {
