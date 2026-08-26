@@ -121,7 +121,7 @@ docker-compose up -d
 
 ### Sviluppo Locale
 
-Per lo sviluppo locale, assicurati che Go 1.26+ sia installato, poi:
+Per lo sviluppo locale, assicurati che Go 1.27+ sia installato, poi:
 
 ```bash
 chmod +x start-local.sh
