@@ -87,6 +87,10 @@ func CheckRoute(store SessionStoreForCheck) func(c *fiber.Ctx) error {
 			tracing.RecordError(forwardAuthSpan, err)
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
+		refreshed, err := refreshAuthorizationIfNeeded(spanCtx, sess)
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
+		}
 		if requiresStepUp(ctx, sess) {
 			return redirectToStepUp(ctx)
 		}
@@ -97,6 +101,12 @@ func CheckRoute(store SessionStoreForCheck) func(c *fiber.Ctx) error {
 
 		// Perform authentication check using forwardauth-kit
 		result, err := handler.Check(faCtx, faSess)
+		if refreshed {
+			if saveErr := sess.Save(); saveErr != nil {
+				tracing.RecordError(forwardAuthSpan, saveErr)
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
+			}
+		}
 		if err != nil {
 			forwardAuthSpan.SetAttributes(attribute.Bool("auth.authenticated", false))
 
