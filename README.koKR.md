@@ -42,7 +42,7 @@ Stargate는 다음에 완벽합니다:
 
 ### 🔐 엔터프라이즈급 보안
 
-- **여러 비밀번호 암호화 알고리즘**: plaintext(테스트), bcrypt, MD5, SHA512 등에서 선택
+- **비밀번호 검증**: 운영 환경에서는 bcrypt, 로컬 테스트에서는 plaintext 사용
 - **안전한 세션 관리**: 사용자 정의 가능한 도메인 및 만료 시간을 가진 Cookie 기반 세션
 - **유연한 인증**: 비밀번호 기반 및 세션 기반 인증 모두 지원
 - **OTP/인증 코드 지원**: Herald 서비스와의 통합으로 SMS/Email 인증 코드 제공
@@ -174,7 +174,7 @@ LOGIN_PAGE_TITLE=내 인증 서비스
 LANGUAGE=ko  # 또는 'en'
 ```
 
-**지원되는 비밀번호 알고리즘**: `plaintext`(테스트 전용), `bcrypt`, `md5`, `sha512`
+**지원 대상:** `plaintext`(로컬 테스트 전용)와 `bcrypt`; MD5와 salt 없는 SHA-512는 거부됩니다
 
 **전체 구성 참조는 [docs/koKR/CONFIG.md](docs/koKR/CONFIG.md)를 참조하세요**
 
@@ -212,7 +212,7 @@ HERALD_API_KEY=your-api-key  # 개발
 
 프로덕션에 배포하기 전에:
 
-- ✅ 강력한 비밀번호 알고리즘 사용(`bcrypt` 또는 `sha512`, `plaintext` 피하기)
+- ✅ 운영 환경에서는 `bcrypt`를 사용하고 `plaintext`는 로컬 테스트로 제한
 - ✅ Traefik 또는 리버스 프록시를 통해 HTTPS 활성화
 - ✅ 하위 도메인 간 적절한 세션 관리를 위해 `COOKIE_DOMAIN` 설정
 - ✅ 고급 기능이 필요한 경우 OTP 인증을 위해 Warden + Herald를 선택적으로 통합

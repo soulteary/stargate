@@ -96,8 +96,6 @@ PASSWORDS=plaintext:test123|admin456|user789
 # BCrypt 해시
 PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 
-# SHA512 해시
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
 ## 선택적 설정
@@ -272,100 +270,69 @@ COOKIE_DOMAIN=.example.com
 PORT=8080
 ```
 
+## 보안 및 연동 설정
+
+다음 표는 `internal/config`에 실제로 등록된 보안 관련 변수와 동기화되어 있습니다. 선택 값이 비어 있으면 해당 연동은 비활성화됩니다.
+
+| 변수 | 값 | 기본값 | 용도 |
+|------|----|--------|------|
+| `TRUSTED_PROXIES` | IP/CIDR 목록 | 비어 있음 | Forwarded 헤더를 신뢰할 출처 |
+| `PROXY_HEADER` | 헤더 이름 | `X-Forwarded-For` | 원본 IP 헤더 |
+| `COOKIE_SECURE` | true/false | true | 세션 쿠키 Secure 속성 |
+| `CALLBACK_ALLOWED_HOSTS` | 호스트 목록 | 비어 있음 | 허용된 리디렉션 대상 |
+| `SESSION_EXCHANGE_SECRET` | 32자 이상 비밀값 | 비어 있음 | 단기 교차 도메인 티켓 서명 |
+| `HEADER_AUTH_ENABLED` | true/false | false | 신뢰 헤더 인증 |
+| `HEADER_AUTH_SHARED_SECRET` | 비밀값 | 비어 있음 | 헤더 인증 공유 비밀 |
+| `HEADER_AUTH_SECRET_HEADER` | 헤더 이름 | `X-Stargate-Header-Auth` | 공유 비밀 전달 헤더 |
+| `WARDEN_ENABLED` | true/false | false | Warden 연동 |
+| `WARDEN_URL` | URL | 비어 있음 | Warden 엔드포인트 |
+| `WARDEN_API_KEY` | 비밀값 | 비어 있음 | API 키 인증 |
+| `WARDEN_HMAC_KEY_ID` | 문자열 | 비어 있음 | HMAC 키 ID |
+| `WARDEN_HMAC_SECRET` | 비밀값 | 비어 있음 | HMAC 서명 비밀 |
+| `WARDEN_TLS_CA_CERT_FILE` | 경로 | 비어 있음 | 사용자 지정 CA |
+| `WARDEN_TLS_CLIENT_CERT_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 인증서 |
+| `WARDEN_TLS_CLIENT_KEY_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 키 |
+| `WARDEN_TLS_SERVER_NAME` | 문자열 | 비어 있음 | 예상 TLS 서버 이름 |
+| `WARDEN_CACHE_TTL` | 초 | 300 | Warden 캐시 시간 |
+| `WARDEN_OTP_ENABLED` | true/false | false | 레거시 OTP 연동 |
+| `WARDEN_OTP_SECRET_KEY` | 비밀값 | 비어 있음 | 레거시 OTP 비밀 |
+| `HERALD_ENABLED` | true/false | false | Herald 연동 |
+| `HERALD_URL` | URL | 비어 있음 | Herald 엔드포인트 |
+| `HERALD_API_KEY` | 비밀값 | 비어 있음 | API 키 인증 |
+| `HERALD_HMAC_KEY_ID` | 문자열 | 비어 있음 | HMAC 키 ID |
+| `HERALD_HMAC_SECRET` | 비밀값 | 비어 있음 | HMAC 서명 비밀 |
+| `HERALD_TLS_CA_CERT_FILE` | 경로 | 비어 있음 | 사용자 지정 CA |
+| `HERALD_TLS_CLIENT_CERT_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 인증서 |
+| `HERALD_TLS_CLIENT_KEY_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 키 |
+| `HERALD_TLS_SERVER_NAME` | 문자열 | 비어 있음 | 예상 TLS 서버 이름 |
+| `HERALD_TOTP_ENABLED` | true/false | false | TOTP 로그인 및 관리 |
+| `LOGIN_SMS_ENABLED` | true/false | true | SMS 로그인 채널 |
+| `LOGIN_EMAIL_ENABLED` | true/false | true | 이메일 로그인 채널 |
+| `SESSION_STORAGE_ENABLED` | true/false | false | Redis 세션 저장소 |
+| `SESSION_STORAGE_REDIS_ADDR` | host:port | `localhost:6379` | Redis 주소 |
+| `SESSION_STORAGE_REDIS_PASSWORD` | 비밀값 | 비어 있음 | Redis 비밀번호 |
+| `SESSION_STORAGE_REDIS_DB` | 정수 | 0 | Redis DB |
+| `SESSION_STORAGE_REDIS_KEY_PREFIX` | 문자열 | `stargate:session:` | Redis 키 접두사 |
+| `AUDIT_LOG_ENABLED` | true/false | true | 감사 로그 |
+| `AUDIT_LOG_FORMAT` | json/text | json | 감사 로그 형식 |
+| `STEP_UP_ENABLED` | true/false | false | 추가 인증 |
+| `STEP_UP_PATHS` | 경로 목록 | 비어 있음 | 보호할 업무 경로 |
+| `OTLP_ENABLED` | true/false | false | OpenTelemetry 내보내기 |
+| `OTLP_ENDPOINT` | URL | 비어 있음 | OTLP 엔드포인트 |
+| `AUTH_REFRESH_ENABLED` | true/false | true | 권한 정보 주기적 갱신 |
+| `AUTH_REFRESH_INTERVAL` | 기간 | `5m` | 갱신 간격 |
+
+HMAC Key ID와 Secret은 함께 설정해야 합니다. mTLS 클라이언트 인증서와 키도 완전한 쌍이어야 하며, 불완전한 설정은 시작 실패로 처리됩니다.
+
 ## 비밀번호 설정
 
-Stargate는 여러 비밀번호 암호화 알고리즘을 지원합니다. 비밀번호 설정 형식: `algorithm:password1|password2|password3`
-
-### 지원되는 알고리즘
-
-#### `plaintext` - 평문 비밀번호
-
-**설명:**
-
-- 평문으로 저장, 암호화 없음
-- **테스트 환경 전용**
-- 프로덕션 환경에서는 강력히 권장하지 않음
-
-**예제:**
+운영 환경에서는 `bcrypt`를 사용하며 `plaintext`는 로컬 테스트에서만 사용할 수 있습니다. MD5와 salt 없는 SHA-512는 설정 검증에서 거부됩니다. 비밀번호는 대소문자와 공백을 그대로 구분합니다.
 
 ```bash
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS=bcrypt:<bcrypt-hash>
+# 로컬 테스트 전용:
+PASSWORDS=plaintext:test123
 ```
-
-#### `bcrypt` - BCrypt 해시
-
-**설명:**
-
-- BCrypt 알고리즘을 사용하여 해시화
-- 높은 보안성, 프로덕션 환경에서 권장
-- 비밀번호는 BCrypt 해시 값을 사용해야 합니다
-
-**BCrypt 해시 생성:**
-
-```bash
-# Go 사용
-go run -c 'golang.org/x/crypto/bcrypt' <<< 'password'
-
-# 온라인 도구 또는 기타 도구 사용
-```
-
-**예제:**
-
-```bash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
-```
-
-#### `md5` - MD5 해시
-
-**설명:**
-
-- MD5 알고리즘을 사용하여 해시화
-- 낮은 보안성, 프로덕션 환경에서는 권장하지 않음
-- 비밀번호는 MD5 해시 값 (32자리 16진수 문자열)을 사용해야 합니다
-
-**MD5 해시 생성:**
-
-```bash
-# Linux/macOS
-echo -n "password" | md5sum
-
-# 또는 온라인 도구 사용
-```
-
-**예제:**
-
-```bash
-PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-#### `sha512` - SHA512 해시
-
-**설명:**
-
-- SHA512 알고리즘을 사용하여 해시화
-- 높은 보안성, 프로덕션 환경에서 권장
-- 비밀번호는 SHA512 해시 값 (128자리 16진수 문자열)을 사용해야 합니다
-
-**SHA512 해시 생성:**
-
-```bash
-# Linux/macOS
-echo -n "password" | shasum -a 512
-
-# 또는 온라인 도구 사용
-```
-
-**예제:**
-
-```bash
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-### 비밀번호 검증 규칙
-
-1. **비밀번호 정규화**: 검증 전에 공백을 제거하고 대문자로 변환
-2. **여러 비밀번호 지원**: 여러 비밀번호를 설정할 수 있으며, 검증을 통과한 비밀번호는 모두 허용됩니다
-3. **알고리즘 일관성**: 모든 비밀번호는 동일한 알고리즘을 사용해야 합니다
 
 ## 설정 예제
 
@@ -454,7 +421,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## 설정 모범 사례
 
 1. **프로덕션 환경 보안**:
-   - `bcrypt` 또는 `sha512` 알고리즘을 사용하고, `plaintext`를 피하세요
+   - 운영 환경에서는 `bcrypt`를 사용하고 `plaintext`는 로컬 테스트로 제한하세요
    - `DEBUG=false`로 설정
    - 강력한 비밀번호 사용
 

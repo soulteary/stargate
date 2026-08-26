@@ -96,8 +96,6 @@ PASSWORDS=plaintext:test123|admin456|user789
 # BCrypt-Hash
 PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 
-# SHA512-Hash
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
 ## Optionale Konfiguration
@@ -272,100 +270,69 @@ Abhörport des Dienstes (nur für lokale Entwicklung). Wird wie andere Optionen 
 PORT=8080
 ```
 
+## Sicherheits- und Integrationskonfiguration
+
+Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten sicherheitsrelevanten Variablen synchronisiert. Leere optionale Werte deaktivieren die jeweilige Integration.
+
+| Variable | Werte | Standard | Zweck |
+|----------|-------|----------|-------|
+| `TRUSTED_PROXIES` | IP/CIDR-Liste | leer | Quellen, deren Forwarded-Header vertraut werden |
+| `PROXY_HEADER` | Headername | `X-Forwarded-For` | Quell-IP-Header |
+| `COOKIE_SECURE` | true/false | true | Secure-Attribut der Sitzungs-Cookies |
+| `CALLBACK_ALLOWED_HOSTS` | Host-Liste | leer | Explizite Ziele für Rückleitungen |
+| `SESSION_EXCHANGE_SECRET` | Geheimnis, mind. 32 Zeichen | leer | Signiert kurzlebige domänenübergreifende Tickets |
+| `HEADER_AUTH_ENABLED` | true/false | false | Vertrauenswürdige Header-Authentifizierung |
+| `HEADER_AUTH_SHARED_SECRET` | Geheimnis | leer | Gemeinsames Geheimnis für Header-Authentifizierung |
+| `HEADER_AUTH_SECRET_HEADER` | Headername | `X-Stargate-Header-Auth` | Transportiert das gemeinsame Geheimnis |
+| `WARDEN_ENABLED` | true/false | false | Warden-Integration |
+| `WARDEN_URL` | URL | leer | Warden-Endpunkt |
+| `WARDEN_API_KEY` | Geheimnis | leer | API-Key-Authentifizierung |
+| `WARDEN_HMAC_KEY_ID` | String | leer | HMAC-Schlüsselkennung |
+| `WARDEN_HMAC_SECRET` | Geheimnis | leer | HMAC-Signaturgeheimnis |
+| `WARDEN_TLS_CA_CERT_FILE` | Pfad | leer | Benutzerdefinierte CA |
+| `WARDEN_TLS_CLIENT_CERT_FILE` | Pfad | leer | mTLS-Clientzertifikat |
+| `WARDEN_TLS_CLIENT_KEY_FILE` | Pfad | leer | mTLS-Clientschlüssel |
+| `WARDEN_TLS_SERVER_NAME` | String | leer | Erwarteter TLS-Servername |
+| `WARDEN_CACHE_TTL` | Sekunden | 300 | Warden-Cache-Laufzeit |
+| `WARDEN_OTP_ENABLED` | true/false | false | Legacy-OTP-Integration |
+| `WARDEN_OTP_SECRET_KEY` | Geheimnis | leer | Legacy-OTP-Geheimnis |
+| `HERALD_ENABLED` | true/false | false | Herald-Integration |
+| `HERALD_URL` | URL | leer | Herald-Endpunkt |
+| `HERALD_API_KEY` | Geheimnis | leer | API-Key-Authentifizierung |
+| `HERALD_HMAC_KEY_ID` | String | leer | HMAC-Schlüsselkennung |
+| `HERALD_HMAC_SECRET` | Geheimnis | leer | HMAC-Signaturgeheimnis |
+| `HERALD_TLS_CA_CERT_FILE` | Pfad | leer | Benutzerdefinierte CA |
+| `HERALD_TLS_CLIENT_CERT_FILE` | Pfad | leer | mTLS-Clientzertifikat |
+| `HERALD_TLS_CLIENT_KEY_FILE` | Pfad | leer | mTLS-Clientschlüssel |
+| `HERALD_TLS_SERVER_NAME` | String | leer | Erwarteter TLS-Servername |
+| `HERALD_TOTP_ENABLED` | true/false | false | TOTP-Anmeldung und -Verwaltung |
+| `LOGIN_SMS_ENABLED` | true/false | true | SMS-Anmeldekanal |
+| `LOGIN_EMAIL_ENABLED` | true/false | true | E-Mail-Anmeldekanal |
+| `SESSION_STORAGE_ENABLED` | true/false | false | Redis-Sitzungsspeicher |
+| `SESSION_STORAGE_REDIS_ADDR` | host:port | `localhost:6379` | Redis-Adresse |
+| `SESSION_STORAGE_REDIS_PASSWORD` | Geheimnis | leer | Redis-Passwort |
+| `SESSION_STORAGE_REDIS_DB` | Ganzzahl | 0 | Redis-Datenbank |
+| `SESSION_STORAGE_REDIS_KEY_PREFIX` | String | `stargate:session:` | Redis-Schlüsselpräfix |
+| `AUDIT_LOG_ENABLED` | true/false | true | Audit-Protokollierung |
+| `AUDIT_LOG_FORMAT` | json/text | json | Audit-Format |
+| `STEP_UP_ENABLED` | true/false | false | Zusätzliche Authentifizierung |
+| `STEP_UP_PATHS` | Pfad-Liste | leer | Geschützte Geschäftspfade |
+| `OTLP_ENABLED` | true/false | false | OpenTelemetry-Export |
+| `OTLP_ENDPOINT` | URL | leer | OTLP-Endpunkt |
+| `AUTH_REFRESH_ENABLED` | true/false | true | Regelmäßige Autorisierungsaktualisierung |
+| `AUTH_REFRESH_INTERVAL` | Dauer | `5m` | Aktualisierungsintervall |
+
+HMAC Key ID und Secret müssen gemeinsam gesetzt werden. mTLS-Clientzertifikat und -schlüssel müssen ebenfalls gemeinsam gesetzt werden; unvollständige Paare führen zum Startfehler.
+
 ## Passwort-Konfiguration
 
-Stargate unterstützt mehrere Passwort-Verschlüsselungsalgorithmen. Passwort-Konfigurationsformat: `algorithm:password1|password2|password3`
-
-### Unterstützte Algorithmen
-
-#### `plaintext` - Klartext-Passwort
-
-**Beschreibung:**
-
-- Im Klartext gespeichert, keine Verschlüsselung
-- **Nur für Testumgebung**
-- Für Produktion stark nicht empfohlen
-
-**Beispiel:**
+Stargate akzeptiert `bcrypt` für Produktionsumgebungen und `plaintext` ausschließlich für lokale Tests. MD5 und ungesalzenes SHA-512 werden bei der Konfigurationsprüfung abgelehnt. Passwortwerte sind groß-/kleinschreibungssensitiv; Leerzeichen bleiben erhalten.
 
 ```bash
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS=bcrypt:<bcrypt-hash>
+# Nur lokal:
+PASSWORDS=plaintext:test123
 ```
-
-#### `bcrypt` - BCrypt-Hash
-
-**Beschreibung:**
-
-- Verwendet BCrypt-Algorithmus für Hashing
-- Hohe Sicherheit, für Produktion empfohlen
-- Passwort muss BCrypt-Hash-Wert verwenden
-
-**BCrypt-Hash generieren:**
-
-```bash
-# Mit Go
-go run -c 'golang.org/x/crypto/bcrypt' <<< 'password'
-
-# Mit Online-Tools oder anderen Tools
-```
-
-**Beispiel:**
-
-```bash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
-```
-
-#### `md5` - MD5-Hash
-
-**Beschreibung:**
-
-- Verwendet MD5-Algorithmus für Hashing
-- Niedrigere Sicherheit, für Produktion nicht empfohlen
-- Passwort muss MD5-Hash-Wert verwenden (32-stellige Hexadezimalzeichenkette)
-
-**MD5-Hash generieren:**
-
-```bash
-# Linux/macOS
-echo -n "password" | md5sum
-
-# Oder Online-Tools verwenden
-```
-
-**Beispiel:**
-
-```bash
-PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-#### `sha512` - SHA512-Hash
-
-**Beschreibung:**
-
-- Verwendet SHA512-Algorithmus für Hashing
-- Hohe Sicherheit, für Produktion empfohlen
-- Passwort muss SHA512-Hash-Wert verwenden (128-stellige Hexadezimalzeichenkette)
-
-**SHA512-Hash generieren:**
-
-```bash
-# Linux/macOS
-echo -n "password" | shasum -a 512
-
-# Oder Online-Tools verwenden
-```
-
-**Beispiel:**
-
-```bash
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-### Passwort-Überprüfungsregeln
-
-1. **Passwort-Normalisierung**: Leerzeichen werden entfernt und in Großbuchstaben umgewandelt, bevor die Überprüfung erfolgt
-2. **Unterstützung mehrerer Passwörter**: Mehrere Passwörter können konfiguriert werden, jedes Passwort, das die Überprüfung besteht, ist akzeptabel
-3. **Algorithmus-Konsistenz**: Alle Passwörter müssen denselben Algorithmus verwenden
 
 ## Konfigurationsbeispiele
 
@@ -454,7 +421,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## Best Practices für die Konfiguration
 
 1. **Produktionssicherheit**:
-   - Verwenden Sie die Algorithmen `bcrypt` oder `sha512`, vermeiden Sie `plaintext`
+   - Verwenden Sie `bcrypt` in Produktion; `plaintext` nur lokal
    - Setzen Sie `DEBUG=false`
    - Verwenden Sie starke Passwörter
 

@@ -9,17 +9,24 @@ Dieses Dokument erläutert die Sicherheitsfunktionen von Stargate, die Sicherhei
 ## Implementierte Sicherheitsfunktionen
 
 1. **Forward Auth-Schutz**: Zentralisierte Authentifizierungsschicht zum Schutz von Backend-Diensten
-2. **Mehrere Passwort-Algorithmen**: Unterstützung für bcrypt, SHA512, MD5 und Plaintext (nur Entwicklung)
+2. **Mehrere Passwort-Algorithmen**: bcrypt sowie Plaintext nur für lokale Entwicklung; MD5 und ungesalzenes SHA-512 werden abgelehnt
 3. **Sichere Sitzungsverwaltung**: Cookie-basierte Sitzungen mit konfigurierbarer Domain und Ablaufzeit
 4. **Service-Integrationssicherheit**: Sichere Kommunikation mit Warden- und Herald-Diensten unter Verwendung von mTLS oder HMAC
 5. **Sitzungsfreigabe-Sicherheit**: Sicherer Mechanismus zum Austausch von Sitzungen zwischen Domains
 6. **Eingabevalidierung**: Strenge Validierung aller Eingabeparameter
-7. **Fehlerbehandlung**: Produktionsmodus verbirgt detaillierte Fehlerinformationen
+7. **Fehlerbehandlung**: HTTP-Antworten verwenden begrenzte Fehlermeldungen; `DEBUG` steuert nur die Protokollierung
 8. **Sicherheitsantwort-Header**: Fügt automatisch sicherheitsbezogene HTTP-Antwort-Header hinzu
 9. **HTTPS-Erzwingung**: Produktionsumgebungen müssen HTTPS verwenden
 10. **OTP-Integration**: Sichere Integration mit Herald für OTP/Verifizierungscode-Authentifizierung
 
 Weitere Details finden Sie in der [englischen Version](../enUS/SECURITY.md).
+
+## Sicherheitsrelevante Konfiguration
+
+- Setzen Sie `COOKIE_SECURE=true` unter HTTPS und begrenzen Sie `TRUSTED_PROXIES` auf bekannte Proxy-Adressen.
+- Konfigurieren Sie `CALLBACK_ALLOWED_HOSTS`; für domänenübergreifende Tickets ist ein `SESSION_EXCHANGE_SECRET` mit mindestens 32 Zeichen erforderlich.
+- Bei Warden und Herald müssen HMAC-Schlüsselkennung und -Geheimnis sowie mTLS-Clientzertifikat und -schlüssel jeweils gemeinsam gesetzt werden.
+- Die vollständige, synchronisierte Variablenliste finden Sie in [CONFIG.md](CONFIG.md#sicherheits--und-integrationskonfiguration).
 
 ## Meldung von Sicherheitslücken
 

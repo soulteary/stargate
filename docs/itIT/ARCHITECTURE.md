@@ -84,7 +84,7 @@ I gestori sono responsabili dell'elaborazione delle richieste HTTP:
 
 ### 4. Password e sicurezza
 
-La verifica della password è svolta da `internal/auth` insieme a `internal/config`: la configurazione specifica l'algoritmo (es. plaintext, bcrypt, md5, sha512) e l'elenco password; auth utilizza capacità esterne come secure-kit per la verifica. Sessione e stato di autenticazione sono forniti da session-kit.
+La verifica della password è svolta da `internal/auth` insieme a `internal/config`: la configurazione accetta `bcrypt` in produzione e `plaintext` solo nei test locali; MD5 e SHA-512 senza salt sono rifiutati. Sessione e stato di autenticazione sono forniti da session-kit.
 
 ## Architettura del Sistema
 
@@ -286,9 +286,9 @@ Quando le integrazioni Warden e Herald sono abilitate, può essere utilizzata l'
 
 ### Sicurezza Password
 
-- Supporta più algoritmi di crittografia (raccomandato utilizzare bcrypt o sha512)
+- Supporta `bcrypt` in produzione e `plaintext` solo nei test locali
 - Configurazione password trasmessa via variabili d'ambiente, non memorizzata nel codice
-- Normalizzazione password durante la verifica (rimuovere spazi, convertire in maiuscolo)
+- Le password distinguono maiuscole e minuscole e gli spazi vengono verificati senza modifiche
 
 ### Sicurezza Richieste
 

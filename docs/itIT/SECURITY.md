@@ -9,17 +9,24 @@ Questo documento spiega le funzionalità di sicurezza di Stargate, la configuraz
 ## Funzionalità di Sicurezza Implementate
 
 1. **Protezione Forward Auth**: Livello di autenticazione centralizzato per proteggere i servizi backend
-2. **Algoritmi di password multipli**: Supporto per bcrypt, SHA512, MD5 e plaintext (solo sviluppo)
+2. **Algoritmi di password multipli**: bcrypt e plaintext solo per sviluppo locale; MD5 e SHA-512 senza salt sono rifiutati
 3. **Gestione sicura delle sessioni**: Sessioni basate su Cookie con dominio e scadenza configurabili
 4. **Sicurezza dell'integrazione del servizio**: Comunicazione sicura con i servizi Warden e Herald utilizzando mTLS o HMAC
 5. **Sicurezza della condivisione delle sessioni**: Meccanismo di scambio di sessioni cross-domain sicuro
 6. **Validazione degli input**: Validazione rigorosa di tutti i parametri di input
-7. **Gestione degli errori**: La modalità produzione nasconde informazioni dettagliate sugli errori
+7. **Gestione degli errori**: Le risposte HTTP usano errori limitati; `DEBUG` controlla solo la registrazione
 8. **Intestazioni di risposta di sicurezza**: Aggiunge automaticamente intestazioni di risposta HTTP relative alla sicurezza
 9. **Applicazione HTTPS**: Gli ambienti di produzione devono utilizzare HTTPS
 10. **Integrazione OTP**: Integrazione sicura con Herald per l'autenticazione OTP/codice di verifica
 
 Per maggiori dettagli, consulta la [versione inglese](../enUS/SECURITY.md).
+
+## Configurazione sensibile alla sicurezza
+
+- Usa `COOKIE_SECURE=true` con HTTPS e limita `TRUSTED_PROXIES` agli indirizzi proxy conosciuti.
+- Configura `CALLBACK_ALLOWED_HOSTS`; i ticket tra domini richiedono un `SESSION_EXCHANGE_SECRET` di almeno 32 caratteri.
+- Per Warden e Herald, ID e segreto HMAC devono essere impostati insieme, così come certificato client mTLS e relativa chiave.
+- Consulta [CONFIG.md](CONFIG.md) per l'elenco sincronizzato delle variabili.
 
 ## Segnalazione di Vulnerabilità
 

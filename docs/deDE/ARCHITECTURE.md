@@ -84,7 +84,7 @@ Die Handler sind verantwortlich für die Verarbeitung von HTTP-Anfragen:
 
 ### 4. Passwort und Sicherheit
 
-Die Passwortprüfung erfolgt durch `internal/auth` zusammen mit `internal/config`: Die Konfiguration legt den Algorithmus (z. B. plaintext, bcrypt, md5, sha512) und die Passwortliste fest; auth nutzt externe Fähigkeiten wie secure-kit zur Prüfung. Sitzung und Authentifizierungsstatus werden von session-kit bereitgestellt.
+Die Passwortprüfung erfolgt durch `internal/auth` zusammen mit `internal/config`: Die Konfiguration unterstützt `bcrypt` für Produktion und `plaintext` nur für lokale Tests; MD5 und ungesalzenes SHA-512 werden abgelehnt. Sitzung und Authentifizierungsstatus werden von session-kit bereitgestellt.
 
 ## Systemarchitektur
 
@@ -286,9 +286,9 @@ Wenn Warden- und Herald-Integrationen aktiviert sind, kann OTP-Authentifizierung
 
 ### Passwortsicherheit
 
-- Unterstützt mehrere Verschlüsselungsalgorithmen (empfohlen: bcrypt oder sha512 verwenden)
+- Unterstützt `bcrypt` für Produktion und `plaintext` nur für lokale Tests
 - Passwort-Konfiguration wird über Umgebungsvariablen übergeben, nicht im Code gespeichert
-- Passwort-Normalisierung bei der Überprüfung (Leerzeichen entfernen, in Großbuchstaben umwandeln)
+- Passwörter sind groß-/kleinschreibungssensitiv; Leerzeichen werden unverändert geprüft
 
 ### Anfragesicherheit
 
