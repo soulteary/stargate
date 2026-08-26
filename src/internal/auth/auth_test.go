@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -18,6 +19,11 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
+
+func TestMain(m *testing.M) {
+	_ = os.Setenv("WARDEN_URL", "http://warden.test")
+	os.Exit(m.Run())
+}
 
 // testLogger creates a logger instance for testing
 func testLogger() *logger.Logger {
@@ -389,11 +395,8 @@ func TestInitWardenClient_NotEnabled(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	// Reset client to nil for this test
 	wardenClient = nil
-
 	InitWardenClient(testLogger())
-	// Should not panic and client should remain nil
 	testza.AssertNil(t, wardenClient)
 }
 
@@ -405,14 +408,7 @@ func TestInitWardenClient_NoURL(t *testing.T) {
 	t.Setenv("WARDEN_URL", "")
 
 	err := config.Initialize(testLogger())
-	testza.AssertNoError(t, err)
-
-	// Reset client to nil for this test
-	wardenClient = nil
-
-	InitWardenClient(testLogger())
-	// Should not panic and client should remain nil
-	testza.AssertNil(t, wardenClient)
+	testza.AssertNotNil(t, err)
 }
 
 // TestInitWardenClient_CustomTTL tests that InitWardenClient uses custom TTL when provided
@@ -528,13 +524,7 @@ func TestCheckUserInList_NoClient(t *testing.T) {
 	t.Setenv("WARDEN_URL", "")
 
 	err := config.Initialize(testLogger())
-	testza.AssertNoError(t, err)
-
-	// Reset client to nil for this test
-	wardenClient = nil
-
-	result := CheckUserInList(context.TODO(), "1234567890", "test@example.com")
-	testza.AssertFalse(t, result, "should return false when client is not initialized")
+	testza.AssertNotNil(t, err)
 }
 
 // TestCheckUserInList_NilContext tests that CheckUserInList handles nil context correctly

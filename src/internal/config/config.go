@@ -426,6 +426,25 @@ func Initialize(l *logger.Logger) error {
 	if StepUpEnabled.ToBool() && Passwords.Value == "" {
 		return NewValidationError(StepUpEnabled.Name, "requires PASSWORDS for re-authentication", StepUpEnabled.PossibleValues)
 	}
+	if WardenEnabled.ToBool() {
+		if strings.TrimSpace(WardenURL.Value) == "" {
+			return NewValidationError(WardenURL.Name, i18n.TStatic("error.config_required_not_set"), WardenURL.PossibleValues)
+		}
+	}
+	if HeraldEnabled.ToBool() {
+		if strings.TrimSpace(HeraldURL.Value) == "" {
+			return NewValidationError(HeraldURL.Name, i18n.TStatic("error.config_required_not_set"), HeraldURL.PossibleValues)
+		}
+	}
+	if HeraldTOTPEnabled.ToBool() && !HeraldEnabled.ToBool() {
+		return NewValidationError(HeraldTOTPEnabled.Name, "requires HERALD_ENABLED=true", HeraldTOTPEnabled.PossibleValues)
+	}
+	if (HeraldTLSClientCert.Value == "") != (HeraldTLSClientKey.Value == "") {
+		return NewValidationError(HeraldTLSClientCert.Name, "client certificate and key must be configured together", HeraldTLSClientCert.PossibleValues)
+	}
+	if AuthRefreshEnabled.ToBool() && !WardenEnabled.ToBool() {
+		return NewValidationError(AuthRefreshEnabled.Name, "requires WARDEN_ENABLED=true", AuthRefreshEnabled.PossibleValues)
+	}
 
 	if HeaderAuthEnabled.ToBool() {
 		if !WardenEnabled.ToBool() {
