@@ -83,7 +83,7 @@ func InitForwardAuthHandler(l *logger.Logger) {
 		SessionEnabled: true,
 
 		// Password authentication
-		PasswordEnabled:   algo != "" && len(validPasswords) > 0,
+		PasswordEnabled:   config.PasswordHeaderAuthEnabled.ToBool() && algo != "" && len(validPasswords) > 0,
 		PasswordHeader:    "Stargate-Password",
 		ValidPasswords:    validPasswords,
 		PasswordAlgorithm: algo,
