@@ -3,8 +3,8 @@ package handlers
 import (
 	"strings"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
@@ -33,14 +33,15 @@ func revokeErrorReason(err error) string {
 }
 
 // TOTPRevokeRoute handles GET /totp/revoke - shows TOTP unbind confirm page (requires auth).
-func TOTPRevokeRoute(store *session.Store) func(c *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func TOTPRevokeRoute(store *session.Store) func(c fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		sess, err := store.Get(ctx)
 		if err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
+		defer sess.Release()
 		if !auth.IsAuthenticated(sess) {
-			return ctx.Redirect("/_login", fiber.StatusFound)
+			return ctx.Redirect().Status(fiber.StatusFound).To("/_login")
 		}
 		client := getHeraldClient()
 		if client == nil {
@@ -59,12 +60,13 @@ func TOTPRevokeRoute(store *session.Store) func(c *fiber.Ctx) error {
 }
 
 // TOTPRevokeConfirmAPI handles POST /totp/revoke - revokes TOTP for current user (requires auth).
-func TOTPRevokeConfirmAPI(store *session.Store) func(c *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func TOTPRevokeConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		sess, err := store.Get(ctx)
 		if err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
+		defer sess.Release()
 		if !auth.IsAuthenticated(sess) {
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "unauthorized"})
 		}

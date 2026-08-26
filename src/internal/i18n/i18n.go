@@ -3,8 +3,8 @@ package i18n
 import (
 	"fmt"
 
-	"github.com/gofiber/fiber/v2"
-	kit "github.com/soulteary/i18n-kit"
+	"github.com/gofiber/fiber/v3"
+	kit "github.com/soulteary/i18n-kit/v2"
 )
 
 // Language type alias for backward compatibility
@@ -389,12 +389,12 @@ func init() {
 
 // T returns the translated string for the given key using the language from Fiber context.
 // If the key is not found, it returns the key itself.
-func T(c *fiber.Ctx, key string) string {
+func T(c fiber.Ctx, key string) string {
 	return kit.TFromFiber(c, key)
 }
 
 // Tf returns a formatted translated string using the language from Fiber context.
-func Tf(c *fiber.Ctx, key string, args ...interface{}) string {
+func Tf(c fiber.Ctx, key string, args ...interface{}) string {
 	return fmt.Sprintf(T(c, key), args...)
 }
 

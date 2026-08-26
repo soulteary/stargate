@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/valyala/fasthttp"
 
 	"github.com/soulteary/herald/pkg/herald"

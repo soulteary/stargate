@@ -3,7 +3,7 @@ package tracing
 import (
 	"fmt"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	common_tracing "github.com/soulteary/tracing-kit"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -17,7 +17,7 @@ func TracingMiddleware(serviceName string) fiber.Handler {
 	propagator := otel.GetTextMapPropagator()
 	tracer := common_tracing.GetTracer()
 
-	return func(c *fiber.Ctx) error {
+	return func(c fiber.Ctx) error {
 		// Extract trace context from request headers
 		reqHeaders := make(map[string]string)
 		for key, value := range c.Request().Header.All() {

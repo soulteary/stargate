@@ -7,19 +7,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/favicon"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-	fibersession "github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/gofiber/fiber/v2/utils"
-	"github.com/gofiber/template/html"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/favicon"
+	"github.com/gofiber/fiber/v3/middleware/recover"
+	fibersession "github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/gofiber/fiber/v3/middleware/static"
+	"github.com/gofiber/template/html/v3"
+	"github.com/gofiber/utils/v2"
 	"github.com/redis/go-redis/v9"
-	health "github.com/soulteary/health-kit"
-	i18nkit "github.com/soulteary/i18n-kit"
-	logger "github.com/soulteary/logger-kit"
-	metricskit "github.com/soulteary/metrics-kit"
-	middlewarekit "github.com/soulteary/middleware-kit"
-	session "github.com/soulteary/session-kit"
+	health "github.com/soulteary/health-kit/v2"
+	i18nkit "github.com/soulteary/i18n-kit/v2"
+	logger "github.com/soulteary/logger-kit/v2"
+	metricskit "github.com/soulteary/metrics-kit/v2"
+	middlewarekit "github.com/soulteary/middleware-kit/v2"
+	session "github.com/soulteary/session-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
@@ -144,7 +145,7 @@ func setupSessionStore() (*fibersession.Store, *redis.Client) {
 	// Set KeyGenerator (not provided by session-kit's FiberSessionConfig)
 	fiberConfig.KeyGenerator = utils.UUID
 
-	return fibersession.New(fiberConfig), redisClient
+	return fibersession.NewStore(fiberConfig), redisClient
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies
@@ -250,7 +251,7 @@ func findFaviconPath() string {
 func setupStaticFiles(app *fiber.App) {
 	log.Debug().Msg("Registering static file server for assets")
 	assetsPath := findAssetsPath()
-	app.Static("/assets", assetsPath)
+	app.Get("/assets*", static.New(assetsPath))
 }
 
 // setupMiddleware configures all middleware for the Fiber application.
@@ -328,16 +329,15 @@ func createApp() *fiber.App {
 
 	log.Debug().Msg("Creating web server instance")
 	app := fiber.New(fiber.Config{
-		Views:                   engine,
-		DisableStartupMessage:   true,
-		BodyLimit:               1 * 1024 * 1024,
-		ReadTimeout:             10 * time.Second,
-		WriteTimeout:            15 * time.Second,
-		IdleTimeout:             60 * time.Second,
-		EnableTrustedProxyCheck: true,
-		TrustedProxies:          parseTrustedProxies(),
-		ProxyHeader:             config.ProxyHeader.String(),
-		EnableIPValidation:      true,
+		Views:              engine,
+		BodyLimit:          1 * 1024 * 1024,
+		ReadTimeout:        10 * time.Second,
+		WriteTimeout:       15 * time.Second,
+		IdleTimeout:        60 * time.Second,
+		TrustProxy:         true,
+		TrustProxyConfig:   fiber.TrustProxyConfig{Proxies: parseTrustedProxies()},
+		ProxyHeader:        config.ProxyHeader.String(),
+		EnableIPValidation: true,
 	})
 
 	setupMiddleware(app)
@@ -368,5 +368,5 @@ func startServer(app *fiber.App) error {
 		log.Info().Str("port", port).Msg("Using custom port from PORT environment variable")
 	}
 	log.Debug().Str("port", port).Msg("Starting web server")
-	return app.Listen(port)
+	return app.Listen(port, fiber.ListenConfig{DisableStartupMessage: true})
 }

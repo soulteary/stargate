@@ -9,9 +9,9 @@ import (
 	"time"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
-	health "github.com/soulteary/health-kit"
-	logger "github.com/soulteary/logger-kit"
+	"github.com/gofiber/fiber/v3"
+	health "github.com/soulteary/health-kit/v2"
+	logger "github.com/soulteary/logger-kit/v2"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
 )
@@ -431,7 +431,7 @@ func TestSetupSessionStore_ConfigApplied(t *testing.T) {
 
 	// Verify store is functional by creating a test app
 	app := fiber.New()
-	app.Get("/test", func(c *fiber.Ctx) error {
+	app.Get("/test", func(c fiber.Ctx) error {
 		sess, err := store.Get(c)
 		if err != nil {
 			return err

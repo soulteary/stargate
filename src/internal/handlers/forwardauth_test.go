@@ -6,8 +6,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3/extractors"
+	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/gofiber/utils/v2"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )
@@ -39,8 +40,8 @@ func TestInitForwardAuthHandler_WithMinimalConfig(t *testing.T) {
 
 // TestForwardAuthCheckRoute_ReturnsHandler verifies ForwardAuthCheckRoute returns a non-nil Fiber handler.
 func TestForwardAuthCheckRoute_ReturnsHandler(t *testing.T) {
-	store := session.New(session.Config{
-		KeyLookup:    "cookie:" + auth.SessionCookieName,
+	store := session.NewStore(session.Config{
+		Extractor:    extractors.FromCookie(auth.SessionCookieName),
 		KeyGenerator: utils.UUID,
 	})
 	if store == nil {

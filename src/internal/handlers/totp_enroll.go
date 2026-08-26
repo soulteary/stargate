@@ -5,8 +5,8 @@ import (
 	"html/template"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
@@ -35,14 +35,15 @@ func clearTOTPEnrollment(sess *session.Session) {
 
 // TOTPEnrollRoute handles POST /totp/enroll - starts enrollment and shows the bind page.
 // Calls herald-totp enroll/start and renders page with QR (otpauth_uri) and enroll_id.
-func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		sess, err := store.Get(ctx)
 		if err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
+		defer sess.Release()
 		if !auth.IsAuthenticated(sess) {
-			return ctx.Redirect("/_login", fiber.StatusFound)
+			return ctx.Redirect().Status(fiber.StatusFound).To("/_login")
 		}
 		if !hasRecentAuthentication(sess) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "recent authentication required")
@@ -70,7 +71,7 @@ func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP status check failed")
 		}
 		if statusResp.TotpEnabled {
-			return ctx.Redirect("/totp/revoke", fiber.StatusFound)
+			return ctx.Redirect().Status(fiber.StatusFound).To("/totp/revoke")
 		}
 		startResp, err := client.TOTPEnrollStart(ctx.Context(), &herald.TOTPEnrollStartRequest{
 			Subject: userID,
@@ -97,12 +98,13 @@ func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 }
 
 // TOTPEnrollConfirmAPI handles POST /totp/enroll/confirm - confirms TOTP with code (requires auth).
-func TOTPEnrollConfirmAPI(store *session.Store) func(c *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func TOTPEnrollConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		sess, err := store.Get(ctx)
 		if err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
+		defer sess.Release()
 		if !auth.IsAuthenticated(sess) {
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "unauthorized"})
 		}

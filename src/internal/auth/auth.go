@@ -14,9 +14,9 @@ import (
 	"unicode"
 
 	"github.com/pquerna/otp/totp"
-	logger "github.com/soulteary/logger-kit"
+	logger "github.com/soulteary/logger-kit/v2"
 	secure "github.com/soulteary/secure-kit"
-	session "github.com/soulteary/session-kit"
+	session "github.com/soulteary/session-kit/v2"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/warden/pkg/warden"
 )

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	logger "github.com/soulteary/logger-kit"
+	logger "github.com/soulteary/logger-kit/v2"
 
 	"github.com/soulteary/stargate/src/internal/i18n"
 )

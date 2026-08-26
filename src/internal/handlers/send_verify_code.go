@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/herald/pkg/herald"
@@ -23,7 +23,7 @@ import (
 // sendVerifyCodeErrorJSON returns JSON in the shape expected by the login page Send Code UI:
 // { success: false, message: "...", reason: "..." }. Use this for all error paths of /_send_verify_code
 // so the front-end can display result.message and result.reason correctly.
-func sendVerifyCodeErrorJSON(ctx *fiber.Ctx, statusCode int, message, reason string) error {
+func sendVerifyCodeErrorJSON(ctx fiber.Ctx, statusCode int, message, reason string) error {
 	ctx.Set("Content-Type", "application/json")
 	return ctx.Status(statusCode).JSON(fiber.Map{
 		"success": false,
@@ -57,8 +57,8 @@ func getLocaleFromConfig() string {
 }
 
 // SendVerifyCodeAPI handles POST requests to /_send_verify_code for sending verification codes via Herald
-func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func SendVerifyCodeAPI() func(c fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		// Get trace context from middleware
 		traceCtx := ctx.Locals("trace_context")
 		if traceCtx == nil {

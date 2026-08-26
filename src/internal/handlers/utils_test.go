@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
-	logger "github.com/soulteary/logger-kit"
+	"github.com/gofiber/fiber/v3"
+	logger "github.com/soulteary/logger-kit/v2"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
@@ -19,8 +19,11 @@ func testLoggerUtils() *logger.Logger {
 	})
 }
 
-func createTestContextForUtils(method, path string, headers map[string]string) (*fiber.Ctx, *fiber.App) {
-	app := fiber.New()
+func createTestContextForUtils(method, path string, headers map[string]string) (fiber.Ctx, *fiber.App) {
+	app := fiber.New(fiber.Config{
+		TrustProxy:       true,
+		TrustProxyConfig: fiber.TrustProxyConfig{Proxies: []string{"0.0.0.0"}},
+	})
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 
 	ctx.Request().SetRequestURI(path)
@@ -139,7 +142,7 @@ func TestGetForwardedProto_EmptyHeader(t *testing.T) {
 	defer app.ReleaseCtx(ctx)
 
 	result := GetForwardedProto(ctx)
-	// ctx.Protocol() may return empty string in test context
+	// ctx.Scheme() may return empty string in test context
 	// The function should return empty string if protocol is not set
 	testza.AssertTrue(t, result == "" || result == "http", "should return empty or http")
 }

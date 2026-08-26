@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 
 	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
@@ -13,7 +13,7 @@ import (
 // SessionGetter defines an interface for getting sessions from a context.
 // This interface allows for easier testing by enabling mock implementations.
 type SessionGetter interface {
-	Get(ctx *fiber.Ctx) (*session.Session, error)
+	Get(ctx fiber.Ctx) (*session.Session, error)
 }
 
 // SessionStoreAdapter wraps a session.Store to implement SessionGetter interface.
@@ -22,7 +22,7 @@ type SessionStoreAdapter struct {
 }
 
 // Get retrieves a session from the store.
-func (a *SessionStoreAdapter) Get(ctx *fiber.Ctx) (*session.Session, error) {
+func (a *SessionStoreAdapter) Get(ctx fiber.Ctx) (*session.Session, error) {
 	return a.store.Get(ctx)
 }
 
@@ -41,11 +41,12 @@ func (a *AuthUnauthenticator) Unauthenticate(sess *session.Session) error {
 }
 
 // logoutHandler is the internal handler that can be tested with mocked dependencies.
-func logoutHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, unauthenticator Unauthenticator) error {
+func logoutHandler(ctx fiber.Ctx, sessionGetter SessionGetter, unauthenticator Unauthenticator) error {
 	sess, err := sessionGetter.Get(ctx)
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
+	defer sess.Release()
 
 	// Get user ID from session for audit logging
 	var userID string
@@ -75,10 +76,10 @@ func logoutHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, unauthenticator 
 //   - store: Session store for managing user sessions
 //
 // Returns a Fiber handler function.
-func LogoutRoute(store *session.Store) func(c *fiber.Ctx) error {
+func LogoutRoute(store *session.Store) func(c fiber.Ctx) error {
 	sessionGetter := &SessionStoreAdapter{store: store}
 	unauthenticator := &AuthUnauthenticator{}
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		return logoutHandler(ctx, sessionGetter, unauthenticator)
 	}
 }

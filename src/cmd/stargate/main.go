@@ -8,16 +8,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
-	logger "github.com/soulteary/logger-kit"
+	logger "github.com/soulteary/logger-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/tracing-kit"
-	version "github.com/soulteary/version-kit"
+	version "github.com/soulteary/version-kit/v2"
 )
 
 // log is the global logger instance

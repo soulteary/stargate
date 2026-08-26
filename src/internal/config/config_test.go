@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/MarvinJWendt/testza"
-	logger "github.com/soulteary/logger-kit"
+	logger "github.com/soulteary/logger-kit/v2"
 )
 
 // testLogger creates a logger instance for testing
