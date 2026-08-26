@@ -2,14 +2,37 @@ package handlers
 
 import (
 	"context"
+	"crypto/subtle"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	forwardauth "github.com/soulteary/forwardauth-kit"
+	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/tracing-kit"
 	"go.opentelemetry.io/otel/attribute"
 )
+
+func allowTrustedHeaderAuth(ctx *fiber.Ctx) bool {
+	if !config.HeaderAuthEnabled.ToBool() {
+		return false
+	}
+	expected := config.HeaderAuthSharedSecret.String()
+	provided := ctx.Get(config.HeaderAuthSecretHeader.String())
+	if expected == "" || len(expected) != len(provided) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) == 1
+}
+
+func sanitizeTrustedIdentityHeaders(ctx *fiber.Ctx) {
+	if !allowTrustedHeaderAuth(ctx) {
+		ctx.Request().Header.Del("X-User-Phone")
+		ctx.Request().Header.Del("X-User-Mail")
+	}
+	// The proxy credential is only for Stargate and must never be propagated.
+	ctx.Request().Header.Del(config.HeaderAuthSecretHeader.String())
+}
 
 // SessionStoreForCheck is the minimal interface required by CheckRoute to get session.
 // *session.Store implements it; tests can pass a mock to simulate store.Get failure.
@@ -38,6 +61,7 @@ func CheckRoute(store SessionStoreForCheck) func(c *fiber.Ctx) error {
 	}
 
 	return func(ctx *fiber.Ctx) error {
+		sanitizeTrustedIdentityHeaders(ctx)
 		// Get trace context from middleware
 		traceCtx := ctx.Locals("trace_context")
 		if traceCtx == nil {

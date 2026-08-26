@@ -30,6 +30,51 @@ func setupCheckHeaderConfig(t *testing.T) {
 	InitForwardAuthHandler(testLogger)
 }
 
+func setTrustedHeaderAuthConfig(t *testing.T) {
+	t.Helper()
+	originalEnabled := config.HeaderAuthEnabled.Value
+	originalSecret := config.HeaderAuthSharedSecret.Value
+	originalHeader := config.HeaderAuthSecretHeader.Value
+	t.Cleanup(func() {
+		config.HeaderAuthEnabled.Value = originalEnabled
+		config.HeaderAuthSharedSecret.Value = originalSecret
+		config.HeaderAuthSecretHeader.Value = originalHeader
+	})
+	config.HeaderAuthEnabled.Value = "true"
+	config.HeaderAuthSharedSecret.Value = "trusted-proxy-secret"
+	config.HeaderAuthSecretHeader.Value = "X-Stargate-Header-Auth"
+}
+
+func TestSanitizeTrustedIdentityHeadersRejectsUnsignedHeaders(t *testing.T) {
+	setTrustedHeaderAuthConfig(t)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"X-User-Phone": "13800138000",
+		"X-User-Mail":  "user@example.com",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	sanitizeTrustedIdentityHeaders(ctx)
+
+	testza.AssertEqual(t, "", ctx.Get("X-User-Phone"))
+	testza.AssertEqual(t, "", ctx.Get("X-User-Mail"))
+}
+
+func TestSanitizeTrustedIdentityHeadersAcceptsProxyCredential(t *testing.T) {
+	setTrustedHeaderAuthConfig(t)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"X-User-Phone":           "13800138000",
+		"X-Stargate-Header-Auth": "trusted-proxy-secret",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	sanitizeTrustedIdentityHeaders(ctx)
+
+	testza.AssertEqual(t, "13800138000", ctx.Get("X-User-Phone"))
+	testza.AssertEqual(t, "", ctx.Get("X-Stargate-Header-Auth"))
+}
+
 func TestCheckRoute_SetsAuthHeadersFromSession(t *testing.T) {
 	setupCheckHeaderConfig(t)
 

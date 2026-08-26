@@ -123,6 +123,31 @@ var (
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
 
+	HeaderAuthEnabled = EnvVariable{
+		Name:           "HEADER_AUTH_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	HeaderAuthSharedSecret = EnvVariable{
+		Name:           "HEADER_AUTH_SHARED_SECRET",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+		Sensitive:      true,
+	}
+
+	HeaderAuthSecretHeader = EnvVariable{
+		Name:           "HEADER_AUTH_SECRET_HEADER",
+		Required:       false,
+		DefaultValue:   "X-Stargate-Header-Auth",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateNotEmptyString,
+	}
+
 	WardenCacheTTL = EnvVariable{
 		Name:           "WARDEN_CACHE_TTL",
 		Required:       false,
@@ -376,7 +401,7 @@ func Initialize(l *logger.Logger) error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &CallbackAllowedHosts, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenEnabled, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &CallbackAllowedHosts, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenOTPEnabled, &WardenOTPSecretKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
@@ -400,6 +425,15 @@ func Initialize(l *logger.Logger) error {
 	}
 	if StepUpEnabled.ToBool() && Passwords.Value == "" {
 		return NewValidationError(StepUpEnabled.Name, "requires PASSWORDS for re-authentication", StepUpEnabled.PossibleValues)
+	}
+
+	if HeaderAuthEnabled.ToBool() {
+		if !WardenEnabled.ToBool() {
+			return NewValidationError(HeaderAuthEnabled.Name, "requires WARDEN_ENABLED=true", HeaderAuthEnabled.PossibleValues)
+		}
+		if strings.TrimSpace(HeaderAuthSharedSecret.Value) == "" {
+			return NewValidationError(HeaderAuthSharedSecret.Name, i18n.TStatic("error.config_required_not_set"), HeaderAuthSharedSecret.PossibleValues)
+		}
 	}
 
 	// Log language setting
