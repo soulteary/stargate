@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -14,6 +15,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/tracing-kit"
 	version "github.com/soulteary/version-kit"
 )
@@ -157,8 +159,14 @@ func initConfig() error {
 		log.SetLevel(logger.DebugLevel)
 	}
 
-	// Initialize Warden client after configuration is loaded
-	auth.InitWardenClient(log)
+	// Initialize enabled service clients before accepting traffic. A configured
+	// integration must never silently degrade to a nil client.
+	if err := auth.InitWardenClient(log); err != nil {
+		return fmt.Errorf("initialize Warden client: %w", err)
+	}
+	if err := handlers.InitHeraldClient(log); err != nil {
+		return fmt.Errorf("initialize Herald client: %w", err)
+	}
 
 	return nil
 }

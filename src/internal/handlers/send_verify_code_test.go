@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
@@ -28,8 +27,7 @@ func testLoggerSendVerifyCode() *logger.Logger {
 }
 
 func resetHeraldClientForTesting() {
-	heraldClient = nil
-	heraldClientInit = sync.Once{}
+	ResetHeraldClientForTest()
 }
 
 func setupSendVerifyCodeBaseEnv(t *testing.T) {
@@ -102,7 +100,7 @@ func TestSendVerifyCodeAPI_WardenUserNotFound(t *testing.T) {
 	testLog := testLoggerSendVerifyCode()
 	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
-	auth.InitWardenClient(testLog)
+	testza.AssertNoError(t, auth.InitWardenClient(testLog))
 	SetLogger(testLog)
 
 	ctx, app := createTestContext("POST", "/_send_verify_code", map[string]string{
@@ -181,8 +179,8 @@ func TestSendVerifyCodeAPI_Success(t *testing.T) {
 	testLog := testLoggerSendVerifyCode()
 	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
-	auth.InitWardenClient(testLog)
-	InitHeraldClient(testLog)
+	testza.AssertNoError(t, auth.InitWardenClient(testLog))
+	testza.AssertNoError(t, InitHeraldClient(testLog))
 
 	app := fiber.New()
 	app.Post("/_send_verify_code", SendVerifyCodeAPI())
@@ -263,8 +261,8 @@ func TestSendVerifyCodeAPI_IdempotencyKeyPassthrough(t *testing.T) {
 	testLog := testLoggerSendVerifyCode()
 	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
-	auth.InitWardenClient(testLog)
-	InitHeraldClient(testLog)
+	testza.AssertNoError(t, auth.InitWardenClient(testLog))
+	testza.AssertNoError(t, InitHeraldClient(testLog))
 
 	app := fiber.New()
 	app.Post("/_send_verify_code", SendVerifyCodeAPI())
@@ -336,8 +334,8 @@ func TestSendVerifyCodeAPI_LocaleFromConfig(t *testing.T) {
 	testLog := testLoggerSendVerifyCode()
 	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
-	auth.InitWardenClient(testLog)
-	InitHeraldClient(testLog)
+	testza.AssertNoError(t, auth.InitWardenClient(testLog))
+	testza.AssertNoError(t, InitHeraldClient(testLog))
 
 	app := fiber.New()
 	app.Post("/_send_verify_code", SendVerifyCodeAPI())
@@ -421,8 +419,8 @@ func TestSendVerifyCodeAPI_GetLocaleFromConfig_AllLanguages(t *testing.T) {
 			testLog := testLoggerSendVerifyCode()
 			err := config.Initialize(testLog)
 			testza.AssertNoError(t, err)
-			auth.InitWardenClient(testLog)
-			InitHeraldClient(testLog)
+			testza.AssertNoError(t, auth.InitWardenClient(testLog))
+			testza.AssertNoError(t, InitHeraldClient(testLog))
 
 			app := fiber.New()
 			app.Post("/_send_verify_code", SendVerifyCodeAPI())
@@ -484,8 +482,8 @@ func TestSendVerifyCodeAPI_HeraldRateLimited(t *testing.T) {
 	testLog := testLoggerSendVerifyCode()
 	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
-	auth.InitWardenClient(testLog)
-	InitHeraldClient(testLog)
+	testza.AssertNoError(t, auth.InitWardenClient(testLog))
+	testza.AssertNoError(t, InitHeraldClient(testLog))
 
 	app := fiber.New()
 	app.Post("/_send_verify_code", SendVerifyCodeAPI())

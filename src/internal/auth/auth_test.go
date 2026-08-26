@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -396,7 +397,7 @@ func TestInitWardenClient_NotEnabled(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	wardenClient = nil
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNil(t, wardenClient)
 }
 
@@ -409,6 +410,26 @@ func TestInitWardenClient_NoURL(t *testing.T) {
 
 	err := config.Initialize(testLogger())
 	testza.AssertNotNil(t, err)
+}
+
+func TestInitWardenClient_ReturnsAndRemembersTLSConfigurationError(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "https://warden.example.com")
+	t.Setenv("WARDEN_TLS_CA_CERT_FILE", filepath.Join(t.TempDir(), "missing-ca.pem"))
+
+	ResetWardenClientForTesting()
+	t.Cleanup(ResetWardenClientForTesting)
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+
+	err := InitWardenClient(testLogger())
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "configure Warden TLS")
+	testza.AssertNil(t, wardenClient)
+
+	// sync.Once must not turn a failed first initialization into a later nil error.
+	testza.AssertNotNil(t, InitWardenClient(testLogger()))
 }
 
 // TestInitWardenClient_CustomTTL tests that InitWardenClient uses custom TTL when provided
@@ -425,7 +446,7 @@ func TestInitWardenClient_CustomTTL(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	// Even if client creation fails (due to invalid URL or network), the function should not panic
 	// We're testing that custom TTL is parsed correctly
 }
@@ -444,7 +465,7 @@ func TestInitWardenClient_InvalidTTL(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	// Should not panic even with invalid TTL (should use default)
 }
 
@@ -462,7 +483,7 @@ func TestInitWardenClient_NegativeTTL(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	// Should not panic even with negative TTL (should use default)
 }
 
@@ -480,7 +501,7 @@ func TestInitWardenClient_ZeroTTL(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	// Should not panic even with zero TTL (should use default)
 }
 
@@ -709,7 +730,7 @@ func TestInitWardenClient_Success(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	// Client should be initialized
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 }
@@ -783,7 +804,7 @@ func TestCheckUserInList_Success_WithPhone(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with valid phone
@@ -834,7 +855,7 @@ func TestCheckUserInList_PhoneWithSpaces(t *testing.T) {
 	ResetWardenClientForTesting()
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 
 	result := CheckUserInList(context.Background(), "138 0013 8000", "")
 	testza.AssertTrue(t, result, "should return true when phone has spaces (normalized to 13800138000)")
@@ -909,7 +930,7 @@ func TestCheckUserInList_Success_WithMail(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with valid email
@@ -993,7 +1014,7 @@ func TestCheckUserInList_Success_WithBoth(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with both phone and email (should match by phone first)
@@ -1061,7 +1082,7 @@ func TestCheckUserInList_Success_WithBoth_FallbackToMail(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with phone that doesn't exist but mail that does (should fallback to mail)
@@ -1117,7 +1138,7 @@ func TestCheckUserInList_Failure_UserNotInList(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with user not in list
@@ -1186,7 +1207,7 @@ func TestCheckUserInList_WithContext(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with custom context
@@ -1240,7 +1261,7 @@ func TestGetUserInfo_PrefersPhone(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	user := GetUserInfo(context.Background(), "13800138000", "user1@example.com")
@@ -1298,7 +1319,7 @@ func TestGetUserInfo_FallbackToMail(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	user := GetUserInfo(context.Background(), "99999999999", "user2@example.com")
@@ -1341,7 +1362,7 @@ func TestGetUserInfo_InactiveUser(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	user := GetUserInfo(context.Background(), "13800138000", "")
@@ -1356,7 +1377,7 @@ func TestGetUserInfo_WardenDisabled(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 	// InitWardenClient sets the package-level logger so log.Debug() in GetUserInfo does not panic
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 
 	user := GetUserInfo(context.Background(), "13800138000", "user@example.com")
 	testza.AssertNil(t, user, "should return nil when Warden is disabled")
@@ -1371,7 +1392,7 @@ func TestGetUserInfo_EmptyIdentifiers(t *testing.T) {
 	ResetWardenClientForTesting()
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 
 	user := GetUserInfo(context.Background(), "", "")
 	testza.AssertNil(t, user, "should return nil when both phone and mail are empty")
@@ -1402,7 +1423,7 @@ func TestGetUserInfo_WithContext(t *testing.T) {
 	ResetWardenClientForTesting()
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	InitWardenClient(testLogger())
+	testza.AssertNoError(t, InitWardenClient(testLogger()))
 
 	user := GetUserInfo(context.TODO(), "13800138000", "")
 	testza.AssertNotNil(t, user, "should return user with valid context")

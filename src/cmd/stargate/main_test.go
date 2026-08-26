@@ -2,13 +2,16 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
 	logger "github.com/soulteary/logger-kit"
+	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/handlers"
 	version "github.com/soulteary/version-kit"
 )
 
@@ -112,6 +115,40 @@ func TestInitConfig_MissingRequiredConfig(t *testing.T) {
 	// Call initConfig - should return error
 	err := initConfig()
 	testza.AssertNotNil(t, err)
+}
+
+func TestInitConfig_ReturnsWardenClientInitializationError(t *testing.T) {
+	initLogger()
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "https://warden.example.com")
+	t.Setenv("WARDEN_TLS_CA_CERT_FILE", filepath.Join(t.TempDir(), "missing-ca.pem"))
+	t.Setenv("HERALD_ENABLED", "false")
+
+	auth.ResetWardenClientForTesting()
+	t.Cleanup(auth.ResetWardenClientForTesting)
+	err := initConfig()
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "initialize Warden client")
+}
+
+func TestInitConfig_ReturnsHeraldClientInitializationError(t *testing.T) {
+	initLogger()
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "false")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_URL", "https://herald.example.com")
+	t.Setenv("HERALD_TLS_CA_CERT_FILE", filepath.Join(t.TempDir(), "missing-ca.pem"))
+
+	auth.ResetWardenClientForTesting()
+	handlers.ResetHeraldClientForTest()
+	t.Cleanup(auth.ResetWardenClientForTesting)
+	t.Cleanup(handlers.ResetHeraldClientForTest)
+	err := initConfig()
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "initialize Herald client")
 }
 
 func TestInitConfig_DebugFalse(t *testing.T) {

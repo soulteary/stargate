@@ -34,12 +34,13 @@ func SetLogger(l *logger.Logger) {
 }
 
 var (
-	heraldClient     *herald.Client
-	heraldClientInit sync.Once
+	heraldClient        *herald.Client
+	heraldClientInit    sync.Once
+	heraldClientInitErr error
 )
 
 // InitHeraldClient initializes the Herald client if enabled
-func InitHeraldClient(l *logger.Logger) {
+func InitHeraldClient(l *logger.Logger) error {
 	log = l
 	heraldClientInit.Do(func() {
 		if !config.HeraldEnabled.ToBool() {
@@ -49,7 +50,7 @@ func InitHeraldClient(l *logger.Logger) {
 
 		heraldURL := config.HeraldURL.String()
 		if heraldURL == "" {
-			log.Warn().Msg("HERALD_URL is not set, Herald client will not be initialized")
+			heraldClientInitErr = fmt.Errorf("HERALD_URL is required when Herald is enabled")
 			return
 		}
 
@@ -91,13 +92,15 @@ func InitHeraldClient(l *logger.Logger) {
 
 		client, err := herald.NewClient(opts)
 		if err != nil {
-			log.Warn().Err(err).Msg("Failed to initialize Herald client. Check HERALD_URL and HERALD_ENABLED configuration.")
+			heraldClientInitErr = fmt.Errorf("create Herald client: %w", err)
 			return
 		}
 
 		heraldClient = client
 		log.Info().Msg("Herald client initialized successfully")
 	})
+
+	return heraldClientInitErr
 }
 
 // getHeraldClient returns the herald client.
@@ -110,6 +113,7 @@ func getHeraldClient() *herald.Client {
 func ResetHeraldClientForTest() {
 	heraldClient = nil
 	heraldClientInit = sync.Once{}
+	heraldClientInitErr = nil
 }
 
 // generateUserID generates a user ID from phone/mail
