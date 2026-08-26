@@ -20,7 +20,7 @@ Stargate est configuré via des variables d'environnement. Tous les éléments d
 
 ```bash
 export AUTH_HOST=auth.example.com
-export PASSWORDS=plaintext:yourpassword
+export PASSWORDS='plaintext:yourpassword'
 ```
 
 **Docker :**
@@ -88,13 +88,13 @@ Configuration du mot de passe, spécifiant l'algorithme de chiffrement du mot de
 
 ```bash
 # Mot de passe en texte brut unique
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # Plusieurs mots de passe en texte brut
-PASSWORDS=plaintext:test123|admin456|user789
+PASSWORDS='plaintext:test123|admin456|user789'
 
 # Hash BCrypt
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 ```
 
@@ -165,7 +165,7 @@ Titre de la page de connexion.
 **Exemple :**
 
 ```bash
-LOGIN_PAGE_TITLE=Mon Service d'Authentification
+LOGIN_PAGE_TITLE="Mon Service d'Authentification"
 ```
 
 ### `LOGIN_PAGE_FOOTER_TEXT`
@@ -186,7 +186,7 @@ Texte du pied de page de la page de connexion.
 **Exemple :**
 
 ```bash
-LOGIN_PAGE_FOOTER_TEXT=© 2024 Ma Société
+LOGIN_PAGE_FOOTER_TEXT='© 2024 Ma Société'
 ```
 
 ### `USER_HEADER_NAME`
@@ -281,6 +281,8 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `COOKIE_SECURE` | true/false | true | Attribut Secure des cookies de session |
 | `CALLBACK_ALLOWED_HOSTS` | liste d'hôtes | vide | Destinations de redirection autorisées |
 | `SESSION_EXCHANGE_SECRET` | secret, 32 caractères min. | vide | Signe les tickets inter-domaines à courte durée |
+| `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Active l'en-tête de mot de passe historique de confiance |
+| `LOG_LEVEL` | debug/info/warn/error | info | Niveau de journalisation initial |
 | `HEADER_AUTH_ENABLED` | true/false | false | Authentification par en-têtes de confiance |
 | `HEADER_AUTH_SHARED_SECRET` | secret | vide | Secret partagé de l'authentification par en-tête |
 | `HEADER_AUTH_SECRET_HEADER` | nom d'en-tête | `X-Stargate-Header-Auth` | Transporte le secret partagé |
@@ -294,8 +296,6 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `WARDEN_TLS_CLIENT_KEY_FILE` | chemin | vide | Clé client mTLS |
 | `WARDEN_TLS_SERVER_NAME` | chaîne | vide | Nom de serveur TLS attendu |
 | `WARDEN_CACHE_TTL` | secondes | 300 | Durée du cache Warden |
-| `WARDEN_OTP_ENABLED` | true/false | false | Intégration OTP historique |
-| `WARDEN_OTP_SECRET_KEY` | secret | vide | Secret OTP historique |
 | `HERALD_ENABLED` | true/false | false | Intégration Herald |
 | `HERALD_URL` | URL | vide | Point de terminaison Herald |
 | `HERALD_API_KEY` | secret | vide | Authentification par clé API |
@@ -329,9 +329,9 @@ L'identifiant et le secret HMAC doivent être définis ensemble. Le certificat e
 Stargate accepte `bcrypt` en production et `plaintext` uniquement pour les tests locaux. MD5 et SHA-512 non salé sont refusés lors de la validation. Les mots de passe respectent la casse et conservent les espaces.
 
 ```bash
-PASSWORDS=bcrypt:<bcrypt-hash>
+PASSWORDS='bcrypt:<bcrypt-hash>'
 # Tests locaux uniquement :
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 ```
 
 ## Exemples de Configuration
@@ -341,7 +341,7 @@ PASSWORDS=plaintext:test123
 ```bash
 # Configuration requise
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # Configuration optionnelle
 DEBUG=false
@@ -353,13 +353,13 @@ LANGUAGE=en
 ```bash
 # Configuration requise
 AUTH_HOST=auth.example.com
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # Configuration optionnelle
 DEBUG=false
 LANGUAGE=fr
-LOGIN_PAGE_TITLE=Mon Service d'Authentification
-LOGIN_PAGE_FOOTER_TEXT=© 2024 Ma Société
+LOGIN_PAGE_TITLE="Mon Service d'Authentification"
+LOGIN_PAGE_FOOTER_TEXT='© 2024 Ma Société'
 USER_HEADER_NAME=X-Forwarded-User
 COOKIE_DOMAIN=.example.com
 ```
@@ -373,7 +373,7 @@ services:
     environment:
       # Configuration requise
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+      - PASSWORDS=bcrypt:$$2a$$10$$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
       
       # Configuration optionnelle
       - DEBUG=false
@@ -388,7 +388,7 @@ services:
 ```bash
 # Configuration requise
 AUTH_HOST=localhost
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # Configuration optionnelle
 DEBUG=true

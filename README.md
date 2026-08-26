@@ -36,11 +36,11 @@ Stargate is perfect for:
 - **Internal Tools & Dashboards**: Quickly add authentication to internal services and admin panels
 - **API Gateway Integration**: Use with Traefik, Nginx, or other reverse proxies as a unified auth layer
 - **Development & Testing**: Simple password-based auth for development environments
-- **Enterprise Authentication**: Integration with Warden (user whitelist) and Herald (OTP/verification codes) for production-grade authentication
+- **Integrated Authentication**: Integration with Warden (user whitelist) and Herald (OTP/verification codes)
 
 ## ✨ Features
 
-### 🔐 Enterprise-Grade Security
+### 🔐 Security Controls
 - **Explicit Password Verification Modes**: Use bcrypt in production or plaintext only for local testing
 - **Secure Session Management**: Cookie-based sessions with customizable domain and expiration
 - **Flexible Authentication**: Support for both password-based and session-based authentication
@@ -55,7 +55,7 @@ Stargate is perfect for:
 ### 🚀 Performance & Reliability
 - **Lightweight & Fast**: Built on Go and Fiber framework for exceptional performance
 - **Minimal Resource Usage**: Low memory footprint, perfect for containerized environments
-- **Production Ready**: Battle-tested architecture designed for reliability
+- **Deployment Focused**: Health probes, metrics, structured logs, and hardened container defaults
 
 ### 📦 Developer Experience
 - **Docker First**: Complete Docker image and docker-compose configuration out of the box
@@ -157,16 +157,16 @@ Stargate uses environment variables for configuration. Here are the most common 
 ```bash
 # Simple password authentication
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # Using BCrypt hash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # Cross-domain session sharing
 COOKIE_DOMAIN=.example.com
 
 # Customize login page
-LOGIN_PAGE_TITLE=My Auth Service
+LOGIN_PAGE_TITLE='My Auth Service'
 LANGUAGE=zh  # or 'en'
 ```
 

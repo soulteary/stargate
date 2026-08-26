@@ -106,7 +106,7 @@ docker run -d \
   --name stargate \
   -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
-  -e PASSWORDS=plaintext:yourpassword \
+  -e 'PASSWORDS=plaintext:yourpassword' \
   stargate:latest
 ```
 
@@ -117,11 +117,11 @@ docker run -d \
   --name stargate \
   -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
-  -e PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy \
+  -e 'PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy' \
   -e DEBUG=false \
   -e LANGUAGE=zh \
-  -e LOGIN_PAGE_TITLE=My Auth Service \
-  -e LOGIN_PAGE_FOOTER_TEXT=© 2024 My Company \
+  -e 'LOGIN_PAGE_TITLE=My Auth Service' \
+  -e 'LOGIN_PAGE_FOOTER_TEXT=© 2024 My Company' \
   -e COOKIE_DOMAIN=.example.com \
   --restart unless-stopped \
   stargate:latest
@@ -231,7 +231,7 @@ services:
     image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$...
+      - PASSWORDS=bcrypt:$$2a$$10$$...
       - DEBUG=false
       - LANGUAGE=zh
       - COOKIE_DOMAIN=.example.com
@@ -253,7 +253,7 @@ services:
     image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$...
+      - PASSWORDS=bcrypt:$$2a$$10$$...
     networks:
       - traefik
     labels:
@@ -338,13 +338,13 @@ services:
 **Not Recommended:**
 
 ```bash
-PASSWORDS=plaintext:yourpassword
+PASSWORDS='plaintext:yourpassword'
 ```
 
 **Recommended:**
 
 ```bash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 ```
 
 #### 2. Enable HTTPS

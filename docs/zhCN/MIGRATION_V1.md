@@ -81,7 +81,7 @@ v1.0.0 使用加密、短时、单次有效且绑定目标域名的 `?ticket=` �
 - `COOKIE_SECURE` 默认值为 `true`；本地 HTTP 测试需要显式关闭。
 - 启动校验会拒绝格式错误的 URL、端口、时间间隔、Redis DB、过短的交换密钥，以及不完整的 TLS 证书/私钥和 HMAC Key ID/Secret 组合。
 - 只有在 `CALLBACK_ALLOWED_HOSTS` 中显式允许，才能使用跨域回调目标。
-- 启用 Warden 或 Herald 的 HMAC/TLS 后必须提供完整配置；Herald HMAC 认证还需要 `HERALD_HMAC_KEY_ID`。
+- 启用 Warden 或 Herald 的 HMAC/TLS 后必须提供完整配置。仅当 Herald 已配置有效的默认 Key ID 时，才可省略 `HERALD_HMAC_KEY_ID`；没有合适默认项的多密钥部署应显式设置。
 
 切流前，使用生产环境变量启动 v1.0.0 镜像，并逐项修复所有启动校验错误。
 

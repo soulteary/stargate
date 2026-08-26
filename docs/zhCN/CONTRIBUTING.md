@@ -58,7 +58,7 @@ chmod +x start-local.sh
 
 # 或手动启动
 export AUTH_HOST=localhost
-export PASSWORDS=plaintext:test123
+export PASSWORDS='plaintext:test123'
 go run src/cmd/stargate/main.go
 ```
 
@@ -69,7 +69,7 @@ go run src/cmd/stargate/main.go
 1. **启动 Stargate**:
    ```bash
    export AUTH_HOST=auth.example.com
-   export PASSWORDS=plaintext:test123
+   export PASSWORDS='plaintext:test123'
    go run src/cmd/stargate/main.go
    ```
 

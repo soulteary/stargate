@@ -161,16 +161,16 @@ Stargate verwendet Umgebungsvariablen für die Konfiguration. Hier sind die häu
 ```bash
 # Einfache Passwort-Authentifizierung
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # BCrypt-Hash verwenden
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # Cross-Domain-Sitzungsteilung
 COOKIE_DOMAIN=.example.com
 
 # Login-Seite anpassen
-LOGIN_PAGE_TITLE=Mein Auth-Service
+LOGIN_PAGE_TITLE='Mein Auth-Service'
 LANGUAGE=de  # oder 'en'
 ```
 

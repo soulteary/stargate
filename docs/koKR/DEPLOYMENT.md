@@ -106,7 +106,7 @@ docker run -d \
   --name stargate \
   -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
-  -e PASSWORDS=plaintext:yourpassword \
+  -e 'PASSWORDS=plaintext:yourpassword' \
   stargate:latest
 ```
 
@@ -117,11 +117,11 @@ docker run -d \
   --name stargate \
   -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
-  -e PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy \
+  -e 'PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy' \
   -e DEBUG=false \
   -e LANGUAGE=ko \
-  -e LOGIN_PAGE_TITLE=내 인증 서비스 \
-  -e LOGIN_PAGE_FOOTER_TEXT=© 2024 내 회사 \
+  -e 'LOGIN_PAGE_TITLE=내 인증 서비스' \
+  -e 'LOGIN_PAGE_FOOTER_TEXT=© 2024 내 회사' \
   -e COOKIE_DOMAIN=.example.com \
   --restart unless-stopped \
   stargate:latest
@@ -228,7 +228,7 @@ services:
     image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$...
+      - PASSWORDS=bcrypt:$$2a$$10$$...
       - DEBUG=false
       - LANGUAGE=ko
       - COOKIE_DOMAIN=.example.com
@@ -250,7 +250,7 @@ services:
     image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$...
+      - PASSWORDS=bcrypt:$$2a$$10$$...
     networks:
       - traefik
     labels:
@@ -335,13 +335,13 @@ services:
 **권장하지 않음:**
 
 ```bash
-PASSWORDS=plaintext:yourpassword
+PASSWORDS='plaintext:yourpassword'
 ```
 
 **권장:**
 
 ```bash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 ```
 
 #### 2. HTTPS 활성화

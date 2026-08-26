@@ -31,7 +31,7 @@ This document explains Stargate's security features, security configuration, and
 **Configuration Example**:
 ```bash
 export AUTH_HOST=auth.example.com
-export PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+export PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 export COOKIE_DOMAIN=.example.com
 export TRUSTED_PROXIES=10.20.0.10
 ```
@@ -160,9 +160,9 @@ Stargate supports multiple session storage backends:
 
 **Redis Configuration**:
 ```bash
-export REDIS_ENABLED=true
-export REDIS_ADDR=redis:6379
-export REDIS_PASSWORD=your-redis-password
+export SESSION_STORAGE_ENABLED=true
+export SESSION_STORAGE_REDIS_ADDR=redis:6379
+export SESSION_STORAGE_REDIS_PASSWORD=your-redis-password
 ```
 
 ### Sensitive Information Management
