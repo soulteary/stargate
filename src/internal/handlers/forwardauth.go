@@ -122,7 +122,10 @@ func InitForwardAuthHandler(l *logger.Logger) {
 		StepUpSessionKey: "step_up_verified",
 
 		// Auth refresh
-		AuthRefreshEnabled:  config.AuthRefreshEnabled.ToBool(),
+		// CheckRoute performs the authoritative Warden refresh so revoked or
+		// disabled users fail closed. Keep the library's best-effort refresh off
+		// to avoid a second lookup and inconsistent status handling.
+		AuthRefreshEnabled:  false,
 		AuthRefreshInterval: config.AuthRefreshInterval.ToDuration(),
 
 		// Response headers

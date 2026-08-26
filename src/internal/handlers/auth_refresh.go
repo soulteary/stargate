@@ -17,7 +17,10 @@ var lookupRefreshUser = func(ctx context.Context, phone, mail string) *warden.Al
 }
 
 func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (bool, error) {
-	if !config.AuthRefreshEnabled.ToBool() {
+	// Authorization refresh only applies to authenticated Warden sessions. In
+	// particular, an anonymous request must continue through the normal
+	// ForwardAuth flow so that HTML clients are redirected to login.
+	if !config.AuthRefreshEnabled.ToBool() || !config.WardenEnabled.ToBool() || !auth.IsAuthenticated(sess) {
 		return false, nil
 	}
 	interval := config.AuthRefreshInterval.ToDuration()

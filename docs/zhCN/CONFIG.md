@@ -85,7 +85,7 @@ services:
 | `STEP_UP_PATHS` | 逗号分隔路径 | 空 | 否 |
 | `OTLP_ENABLED` | true/false | false | 否 |
 | `OTLP_ENDPOINT` | String | 空 | 否 |
-| `AUTH_REFRESH_ENABLED` | true/false | false | 否 |
+| `AUTH_REFRESH_ENABLED` | true/false | true | 否 |
 | `AUTH_REFRESH_INTERVAL` | duration | 5m | 否 |
 
 ## 必需配置
@@ -1131,7 +1131,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
   - `STEP_UP_ENABLED=true` 时，可通过 `STEP_UP_PATHS` 指定需二次认证的路径
 
 - **授权刷新**：
-  - `AUTH_REFRESH_ENABLED=true` 时，需启用 Warden（`WARDEN_ENABLED=true`），并可通过 `AUTH_REFRESH_INTERVAL` 调整刷新间隔
+  - Warden 会话默认启用授权刷新；在独立密码模式下该配置不会生效。可通过 `AUTH_REFRESH_INTERVAL` 调整刷新间隔；仅在可接受撤权延迟时设置 `AUTH_REFRESH_ENABLED=false`。
 
 - **Warden + Herald 组合使用**（可选）：
   - 当需要 OTP 认证时，可以选择同时启用 Warden 和 Herald

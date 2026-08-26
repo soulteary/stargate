@@ -380,7 +380,7 @@ var (
 	AuthRefreshEnabled = EnvVariable{
 		Name:           "AUTH_REFRESH_ENABLED",
 		Required:       false,
-		DefaultValue:   "false",
+		DefaultValue:   "true",
 		PossibleValues: []string{"true", "false"},
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
@@ -488,10 +488,6 @@ func Initialize(l *logger.Logger) error {
 	if (HeraldTLSClientCert.Value == "") != (HeraldTLSClientKey.Value == "") {
 		return NewValidationError(HeraldTLSClientCert.Name, "client certificate and key must be configured together", HeraldTLSClientCert.PossibleValues)
 	}
-	if AuthRefreshEnabled.ToBool() && !WardenEnabled.ToBool() {
-		return NewValidationError(AuthRefreshEnabled.Name, "requires WARDEN_ENABLED=true", AuthRefreshEnabled.PossibleValues)
-	}
-
 	if HeaderAuthEnabled.ToBool() {
 		if !WardenEnabled.ToBool() {
 			return NewValidationError(HeaderAuthEnabled.Name, "requires WARDEN_ENABLED=true", HeaderAuthEnabled.PossibleValues)
