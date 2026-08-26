@@ -120,6 +120,7 @@ Stargate supports two authentication methods:
 
 1. **Header Authentication** (API requests)
    - Request header: `Stargate-Password: <password>`
+   - Disabled by default. Set `PASSWORD_HEADER_AUTH_ENABLED=true` only for trusted legacy clients.
    - Suitable for API requests, automation scripts
    - Password is validated against configured password hashes
 
@@ -236,3 +237,12 @@ If you discover a security vulnerability, please report it through:
 - [Architecture Documentation](ARCHITECTURE.md) - Learn about security architecture
 - [Configuration Reference](CONFIG.md) - Learn about security-related configuration options
 - [Deployment Guide](DEPLOYMENT.md) - Learn about production deployment security recommendations
+
+## Deployment Trust Boundary
+
+Forward-auth protects only requests that actually pass through the configured reverse proxy. It does not firewall the backend service.
+
+- Do not publish protected backend ports on public or untrusted networks.
+- Allow backend traffic only from the reverse proxy network or security group.
+- Remove client-supplied identity and credential headers before proxying; allow only the values produced by the trusted authentication path.
+- Expose Stargate health and metrics endpoints only to the intended operational network.
