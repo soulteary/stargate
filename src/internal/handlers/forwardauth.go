@@ -115,7 +115,8 @@ func InitForwardAuthHandler(l *logger.Logger) {
 		},
 
 		// Step-up authentication
-		StepUpEnabled:    config.StepUpEnabled.ToBool(),
+		// Enforced by CheckRoute against X-Forwarded-Uri; the library only sees /_auth.
+		StepUpEnabled:    false,
 		StepUpPaths:      parseStepUpPaths(),
 		StepUpURL:        "/_step_up",
 		StepUpSessionKey: "step_up_verified",

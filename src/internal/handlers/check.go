@@ -63,6 +63,9 @@ func CheckRoute(store SessionStoreForCheck) func(c *fiber.Ctx) error {
 			tracing.RecordError(forwardAuthSpan, err)
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
+		if requiresStepUp(ctx, sess) {
+			return redirectToStepUp(ctx)
+		}
 
 		// Wrap Fiber context and session for forwardauth-kit
 		faCtx := forwardauth.NewFiberContext(ctx)
