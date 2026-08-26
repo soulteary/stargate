@@ -820,6 +820,8 @@ Redis 数据库编号。
 
 **示例：** `/admin,/api/sensitive`
 
+启用 `STEP_UP_ENABLED=true` 时必须配置至少一个路径。匹配仅使用请求路径，查询参数不会影响保护规则。
+
 ### OpenTelemetry（可选）
 
 #### `OTLP_ENABLED`

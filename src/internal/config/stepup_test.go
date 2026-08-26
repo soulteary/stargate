@@ -29,12 +29,8 @@ func TestInitStepUpMatcher_Enabled_EmptyPaths(t *testing.T) {
 	t.Setenv("STEP_UP_PATHS", "")
 
 	err := Initialize(testLogger())
-	testza.AssertNoError(t, err)
-	InitStepUpMatcher()
-
-	matcher := GetStepUpMatcher()
-	testza.AssertNotNil(t, matcher)
-	testza.AssertFalse(t, matcher.RequiresStepUp("/admin"))
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "STEP_UP_PATHS")
 }
 
 func TestInitStepUpMatcher_Enabled_SinglePath(t *testing.T) {

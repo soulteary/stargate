@@ -24,7 +24,18 @@ func requiresStepUp(ctx *fiber.Ctx, sess *session.Session) bool {
 	if !config.StepUpEnabled.ToBool() || stepUpVerified(sess) {
 		return false
 	}
-	return config.GetStepUpMatcher().RequiresStepUp(GetForwardedURI(ctx))
+	return config.GetStepUpMatcher().RequiresStepUp(stepUpRequestPath(GetForwardedURI(ctx)))
+}
+
+// stepUpRequestPath removes the query and fragment before matching protected
+// routes. ForwardAuth proxies commonly send X-Forwarded-Uri as a request URI;
+// matching the raw value lets `/admin?x=1` bypass an exact `/admin` rule.
+func stepUpRequestPath(raw string) string {
+	parsed, err := url.ParseRequestURI(raw)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Path == "" || !strings.HasPrefix(parsed.Path, "/") {
+		return "/"
+	}
+	return parsed.Path
 }
 
 func safeStepUpCallback(raw string) string {
