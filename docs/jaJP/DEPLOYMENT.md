@@ -322,7 +322,7 @@ services:
 
 3. ログインフロー：
    - ユーザーが `auth.example.com` にログイン
-   - `app.example.com/_session_exchange?id=<session_id>` にリダイレクト
+   - `app.example.com/_session_exchange?ticket=<opaque_ticket>` にリダイレクト
    - セッション Cookie が `.example.com` ドメインに設定される
    - すべてのサブドメイン `*.example.com` でこのセッションを使用できます
 

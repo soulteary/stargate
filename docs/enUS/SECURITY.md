@@ -208,9 +208,9 @@ Stargate automatically adds the following security-related HTTP response headers
 Stargate supports secure cross-domain session sharing:
 
 - **Session Exchange Endpoint**: `GET /_session_exchange`
-- **Secure Token**: Uses secure token for session exchange
-- **Domain Validation**: Validates target domain before sharing session
-- **Expiration**: Exchange tokens expire after short TTL
+- **Opaque ticket**: AES-GCM ticket contains no raw session identifier
+- **Audience validation**: Tickets are bound to an allowlisted callback host
+- **Replay protection**: Tickets expire quickly and can be redeemed only once
 
 **Security Notes**:
 - Only share sessions between trusted domains

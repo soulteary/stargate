@@ -143,7 +143,7 @@ Stargate を最大限に活用するための包括的なドキュメントが�
 
 ### クイックリファレンス
 
-- **API エンドポイント**：`GET /_auth`（認証チェック）、`GET /_login`（ログインページ）、`POST /_login`（ログイン）、`POST /_send_verify_code`（OTP 送信）、`GET /_logout`（ログアウト）、`GET /_session_exchange`（クロスドメイン）、`GET /totp/enroll`、`POST /totp/enroll/confirm`、`GET /totp/revoke`、`POST /totp/revoke`（Herald TOTP 有効時）、`GET /health`（ヘルスチェック）、`GET /metrics`（Prometheus）
+- **API エンドポイント**：`GET /_auth`（認証チェック）、`GET /_login`（ログインページ）、`POST /_login`（ログイン）、`POST /_send_verify_code`（OTP 送信）、`POST /_logout`（ログアウト）、`GET /_session_exchange?ticket=...`（クロスドメイン）、`POST /totp/enroll`、`POST /totp/enroll/confirm`、`GET /totp/revoke`、`POST /totp/revoke`（Herald TOTP 有効時）、`GET /health`（ヘルスチェック）、`GET /metrics`（Prometheus）
 - **デプロイメント**：クイックスタートには Docker Compose を推奨。本番環境デプロイメントについては [DEPLOYMENT.md](docs/jaJP/DEPLOYMENT.md) を参照。
 - **開発**：開発関連のドキュメントについては [ARCHITECTURE.md](docs/jaJP/ARCHITECTURE.md) を参照
 

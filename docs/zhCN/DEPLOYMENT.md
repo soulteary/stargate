@@ -430,7 +430,7 @@ services:
 
 3. 登录流程：
    - 用户在 `auth.example.com` 登录
-   - 重定向到 `app.example.com/_session_exchange?id=<session_id>`
+   - 重定向到 `app.example.com/_session_exchange?ticket=<opaque_ticket>`
    - 会话 Cookie 被设置到 `.example.com` 域名
    - 所有 `*.example.com` 子域名都可以使用该会话
 

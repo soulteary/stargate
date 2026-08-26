@@ -322,7 +322,7 @@ services:
 
 3. 로그인 흐름:
    - 사용자가 `auth.example.com`에 로그인
-   - `app.example.com/_session_exchange?id=<session_id>`로 리디렉션
+   - `app.example.com/_session_exchange?ticket=<opaque_ticket>`로 리디렉션
    - 세션 Cookie가 `.example.com` 도메인에 설정됨
    - 모든 서브도메인 `*.example.com`에서 이 세션을 사용할 수 있습니다
 

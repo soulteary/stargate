@@ -284,8 +284,8 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
      4. 如果以上都没有，且来源域名与认证服务域名不一致，则使用来源域名作为 callback
 
 3. **会话交换**
-   - 如果有 callback，重定向到 `{callback}/_session_exchange?id=<session_id>`
-   - `GET /_session_exchange?id=<session_id>`
+   - 如果有 callback，重定向到 `{callback}/_session_exchange?ticket=<opaque_ticket>`
+   - `GET /_session_exchange?ticket=<opaque_ticket>`
    - 设置会话 Cookie（如果配置了 `COOKIE_DOMAIN`，会设置到指定域名）
    - 重定向到根路径 `/`
 
@@ -315,7 +315,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
    - 设置会话 Cookie
 
 5. **会话交换**
-   - 如果有 callback，重定向到 `{callback}/_session_exchange?id=<session_id>`
+   - 如果有 callback，重定向到 `{callback}/_session_exchange?ticket=<opaque_ticket>`
    - 后续 forwardAuth 只校验 Stargate session，确保高性能
 
 ## 安全考虑

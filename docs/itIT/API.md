@@ -146,7 +146,7 @@ L'elaborazione login recupera il callback nel seguente ordine di priorità:
 La risposta varia a seconda che ci sia un callback e il tipo di richiesta:
 
 1. **Con callback**:
-   - Reindirizza a `{callback}/_session_exchange?id={session_id}`
+   - Reindirizza a `{callback}/_session_exchange?ticket={opaque_ticket}`
    - Codice di stato: `302 Found`
 
 2. **Senza callback**:
@@ -155,8 +155,7 @@ La risposta varia a seconda che ci sia un callback e il tipo di richiesta:
      ```json
      {
        "success": true,
-       "message": "Login successful",
-       "session_id": "<session_id>"
+       "message": "Login successful"
      }
      ```
 
@@ -275,7 +274,7 @@ curl -X POST \
 
 ## Endpoint Logout
 
-### `GET /_logout`
+### `POST /_logout`
 
 Disconnette l'utente corrente e distrugge la sessione.
 
@@ -295,14 +294,14 @@ Il cookie di sessione sarà cancellato.
 #### Esempio
 
 ```bash
-curl -b cookies.txt http://auth.example.com/_logout
+curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
 ## Endpoint Scambio Sessione
 
 ### `GET /_session_exchange`
 
-Utilizzato per condivisione sessione cross-domain. Imposta il cookie ID sessione specificato e reindirizza al percorso root.
+Utilizzato per la condivisione della sessione cross-domain. Riscatta un ticket cifrato, di breve durata e legato al dominio di destinazione, verifica la sessione autenticata, imposta il cookie e reindirizza al percorso root.
 
 Questo endpoint è principalmente utilizzato per condividere sessioni di autenticazione tra più domini/sottodomini. Dopo che un utente si connette su un dominio, questo endpoint può essere utilizzato per impostare il cookie di sessione su un altro dominio.
 
@@ -310,7 +309,7 @@ Questo endpoint è principalmente utilizzato per condividere sessioni di autenti
 
 | Parametro | Tipo | Richiesto | Descrizione |
 |-----------|------|-----------|-------------|
-| `id` | String | Sì | ID sessione da impostare |
+| `ticket` | String | Sì | Ticket di scambio legato al dominio di destinazione e restituito dopo il login |
 
 #### Risposta
 
@@ -326,7 +325,8 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 
 | Codice di Stato | Descrizione | Corpo Risposta |
 |----------------|-------------|----------------|
-| `400 Bad Request` | ID sessione mancante | Messaggio di errore |
+| `400 Bad Request` | Ticket mancante | Messaggio di errore |
+| `401 Unauthorized` | Ticket non valido, scaduto, riutilizzato o destinato a un altro dominio | Messaggio di errore |
 
 #### Dominio Cookie
 
@@ -335,14 +335,14 @@ Se la variabile d'ambiente `COOKIE_DOMAIN` è configurata, il cookie sarà impos
 #### Esempio
 
 ```bash
-# Impostare cookie sessione (per scenari cross-domain)
-curl "http://auth.example.com/_session_exchange?id=<session_id>"
+# Riscattare il ticket sul dominio callback a cui è legato
+curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 ```
 
 **Scenario di Utilizzo Tipico:**
 
 1. L'utente si connette a `auth.example.com`
-2. Dopo login riuscito, reindirizza a `app.example.com/_session_exchange?id=<session_id>`
+2. Dopo login riuscito, reindirizza a `app.example.com/_session_exchange?ticket=<opaque_ticket>`
 3. Il cookie di sessione è impostato al dominio `.example.com` (se `COOKIE_DOMAIN=.example.com` è configurato)
 4. Reindirizza a `app.example.com/`
 5. L'utente può utilizzare questa sessione su tutti i sottodomini `*.example.com`
@@ -428,7 +428,7 @@ I messaggi di errore supportano l'internazionalizzazione, restituendo messaggi i
 4. Se non autenticato, reindirizza a `https://auth.example.com/_login?callback=app.example.com`
 5. L'utente inserisce la password e invia
 6. Stargate verifica la password, crea una sessione, imposta il cookie
-7. Reindirizza a `https://app.example.com/_session_exchange?id=<session_id>`
+7. Reindirizza a `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 8. Il cookie di sessione è impostato al dominio `app.example.com`
 9. L'utente accede nuovamente alla risorsa protetta, l'autenticazione riesce
 

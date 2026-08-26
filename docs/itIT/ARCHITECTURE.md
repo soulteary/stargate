@@ -239,8 +239,8 @@ Quando `HERALD_ENABLED=true`, Stargate può integrarsi con il servizio Herald tr
      4. Se nessuno dei precedenti, e il dominio di origine differisce dal dominio del servizio di autenticazione, utilizzare il dominio di origine come callback
 
 3. **Scambio sessione**
-   - Se il callback esiste, reindirizza a `{callback}/_session_exchange?id=<session_id>`
-   - `GET /_session_exchange?id=<session_id>`
+   - Se il callback esiste, reindirizza a `{callback}/_session_exchange?ticket=<opaque_ticket>`
+   - `GET /_session_exchange?ticket=<opaque_ticket>`
    - Imposta il cookie sessione (se `COOKIE_DOMAIN` è configurato, imposta al dominio specificato)
    - Reindirizza al percorso root `/`
 
@@ -270,7 +270,7 @@ Quando le integrazioni Warden e Herald sono abilitate, può essere utilizzata l'
    - Imposta cookie sessione
 
 5. **Scambio sessione**
-   - Se il callback esiste, reindirizza a `{callback}/_session_exchange?id=<session_id>`
+   - Se il callback esiste, reindirizza a `{callback}/_session_exchange?ticket=<opaque_ticket>`
    - Il forwardAuth successivo verifica solo la sessione Stargate, garantendo alte prestazioni
 
 ## Considerazioni di Sicurezza

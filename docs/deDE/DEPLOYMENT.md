@@ -322,7 +322,7 @@ services:
 
 3. Anmeldeablauf:
    - Der Benutzer meldet sich bei `auth.example.com` an
-   - Weiterleitung zu `app.example.com/_session_exchange?id=<session_id>`
+   - Weiterleitung zu `app.example.com/_session_exchange?ticket=<opaque_ticket>`
    - Das Sitzungs-Cookie wird auf die Domain `.example.com` gesetzt
    - Alle Subdomains `*.example.com` können diese Sitzung verwenden
 

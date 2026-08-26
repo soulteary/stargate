@@ -147,7 +147,7 @@ Le traitement de connexion récupère le callback dans l'ordre de priorité suiv
 La réponse varie selon qu'il y a un callback et le type de requête :
 
 1. **Avec callback** :
-   - Redirige vers `{callback}/_session_exchange?id={session_id}`
+   - Redirige vers `{callback}/_session_exchange?ticket={opaque_ticket}`
    - Code de statut : `302 Found`
 
 2. **Sans callback** :
@@ -156,8 +156,7 @@ La réponse varie selon qu'il y a un callback et le type de requête :
      ```json
      {
        "success": true,
-       "message": "Login successful",
-       "session_id": "<session_id>"
+       "message": "Login successful"
      }
      ```
 
@@ -276,7 +275,7 @@ curl -X POST \
 
 ## Point de Terminaison de Déconnexion
 
-### `GET /_logout`
+### `POST /_logout`
 
 Déconnecte l'utilisateur actuel et détruit la session.
 
@@ -296,14 +295,14 @@ Le cookie de session sera effacé.
 #### Exemple
 
 ```bash
-curl -b cookies.txt http://auth.example.com/_logout
+curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
 ## Point de Terminaison d'Échange de Session
 
 ### `GET /_session_exchange`
 
-Utilisé pour le partage de session cross-domain. Définit le cookie d'ID de session spécifié et redirige vers le chemin racine.
+Utilisé pour le partage de session cross-domain. Échange un ticket chiffré, de courte durée et lié au domaine cible, vérifie la session authentifiée, définit le cookie puis redirige vers le chemin racine.
 
 Ce point de terminaison est principalement utilisé pour partager les sessions d'authentification entre plusieurs domaines/sous-domaines. Après qu'un utilisateur se connecte sur un domaine, ce point de terminaison peut être utilisé pour définir le cookie de session sur un autre domaine.
 
@@ -311,7 +310,7 @@ Ce point de terminaison est principalement utilisé pour partager les sessions d
 
 | Paramètre | Type | Requis | Description |
 |-----------|------|--------|-------------|
-| `id` | String | Oui | ID de session à définir |
+| `ticket` | String | Oui | Ticket d'échange lié au domaine cible et retourné après la connexion |
 
 #### Réponse
 
@@ -327,7 +326,8 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 
 | Code de Statut | Description | Corps de Réponse |
 |----------------|-------------|-------------------|
-| `400 Bad Request` | ID de session manquant | Message d'erreur |
+| `400 Bad Request` | Ticket manquant | Message d'erreur |
+| `401 Unauthorized` | Ticket invalide, expiré, rejoué ou destiné à un autre domaine | Message d'erreur |
 
 #### Domaine du Cookie
 
@@ -336,14 +336,14 @@ Si la variable d'environnement `COOKIE_DOMAIN` est configurée, le cookie sera d
 #### Exemple
 
 ```bash
-# Définir le cookie de session (pour les scénarios cross-domain)
-curl "http://auth.example.com/_session_exchange?id=<session_id>"
+# Échanger le ticket sur le domaine de callback auquel il est lié
+curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 ```
 
 **Scénario d'Utilisation Typique :**
 
 1. L'utilisateur se connecte à `auth.example.com`
-2. Après connexion réussie, redirige vers `app.example.com/_session_exchange?id=<session_id>`
+2. Après connexion réussie, redirige vers `app.example.com/_session_exchange?ticket=<opaque_ticket>`
 3. Le cookie de session est défini au domaine `.example.com` (si `COOKIE_DOMAIN=.example.com` est configuré)
 4. Redirige vers `app.example.com/`
 5. L'utilisateur peut utiliser cette session sur tous les sous-domaines `*.example.com`
@@ -429,7 +429,7 @@ Les messages d'erreur supportent l'internationalisation, retournant des messages
 4. Si non authentifié, redirige vers `https://auth.example.com/_login?callback=app.example.com`
 5. L'utilisateur entre le mot de passe et soumet
 6. Stargate vérifie le mot de passe, crée une session, définit le cookie
-7. Redirige vers `https://app.example.com/_session_exchange?id=<session_id>`
+7. Redirige vers `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 8. Le cookie de session est défini au domaine `app.example.com`
 9. L'utilisateur accède à nouveau à la ressource protégée, l'authentification réussit
 
