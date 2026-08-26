@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/rand"
@@ -14,12 +15,61 @@ import (
 	"sync"
 	"time"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
 const sessionExchangeTicketTTL = 2 * time.Minute
 
 var consumedSessionExchangeTickets sync.Map
+
+// SessionExchangeReplayStore atomically records a consumed ticket hash. A
+// shared implementation is required when sessions are shared across replicas.
+type SessionExchangeReplayStore interface {
+	Consume(ctx context.Context, key string, ttl time.Duration) (bool, error)
+}
+
+type memorySessionExchangeReplayStore struct {
+	consumed *sync.Map
+}
+
+func (s *memorySessionExchangeReplayStore) Consume(_ context.Context, key string, ttl time.Duration) (bool, error) {
+	if _, loaded := s.consumed.LoadOrStore(key, struct{}{}); loaded {
+		return false, nil
+	}
+	time.AfterFunc(ttl, func() { s.consumed.Delete(key) })
+	return true, nil
+}
+
+type redisSessionExchangeReplayStore struct {
+	client redis.Cmdable
+	prefix string
+}
+
+func (s *redisSessionExchangeReplayStore) Consume(ctx context.Context, key string, ttl time.Duration) (bool, error) {
+	return s.client.SetNX(ctx, s.prefix+key, "1", ttl).Result()
+}
+
+var defaultSessionExchangeReplayStore SessionExchangeReplayStore = &memorySessionExchangeReplayStore{
+	consumed: &consumedSessionExchangeTickets,
+}
+
+// NewSessionExchangeReplayStore uses Redis when it is available so all
+// Stargate replicas enforce the same single-use ticket state. Standalone
+// in-memory deployments retain the process-local implementation.
+func NewSessionExchangeReplayStore(client redis.Cmdable) SessionExchangeReplayStore {
+	if client == nil {
+		return defaultSessionExchangeReplayStore
+	}
+	prefix := config.SessionStorageRedisKeyPrefix.String()
+	if prefix == "" {
+		prefix = "stargate:session:"
+	}
+	return &redisSessionExchangeReplayStore{
+		client: client,
+		prefix: prefix + "exchange:used:",
+	}
+}
 
 type sessionExchangeClaims struct {
 	SessionID string `json:"sid"`
@@ -82,6 +132,10 @@ func createSessionExchangeTicket(sessionID, audience string) (string, error) {
 }
 
 func consumeSessionExchangeTicket(token, audience string) (string, error) {
+	return consumeSessionExchangeTicketWithStore(context.Background(), token, audience, defaultSessionExchangeReplayStore)
+}
+
+func consumeSessionExchangeTicketWithStore(ctx context.Context, token, audience string, replayStore SessionExchangeReplayStore) (string, error) {
 	audience = normalizeExchangeAudience(audience)
 	if token == "" || audience == "" {
 		return "", errors.New("invalid session exchange ticket")
@@ -102,17 +156,22 @@ func consumeSessionExchangeTicket(token, audience string) (string, error) {
 	if err := json.Unmarshal(claimsJSON, &claims); err != nil {
 		return "", errors.New("invalid session exchange ticket")
 	}
-	if claims.SessionID == "" || claims.Audience != audience || time.Now().Unix() > claims.ExpiresAt {
+	remaining := time.Until(time.Unix(claims.ExpiresAt, 0))
+	if claims.SessionID == "" || claims.Audience != audience || remaining <= 0 {
 		return "", errors.New("expired or misdirected session exchange ticket")
 	}
 
 	ticketHash := sha256.Sum256([]byte(token))
 	key := base64.RawURLEncoding.EncodeToString(ticketHash[:])
-	if _, loaded := consumedSessionExchangeTickets.LoadOrStore(key, struct{}{}); loaded {
+	if replayStore == nil {
+		return "", errors.New("session exchange replay protection is not configured")
+	}
+	consumed, err := replayStore.Consume(ctx, key, remaining)
+	if err != nil {
+		return "", errors.New("failed to record session exchange ticket consumption")
+	}
+	if !consumed {
 		return "", errors.New("session exchange ticket has already been used")
 	}
-	time.AfterFunc(sessionExchangeTicketTTL, func() {
-		consumedSessionExchangeTickets.Delete(key)
-	})
 	return claims.SessionID, nil
 }

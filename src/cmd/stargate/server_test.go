@@ -13,6 +13,7 @@ import (
 	health "github.com/soulteary/health-kit"
 	logger "github.com/soulteary/logger-kit"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/handlers"
 )
 
 // testLoggerMain creates a logger instance for testing
@@ -212,7 +213,7 @@ func TestSetupRoutes(t *testing.T) {
 
 	// Test that setupRoutes doesn't panic
 	testza.AssertNotPanics(t, func() {
-		setupRoutes(app, store, aggregator)
+		setupRoutes(app, store, aggregator, handlers.NewSessionExchangeReplayStore(nil))
 	})
 
 	// Verify routes are registered by testing health endpoint

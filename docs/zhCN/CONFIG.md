@@ -320,7 +320,7 @@ CALLBACK_ALLOWED_HOSTS=app.example.com,admin.example.com
 SESSION_EXCHANGE_SECRET=<至少-32-个随机字符>
 ```
 
-该值不会写入日志。未配置时，会话交换会安全失败。
+该值不会写入日志。未配置时，会话交换会安全失败。启用 Redis 会话存储后，已消费票据的哈希也会按剩余有效期写入 Redis，使所有 Stargate 副本共享防重放状态；内存模式仅能在单个进程内保证一次性消费。
 
 ### `PORT`
 
