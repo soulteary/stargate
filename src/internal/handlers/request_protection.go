@@ -87,7 +87,6 @@ func VerificationRateLimit() fiber.Handler {
 	return endpointRateLimit(5, time.Minute)
 }
 
-
 type passwordFailureBucket struct {
 	count  int
 	resets time.Time
