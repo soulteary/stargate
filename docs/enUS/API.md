@@ -343,7 +343,7 @@ curl -b cookies.txt http://auth.example.com/_logout
 
 ### `GET /_session_exchange`
 
-Used for cross-domain session sharing. Sets the specified session ID cookie and redirects to the root path.
+Used for cross-domain session sharing. Redeems a short-lived encrypted ticket, verifies that its session is authenticated, sets the cookie, and redirects to the root path.
 
 This endpoint is primarily used to share authentication sessions across multiple domains/subdomains. After a user logs in on one domain, this endpoint can be used to set the session cookie on another domain.
 
@@ -351,7 +351,7 @@ This endpoint is primarily used to share authentication sessions across multiple
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `id` | String | Yes | Session ID to set |
+| `ticket` | String | Yes | Encrypted, audience-bound exchange ticket returned by login |
 
 #### Response
 
@@ -367,7 +367,8 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 
 | Status Code | Description | Response Body |
 |-------------|-------------|---------------|
-| `400 Bad Request` | Missing session ID | Error message |
+| `400 Bad Request` | Missing ticket | Error message |
+| `401 Unauthorized` | Invalid, expired, replayed, or misdirected ticket | Error message |
 
 #### Cookie Domain
 
@@ -376,14 +377,14 @@ If the `COOKIE_DOMAIN` environment variable is configured, the cookie will be se
 #### Example
 
 ```bash
-# Set session cookie (for cross-domain scenarios)
-curl "http://auth.example.com/_session_exchange?id=<session_id>"
+# Redeem the ticket returned by the login response
+curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 ```
 
 **Typical Usage Scenario:**
 
 1. User logs in at `auth.example.com`
-2. After successful login, redirects to `app.example.com/_session_exchange?id=<session_id>`
+2. After successful login, redirects to `app.example.com/_session_exchange?ticket=<opaque_ticket>`
 3. Session cookie is set to the `.example.com` domain (if `COOKIE_DOMAIN=.example.com` is configured)
 4. Redirects to `app.example.com/`
 5. User can use this session across all `*.example.com` subdomains

@@ -463,6 +463,9 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
+	if err := sess.Regenerate(); err != nil {
+		return SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to rotate session")
+	}
 
 	// Set user information to session for warden authentication before authenticating
 	if authMethod == "warden" {
@@ -605,7 +608,11 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		if proto == "" {
 			proto = ctx.Protocol()
 		}
-		redirectURL := fmt.Sprintf("%s://%s/_session_exchange?id=%s", proto, callback, sessionID)
+		ticket, err := createSessionExchangeTicket(sessionID, callback)
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "session exchange is not configured")
+		}
+		redirectURL := fmt.Sprintf("%s://%s/_session_exchange?ticket=%s", proto, callback, ticket)
 		// When client accepts JSON (e.g. fetch with Accept: application/json), return 200 + redirect URL
 		// so the client can navigate; with redirect: 'manual', 302 Location is opaque and unreadable.
 		if strings.Contains(ctx.Get("Accept"), "application/json") {
@@ -645,10 +652,6 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	response := fiber.Map{
 		"success": true,
 		"message": i18n.T(ctx, "success.login"),
-	}
-	// If session ID exists, add it to response
-	if sessionID := sess.ID(); sessionID != "" {
-		response["session_id"] = sessionID
 	}
 	return ctx.Status(fiber.StatusOK).JSON(response)
 }
@@ -706,7 +709,11 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		// If callback exists, redirect to callback's _session_exchange endpoint
 		// If no callback, redirect to current host's root path
 		if callback != "" {
-			redirectURL := fmt.Sprintf("%s://%s/_session_exchange?id=%s", proto, callback, sessionID)
+			ticket, err := createSessionExchangeTicket(sessionID, callback)
+			if err != nil {
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "session exchange is not configured")
+			}
+			redirectURL := fmt.Sprintf("%s://%s/_session_exchange?ticket=%s", proto, callback, ticket)
 			return ctx.Redirect(redirectURL)
 		}
 		// When no callback, redirect to current host's root path

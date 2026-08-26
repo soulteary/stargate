@@ -204,7 +204,7 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	app.Get("/totp/revoke", handlers.TOTPRevokeRoute(store))
 	app.Post("/totp/revoke", sameOrigin, handlers.VerificationRateLimit(), handlers.TOTPRevokeConfirmAPI(store))
 	app.Post(RouteLogout, sameOrigin, handlers.LogoutRoute(store))
-	app.Get(RouteSessionExchange, handlers.SessionShareRoute())
+	app.Get(RouteSessionExchange, handlers.SessionShareRoute(store))
 	app.Get(RouteAuth, handlers.CheckRoute(store))
 	app.Get(RouteStepUp, handlers.StepUpRoute(store))
 	app.Post(RouteStepUp, handlers.StepUpAPI(store))

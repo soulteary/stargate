@@ -54,6 +54,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `USER_HEADER_NAME` | String | X-Forwarded-User | No |
 | `COOKIE_DOMAIN` | String | empty | No |
 | `CALLBACK_ALLOWED_HOSTS` | comma-separated hosts | empty | No |
+| `SESSION_EXCHANGE_SECRET` | Secret string (32+ chars) | empty | No |
 | `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | No |
 | `PORT` | String | empty (:80) | No |
 | `WARDEN_ENABLED` | true/false | false | No |
@@ -310,6 +311,16 @@ CALLBACK_ALLOWED_HOSTS=app.example.com,admin.example.com
 ```
 
 Stargate rejects callback hosts outside this list with HTTP 400. Do not add domains that can be registered or controlled by untrusted users.
+
+### `SESSION_EXCHANGE_SECRET`
+
+Encryption key for short-lived session exchange tickets. Configure at least 32 random characters whenever callbacks use `/_session_exchange`, and use the same value on every Stargate replica.
+
+```bash
+SESSION_EXCHANGE_SECRET=<at-least-32-random-characters>
+```
+
+The value is never logged. Without it, session exchange requests fail closed.
 
 ### `PORT`
 

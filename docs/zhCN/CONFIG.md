@@ -54,6 +54,7 @@ services:
 | `USER_HEADER_NAME` | String | X-Forwarded-User | 否 |
 | `COOKIE_DOMAIN` | String | 空 | 否 |
 | `CALLBACK_ALLOWED_HOSTS` | 逗号分隔的主机名 | 空 | 否 |
+| `SESSION_EXCHANGE_SECRET` | 密钥字符串（至少 32 字符） | 空 | 否 |
 | `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | 否 |
 | `PORT` | String | 空（:80） | 否 |
 | `WARDEN_ENABLED` | true/false | false | 否 |
@@ -310,6 +311,16 @@ CALLBACK_ALLOWED_HOSTS=app.example.com,admin.example.com
 ```
 
 不在允许列表中的回调主机会收到 HTTP 400。不要加入可能由不可信用户注册或控制的域名。
+
+### `SESSION_EXCHANGE_SECRET`
+
+用于加密短时会话交换票据。回调需要使用 `/_session_exchange` 时，应配置至少 32 个随机字符；所有 Stargate 副本必须使用同一个值。
+
+```bash
+SESSION_EXCHANGE_SECRET=<至少-32-个随机字符>
+```
+
+该值不会写入日志。未配置时，会话交换会安全失败。
 
 ### `PORT`
 
