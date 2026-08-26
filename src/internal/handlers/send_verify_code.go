@@ -129,6 +129,12 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 
 		var channel, destination string
 		deliverVia := ctx.FormValue("deliver_via")
+		if deliverVia == "sms" && !config.LoginSMSEnabled.ToBool() {
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_sms_disabled"), "channel_disabled")
+		}
+		if deliverVia == "email" && !config.LoginEmailEnabled.ToBool() {
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_email_disabled"), "channel_disabled")
+		}
 		switch deliverVia {
 		case "dingtalk":
 			if canonicalDingTalkID != "" {
