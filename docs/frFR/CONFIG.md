@@ -439,3 +439,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 5. **Surveillance et Débogage** :
    - Définir `DEBUG=true` dans l'environnement de développement pour des journaux détaillés
    - Définir `DEBUG=false` dans l'environnement de production pour réduire la sortie des journaux
+
+## Authentification historique par en-tête de mot de passe
+
+L'authentification `Stargate-Password` est désactivée par défaut. Activez-la uniquement pour un client historique de confiance avec `PASSWORD_HEADER_AUTH_ENABLED=true`. Utilisez HTTPS, appliquez une limitation de débit et supprimez cet en-tête dans le proxy avant de transmettre la requête au service backend.

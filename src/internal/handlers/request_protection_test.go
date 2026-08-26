@@ -100,3 +100,26 @@ func TestLoginRateLimitRejectsBurst(t *testing.T) {
 	}
 	testza.AssertEqual(t, fiber.StatusTooManyRequests, resp.StatusCode)
 }
+
+func TestPasswordHeaderFailureRateLimit(t *testing.T) {
+	resetPasswordFailureBucketsForTesting()
+	t.Cleanup(resetPasswordFailureBucketsForTesting)
+
+	for i := 0; i < 10; i++ {
+		ctx, app := createTestContext(fiber.MethodGet, "/_auth", map[string]string{
+			"Stargate-Password": "wrong-password",
+		}, "")
+		err := rateLimitPasswordHeaderFailure(ctx)
+		app.ReleaseCtx(ctx)
+		testza.AssertNoError(t, err)
+	}
+
+	ctx, app := createTestContext(fiber.MethodGet, "/_auth", map[string]string{
+		"Stargate-Password": "wrong-password",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+	err := rateLimitPasswordHeaderFailure(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusTooManyRequests, ctx.Response().StatusCode())
+	testza.AssertNotEqual(t, "", string(ctx.Response().Header.Peek(fiber.HeaderRetryAfter)))
+}

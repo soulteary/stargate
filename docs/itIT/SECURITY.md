@@ -42,3 +42,7 @@ Se scopri una vulnerabilità di sicurezza, segnalala tramite:
    - Includi una descrizione dettagliata della vulnerabilità
 
 **Si prega di non segnalare vulnerabilità di sicurezza tramite problemi GitHub pubblici.**
+
+## Confine di attendibilità del deployment
+
+Forward Auth protegge solo le richieste che attraversano realmente il reverse proxy configurato. Non esporre direttamente le porte dei servizi backend. Limitarne l'accesso alla rete del proxy e rimuovere gli header di identità o credenziali forniti dal client prima dell'inoltro.

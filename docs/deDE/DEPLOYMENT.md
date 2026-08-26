@@ -92,10 +92,10 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### Build-Parameter
 
-- **Basis-Image**: `golang:1.26.5-alpine3.23` (Build-Stufe)
-- **Ausführungs-Image**: `alpine:3.23` (Laufzeit; mit curl für Health-Checks)
+- **Basis-Image**: `golang:1.27.0-alpine3.24` (Build-Stufe)
+- **Ausführungs-Image**: `alpine:3.24` (mit CA-Zertifikaten und BusyBox `wget` für HTTPS und Health-Checks)
 - **Arbeitsverzeichnis**: `/app`
-- **Exponierter Port**: `80`
+- **Exponierter Port**: `8080`
 
 ### Container ausführen
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -408,7 +408,7 @@ Hinzufügen eines Load Balancers vor Traefik:
 services:
   traefik:
     labels:
-      - "traefik.http.services.stargate.loadbalancer.server.port=80"
+      - "traefik.http.services.stargate.loadbalancer.server.port=8080"
 ```
 
 ### Überwachungskonfiguration
@@ -490,7 +490,7 @@ docker stats stargate
 Überwachen Sie die Antwortzeit mit dem Gesundheitsprüfungs-Endpunkt:
 
 ```bash
-time curl http://auth.example.com/health
+time curl http://auth.example.com/healthz
 ```
 
 ### Regelmäßige Wartung
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # Von innerhalb des Containers testen
-docker exec stargate curl -f http://localhost/health
+docker exec stargate wget -q -O - http://127.0.0.1:8080/healthz
 ```
 
 #### 3. Traefik-Protokolle anzeigen
@@ -599,7 +599,7 @@ docker logs traefik
 
 ```bash
 # Gesundheitsprüfung testen
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 
 # Authentifizierung testen (mit Header)
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
@@ -647,7 +647,7 @@ docker run -d \
 5. **Dienst überprüfen:**
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 ```
 
 ### Zurücksetzen

@@ -73,11 +73,27 @@ jobs:
       - name: Scan Go dependencies
         run: govulncheck ./...
 
+      - name: Start Redis for integration tests
+        run: |
+          docker run -d --name stargate-redis-release -p 6379:6379 redis:8.2.1-alpine3.22
+          for i in $(seq 1 30); do
+            if docker exec stargate-redis-release redis-cli ping 2>/dev/null | grep -q PONG; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs stargate-redis-release
+          exit 1
+
       - name: Run tests with coverage gate
         run: |
           go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
           total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
           awk -v total="$total" 'BEGIN { if (total < 70) { printf "coverage %.1f%% is below 70%%\n", total; exit 1 } }'
+
+      - name: Stop integration-test Redis
+        if: always()
+        run: docker rm -f stargate-redis-release 2>/dev/null || true
 
       - name: Extract version from tag
         id: version
@@ -130,6 +146,11 @@ jobs:
         with:
           subject-checksums: dist/checksums.txt
 
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
+        with:
+          platforms: arm64
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
@@ -152,14 +173,14 @@ jobs:
             type=semver,pattern={{major}}
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
-      - name: Build local image for security scan
+      - name: Build amd64 image for security scan
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
           file: ./docker/Dockerfile
           push: false
           load: true
-          tags: stargate:release-scan
+          tags: stargate:release-scan-amd64
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
             COMMIT=${{ steps.version.outputs.commit }}
@@ -167,10 +188,35 @@ jobs:
           cache-from: type=gha
           platforms: linux/amd64
 
-      - name: Scan image for high and critical vulnerabilities
+      - name: Scan amd64 image for high and critical vulnerabilities
         uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
         with:
-          image-ref: stargate:release-scan
+          image-ref: stargate:release-scan-amd64
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: HIGH,CRITICAL
+
+      - name: Build arm64 image for security scan
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          load: true
+          tags: stargate:release-scan-arm64
+          build-args: |
+            VERSION=${{ steps.version.outputs.version }}
+            COMMIT=${{ steps.version.outputs.commit }}
+            BUILD_DATE=${{ steps.version.outputs.build_date }}
+          cache-from: type=gha
+          platforms: linux/arm64
+
+      - name: Scan arm64 image for high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          image-ref: stargate:release-scan-arm64
           format: table
           exit-code: '1'
           ignore-unfixed: true

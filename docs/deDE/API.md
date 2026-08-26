@@ -23,6 +23,7 @@ Stargate unterstützt zwei Authentifizierungsmethoden, die in folgender Priorit�
 
 1. **Header-Authentifizierung** (API-Anfragen)
    - Anfrage-Header: `Stargate-Password: <password>`
+   - Standardmäßig deaktiviert. `PASSWORD_HEADER_AUTH_ENABLED=true` nur für vertrauenswürdige Legacy-Clients setzen.
    - Geeignet für API-Anfragen, Automatisierungsskripte usw.
 
 2. **Cookie-Authentifizierung** (Web-Anfragen)
@@ -445,6 +446,6 @@ Fehlermeldungen unterstützen Internationalisierung und geben je nach Umgebungsv
 
 1. **Sitzungsablaufzeit**: Standardmäßig 24 Stunden, erfordert eine erneute Anmeldung nach Ablauf
 2. **Cookie-Sicherheit**: Alle Cookies werden mit den Flags `HttpOnly` und `SameSite=Lax` gesetzt
-3. **Passwort-Überprüfung**: Passwörter werden vor der Überprüfung normalisiert (Leerzeichen entfernen, in Großbuchstaben umwandeln)
+3. **Passwort-Überprüfung**: Passwörter sind undurchsichtige, groß-/kleinschreibungssensitive Werte; Leerzeichen und Schreibweise bleiben erhalten
 4. **Unterstützung mehrerer Passwörter**: Mehrere Passwörter können konfiguriert werden, jedes Passwort, das die Überprüfung besteht, ist akzeptabel
 5. **Cross-Domain-Sitzungen**: Die Umgebungsvariable `COOKIE_DOMAIN` muss konfiguriert werden, um die Cross-Domain-Sitzungsfreigabe zu aktivieren

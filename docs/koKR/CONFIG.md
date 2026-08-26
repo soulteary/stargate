@@ -439,3 +439,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 5. **모니터링 및 디버깅**:
    - 개발 환경에서는 `DEBUG=true`를 설정하여 자세한 로그를 얻으세요
    - 프로덕션 환경에서는 `DEBUG=false`를 설정하여 로그 출력을 줄이세요
+
+## 레거시 비밀번호 헤더 인증
+
+`Stargate-Password` 인증은 기본적으로 비활성화됩니다. 신뢰할 수 있는 레거시 클라이언트에만 `PASSWORD_HEADER_AUTH_ENABLED=true`로 활성화하세요. HTTPS와 요청 속도 제한을 사용하고, 백엔드로 전달하기 전에 리버스 프록시에서 이 헤더를 제거하세요.

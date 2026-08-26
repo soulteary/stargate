@@ -92,10 +92,10 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### 빌드 매개변수
 
-- **베이스 이미지**: `golang:1.26.5-alpine3.23` (빌드 단계)
-- **실행 이미지**: `alpine:3.23` (헬스 체크용 curl 포함)
+- **베이스 이미지**: `golang:1.27.0-alpine3.24` (빌드 단계)
+- **실행 이미지**: `alpine:3.24` (CA 인증서와 HTTPS·헬스 체크용 BusyBox `wget` 포함)
 - **작업 디렉토리**: `/app`
-- **공개 포트**: `80`
+- **공개 포트**: `8080`
 
 ### 컨테이너 실행
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -408,7 +408,7 @@ Traefik 앞에 로드 밸런서를 추가:
 services:
   traefik:
     labels:
-      - "traefik.http.services.stargate.loadbalancer.server.port=80"
+      - "traefik.http.services.stargate.loadbalancer.server.port=8080"
 ```
 
 ### 모니터링 설정
@@ -490,7 +490,7 @@ docker stats stargate
 헬스 체크 엔드포인트를 사용하여 응답 시간 모니터링:
 
 ```bash
-time curl http://auth.example.com/health
+time curl http://auth.example.com/healthz
 ```
 
 ### 정기 유지보수
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # 컨테이너 내에서 테스트
-docker exec stargate curl -f http://localhost/health
+docker exec stargate wget -q -O - http://127.0.0.1:8080/healthz
 ```
 
 #### 3. Traefik 로그 표시
@@ -599,7 +599,7 @@ docker logs traefik
 
 ```bash
 # 헬스 체크 테스트
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 
 # 인증 테스트 (헤더 사용)
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
@@ -647,7 +647,7 @@ docker run -d \
 5. **서비스 확인:**
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 ```
 
 ### 롤백

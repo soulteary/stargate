@@ -328,7 +328,7 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
 ### Docker 배포
 
 - 이미지 크기 감소를 위한 다단계 빌드
-- 빌드 단계: `golang:1.26.5-alpine3.23`; 실행 단계: `alpine:3.23`(헬스 체크용 curl 포함)
+- 빌드 단계: `golang:1.27.0-alpine3.24`; 실행 단계: `alpine:3.24`(헬스 체크용 curl 포함)
 - 템플릿 파일을 `src/internal/web/templates`에서 이미지 내 `/app/web/templates`로 복사
 - 바이너리 크기 감소를 위해 컴파일 시 `-ldflags "-s -w"` 사용
 - 애플리케이션은 자동으로 템플릿 경로를 찾습니다 (로컬 개발용 `./internal/web/templates`, 프로덕션용 `./web/templates` 지원)

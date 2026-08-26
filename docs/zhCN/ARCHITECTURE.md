@@ -374,7 +374,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 ### Docker 部署
 
 - 多阶段构建，减小镜像体积
-- 构建阶段：`golang:1.26.5-alpine3.23`；运行阶段：`alpine:3.23`（含 curl 用于健康检查）
+- 构建阶段：`golang:1.27.0-alpine3.24`；运行阶段：`alpine:3.24`（含 curl 用于健康检查）
 - 模板文件从 `src/internal/web/templates` 复制到镜像中的 `/app/web/templates`
 - 编译时使用 `-ldflags "-s -w"` 减小二进制体积
 - 应用会自动查找模板路径（支持本地开发的 `./internal/web/templates` 和生产环境的 `./web/templates`）

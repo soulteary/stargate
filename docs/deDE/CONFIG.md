@@ -439,3 +439,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 5. **Überwachung und Debugging**:
    - Setzen Sie `DEBUG=true` in der Entwicklungsumgebung für detaillierte Protokolle
    - Setzen Sie `DEBUG=false` in der Produktionsumgebung, um die Protokollausgabe zu reduzieren
+
+## Legacy-Authentifizierung per Passwort-Header
+
+Die `Stargate-Password`-Authentifizierung ist standardmäßig deaktiviert. Aktivieren Sie sie nur für vertrauenswürdige Legacy-Clients mit `PASSWORD_HEADER_AUTH_ENABLED=true`. Verwenden Sie HTTPS und Rate Limits und entfernen Sie den Header im Reverse Proxy, bevor die Anfrage an den Backend-Dienst weitergeleitet wird.

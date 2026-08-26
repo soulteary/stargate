@@ -92,10 +92,10 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### ビルドパラメータ
 
-- **ベースイメージ**: `golang:1.26.5-alpine3.23`（ビルドステージ）
-- **実行イメージ**: `alpine:3.23`（ヘルスチェック用 curl 含む）
+- **ベースイメージ**: `golang:1.27.0-alpine3.24`（ビルドステージ）
+- **実行イメージ**: `alpine:3.24`（CA 証明書と HTTPS・ヘルスチェック用 BusyBox `wget` を含む）
 - **作業ディレクトリ**: `/app`
-- **公開ポート**: `80`
+- **公開ポート**: `8080`
 
 ### コンテナの実行
 
@@ -377,7 +377,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -408,7 +408,7 @@ Traefik の前にロードバランサーを追加：
 services:
   traefik:
     labels:
-      - "traefik.http.services.stargate.loadbalancer.server.port=80"
+      - "traefik.http.services.stargate.loadbalancer.server.port=8080"
 ```
 
 ### 監視設定
@@ -490,7 +490,7 @@ docker stats stargate
 ヘルスチェックエンドポイントを使用して応答時間を監視：
 
 ```bash
-time curl http://auth.example.com/health
+time curl http://auth.example.com/healthz
 ```
 
 ### 定期的なメンテナンス
@@ -586,7 +586,7 @@ DEBUG=true
 
 ```bash
 # コンテナ内からテスト
-docker exec stargate curl -f http://localhost/health
+docker exec stargate wget -q -O - http://127.0.0.1:8080/healthz
 ```
 
 #### 3. Traefik ログを表示
@@ -599,7 +599,7 @@ docker logs traefik
 
 ```bash
 # ヘルスチェックをテスト
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 
 # 認証をテスト（ヘッダーを使用）
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
@@ -647,7 +647,7 @@ docker run -d \
 5. **サービスの確認:**
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 ```
 
 ### ロールバック

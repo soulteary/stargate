@@ -81,3 +81,26 @@ func TestValidateStrictSettingsRejectsUnsafeServiceURL(t *testing.T) {
 	testza.AssertNotNil(t, err)
 	testza.AssertEqual(t, WardenURL.Name, err.(*ValidationError).KeyName)
 }
+
+func TestValidateStrictSettingsRejectsPaddedRedisDB(t *testing.T) {
+	setValidStrictTestValues(t)
+	SessionStorageRedisDB.Value = " 2 "
+
+	err := validateStrictSettings()
+	testza.AssertNotNil(t, err)
+	testza.AssertEqual(t, SessionStorageRedisDB.Name, err.(*ValidationError).KeyName)
+}
+
+func TestValidateStrictSettingsRejectsIPCallbackHost(t *testing.T) {
+	for _, host := range []string{"127.0.0.1", "127.0.0.1."} {
+		t.Run(host, func(t *testing.T) {
+			setValidStrictTestValues(t)
+			CallbackAllowedHosts.Value = host
+			SessionExchangeSecret.Value = "0123456789abcdef0123456789abcdef"
+
+			err := validateStrictSettings()
+			testza.AssertNotNil(t, err)
+			testza.AssertEqual(t, CallbackAllowedHosts.Name, err.(*ValidationError).KeyName)
+		})
+	}
+}
