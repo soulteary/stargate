@@ -2,6 +2,10 @@ package auditlog
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
 	"sync"
 
 	audit "github.com/soulteary/audit-kit"
@@ -24,24 +28,67 @@ func Init(storage audit.Storage, cfg *audit.Config) {
 		if config.AuditLogEnabled.Value != "" {
 			cfg.Enabled = config.AuditLogEnabled.ToBool()
 		}
-
 		if storage == nil {
-			// Use no-op storage if none provided
-			storage = audit.NewNoopStorage()
+			return
 		}
 
 		logger = audit.NewLoggerWithWriter(storage, cfg)
 	})
 }
 
+// InitDefault configures audit events to stdout. No-op logging is used only
+// when audit logging is explicitly disabled.
+func InitDefault() error {
+	cfg := audit.DefaultConfig()
+	cfg.Enabled = config.AuditLogEnabled.ToBool()
+	if !cfg.Enabled {
+		Init(audit.NewNoopStorage(), cfg)
+		return nil
+	}
+	format := config.AuditLogFormat.String()
+	if format != "json" && format != "text" {
+		return fmt.Errorf("unsupported audit log format %q", format)
+	}
+	Init(NewStreamStorage(os.Stdout, format), cfg)
+	return nil
+}
+
 // GetLogger returns the audit logger instance
 func GetLogger() *audit.Logger {
-	if logger == nil {
-		// Initialize with no-op storage if not initialized
-		Init(nil, nil)
-	}
 	return logger
 }
+
+type StreamStorage struct {
+	writer io.Writer
+	format string
+	mu     sync.Mutex
+}
+
+func NewStreamStorage(writer io.Writer, format string) *StreamStorage {
+	return &StreamStorage{writer: writer, format: format}
+}
+
+func (s *StreamStorage) Write(_ context.Context, record *audit.Record) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.format == "text" {
+		_, err := fmt.Fprintf(s.writer, "timestamp=%d event=%s result=%s user_id=%q ip=%q reason=%q metadata=%v\n",
+			record.Timestamp, record.EventType, record.Result, record.UserID, record.IP, record.Reason, record.Metadata)
+		return err
+	}
+	data, err := json.Marshal(record)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintln(s.writer, string(data))
+	return err
+}
+
+func (s *StreamStorage) Query(context.Context, *audit.QueryFilter) ([]*audit.Record, error) {
+	return nil, fmt.Errorf("stream audit storage does not support queries")
+}
+
+func (s *StreamStorage) Close() error { return nil }
 
 // Stop stops the audit logger
 func Stop() error {
