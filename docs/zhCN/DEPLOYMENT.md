@@ -93,7 +93,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 #### 构建参数
 
 - **基础镜像**：`golang:1.26.5-alpine3.23`（构建阶段）
-- **运行镜像**：`alpine:3.23`（运行阶段，含 curl 用于健康检查）
+- **运行镜像**：`alpine:3.23`（运行阶段，包含 CA 证书和用于 HTTPS/健康检查的 BusyBox `wget`）
 - **工作目录**：`/app`
 - **暴露端口**：`80`
 
@@ -488,7 +488,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -519,7 +519,7 @@ services:
 services:
   traefik:
     labels:
-      - "traefik.http.services.stargate.loadbalancer.server.port=80"
+      - "traefik.http.services.stargate.loadbalancer.server.port=8080"
 ```
 
 ### 监控配置
@@ -753,8 +753,8 @@ docker logs herald | grep -i error
 
 ```bash
 # 从 Stargate 容器内测试连接
-docker exec stargate curl -f http://warden:8080/health
-docker exec stargate curl -f http://herald:8080/healthz
+docker exec stargate wget -q -O - http://warden:8080/health
+docker exec stargate wget -q -O - http://herald:8080/healthz
 
 # 检查网络配置
 docker network inspect <network_name>
