@@ -389,6 +389,7 @@ func TestInitialize_AllConfigVariables(t *testing.T) {
 	t.Setenv("LOGIN_PAGE_FOOTER_TEXT", "Custom Footer")
 	t.Setenv("USER_HEADER_NAME", "X-Custom-User")
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
+	t.Setenv("SESSION_EXCHANGE_SECRET", "0123456789abcdef0123456789abcdef")
 	t.Setenv("LANGUAGE", "zh")
 
 	err := Initialize(testLogger())

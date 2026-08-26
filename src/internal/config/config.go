@@ -535,6 +535,10 @@ func Initialize(l *logger.Logger) error {
 		}
 	}
 
+	if err := validateStrictSettings(); err != nil {
+		return err
+	}
+
 	// Log language setting
 	if Language.Value != "" {
 		log.Info().Str("name", Language.Name).Str("value", Language.Value).Msg("Config loaded")
