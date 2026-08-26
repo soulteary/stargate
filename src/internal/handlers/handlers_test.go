@@ -27,6 +27,8 @@ func TestMain(m *testing.M) {
 	_ = os.Setenv("AUTH_HOST", "auth.example.com")
 	_ = os.Setenv("PASSWORDS", "plaintext:test123")
 	_ = os.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com,test.example.com,cookie.example.com,form.example.com,query.example.com")
+	_ = os.Setenv("WARDEN_URL", "http://warden.test")
+	_ = os.Setenv("HERALD_URL", "http://herald.test")
 
 	// Initialize config and ForwardAuth handler
 	testLog := testLogger()
