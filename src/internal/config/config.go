@@ -466,6 +466,9 @@ func Initialize(l *logger.Logger) error {
 	if StepUpEnabled.ToBool() && Passwords.Value == "" {
 		return NewValidationError(StepUpEnabled.Name, "requires PASSWORDS for re-authentication", StepUpEnabled.PossibleValues)
 	}
+	if StepUpEnabled.ToBool() && strings.TrimSpace(StepUpPaths.Value) == "" {
+		return NewValidationError(StepUpPaths.Name, "must contain at least one protected path when step-up is enabled", StepUpPaths.PossibleValues)
+	}
 	if WardenEnabled.ToBool() {
 		if strings.TrimSpace(WardenURL.Value) == "" {
 			return NewValidationError(WardenURL.Name, i18n.TStatic("error.config_required_not_set"), WardenURL.PossibleValues)

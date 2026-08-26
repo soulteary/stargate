@@ -207,7 +207,7 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	app.Get(RouteSessionExchange, handlers.SessionShareRoute(store))
 	app.Get(RouteAuth, handlers.CheckRoute(store))
 	app.Get(RouteStepUp, handlers.StepUpRoute(store))
-	app.Post(RouteStepUp, handlers.StepUpAPI(store))
+	app.Post(RouteStepUp, sameOrigin, handlers.LoginRateLimit(), handlers.StepUpAPI(store))
 	// Prometheus metrics endpoint
 	app.Get("/metrics", metricskit.FiberHandlerFor(metrics.Registry))
 

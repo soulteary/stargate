@@ -806,6 +806,8 @@ Paths that require step-up; comma-separated; prefix matching supported.
 
 **Example:** `/admin,/api/sensitive`
 
+At least one path is required when `STEP_UP_ENABLED=true`. Matching uses the request path only; query parameters do not affect protection.
+
 ### OpenTelemetry (Optional)
 
 #### `OTLP_ENABLED`
