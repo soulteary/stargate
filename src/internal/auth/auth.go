@@ -133,17 +133,19 @@ func CheckPassword(password string) bool {
 // It's initialized once and reused for all requests.
 var wardenClient *warden.Client
 var wardenClientInit sync.Once
+var wardenClientInitErr error
 
 // ResetWardenClientForTesting resets the Warden client and initialization state for testing purposes.
 // This function should only be used in tests.
 func ResetWardenClientForTesting() {
 	wardenClient = nil
 	wardenClientInit = sync.Once{}
+	wardenClientInitErr = nil
 }
 
 // InitWardenClient initializes the Warden client if enabled.
 // This should be called after configuration is loaded.
-func InitWardenClient(l *logger.Logger) {
+func InitWardenClient(l *logger.Logger) error {
 	log = l
 	wardenClientInit.Do(func() {
 		if !config.WardenEnabled.ToBool() {
@@ -153,7 +155,7 @@ func InitWardenClient(l *logger.Logger) {
 
 		wardenURL := config.WardenURL.String()
 		if wardenURL == "" {
-			log.Warn().Msg("WARDEN_URL is not set, Warden client will not be initialized")
+			wardenClientInitErr = fmt.Errorf("WARDEN_URL is required when Warden is enabled")
 			return
 		}
 
@@ -180,7 +182,7 @@ func InitWardenClient(l *logger.Logger) {
 			config.WardenTLSClientKey.String(), config.WardenTLSServerName.String(),
 		)
 		if err != nil {
-			log.Error().Err(err).Msg("Failed to configure Warden TLS")
+			wardenClientInitErr = fmt.Errorf("configure Warden TLS: %w", err)
 			return
 		}
 		if tlsConfig != nil {
@@ -190,13 +192,15 @@ func InitWardenClient(l *logger.Logger) {
 		// Create client
 		client, err := warden.NewClient(opts)
 		if err != nil {
-			log.Warn().Err(err).Msg("Failed to initialize Warden client. Check WARDEN_URL and WARDEN_ENABLED configuration.")
+			wardenClientInitErr = fmt.Errorf("create Warden client: %w", err)
 			return
 		}
 
 		wardenClient = client
 		log.Info().Msg("Warden client initialized successfully")
 	})
+
+	return wardenClientInitErr
 }
 
 func buildWardenTLSConfig(caFile, certFile, keyFile, serverName string) (*tls.Config, error) {

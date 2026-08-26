@@ -122,7 +122,7 @@ func TestTOTPEnrollRoute_AlreadyBound_RedirectsToRevoke(t *testing.T) {
 	t.Setenv("HERALD_TOTP_ENABLED", "true")
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	InitHeraldClient(testLogger())
+	testza.AssertNoError(t, InitHeraldClient(testLogger()))
 
 	store := setupTestStore()
 	handler := TOTPEnrollRoute(store)

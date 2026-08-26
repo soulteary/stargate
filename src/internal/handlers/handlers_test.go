@@ -255,7 +255,7 @@ func TestLoginAPI_WardenUserNotFound(t *testing.T) {
 	auth.ResetWardenClientForTesting()
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	auth.InitWardenClient(testLogger())
+	testza.AssertNoError(t, auth.InitWardenClient(testLogger()))
 
 	store := setupTestStore()
 	handler := LoginAPI(store)
@@ -1727,7 +1727,7 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 	t.Setenv("WARDEN_URL", server.URL)
 	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient(testLogger())
+	testza.AssertNoError(t, auth.InitWardenClient(testLogger()))
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -1827,7 +1827,7 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 	t.Setenv("WARDEN_URL", server.URL)
 	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient(testLogger())
+	testza.AssertNoError(t, auth.InitWardenClient(testLogger()))
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -1899,7 +1899,7 @@ func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
 	t.Setenv("WARDEN_URL", server.URL)
 	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient(testLogger())
+	testza.AssertNoError(t, auth.InitWardenClient(testLogger()))
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -2026,7 +2026,7 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 	t.Setenv("WARDEN_URL", server.URL)
 	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient(testLogger())
+	testza.AssertNoError(t, auth.InitWardenClient(testLogger()))
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -2113,7 +2113,7 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 	t.Setenv("WARDEN_URL", server.URL)
 	_ = config.Initialize(testLogger())
 	auth.ResetWardenClientForTesting()
-	auth.InitWardenClient(testLogger())
+	testza.AssertNoError(t, auth.InitWardenClient(testLogger()))
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
