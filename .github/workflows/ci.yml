@@ -136,7 +136,9 @@ jobs:
           disable_search: true
           flags: unittests
           name: codecov-umbrella
-          fail_ci_if_error: true
+          # The local 70% coverage gate above remains authoritative. Codecov is
+          # reporting infrastructure and must not block PRs when it is unavailable.
+          fail_ci_if_error: false
 
   # 代码质量检查（使用 golangci-lint）
   lint:
