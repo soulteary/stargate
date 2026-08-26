@@ -23,6 +23,7 @@ Stargate는 다음 우선순위로 확인되는 두 가지 인증 방법을 지�
 
 1. **헤더 인증** (API 요청)
    - 요청 헤더: `Stargate-Password: <password>`
+   - 기본적으로 비활성화됩니다. 신뢰할 수 있는 레거시 클라이언트에만 `PASSWORD_HEADER_AUTH_ENABLED=true`를 설정하세요.
    - API 요청, 자동화 스크립트 등에 적합합니다
 
 2. **Cookie 인증** (웹 요청)
