@@ -337,7 +337,7 @@ curl -b cookies.txt http://auth.example.com/_logout
 
 ### `GET /_session_exchange`
 
-用于跨域会话共享。设置指定会话 ID 的 Cookie 并重定向到根路径。
+用于跨域会话共享。端点会兑换短时加密票据，确认对应会话已认证，设置 Cookie 后重定向到根路径。
 
 此端点主要用于在多个域名/子域名之间共享认证会话。当用户在一个域名登录后，可以通过此端点将会话 Cookie 设置到另一个域名。
 
@@ -345,7 +345,7 @@ curl -b cookies.txt http://auth.example.com/_logout
 
 | 参数 | 类型 | 必需 | 说明 |
 |------|------|------|------|
-| `id` | String | 是 | 要设置的会话 ID |
+| `ticket` | String | 是 | 登录接口返回的加密、绑定目标域名的交换票据 |
 
 #### 响应
 
@@ -361,7 +361,8 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
-| `400 Bad Request` | 缺少会话 ID | 错误消息 |
+| `400 Bad Request` | 缺少票据 | 错误消息 |
+| `401 Unauthorized` | 票据无效、过期、已重放或目标域名不匹配 | 错误消息 |
 
 #### Cookie 域名
 
@@ -370,14 +371,14 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 #### 示例
 
 ```bash
-# 设置会话 Cookie（用于跨域场景）
-curl "http://auth.example.com/_session_exchange?id=<session_id>"
+# 兑换登录响应返回的票据
+curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 ```
 
 **典型使用场景：**
 
 1. 用户在 `auth.example.com` 登录
-2. 登录成功后，重定向到 `app.example.com/_session_exchange?id=<session_id>`
+2. 登录成功后，重定向到 `app.example.com/_session_exchange?ticket=<opaque_ticket>`
 3. 会话 Cookie 被设置到 `.example.com` 域名（如果配置了 `COOKIE_DOMAIN=.example.com`）
 4. 重定向到 `app.example.com/`
 5. 用户可以在所有 `*.example.com` 子域名下使用该会话

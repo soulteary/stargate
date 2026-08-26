@@ -81,6 +81,15 @@ var (
 		Validator:      ValidateAny,
 	}
 
+	SessionExchangeSecret = EnvVariable{
+		Name:           "SESSION_EXCHANGE_SECRET",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"at least 32 random characters"},
+		Validator:      ValidateAny,
+		Sensitive:      true,
+	}
+
 	Language = EnvVariable{
 		Name:           "LANGUAGE",
 		Required:       false,
@@ -428,7 +437,7 @@ func Initialize(l *logger.Logger) error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &CallbackAllowedHosts, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &UserHeaderName, &CookieDomain, &CallbackAllowedHosts, &SessionExchangeSecret, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
@@ -444,6 +453,10 @@ func Initialize(l *logger.Logger) error {
 				log.Info().Str("name", variable.Name).Str("value", variable.Value).Msg("Config loaded")
 			}
 		}
+	}
+
+	if SessionExchangeSecret.Value != "" && len(SessionExchangeSecret.Value) < 32 {
+		return NewValidationError(SessionExchangeSecret.Name, "must contain at least 32 characters", SessionExchangeSecret.PossibleValues)
 	}
 
 	// PASSWORDS is required when not using Warden (password-only mode). When WardenEnabled=true, pure Warden deployment may omit PASSWORDS.

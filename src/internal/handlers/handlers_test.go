@@ -29,6 +29,7 @@ func TestMain(m *testing.M) {
 	_ = os.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com,test.example.com,cookie.example.com,form.example.com,query.example.com")
 	_ = os.Setenv("WARDEN_URL", "http://warden.test")
 	_ = os.Setenv("HERALD_URL", "http://herald.test")
+	_ = os.Setenv("SESSION_EXCHANGE_SECRET", "test-session-exchange-secret-32-bytes")
 
 	// Initialize config and ForwardAuth handler
 	testLog := testLogger()
@@ -80,6 +81,16 @@ func createTestContext(method, path string, headers map[string]string, body stri
 	ctx.Locals("i18n-language", i18n.LangEN)
 
 	return ctx, app
+}
+
+func responseCookieValue(ctx *fiber.Ctx, name string) string {
+	for _, part := range strings.Split(string(ctx.Response().Header.Peek("Set-Cookie")), ";") {
+		key, value, found := strings.Cut(strings.TrimSpace(part), "=")
+		if found && key == name {
+			return value
+		}
+	}
+	return ""
 }
 
 func TestCheckRoute_Authenticated(t *testing.T) {
@@ -358,33 +369,43 @@ func TestIndexRoute_NotAuthenticated(t *testing.T) {
 	testza.AssertEqual(t, "Not authenticated", string(ctx.Response().Body()))
 }
 
-func TestSessionShareRoute_WithID(t *testing.T) {
-	handler := SessionShareRoute()
+func TestSessionShareRoute_WithTicket(t *testing.T) {
+	store := setupTestStore()
+	seedCtx, seedApp := createTestContext("GET", "/", map[string]string{"Host": "app.example.com"}, "")
+	sess, err := store.Get(seedCtx)
+	testza.AssertNoError(t, err)
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	sessionID := responseCookieValue(seedCtx, auth.SessionCookieName)
+	testza.AssertNotEqual(t, "", sessionID)
+	ticket, err := createSessionExchangeTicket(sessionID, "app.example.com")
+	testza.AssertNoError(t, err)
+	seedApp.ReleaseCtx(seedCtx)
+
+	handler := SessionShareRoute(store)
+	ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.com"}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
+
+	cookies := ctx.Response().Header.Peek("Set-Cookie")
+	testza.AssertNotNil(t, cookies)
+	testza.AssertContains(t, string(cookies), auth.SessionCookieName)
+	testza.AssertContains(t, string(cookies), sessionID)
+}
+
+func TestSessionShareRoute_RejectsLegacyID(t *testing.T) {
+	store := setupTestStore()
+	handler := SessionShareRoute(store)
 
 	ctx, app := createTestContext("GET", "/_session_exchange?id=test-session-id", nil, "")
 	defer app.ReleaseCtx(ctx)
 
 	err := handler(ctx)
-	// Should redirect, but we can't easily test redirect in unit test
 	testza.AssertNoError(t, err)
-
-	// Check that cookie was set
-	cookies := ctx.Response().Header.Peek("Set-Cookie")
-	testza.AssertNotNil(t, cookies)
-	testza.AssertContains(t, string(cookies), auth.SessionCookieName)
-	testza.AssertContains(t, string(cookies), "test-session-id")
-}
-
-func TestSessionShareRoute_WithoutID(t *testing.T) {
-	handler := SessionShareRoute()
-
-	ctx, app := createTestContext("GET", "/_session_exchange", nil, "")
-	defer app.ReleaseCtx(ctx)
-
-	err := handler(ctx)
-	testza.AssertNoError(t, err)
-	// SessionShareRoute returns StatusBadRequest (400) for missing session ID
 	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+	testza.AssertEqual(t, "", string(ctx.Response().Header.Peek("Set-Cookie")))
 }
 
 // Note: Health check is now handled by health-kit in server.go
@@ -587,9 +608,19 @@ func TestSessionShareRoute_WithCookieDomain(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	handler := SessionShareRoute()
+	store := setupTestStore()
+	seedCtx, seedApp := createTestContext("GET", "/", nil, "")
+	sess, err := store.Get(seedCtx)
+	testza.AssertNoError(t, err)
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	sessionID := responseCookieValue(seedCtx, auth.SessionCookieName)
+	testza.AssertNotEqual(t, "", sessionID)
+	ticket, err := createSessionExchangeTicket(sessionID, "app.example.com")
+	testza.AssertNoError(t, err)
+	seedApp.ReleaseCtx(seedCtx)
+	handler := SessionShareRoute(store)
 
-	ctx, app := createTestContext("GET", "/_session_exchange?id=test-session-id", nil, "")
+	ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.com"}, "")
 	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
@@ -600,7 +631,7 @@ func TestSessionShareRoute_WithCookieDomain(t *testing.T) {
 	testza.AssertNotNil(t, cookies)
 	cookieStr := string(cookies)
 	testza.AssertContains(t, cookieStr, auth.SessionCookieName)
-	testza.AssertContains(t, cookieStr, "test-session-id")
+	testza.AssertContains(t, cookieStr, sessionID)
 	testza.AssertContains(t, cookieStr, ".example.com")
 }
 
@@ -611,9 +642,19 @@ func TestSessionShareRoute_WithoutCookieDomain(t *testing.T) {
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	handler := SessionShareRoute()
+	store := setupTestStore()
+	seedCtx, seedApp := createTestContext("GET", "/", nil, "")
+	sess, err := store.Get(seedCtx)
+	testza.AssertNoError(t, err)
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	sessionID := responseCookieValue(seedCtx, auth.SessionCookieName)
+	testza.AssertNotEqual(t, "", sessionID)
+	ticket, err := createSessionExchangeTicket(sessionID, "app.example.com")
+	testza.AssertNoError(t, err)
+	seedApp.ReleaseCtx(seedCtx)
+	handler := SessionShareRoute(store)
 
-	ctx, app := createTestContext("GET", "/_session_exchange?id=test-session-id", nil, "")
+	ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.com"}, "")
 	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
@@ -624,7 +665,7 @@ func TestSessionShareRoute_WithoutCookieDomain(t *testing.T) {
 	testza.AssertNotNil(t, cookies)
 	cookieStr := string(cookies)
 	testza.AssertContains(t, cookieStr, auth.SessionCookieName)
-	testza.AssertContains(t, cookieStr, "test-session-id")
+	testza.AssertContains(t, cookieStr, sessionID)
 }
 
 func TestCheckRoute_SetsUserHeader(t *testing.T) {
@@ -881,7 +922,7 @@ func TestLoginAPI_CallbackPriority(t *testing.T) {
 	testza.AssertNotContains(t, location, "query.example.com")
 }
 
-// TestLoginAPI_RedirectsToSessionExchange tests that redirect includes session ID
+// TestLoginAPI_RedirectsToSessionExchange tests that redirect uses an opaque ticket.
 func TestLoginAPI_RedirectsToSessionExchange(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -913,15 +954,41 @@ func TestLoginAPI_RedirectsToSessionExchange(t *testing.T) {
 	// Check redirect location format
 	location := string(ctx.Response().Header.Peek("Location"))
 	testza.AssertContains(t, location, "https://app.example.com/_session_exchange")
-	testza.AssertContains(t, location, "id=")
+	testza.AssertContains(t, location, "ticket=")
+	testza.AssertNotContains(t, location, "id=")
+}
 
-	// Extract session ID from location
-	// Location format: https://app.example.com/_session_exchange?id=<session_id>
-	sess, err := store.Get(ctx)
+func TestLoginAPIRotatesPreAuthenticationSession(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
-	sessionID := sess.ID()
-	testza.AssertNotNil(t, sessionID)
-	testza.AssertContains(t, location, sessionID)
+
+	store := setupTestStore()
+	handler := LoginAPI(store)
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type":      "application/x-www-form-urlencoded",
+		"X-Forwarded-Host":  "app.example.com",
+		"X-Forwarded-Proto": "https",
+	}, "password=test123&callback=app.example.com")
+	defer app.ReleaseCtx(ctx)
+
+	preAuthSession, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	preAuthSession.Set("pre_auth", true)
+	testza.AssertNoError(t, preAuthSession.Save())
+	oldSessionID := responseCookieValue(ctx, auth.SessionCookieName)
+	testza.AssertNotEqual(t, "", oldSessionID)
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, oldSessionID)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	location := string(ctx.Response().Header.Peek("Location"))
+	parts := strings.SplitN(location, "ticket=", 2)
+	testza.AssertEqual(t, 2, len(parts))
+	newSessionID, err := consumeSessionExchangeTicket(parts[1], "app.example.com")
+	testza.AssertNoError(t, err)
+	testza.AssertNotEqual(t, oldSessionID, newSessionID)
 }
 
 // TestLoginAPI_WithCallback_AcceptJSON_Returns200WithRedirect tests that when client sends
@@ -961,7 +1028,8 @@ func TestLoginAPI_WithCallback_AcceptJSON_Returns200WithRedirect(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertTrue(t, result.Success)
 	testza.AssertContains(t, result.Redirect, "app.example.com/_session_exchange")
-	testza.AssertContains(t, result.Redirect, "id=")
+	testza.AssertContains(t, result.Redirect, "ticket=")
+	testza.AssertNotContains(t, result.Redirect, "id=")
 }
 
 // TestLoginAPI_NoCallback_APIRequest tests that API request returns JSON when no callback
@@ -1313,6 +1381,9 @@ func TestLogoutRoute_AfterLogin(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	// Verify session is authenticated
+	sessionID := responseCookieValue(ctx1, auth.SessionCookieName)
+	testza.AssertNotEqual(t, "", sessionID)
+	ctx1.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
 	sess, err := store.Get(ctx1)
 	testza.AssertNoError(t, err)
 	testza.AssertTrue(t, auth.IsAuthenticated(sess), "session should be authenticated after login")
