@@ -22,6 +22,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+          cache: false
 
       - name: 检查代码格式
         run: |
@@ -43,6 +44,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+          cache: false
 
       - name: 缓存 Go 模块
         uses: actions/cache@v5
@@ -72,6 +74,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+          cache: false
 
       - name: 缓存 Go 模块
         uses: actions/cache@v5
@@ -116,17 +119,21 @@ jobs:
           name: coverage-report
           path: coverage.html
 
-      - name: 显示覆盖率摘要
-        run: go tool cover -func=coverage.out
+      - name: 显示并检查覆盖率
+        run: |
+          go tool cover -func=coverage.out
+          total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
+          awk -v total="$total" 'BEGIN { if (total < 70) { printf "coverage %.1f%% is below 70%%\n", total; exit 1 } }'
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          file: ./coverage.out
+          files: ./coverage.out
+          disable_search: true
           flags: unittests
           name: codecov-umbrella
-          fail_ci_if_error: false
+          fail_ci_if_error: true
 
   # 代码质量检查（使用 golangci-lint）
   lint:
@@ -140,11 +147,12 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+          cache: false
 
       - name: 运行 golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.13.1
           args: --timeout=5m
           only-new-issues: false
 
@@ -160,6 +168,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+          cache: false
 
       - name: 缓存 Go 模块
         uses: actions/cache@v5
@@ -175,7 +184,7 @@ jobs:
         run: go mod download
 
       - name: 安装 govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.2.0
 
       - name: 运行安全扫描
         run: govulncheck ./...
@@ -192,6 +201,7 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: 'go.mod'
+          cache: false
 
       - name: 缓存 Go 模块
         uses: actions/cache@v5
