@@ -772,7 +772,7 @@ DEBUG=true
 
 ```bash
 # 从容器内测试
-docker exec stargate curl -f http://localhost/healthz
+docker exec stargate wget -q -O - http://localhost:8080/healthz
 ```
 
 #### 3. 查看 Traefik 日志
