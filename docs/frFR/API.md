@@ -24,6 +24,7 @@ Stargate supporte deux méthodes d'authentification, vérifiées dans l'ordre de
 
 1. **Authentification par En-tête** (requêtes API)
    - En-tête de requête : `Stargate-Password: <password>`
+   - Désactivée par défaut. Définissez `PASSWORD_HEADER_AUTH_ENABLED=true` uniquement pour des clients historiques de confiance.
    - Adapté aux requêtes API, scripts d'automatisation, etc.
 
 2. **Authentification par Cookie** (requêtes Web)
