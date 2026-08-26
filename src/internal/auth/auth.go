@@ -85,24 +85,18 @@ func GetValidPasswords() (string, []string) {
 		return "", []string{}
 	}
 
-	algorithm := parts[0]
+	algorithm := strings.ToLower(strings.TrimSpace(parts[0]))
 	passwordsStr := parts[1]
 	if passwordsStr == "" {
 		return algorithm, []string{}
 	}
 
-	passwords := strings.Split(passwordsStr, "|")
-	for k, v := range passwords {
-		normalized := strings.ToUpper(strings.TrimSpace(v))
-		normalized = strings.ReplaceAll(normalized, " ", "")
-		passwords[k] = normalized
-	}
-	return algorithm, passwords
+	return algorithm, strings.Split(passwordsStr, "|")
 }
 
 // CheckPassword validates a password against the configured valid passwords.
-// It normalizes the input password (uppercase, trim spaces) and checks it against
-// all configured passwords using the configured algorithm.
+// Passwords are opaque, case-sensitive byte strings. No whitespace or case
+// normalization is performed before verification.
 //
 // Parameters:
 //   - password: The password to check
@@ -122,11 +116,8 @@ func CheckPassword(password string) bool {
 		return false
 	}
 
-	tryToCheck := strings.ToUpper(strings.TrimSpace(password))
-	tryToCheck = strings.ReplaceAll(tryToCheck, " ", "")
-
 	for _, validPassword := range validPasswords {
-		if algorithmResolver.Check(validPassword, tryToCheck) {
+		if algorithmResolver.Check(validPassword, password) {
 			return true
 		}
 	}

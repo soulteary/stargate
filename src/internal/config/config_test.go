@@ -255,8 +255,8 @@ func TestValidatePasswords_Plaintext_Valid(t *testing.T) {
 		{"multiple passwords", "plaintext:pass1|pass2|pass3", true},
 		{"with spaces", "plaintext:pass1 | pass2", true},
 		{"bcrypt", "bcrypt:$2a$10$k8fBIpJInrE70BzYy5rO/OUSt1w2.IX0bWhiMdb2mJEhjheVHDhvK", true},
-		{"md5", "md5:65a8e27d8879283831b664bd8b7f0ad4", true},
-		{"sha512", "sha512:374d794a95cdcfd8b35993185fef9ba368f160d8daf432d08ba9f1ed1e5abe6cc69291e0fa2fe0006a52570ef18c19def4e617c33ce52ef0a6e5fbe318cb0387", true},
+		{"md5 is unsupported", "md5:65a8e27d8879283831b664bd8b7f0ad4", false},
+		{"sha512 is unsupported", "sha512:374d794a95cdcfd8b35993185fef9ba368f160d8daf432d08ba9f1ed1e5abe6cc69291e0fa2fe0006a52570ef18c19def4e617c33ce52ef0a6e5fbe318cb0387", false},
 	}
 
 	for _, tt := range tests {
