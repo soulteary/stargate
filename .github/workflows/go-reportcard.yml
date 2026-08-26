@@ -10,9 +10,9 @@ jobs:
   report-card:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - id: grc
-        uses: soulteary/goreportcard-action@v1.0.0
+        uses: soulteary/goreportcard-action@739d8af6eb6bbd62d7ab521523415d3e5c53b70e # v1.0.0
         with:
           directory: "."
           output: ".github/goreportcard.svg"
