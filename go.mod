@@ -6,34 +6,32 @@ require (
 	github.com/MarvinJWendt/testza v0.5.2
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/gofiber/template/html/v3 v3.0.8
+	github.com/gofiber/utils/v2 v2.4.2
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/pterm/pterm v0.12.83
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/zerolog v1.35.1
-	github.com/soulteary/audit-kit v1.5.1
-	github.com/soulteary/cli-kit v1.7.0
-	github.com/soulteary/forwardauth-kit/v2 v2.0.0
-	github.com/soulteary/health-kit/v2 v2.0.0
-	github.com/soulteary/herald v1.0.0
-	github.com/soulteary/i18n-kit/v2 v2.0.0
-	github.com/soulteary/logger-kit/v2 v2.0.0
-	github.com/soulteary/metrics-kit/v2 v2.0.0
-	github.com/soulteary/middleware-kit/v2 v2.0.0
-	github.com/soulteary/redis-kit v1.4.0
-	github.com/soulteary/secure-kit v1.4.0
-	github.com/soulteary/session-kit/v2 v2.0.0
-	github.com/soulteary/tracing-kit v1.3.0
-	github.com/soulteary/version-kit/v2 v2.0.0
-	github.com/soulteary/warden v1.0.0
+	github.com/soulteary/audit-kit v1.7.0
+	github.com/soulteary/cli-kit v1.8.0
+	github.com/soulteary/forwardauth-kit/v2 v2.1.0
+	github.com/soulteary/health-kit/v2 v2.1.0
+	github.com/soulteary/herald v1.1.0
+	github.com/soulteary/i18n-kit/v2 v2.1.0
+	github.com/soulteary/logger-kit/v2 v2.1.0
+	github.com/soulteary/metrics-kit/v2 v2.1.0
+	github.com/soulteary/middleware-kit/v2 v2.1.0
+	github.com/soulteary/redis-kit v1.5.0
+	github.com/soulteary/secure-kit v1.5.0
+	github.com/soulteary/session-kit/v2 v2.1.0
+	github.com/soulteary/tracing-kit v1.4.0
+	github.com/soulteary/version-kit/v2 v2.1.0
+	github.com/soulteary/warden v1.1.0
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasthttp v1.73.0
 	go.opentelemetry.io/otel v1.46.0
 	go.opentelemetry.io/otel/trace v1.46.0
-	golang.org/x/crypto v0.55.0 // indirect
 )
-
-require github.com/gofiber/utils/v2 v2.4.2
 
 require (
 	atomicgo.dev/assert v0.0.2 // indirect
@@ -70,7 +68,7 @@ require (
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
-	github.com/soulteary/http-kit v1.3.0 // indirect
+	github.com/soulteary/http-kit v1.4.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect
@@ -82,6 +80,7 @@ require (
 	go.opentelemetry.io/proto/otlp v1.11.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	golang.org/x/crypto v0.55.0 // indirect
 	golang.org/x/net v0.58.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/term v0.45.0 // indirect
