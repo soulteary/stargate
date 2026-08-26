@@ -589,7 +589,7 @@ DEBUG=true
 
 ```bash
 # Test from inside container
-docker exec stargate curl -f http://localhost/healthz
+docker exec stargate wget -q -O - http://localhost:8080/healthz
 ```
 
 #### 3. View Traefik Logs
