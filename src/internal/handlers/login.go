@@ -62,7 +62,7 @@ func InitHeraldClient(l *logger.Logger) {
 		// HMAC takes precedence over API key if both are set
 		hmacSecret := config.HeraldHMACSecret.String()
 		if hmacSecret != "" {
-			opts = opts.WithHMACSecret(hmacSecret)
+			opts = opts.WithHMACSecret(hmacSecret).WithKeyID(config.HeraldHMACKeyID.String())
 			log.Debug().Msg("Herald client will use HMAC authentication")
 		} else if config.HeraldAPIKey.String() != "" {
 			log.Debug().Msg("Herald client will use API key authentication")
