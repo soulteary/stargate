@@ -221,7 +221,7 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	app.Post("/totp/revoke", sameOrigin, handlers.VerificationRateLimit(), handlers.TOTPRevokeConfirmAPI(store))
 	app.Post(RouteLogout, sameOrigin, handlers.LogoutRoute(store))
 	app.Get(RouteSessionExchange, handlers.SessionShareRoute(store, replayStore))
-	app.Get(RouteAuth, handlers.CheckRoute(store))
+	app.Get(RouteAuth, handlers.PasswordHeaderRateLimit(), handlers.CheckRoute(store))
 	app.Get(RouteStepUp, handlers.StepUpRoute(store))
 	app.Post(RouteStepUp, sameOrigin, handlers.LoginRateLimit(), handlers.StepUpAPI(store))
 	// Prometheus metrics endpoint

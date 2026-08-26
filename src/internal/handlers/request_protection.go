@@ -52,3 +52,17 @@ func LoginRateLimit() fiber.Handler {
 func VerificationRateLimit() fiber.Handler {
 	return endpointRateLimit(5, time.Minute)
 }
+
+
+// PasswordHeaderRateLimit applies a dedicated brute-force budget only when the
+// explicitly enabled legacy password header is present. Session checks remain
+// unaffected.
+func PasswordHeaderRateLimit() fiber.Handler {
+	limit := endpointRateLimit(10, time.Minute)
+	return func(ctx fiber.Ctx) error {
+		if ctx.Get("Stargate-Password") == "" {
+			return ctx.Next()
+		}
+		return limit(ctx)
+	}
+}
