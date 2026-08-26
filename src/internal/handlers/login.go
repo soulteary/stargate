@@ -229,8 +229,8 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		otpCode := ctx.FormValue("otp_code")
 		useOTP := ctx.FormValue("use_otp") == "true"
 
-		// OTP enabled: Warden global OTP or Herald TOTP (per-user, via Herald proxy) when configured
-		otpEnabled := config.WardenOTPEnabled.ToBool() || config.HeraldTOTPEnabled.ToBool()
+		// Only per-user TOTP managed by Herald is supported.
+		otpEnabled := config.HeraldTOTPEnabled.ToBool()
 
 		// Step 4: Verify code via Herald (if not using OTP)
 		if !useOTP {
@@ -426,19 +426,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				}
 				metrics.RecordAuthRequest("warden_otp", "success")
 			} else {
-				// Fallback: legacy global OTP secret (WARDEN_OTP_SECRET_KEY)
-				otpSecret := auth.GetOTPSecret()
-				if otpSecret == "" {
-					log.Warn().Msg("OTP secret is not configured")
-					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.otp_config_error"))
-				}
-				if !auth.VerifyOTP(otpSecret, otpCode) {
-					metrics.RecordAuthRequest("warden_otp", "failure")
-					log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("OTP verification failed")
-					auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
-					return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.otp_code_invalid"))
-				}
-				metrics.RecordAuthRequest("warden_otp", "success")
+				return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
 			}
 		} else {
 			// Neither Herald verification nor OTP was used
@@ -734,7 +722,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 	}
 
 	heraldEnabled := config.HeraldEnabled.ToBool()
-	otpEnabled := config.WardenOTPEnabled.ToBool() || config.HeraldTOTPEnabled.ToBool()
+	otpEnabled := config.HeraldTOTPEnabled.ToBool()
 
 	return ctx.Render(templateName, fiber.Map{
 		"Callback":          callback,

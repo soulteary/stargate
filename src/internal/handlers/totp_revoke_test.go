@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/valyala/fasthttp"
 
+	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -161,4 +162,26 @@ func TestTOTPRevokeConfirmAPI_ClientNil_503(t *testing.T) {
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusServiceUnavailable, ctx.Response().StatusCode())
+}
+
+func TestTOTPRevokeConfirmAPI_RequiresRecentAuthentication(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+	originalClient := heraldClient
+	heraldClient = &herald.Client{}
+	t.Cleanup(func() { heraldClient = originalClient })
+
+	store := setupTestStore()
+	ctx, app := createTestContext("POST", "/totp/revoke", nil, "")
+	defer app.ReleaseCtx(ctx)
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	sess.Set("user_id", "u_test")
+	testza.AssertNoError(t, auth.Authenticate(sess))
+
+	err = TOTPRevokeConfirmAPI(store)(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
+	testza.AssertContains(t, string(ctx.Response().Body()), "recent_authentication_required")
 }
