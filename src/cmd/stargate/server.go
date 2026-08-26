@@ -204,6 +204,11 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	// Initialize ForwardAuth handler
 	handlers.InitForwardAuthHandler(log)
 
+	// Liveness deliberately excludes dependencies so an external outage does not
+	// cause the container runtime to restart an otherwise healthy process.
+	app.Get(RouteHealthz, health.SimpleFiberHandler("stargate"))
+	app.Get(RouteReadyz, health.FiberHandler(healthAggregator))
+	// Keep /health as a backwards-compatible alias for readiness.
 	app.Get(RouteHealth, health.FiberHandler(healthAggregator))
 	app.Get(RouteRoot, handlers.IndexRoute(store))
 	app.Get(RouteLogin, handlers.LoginRoute(store))
@@ -280,7 +285,7 @@ func setupMiddleware(app *fiber.App) {
 	// 5. Request logging with logger-kit
 	app.Use(logger.FiberMiddleware(logger.MiddlewareConfig{
 		Logger:           log,
-		SkipPaths:        []string{"/healthz", "/metrics"},
+		SkipPaths:        []string{RouteHealthz, RouteReadyz, RouteHealth, "/metrics"},
 		IncludeRequestID: true,
 		IncludeLatency:   true,
 	}))

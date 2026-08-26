@@ -380,7 +380,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -430,12 +430,12 @@ services:
 
 #### 2. Health Check Endpoint
 
-Use the `/health` endpoint for monitoring:
+Use `/healthz` for process liveness. Use `/readyz` separately when traffic should only be sent after Redis, Warden, and Herald dependencies are ready. The legacy `/health` endpoint remains a deprecated readiness alias.
 
 ```bash
 # Health check script
 #!/bin/bash
-if curl -f http://localhost/health > /dev/null 2>&1; then
+if curl -f http://localhost/healthz > /dev/null 2>&1; then
   exit 0
 else
   exit 1
@@ -493,7 +493,7 @@ docker stats stargate
 Monitor response time using the health check endpoint:
 
 ```bash
-time curl http://auth.example.com/health
+time curl http://auth.example.com/healthz
 ```
 
 ### Regular Maintenance
@@ -589,7 +589,7 @@ DEBUG=true
 
 ```bash
 # Test from inside container
-docker exec stargate curl -f http://localhost/health
+docker exec stargate curl -f http://localhost/healthz
 ```
 
 #### 3. View Traefik Logs
@@ -602,7 +602,7 @@ docker logs traefik
 
 ```bash
 # Test health check
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 
 # Test authentication (using Header)
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
@@ -650,7 +650,7 @@ docker run -d \
 5. **Verify Service:**
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 ```
 
 ### Rollback

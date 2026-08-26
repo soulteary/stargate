@@ -420,29 +420,20 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## 健康检查端点
 
-### `GET /health`
+### `GET /healthz`
 
-服务健康检查端点。用于监控服务状态。
+进程存活端点。只要 Stargate 进程正常运行就返回 `200 OK`，不会查询 Redis、Warden 或 Herald。用于容器健康检查和 Kubernetes 存活探针。
 
-#### 响应
+### `GET /readyz`
 
-**成功响应（200 OK）**
-
-```
-HTTP/1.1 200 OK
-```
-
-#### 示例
+依赖就绪端点。聚合已配置的 Redis、Warden 和 Herald 检查；必要依赖不可用时返回非 2xx。用于 Kubernetes 就绪探针和负载均衡器摘流。
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
+curl http://auth.example.com/readyz
 ```
 
-**典型用途：**
-
-- Docker 健康检查
-- Kubernetes 存活探针
-- 负载均衡器健康检查
+`GET /health` 保留为 `GET /readyz` 的弃用兼容别名。
 
 ## 指标端点
 

@@ -143,7 +143,7 @@ Stargate를 최대한 활용할 수 있도록 포괄적인 문서가 제공됩�
 
 ### 빠른 참조
 
-- **API 엔드포인트**: `GET /_auth`(인증 확인), `GET /_login`(로그인 페이지), `POST /_login`(로그인), `POST /_send_verify_code`(OTP 발송), `POST /_logout`(로그아웃), `GET /_session_exchange?ticket=...`(크로스 도메인), `POST /totp/enroll`, `POST /totp/enroll/confirm`, `GET /totp/revoke`, `POST /totp/revoke`(Herald TOTP 사용 시), `GET /health`(상태 확인), `GET /metrics`(Prometheus)
+- **API 엔드포인트**: `GET /_auth`(인증 확인), `GET /_login`(로그인 페이지), `POST /_login`(로그인), `POST /_send_verify_code`(OTP 발송), `POST /_logout`(로그아웃), `GET /_session_exchange?ticket=...`(크로스 도메인), `POST /totp/enroll`, `POST /totp/enroll/confirm`, `GET /totp/revoke`, `POST /totp/revoke`(Herald TOTP 사용 시), `GET /healthz`, `GET /readyz`(상태 확인), `GET /metrics`(Prometheus)
 - **배포**: 빠른 시작에는 Docker Compose를 권장합니다. 프로덕션 배포는 [DEPLOYMENT.md](docs/koKR/DEPLOYMENT.md)를 참조하세요.
 - **개발**: 개발 관련 문서는 [ARCHITECTURE.md](docs/koKR/ARCHITECTURE.md)를 참조하세요
 
