@@ -4,7 +4,7 @@ This document describes the technical architecture and design decisions of the S
 
 ## Technology Stack
 
-- **Language**: Go 1.26
+- **Language**: Go 1.27
 - **Web Framework**: [Fiber v2.52.x](https://github.com/gofiber/fiber)
 - **Template Engine**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **Session Management**: session-kit (Fiber-compatible store; supports in-memory and Redis)
