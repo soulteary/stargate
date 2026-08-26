@@ -23,6 +23,7 @@ Stargate は、次の優先順位で確認される 2 つの認証方法をサ�
 
 1. **ヘッダー認証**（API リクエスト）
    - リクエストヘッダー: `Stargate-Password: <password>`
+   - デフォルトでは無効です。信頼できるレガシークライアントに限り `PASSWORD_HEADER_AUTH_ENABLED=true` を設定してください。
    - API リクエスト、自動化スクリプトなどに適しています
 
 2. **Cookie 認証**（Web リクエスト）
