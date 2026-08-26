@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -85,16 +87,55 @@ func VerificationRateLimit() fiber.Handler {
 	return endpointRateLimit(5, time.Minute)
 }
 
+type passwordFailureBucket struct {
+	count  int
+	resets time.Time
+}
 
-// PasswordHeaderRateLimit applies a dedicated brute-force budget only when the
-// explicitly enabled legacy password header is present. Session checks remain
-// unaffected.
-func PasswordHeaderRateLimit() fiber.Handler {
-	limit := endpointRateLimit(10, time.Minute)
-	return func(ctx fiber.Ctx) error {
-		if ctx.Get("Stargate-Password") == "" {
-			return ctx.Next()
-		}
-		return limit(ctx)
+var (
+	passwordFailureMu          sync.Mutex
+	passwordFailureBuckets     = make(map[string]passwordFailureBucket)
+	passwordFailureLastCleanup time.Time
+)
+
+func resetPasswordFailureBucketsForTesting() {
+	passwordFailureMu.Lock()
+	defer passwordFailureMu.Unlock()
+	passwordFailureBuckets = make(map[string]passwordFailureBucket)
+	passwordFailureLastCleanup = time.Time{}
+}
+
+func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) error {
+	if strings.TrimSpace(ctx.Get("Stargate-Password")) == "" {
+		return nil
 	}
+
+	now := time.Now()
+	key := ctx.IP()
+	passwordFailureMu.Lock()
+	if passwordFailureLastCleanup.IsZero() || now.Sub(passwordFailureLastCleanup) >= time.Minute {
+		for bucketKey, candidate := range passwordFailureBuckets {
+			if !now.Before(candidate.resets) {
+				delete(passwordFailureBuckets, bucketKey)
+			}
+		}
+		passwordFailureLastCleanup = now
+	}
+	bucket := passwordFailureBuckets[key]
+	if bucket.resets.IsZero() || !now.Before(bucket.resets) {
+		bucket = passwordFailureBucket{resets: now.Add(time.Minute)}
+	}
+	bucket.count++
+	passwordFailureBuckets[key] = bucket
+	passwordFailureMu.Unlock()
+
+	if bucket.count <= 10 {
+		return nil
+	}
+	retryAfter := int(time.Until(bucket.resets).Seconds())
+	if retryAfter < 1 {
+		retryAfter = 1
+	}
+	ctx.Set(fiber.HeaderRetryAfter, fmt.Sprintf("%d", retryAfter))
+	return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many failed password attempts")
 }

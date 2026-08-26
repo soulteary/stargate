@@ -116,7 +116,12 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 			forwardAuthSpan.SetAttributes(attribute.Bool("auth.authenticated", false))
 
 			switch err {
-			case forwardauth.ErrNotAuthenticated, forwardauth.ErrInvalidPassword, forwardauth.ErrUserNotFound:
+			case forwardauth.ErrInvalidPassword:
+				if limitErr := rateLimitPasswordHeaderFailure(ctx); limitErr != nil {
+					return limitErr
+				}
+				return handler.HandleNotAuthenticated(faCtx)
+			case forwardauth.ErrNotAuthenticated, forwardauth.ErrUserNotFound:
 				return handler.HandleNotAuthenticated(faCtx)
 			case forwardauth.ErrStepUpRequired:
 				return handler.HandleStepUpRequired(faCtx)
