@@ -420,6 +420,7 @@ func TestInitialize_WithDefaults(t *testing.T) {
 	testza.AssertEqual(t, "", TrustedProxies.Value)
 	testza.AssertEqual(t, "X-Forwarded-For", ProxyHeader.Value)
 	testza.AssertEqual(t, "", CookieDomain.Value)
+	testza.AssertEqual(t, "true", CookieSecure.Value)
 	testza.AssertEqual(t, "en", Language.Value)
 }
 
@@ -429,6 +430,16 @@ func TestValidateIPOrCIDRList(t *testing.T) {
 	testza.AssertFalse(t, ValidateIPOrCIDRList(EnvVariable{Value: "proxy.example.com"}))
 	testza.AssertFalse(t, ValidateIPOrCIDRList(EnvVariable{Value: "10.0.0.0/99"}))
 	testza.AssertFalse(t, ValidateIPOrCIDRList(EnvVariable{Value: "127.0.0.1,"}))
+}
+
+func TestInitialize_AllowsInsecureCookieForLocalHTTP(t *testing.T) {
+	t.Setenv("AUTH_HOST", "localhost")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("COOKIE_SECURE", "false")
+
+	err := Initialize(testLogger())
+	testza.AssertNoError(t, err)
+	testza.AssertFalse(t, CookieSecure.ToBool())
 }
 
 func TestInitialize_Language_FR(t *testing.T) {

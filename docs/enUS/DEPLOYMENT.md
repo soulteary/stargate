@@ -171,6 +171,9 @@ services:
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
+      - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
+      - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
+      - COOKIE_SECURE=false # Local HTTP only; omit for HTTPS.
     networks:
       - traefik
     labels:

@@ -38,6 +38,9 @@ while [[ $# -gt 0 ]]; do
             echo "  PORT                   服务端口"
             echo "  AUTH_HOST              认证服务主机名"
             echo "  PASSWORDS              密码配置"
+            echo "  COOKIE_SECURE          Cookie 仅限 HTTPS（本地默认 false）"
+            echo "  CALLBACK_ALLOWED_HOSTS 允许的回调主机"
+            echo "  SESSION_EXCHANGE_SECRET 会话交换密钥（至少 32 字符）"
             echo "  DEBUG                  调试模式（true/false）"
             echo "  LANGUAGE               界面语言（zh/en）"
             echo "  WARDEN_ENABLED         启用 Warden 集成（true/false）"
@@ -58,13 +61,13 @@ echo -e "${GREEN}=== StarGate 本地启动脚本 ===${NC}\n"
 
 # 检查是否在正确的目录
 if [ ! -d "src" ]; then
-    echo -e "${RED}错误: 请在 codes 目录下运行此脚本${NC}"
+    echo -e "${RED}错误: 请在 Stargate 仓库根目录运行此脚本${NC}"
     exit 1
 fi
 
 # 检查 Go 是否安装
 if ! command -v go &> /dev/null; then
-    echo -e "${RED}错误: 未找到 Go，请先安装 Go 1.18+${NC}"
+    echo -e "${RED}错误: 未找到 Go，请先安装 Go 1.26.6+${NC}"
     exit 1
 fi
 
@@ -73,6 +76,9 @@ AUTH_HOST=${AUTH_HOST:-"localhost"}
 PASSWORDS=${PASSWORDS:-"plaintext:test123|admin123"}
 DEBUG=${DEBUG:-"true"}
 LANGUAGE=${LANGUAGE:-"zh"}
+COOKIE_SECURE=${COOKIE_SECURE:-"false"}
+CALLBACK_ALLOWED_HOSTS=${CALLBACK_ALLOWED_HOSTS:-"localhost"}
+SESSION_EXCHANGE_SECRET=${SESSION_EXCHANGE_SECRET:-"local-development-session-secret-change-me"}
 # 端口设置：命令行参数 > 环境变量 > 默认值
 if [ -n "$CUSTOM_PORT" ]; then
     PORT="$CUSTOM_PORT"
@@ -88,9 +94,10 @@ WARDEN_CACHE_TTL=${WARDEN_CACHE_TTL:-"300"}
 
 echo -e "${BLUE}配置信息:${NC}"
 echo "  AUTH_HOST: $AUTH_HOST"
-echo "  PASSWORDS: $PASSWORDS"
+echo "  PASSWORDS: 已设置（已隐藏）"
 echo "  DEBUG: $DEBUG"
 echo "  LANGUAGE: $LANGUAGE"
+echo "  COOKIE_SECURE: $COOKIE_SECURE"
 echo "  端口: $PORT"
 if [ -n "$CUSTOM_PORT" ]; then
     echo -e "  ${GREEN}✓ 端口通过命令行参数设置: $CUSTOM_PORT${NC}"
@@ -121,6 +128,9 @@ export AUTH_HOST
 export PASSWORDS
 export DEBUG
 export LANGUAGE
+export COOKIE_SECURE
+export CALLBACK_ALLOWED_HOSTS
+export SESSION_EXCHANGE_SECRET
 export PORT
 export WARDEN_ENABLED
 export WARDEN_URL

@@ -28,6 +28,7 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 		WithCookieName(auth.SessionCookieName).
 		WithExpiration(config.SessionExpiration).
 		WithCookieDomain(config.CookieDomain.Value).
+		WithSecure(config.CookieSecure.ToBool()).
 		WithSameSite("Lax").
 		WithHTTPOnly(true)
 
