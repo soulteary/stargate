@@ -78,7 +78,7 @@ Les gestionnaires sont responsables du traitement des requêtes HTTP :
 - **TOTPRevokeRoute / TOTPRevokeConfirmAPI** : Page de révocation TOTP et confirmation (via Herald TOTP)
 - **LogoutRoute** : Traitement de déconnexion
 - **SessionShareRoute** : Partage de session cross-domain
-- **HealthRoute** : Vérification de santé (inclut statut Warden et Herald)
+- **Routes de santé** : `/healthz` pour la liveness du processus et `/readyz` pour l'état agrégé de Redis, Warden et Herald
 - **IndexRoute** : Traitement du chemin racine
 - **GET /metrics** : Métriques Prometheus (metrics-kit)
 
@@ -345,7 +345,7 @@ Modifier le fichier template `internal/web/templates/login.html`.
 - Utilise Zerolog (via logger-kit) pour la journalisation structurée
 - Supporte le mode débogage (DEBUG=true)
 - Toutes les opérations critiques sont journalisées
-- Endpoint de santé (`GET /health`) et métriques Prometheus (`GET /metrics`) disponibles pour la surveillance
+- Liveness du processus (`GET /healthz`), disponibilité des dépendances (`GET /readyz`) et métriques Prometheus (`GET /metrics`) disponibles pour la surveillance
 
 ## Tests
 

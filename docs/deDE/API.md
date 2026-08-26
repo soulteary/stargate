@@ -298,6 +298,16 @@ Das Sitzungs-Cookie wird gelöscht.
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## Step-up-Authentifizierungs-Endpunkt
+
+### `GET /_step_up`
+
+Zeigt für eine authentifizierte Sitzung ein Formular zur erneuten Passwortprüfung. Der optionale Query-Parameter `callback` muss ein lokaler Pfad sein; unsichere Werte werden durch `/` ersetzt.
+
+### `POST /_step_up`
+
+Prüft das Passwort erneut und speichert die erfolgreiche Step-up-Authentifizierung für 10 Minuten in der Sitzung. Formularfelder: `password` und optionaler lokaler `callback`. Die Route ist durch Same-Origin-Prüfung und Rate-Limit geschützt.
+
 ## Sitzungsaustausch-Endpunkt
 
 ### `GET /_session_exchange`
@@ -348,31 +358,54 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 4. Weiterleitung zu `app.example.com/`
 5. Der Benutzer kann diese Sitzung auf allen Subdomains `*.example.com` verwenden
 
-## Gesundheitsprüfungs-Endpunkt
+## TOTP-Endpunkte
 
-### `GET /health`
+Diese Endpunkte sind verfügbar, wenn Herald und Herald-TOTP aktiviert sind. Sie erfordern eine authentifizierte Sitzung.
 
-Gesundheitsprüfungs-Endpunkt des Dienstes. Wird verwendet, um den Status des Dienstes zu überwachen.
+### `POST /totp/enroll`
 
-#### Antwort
+Startet die Registrierung und zeigt die TOTP-Bindungsseite an.
 
-**Erfolgreiche Antwort (200 OK)**
+### `POST /totp/enroll/confirm`
 
-```
-HTTP/1.1 200 OK
-```
+Bestätigt die Registrierung mit dem sechsstelligen TOTP-Code im Feld `code`.
 
-#### Beispiel
+### `GET /totp/revoke`
+
+Zeigt die Bestätigungsseite zum Entfernen der TOTP-Bindung an.
+
+### `POST /totp/revoke`
+
+Entfernt die TOTP-Bindung nach Bestätigung mit `password` oder einem aktuellen `code`.
+
+## Gesundheitsprüfungs-Endpunkte
+
+### `GET /healthz`
+
+Prozess-Liveness ohne Abfrage von Redis, Warden oder Herald. Verwenden Sie diesen Endpunkt für Container- und Kubernetes-Liveness-Proben.
+
+### `GET /readyz`
+
+Aggregierte Bereitschaft der konfigurierten Redis-, Warden- und Herald-Abhängigkeiten. Verwenden Sie diesen Endpunkt für Load-Balancer und Kubernetes-Readiness-Proben.
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
+curl http://auth.example.com/readyz
 ```
 
-**Typische Verwendungen:**
+`GET /health` bleibt als veralteter Kompatibilitätsalias für `GET /readyz` erhalten.
 
-- Docker-Gesundheitsprüfungen
-- Kubernetes-Liveness-Proben
-- Load-Balancer-Gesundheitsprüfungen
+## Metrik-Endpunkt
+
+### `GET /metrics`
+
+Liefert Prometheus-Metriken im Textformat. Der Endpunkt erfordert keine Authentifizierung und sollte über Netzwerk- oder Proxy-Regeln geschützt werden.
+
+## Endpunkt für die Laufzeit-Protokollstufe
+
+### `GET /log/level`
+
+Gibt die aktuelle Protokollstufe zurück. `PUT /log/level` oder `POST /log/level` ändert sie mit dem JSON-Body `{"level":"debug"}` oder dem Query-Parameter `?level=debug`. Stargate beschränkt diesen Endpunkt auf `127.0.0.1`; er darf nicht über den öffentlichen Reverse Proxy erreichbar sein.
 
 ## Root-Endpunkt
 

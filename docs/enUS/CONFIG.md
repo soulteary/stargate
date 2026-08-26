@@ -27,7 +27,7 @@ export PASSWORDS=plaintext:yourpassword
 **Docker:**
 
 ```bash
-docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword stargate:latest
+docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 **Docker Compose:**
@@ -48,6 +48,7 @@ Below are all environment variables used in code. "Required" means the service w
 |----------|-------------|---------|----------|
 | `AUTH_HOST` | String | — | Yes |
 | `PASSWORDS` | See password config | — | Yes when Warden disabled |
+| `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | No |
 | `DEBUG` | true/false | false | No |
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | No |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | No |
@@ -69,6 +70,9 @@ Below are all environment variables used in code. "Required" means the service w
 | `WARDEN_TLS_CLIENT_CERT_FILE` | path | empty | No |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | path | empty | No |
 | `WARDEN_TLS_SERVER_NAME` | String | empty | No |
+| `HEADER_AUTH_ENABLED` | true/false | false | No |
+| `HEADER_AUTH_SHARED_SECRET` | Secret string | empty | Yes when header auth enabled |
+| `HEADER_AUTH_SECRET_HEADER` | HTTP header name | X-Stargate-Header-Auth | No |
 | `WARDEN_CACHE_TTL` | String | 300 | No |
 | `WARDEN_OTP_ENABLED` | true/false | false | No |
 | `WARDEN_OTP_SECRET_KEY` | String | empty | No |
@@ -1031,7 +1035,7 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 services:
   stargate:
-    image: stargate:latest
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       # Required configuration
       - AUTH_HOST=auth.example.com
@@ -1050,7 +1054,7 @@ services:
 ```yaml
 services:
   stargate:
-    image: stargate:latest
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       # Required configuration
       - AUTH_HOST=auth.example.com
@@ -1211,3 +1215,20 @@ PASSWORDS=bcrypt:<hash>
 ```
 
 Treat the header as a credential: require HTTPS, apply rate limits, and configure the reverse proxy to remove `Stargate-Password` before forwarding the request to the backend. Cookie sessions remain the recommended browser authentication method.
+
+## Trusted Identity Header Authentication
+
+Trusted identity headers are disabled by default. This mode requires Warden and is intended only for a reverse proxy that authenticates the caller before forwarding the request.
+
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+HEADER_AUTH_ENABLED=true
+HEADER_AUTH_SHARED_SECRET=<random-shared-secret>
+# Optional; this is the default header name:
+HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
+```
+
+The proxy sends `X-User-Phone` or `X-User-Mail` together with the configured secret header. Stargate removes the secret header before forwarding and discards the identity headers when the secret does not match.
+
+Treat all three headers as trust-boundary inputs: use HTTPS, generate a strong shared secret, and configure the edge proxy to remove any client-supplied `X-User-Phone`, `X-User-Mail`, and header named by `HEADER_AUTH_SECRET_HEADER` before adding its own. Never expose this mode directly to untrusted clients.

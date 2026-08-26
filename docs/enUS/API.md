@@ -339,6 +339,16 @@ The session cookie will be cleared.
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## Step-up Authentication Endpoint
+
+### `GET /_step_up`
+
+Displays a password re-verification form for an authenticated session. The optional `callback` query parameter must be a local path; unsafe values fall back to `/`.
+
+### `POST /_step_up`
+
+Re-verifies the password and records successful step-up authentication in the session for 10 minutes. Submit form fields `password` and optional local-path `callback`. This route is same-origin protected and rate limited.
+
 ## Session Exchange Endpoint
 
 ### `GET /_session_exchange`
@@ -455,6 +465,12 @@ Prometheus metrics in text exposition format. Used for monitoring authentication
 
 - Prometheus scrape target
 - Grafana dashboards
+
+## Runtime Log Level Endpoint
+
+### `GET /log/level`
+
+Returns the current log level. `PUT /log/level` or `POST /log/level` changes it using JSON body `{"level":"debug"}` or query parameter `?level=debug`. Stargate restricts this endpoint to `127.0.0.1`; it must not be exposed through the public reverse proxy.
 
 ## Root Endpoint
 

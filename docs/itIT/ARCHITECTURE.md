@@ -78,7 +78,7 @@ I gestori sono responsabili dell'elaborazione delle richieste HTTP:
 - **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: Pagina revoca TOTP e conferma (via Herald TOTP)
 - **LogoutRoute**: Elaborazione logout
 - **SessionShareRoute**: Condivisione sessione cross-domain
-- **HealthRoute**: Verifica salute (include stato Warden e Herald)
+- **Route di salute**: `/healthz` per la liveness del processo e `/readyz` per lo stato aggregato di Redis, Warden e Herald
 - **IndexRoute**: Elaborazione percorso root
 - **GET /metrics**: Metriche Prometheus (metrics-kit)
 
@@ -344,7 +344,7 @@ Modificare il file template `internal/web/templates/login.html`.
 - Utilizza Zerolog (via logger-kit) per registrazione strutturata
 - Supporta modalità debug (DEBUG=true)
 - Tutte le operazioni critiche sono registrate
-- Endpoint salute (`GET /health`) e metriche Prometheus (`GET /metrics`) disponibili per monitoraggio
+- Liveness del processo (`GET /healthz`), readiness delle dipendenze (`GET /readyz`) e metriche Prometheus (`GET /metrics`) disponibili per il monitoraggio
 
 ## Test
 

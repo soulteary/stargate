@@ -27,7 +27,7 @@ export PASSWORDS=plaintext:yourpassword
 **Docker：**
 
 ```bash
-docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword stargate:latest
+docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 **Docker Compose：**
@@ -48,6 +48,7 @@ services:
 |----------|-------------|--------|------|
 | `AUTH_HOST` | String | — | 是 |
 | `PASSWORDS` | 见密码配置 | — | 未启用 Warden 时为是 |
+| `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 否 |
 | `DEBUG` | true/false | false | 否 |
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | 否 |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | 否 |
@@ -69,6 +70,9 @@ services:
 | `WARDEN_TLS_CLIENT_CERT_FILE` | 路径 | 空 | 否 |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | 路径 | 空 | 否 |
 | `WARDEN_TLS_SERVER_NAME` | String | 空 | 否 |
+| `HEADER_AUTH_ENABLED` | true/false | false | 否 |
+| `HEADER_AUTH_SHARED_SECRET` | 密钥字符串 | 空 | 启用请求头认证时为是 |
+| `HEADER_AUTH_SECRET_HEADER` | HTTP 头名称 | X-Stargate-Header-Auth | 否 |
 | `WARDEN_CACHE_TTL` | String | 300 | 否 |
 | `WARDEN_OTP_ENABLED` | true/false | false | 否 |
 | `WARDEN_OTP_SECRET_KEY` | String | 空 | 否 |
@@ -1045,7 +1049,7 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 services:
   stargate:
-    image: stargate:latest
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       # 必需配置
       - AUTH_HOST=auth.example.com
@@ -1064,7 +1068,7 @@ services:
 ```yaml
 services:
   stargate:
-    image: stargate:latest
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       # 必需配置
       - AUTH_HOST=auth.example.com
@@ -1225,3 +1229,20 @@ PASSWORDS=bcrypt:<哈希>
 ```
 
 该请求头属于凭据：必须使用 HTTPS、配置限流，并让反向代理在转发到后端前删除 `Stargate-Password`。浏览器认证仍推荐使用 Cookie 会话。
+
+## 可信身份请求头认证
+
+可信身份请求头认证默认关闭。该模式依赖 Warden，只应由已完成调用方认证的反向代理使用。
+
+```bash
+WARDEN_ENABLED=true
+WARDEN_URL=http://warden:8080
+HEADER_AUTH_ENABLED=true
+HEADER_AUTH_SHARED_SECRET=<随机共享密钥>
+# 可选；以下为默认请求头名称：
+HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
+```
+
+代理需要同时发送 `X-User-Phone` 或 `X-User-Mail` 以及配置的密钥请求头。Stargate 在转发前会删除密钥请求头；密钥不匹配时会丢弃身份请求头。
+
+这三个请求头都属于信任边界输入：必须使用 HTTPS 和高强度共享密钥，并让边缘代理先删除客户端传入的 `X-User-Phone`、`X-User-Mail` 以及由 `HEADER_AUTH_SECRET_HEADER` 指定名称的请求头，再写入代理自己的值。切勿把该模式直接暴露给不受信任的客户端。

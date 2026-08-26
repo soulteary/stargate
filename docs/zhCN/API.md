@@ -333,6 +333,16 @@ Logged out
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## Step-up 二次认证端点
+
+### `GET /_step_up`
+
+为已认证会话展示密码复核表单。可选的 `callback` 查询参数必须是本地路径；不安全的值会回退到 `/`。
+
+### `POST /_step_up`
+
+复核密码，并在会话中记录 10 分钟有效的 Step-up 认证状态。表单字段为 `password` 和可选的本地路径 `callback`。该路由受同源校验和限流保护。
+
 ## 会话交换端点
 
 ### `GET /_session_exchange`
@@ -449,6 +459,12 @@ Prometheus 指标，文本展示格式。用于监控认证请求、会话创建
 
 - Prometheus 抓取目标
 - Grafana 仪表盘
+
+## 运行时日志级别端点
+
+### `GET /log/level`
+
+返回当前日志级别。使用 `PUT /log/level` 或 `POST /log/level`，通过 JSON 请求体 `{"level":"debug"}` 或查询参数 `?level=debug` 修改日志级别。Stargate 将该端点限制为仅 `127.0.0.1` 可访问，不得通过公网反向代理暴露。
 
 ## 根端点
 
