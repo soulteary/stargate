@@ -109,7 +109,7 @@ Handlers are responsible for processing HTTP requests:
 
 ### 4. Password and Security
 
-Password verification is done by `internal/auth` together with `internal/config`: configuration specifies the algorithm (e.g. plaintext, bcrypt, md5, sha512) and password list; auth uses external capabilities such as secure-kit for verification. Session and authentication state are provided by session-kit.
+Password verification is done by `internal/auth` together with `internal/config`. Configuration accepts bcrypt hashes for production and plaintext values for local testing; MD5 and unsalted SHA-512 are rejected during configuration validation. Password bytes are case-sensitive and whitespace is significant. Session and authentication state are provided by session-kit.
 
 ## System Architecture
 
@@ -331,9 +331,9 @@ When Warden and Herald integrations are enabled, OTP authentication can be used:
 
 ### Password Security
 
-- Supports multiple encryption algorithms (recommend using bcrypt or sha512)
+- Supports bcrypt for production password verification and plaintext for local testing
 - Password configuration passed via environment variables, not stored in code
-- Password normalization during verification (remove spaces, convert to uppercase)
+- Password verification is case-sensitive and preserves whitespace
 
 ### Request Security
 

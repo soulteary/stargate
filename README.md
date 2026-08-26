@@ -41,7 +41,7 @@ Stargate is perfect for:
 ## ✨ Features
 
 ### 🔐 Enterprise-Grade Security
-- **Multiple Password Encryption Algorithms**: Choose from plaintext (testing), bcrypt, MD5, SHA512, and more
+- **Explicit Password Verification Modes**: Use bcrypt in production or plaintext only for local testing
 - **Secure Session Management**: Cookie-based sessions with customizable domain and expiration
 - **Flexible Authentication**: Support for both password-based and session-based authentication
 - **OTP/Verification Code Support**: Integration with Herald service for SMS/Email verification codes
@@ -170,7 +170,7 @@ LOGIN_PAGE_TITLE=My Auth Service
 LANGUAGE=zh  # or 'en'
 ```
 
-**Supported password algorithms:** `plaintext` (testing only), `bcrypt`, `md5`, `sha512`
+**Supported password algorithms:** `plaintext` (local testing only) and `bcrypt`. MD5 and unsalted SHA-512 are rejected.
 
 **For complete configuration reference, see: [docs/enUS/CONFIG.md](docs/enUS/CONFIG.md)**
 
@@ -228,7 +228,7 @@ HERALD_HMAC_SECRET=your-herald-hmac-secret       # Production
 
 Before deploying to production:
 
-- ✅ Use strong password algorithms (`bcrypt` or `sha512`, avoid `plaintext`)
+- ✅ Use `bcrypt` for password authentication; keep `plaintext` limited to local testing
 - ✅ Enable HTTPS via Traefik or your reverse proxy
 - ✅ Set `COOKIE_DOMAIN` for proper session management across subdomains
 - ✅ For advanced features, optionally integrate Warden + Herald for OTP authentication

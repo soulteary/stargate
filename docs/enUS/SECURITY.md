@@ -7,7 +7,7 @@ This document explains Stargate's security features, security configuration, and
 ## Implemented Security Features
 
 1. **Forward Auth Protection**: Centralized authentication layer for protecting backend services
-2. **Multiple Password Algorithms**: Support for bcrypt, SHA512, MD5, and plaintext (development only)
+2. **Password Verification**: Support for bcrypt and plaintext (local development only); MD5 and unsalted SHA-512 are rejected
 3. **Secure Session Management**: Cookie-based sessions with configurable domain and expiration
 4. **Service Integration Security**: Secure communication with Warden and Herald services using mTLS or HMAC
 5. **Session Sharing Security**: Secure cross-domain session exchange mechanism
@@ -22,8 +22,7 @@ This document explains Stargate's security features, security configuration, and
 ### 1. Production Environment Configuration
 
 **Required Configuration**:
-- Must set strong passwords using secure algorithms (bcrypt or SHA512)
-- Set `MODE=production` to enable production mode
+- Use bcrypt for password authentication in production
 - Configure `COOKIE_DOMAIN` for proper session management
 - Use HTTPS via reverse proxy (Traefik, Nginx, etc.)
 - Set `TRUSTED_PROXIES` to the reverse proxy's source IPs or CIDRs
@@ -42,7 +41,7 @@ export TRUSTED_PROXIES=10.20.0.10
 ### 2. Password Security
 
 **Recommended Practices**:
-- ✅ Use strong password hashing algorithms (bcrypt or SHA512)
+- ✅ Use bcrypt password hashes in production
 - ✅ Store password hashes in environment variables
 - ✅ Use different passwords for different environments
 - ✅ Regularly rotate passwords
@@ -50,14 +49,14 @@ export TRUSTED_PROXIES=10.20.0.10
 **Not Recommended**:
 - ❌ Use plaintext passwords in production
 - ❌ Hardcode passwords in configuration files
-- ❌ Use weak password algorithms (MD5) in production
+- ❌ Configure MD5 or unsalted SHA-512 hashes; Stargate rejects both
 - ❌ Share passwords across environments
 
 **Password Algorithm Comparison**:
-- `bcrypt`: Recommended for production (slow, secure)
-- `sha512`: Good for production (fast, secure)
-- `md5`: Not recommended for production (fast, less secure)
-- `plaintext`: Development only (no security)
+- `bcrypt`: Supported and recommended for production
+- `plaintext`: Supported only for local development and testing
+- `sha512`: Rejected; fast, unsalted general-purpose hashes are unsuitable for password storage
+- `md5`: Rejected; it is unsuitable for password storage
 
 ### 3. Session Security
 
@@ -181,22 +180,9 @@ export REDIS_PASSWORD=your-redis-password
 
 ## Error Handling
 
-### Production Mode
-
-In production mode (`MODE=production` or `MODE=prod`):
-
-- Hide detailed error information to prevent information leakage
-- Return generic error messages
-- Detailed error information is only recorded in logs
-- Redirect to login page on authentication failure
-
-### Development Mode
-
-In development mode:
-
-- Display detailed error information for debugging
-- Include stack trace information
-- More verbose logging
+Stargate does not expose a `MODE` setting. HTTP handlers return bounded, user-facing
+errors regardless of environment; internal errors are recorded through the logger.
+`DEBUG` controls logging verbosity and must not be treated as an error-disclosure switch.
 
 ## Security Response Headers
 
