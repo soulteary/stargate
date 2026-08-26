@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v2"
@@ -349,6 +350,18 @@ func TestCreateApp_AllRoutesRegistered(t *testing.T) {
 			testza.AssertNotNil(t, resp)
 		})
 	}
+}
+
+func TestCreateApp_HasProductionLimits(t *testing.T) {
+	ensureTestWorkingDir(t)
+	setupTestConfig(t)
+	app := createApp()
+	cfg := app.Config()
+
+	testza.AssertEqual(t, 1*1024*1024, cfg.BodyLimit)
+	testza.AssertEqual(t, 10*time.Second, cfg.ReadTimeout)
+	testza.AssertEqual(t, 15*time.Second, cfg.WriteTimeout)
+	testza.AssertEqual(t, 60*time.Second, cfg.IdleTimeout)
 }
 
 func TestStartServer_PortLogic_DefaultPort(t *testing.T) {

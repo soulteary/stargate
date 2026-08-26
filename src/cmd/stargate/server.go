@@ -319,6 +319,10 @@ func createApp() *fiber.App {
 	app := fiber.New(fiber.Config{
 		Views:                 engine,
 		DisableStartupMessage: true,
+		BodyLimit:             1 * 1024 * 1024,
+		ReadTimeout:           10 * time.Second,
+		WriteTimeout:          15 * time.Second,
+		IdleTimeout:           60 * time.Second,
 	})
 
 	setupMiddleware(app)
