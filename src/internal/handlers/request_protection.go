@@ -9,6 +9,37 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/limiter"
 )
 
+type requestOrigin struct {
+	scheme   string
+	hostname string
+	port     string
+}
+
+func canonicalRequestOrigin(raw string) (requestOrigin, bool) {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || parsed.User != nil || parsed.Host == "" || parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Path != "" {
+		return requestOrigin{}, false
+	}
+
+	scheme := strings.ToLower(parsed.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return requestOrigin{}, false
+	}
+	hostname := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	if hostname == "" {
+		return requestOrigin{}, false
+	}
+	port := parsed.Port()
+	if port == "" {
+		if scheme == "https" {
+			port = "443"
+		} else {
+			port = "80"
+		}
+	}
+	return requestOrigin{scheme: scheme, hostname: hostname, port: port}, true
+}
+
 // RequireSameOrigin blocks browser cross-site writes while preserving clients
 // such as curl that do not send browser Origin or Fetch Metadata headers.
 func RequireSameOrigin() fiber.Handler {
@@ -23,8 +54,9 @@ func RequireSameOrigin() fiber.Handler {
 		if origin == "" {
 			return ctx.Next()
 		}
-		parsed, err := url.Parse(origin)
-		if err != nil || parsed.Scheme == "" || parsed.Hostname() == "" || !strings.EqualFold(parsed.Hostname(), ctx.Hostname()) {
+		suppliedOrigin, suppliedOK := canonicalRequestOrigin(origin)
+		requestOrigin, requestOK := canonicalRequestOrigin(GetForwardedProto(ctx) + "://" + GetForwardedHost(ctx))
+		if !suppliedOK || !requestOK || suppliedOrigin != requestOrigin {
 			return SendErrorResponse(ctx, fiber.StatusForbidden, "cross-site request rejected")
 		}
 		return ctx.Next()
