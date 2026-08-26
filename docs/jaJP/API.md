@@ -146,7 +146,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 レスポンスは、コールバックの有無とリクエストタイプによって異なります：
 
 1. **コールバックあり**:
-   - `{callback}/_session_exchange?id={session_id}` にリダイレクト
+   - `{callback}/_session_exchange?ticket={opaque_ticket}` にリダイレクト
    - ステータスコード: `302 Found`
 
 2. **コールバックなし**:
@@ -155,8 +155,7 @@ curl http://auth.example.com/_login?callback=app.example.com
      ```json
      {
        "success": true,
-       "message": "Login successful",
-       "session_id": "<session_id>"
+       "message": "Login successful"
      }
      ```
 
@@ -275,7 +274,7 @@ curl -X POST \
 
 ## ログアウトエンドポイント
 
-### `GET /_logout`
+### `POST /_logout`
 
 現在のユーザーをログアウトし、セッションを破棄します。
 
@@ -295,14 +294,14 @@ Logged out
 #### 例
 
 ```bash
-curl -b cookies.txt http://auth.example.com/_logout
+curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
 ## セッション交換エンドポイント
 
 ### `GET /_session_exchange`
 
-クロスドメインセッション共有に使用されます。指定されたセッション ID の Cookie を設定し、ルートパスにリダイレクトします。
+クロスドメインセッション共有に使用されます。短時間だけ有効で対象ドメインにバインドされた暗号化チケットを引き換え、認証済みセッションを確認して Cookie を設定し、ルートパスにリダイレクトします。
 
 このエンドポイントは、主に複数のドメイン/サブドメイン間で認証セッションを共有するために使用されます。ユーザーが 1 つのドメインでログインした後、このエンドポイントを使用して別のドメインにセッション Cookie を設定できます。
 
@@ -310,7 +309,7 @@ curl -b cookies.txt http://auth.example.com/_logout
 
 | パラメータ | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
-| `id` | String | はい | 設定するセッション ID |
+| `ticket` | String | はい | ログイン後に返される、対象ドメインにバインドされた交換チケット |
 
 #### レスポンス
 
@@ -326,7 +325,8 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 
 | ステータスコード | 説明 | レスポンス本文 |
 |----------------|------|----------------|
-| `400 Bad Request` | セッション ID が不足 | エラーメッセージ |
+| `400 Bad Request` | チケットがありません | エラーメッセージ |
+| `401 Unauthorized` | チケットが無効、期限切れ、再利用済み、または別のドメイン向けです | エラーメッセージ |
 
 #### Cookie ドメイン
 
@@ -335,14 +335,14 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 #### 例
 
 ```bash
-# セッション Cookie を設定（クロスドメインシナリオ用）
-curl "http://auth.example.com/_session_exchange?id=<session_id>"
+# チケットがバインドされたコールバックドメインで引き換える
+curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 ```
 
 **典型的な使用シナリオ：**
 
 1. ユーザーが `auth.example.com` にログイン
-2. ログイン成功後、`app.example.com/_session_exchange?id=<session_id>` にリダイレクト
+2. ログイン成功後、`app.example.com/_session_exchange?ticket=<opaque_ticket>` にリダイレクト
 3. セッション Cookie が `.example.com` ドメインに設定される（`COOKIE_DOMAIN=.example.com` が設定されている場合）
 4. `app.example.com/` にリダイレクト
 5. ユーザーはすべてのサブドメイン `*.example.com` でこのセッションを使用できます
@@ -428,7 +428,7 @@ Error message
 4. 認証されていない場合、`https://auth.example.com/_login?callback=app.example.com` にリダイレクト
 5. ユーザーがパスワードを入力して送信
 6. Stargate がパスワードを検証し、セッションを作成して Cookie を設定
-7. `https://app.example.com/_session_exchange?id=<session_id>` にリダイレクト
+7. `https://app.example.com/_session_exchange?ticket=<opaque_ticket>` にリダイレクト
 8. セッション Cookie が `app.example.com` ドメインに設定される
 9. ユーザーが再度保護されたリソースにアクセスし、認証が成功
 

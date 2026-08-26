@@ -146,7 +146,7 @@ Die Anmeldeverarbeitung ruft den Callback in folgender Prioritätsreihenfolge ab
 Die Antwort variiert je nachdem, ob ein Callback vorhanden ist und welcher Anfragetyp:
 
 1. **Mit Callback**:
-   - Weiterleitung zu `{callback}/_session_exchange?id={session_id}`
+   - Weiterleitung zu `{callback}/_session_exchange?ticket={opaque_ticket}`
    - Statuscode: `302 Found`
 
 2. **Ohne Callback**:
@@ -155,8 +155,7 @@ Die Antwort variiert je nachdem, ob ein Callback vorhanden ist und welcher Anfra
      ```json
      {
        "success": true,
-       "message": "Login successful",
-       "session_id": "<session_id>"
+       "message": "Login successful"
      }
      ```
 
@@ -275,7 +274,7 @@ curl -X POST \
 
 ## Abmelde-Endpunkt
 
-### `GET /_logout`
+### `POST /_logout`
 
 Meldet den aktuellen Benutzer ab und zerstört die Sitzung.
 
@@ -295,14 +294,14 @@ Das Sitzungs-Cookie wird gelöscht.
 #### Beispiel
 
 ```bash
-curl -b cookies.txt http://auth.example.com/_logout
+curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
 ## Sitzungsaustausch-Endpunkt
 
 ### `GET /_session_exchange`
 
-Wird für die Cross-Domain-Sitzungsfreigabe verwendet. Setzt das angegebene Sitzungs-ID-Cookie und leitet zum Root-Pfad weiter.
+Wird für die Cross-Domain-Sitzungsfreigabe verwendet. Löst ein kurzlebiges, verschlüsseltes und zielgebundenes Ticket ein, prüft die authentifizierte Sitzung, setzt das Cookie und leitet zum Root-Pfad weiter.
 
 Dieser Endpunkt wird hauptsächlich verwendet, um Authentifizierungssitzungen zwischen mehreren Domains/Subdomains zu teilen. Nachdem ein Benutzer sich auf einer Domain angemeldet hat, kann dieser Endpunkt verwendet werden, um das Sitzungs-Cookie auf einer anderen Domain zu setzen.
 
@@ -310,7 +309,7 @@ Dieser Endpunkt wird hauptsächlich verwendet, um Authentifizierungssitzungen zw
 
 | Parameter | Typ | Erforderlich | Beschreibung |
 |-----------|-----|--------------|--------------|
-| `id` | String | Ja | Zu setzende Sitzungs-ID |
+| `ticket` | String | Ja | Beim Login zurückgegebenes, zielgebundenes Austausch-Ticket |
 
 #### Antwort
 
@@ -326,7 +325,8 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 
 | Statuscode | Beschreibung | Antwort-Text |
 |------------|--------------|--------------|
-| `400 Bad Request` | Sitzungs-ID fehlt | Fehlermeldung |
+| `400 Bad Request` | Ticket fehlt | Fehlermeldung |
+| `401 Unauthorized` | Ticket ist ungültig, abgelaufen, wiederverwendet oder für eine andere Domain bestimmt | Fehlermeldung |
 
 #### Cookie-Domain
 
@@ -335,14 +335,14 @@ Wenn die Umgebungsvariable `COOKIE_DOMAIN` konfiguriert ist, wird das Cookie auf
 #### Beispiel
 
 ```bash
-# Sitzungs-Cookie setzen (für Cross-Domain-Szenarien)
-curl "http://auth.example.com/_session_exchange?id=<session_id>"
+# Beim Login zurückgegebenes Ticket auf der gebundenen Callback-Domain einlösen
+curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 ```
 
 **Typisches Verwendungsszenario:**
 
 1. Der Benutzer meldet sich bei `auth.example.com` an
-2. Nach erfolgreicher Anmeldung wird zu `app.example.com/_session_exchange?id=<session_id>` weitergeleitet
+2. Nach erfolgreicher Anmeldung wird zu `app.example.com/_session_exchange?ticket=<opaque_ticket>` weitergeleitet
 3. Das Sitzungs-Cookie wird auf die Domain `.example.com` gesetzt (wenn `COOKIE_DOMAIN=.example.com` konfiguriert ist)
 4. Weiterleitung zu `app.example.com/`
 5. Der Benutzer kann diese Sitzung auf allen Subdomains `*.example.com` verwenden
@@ -428,7 +428,7 @@ Fehlermeldungen unterstützen Internationalisierung und geben je nach Umgebungsv
 4. Wenn nicht authentifiziert, Weiterleitung zu `https://auth.example.com/_login?callback=app.example.com`
 5. Der Benutzer gibt das Passwort ein und sendet es ab
 6. Stargate überprüft das Passwort, erstellt eine Sitzung, setzt das Cookie
-7. Weiterleitung zu `https://app.example.com/_session_exchange?id=<session_id>`
+7. Weiterleitung zu `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 8. Das Sitzungs-Cookie wird auf die Domain `app.example.com` gesetzt
 9. Der Benutzer greift erneut auf die geschützte Ressource zu, die Authentifizierung ist erfolgreich
 

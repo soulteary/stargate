@@ -322,7 +322,7 @@ services:
 
 3. Flux de connexion :
    - L'utilisateur se connecte à `auth.example.com`
-   - Redirige vers `app.example.com/_session_exchange?id=<session_id>`
+   - Redirige vers `app.example.com/_session_exchange?ticket=<opaque_ticket>`
    - Le cookie de session est défini au domaine `.example.com`
    - Tous les sous-domaines `*.example.com` peuvent utiliser cette session
 

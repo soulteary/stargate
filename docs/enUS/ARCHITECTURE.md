@@ -284,8 +284,8 @@ When `HERALD_ENABLED=true`, Stargate can integrate with Herald service through H
      4. If none of the above, and origin domain differs from authentication service domain, use origin domain as callback
 
 3. **Session exchange**
-   - If callback exists, redirects to `{callback}/_session_exchange?id=<session_id>`
-   - `GET /_session_exchange?id=<session_id>`
+   - If callback exists, redirects to `{callback}/_session_exchange?ticket=<opaque_ticket>`
+   - `GET /_session_exchange?ticket=<opaque_ticket>`
    - Sets session cookie (if `COOKIE_DOMAIN` is configured, sets to specified domain)
    - Redirects to root path `/`
 
@@ -315,7 +315,7 @@ When Warden and Herald integrations are enabled, OTP authentication can be used:
    - Set session cookie
 
 5. **Session exchange**
-   - If callback exists, redirects to `{callback}/_session_exchange?id=<session_id>`
+   - If callback exists, redirects to `{callback}/_session_exchange?ticket=<opaque_ticket>`
    - Subsequent forwardAuth only verifies Stargate session, ensuring high performance (unless authorization info refresh is needed)
 
 ## Security Considerations

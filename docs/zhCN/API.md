@@ -167,7 +167,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 根据是否有 callback 和请求类型，响应会有所不同：
 
 1. **有 callback 时**：
-   - 重定向到 `{callback}/_session_exchange?id={session_id}`
+   - 重定向到 `{callback}/_session_exchange?ticket={opaque_ticket}`
    - 状态码：`302 Found`
 
 2. **无 callback 时**：
@@ -176,8 +176,7 @@ curl http://auth.example.com/_login?callback=app.example.com
      ```json
      {
        "success": true,
-       "message": "Login successful",
-       "session_id": "<session_id>"
+       "message": "Login successful"
      }
      ```
 
@@ -310,7 +309,7 @@ curl -X POST \
 
 ## 登出端点
 
-### `GET /_logout`
+### `POST /_logout`
 
 登出当前用户，销毁会话。
 
@@ -330,7 +329,7 @@ Logged out
 #### 示例
 
 ```bash
-curl -b cookies.txt http://auth.example.com/_logout
+curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
 ## 会话交换端点
@@ -387,9 +386,9 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 当启用 Herald TOTP（`HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`）时，Stargate 提供 TOTP（认证器应用）绑定/解绑及登录时的验证。这些端点需要已认证会话。
 
-### `GET /totp/enroll`
+### `POST /totp/enroll`
 
-展示 TOTP 绑定页面。用户可扫描二维码并提交 6 位验证码完成绑定。
+启动绑定并展示 TOTP 页面。使用 POST 可避免跨站导航创建绑定状态。
 
 - **认证**：需要（会话 Cookie）。未认证用户会重定向到 `/_login`。
 - **响应**：200 OK 返回绑定页 HTML；未认证时 302 到 `/_login`；配置或 Herald 错误时 400/503。
@@ -414,6 +413,7 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 确认 TOTP 解绑（从账号移除 TOTP）。
 
 - **认证**：需要（会话 Cookie）。
+- **请求体**：必须提供密码或当前有效的 TOTP `code`，用于最近认证确认。
 - **响应**：成功时重定向或返回 OK；失败返回错误。
 
 **说明**：TOTP 的创建与校验由 Herald（可能代理到 herald-totp）完成。Stargate 仅负责页面与会话编排，不实现 OTP 算法。
@@ -524,7 +524,7 @@ curl http://auth.example.com/
 3. 重定向到 `https://auth.example.com/_login?callback=app.example.com`
 4. 用户输入密码并提交 `POST /_login`（`auth_method=password`）
 5. Stargate 验证密码，创建会话，设置 Cookie
-6. 重定向到 `https://app.example.com/_session_exchange?id=<session_id>`
+6. 重定向到 `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 7. 会话 Cookie 被设置到 `app.example.com` 域名
 8. 用户再次访问受保护资源，forwardAuth 校验 session，认证成功
 
@@ -541,7 +541,7 @@ curl http://auth.example.com/
 9. **Stargate → Herald**：verify(challenge_id, code)
 10. Herald 返回 ok + user_id (+ 可选 amr/认证强度)
 11. Stargate 签发 session（cookie/JWT），从 Warden 获取用户信息并写入 session claims
-12. 重定向到 `https://app.example.com/_session_exchange?id=<session_id>`
+12. 重定向到 `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 13. 会话 Cookie 被设置到 `app.example.com` 域名
 14. 用户再次访问受保护资源，forwardAuth **只校验 Stargate session**，不再触发 Warden/Herald
 

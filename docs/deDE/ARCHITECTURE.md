@@ -239,8 +239,8 @@ Wenn `HERALD_ENABLED=true`, kann sich Stargate über den Herald-Client mit dem H
      4. Wenn keines der oben genannten vorhanden ist und die ursprüngliche Domain sich von der Authentifizierungsdienst-Domain unterscheidet, die ursprüngliche Domain als Callback verwenden
 
 3. **Sitzungsaustausch**
-   - Wenn Callback vorhanden ist, Weiterleitung zu `{callback}/_session_exchange?id=<session_id>`
-   - `GET /_session_exchange?id=<session_id>`
+   - Wenn Callback vorhanden ist, Weiterleitung zu `{callback}/_session_exchange?ticket=<opaque_ticket>`
+   - `GET /_session_exchange?ticket=<opaque_ticket>`
    - Setzt das Sitzungs-Cookie (wenn `COOKIE_DOMAIN` konfiguriert ist, setzt auf die angegebene Domain)
    - Weiterleitung zum Root-Pfad `/`
 
@@ -270,7 +270,7 @@ Wenn Warden- und Herald-Integrationen aktiviert sind, kann OTP-Authentifizierung
    - Setzt Sitzungs-Cookie
 
 5. **Sitzungsaustausch**
-   - Wenn Callback vorhanden ist, Weiterleitung zu `{callback}/_session_exchange?id=<session_id>`
+   - Wenn Callback vorhanden ist, Weiterleitung zu `{callback}/_session_exchange?ticket=<opaque_ticket>`
    - Nachfolgender forwardAuth überprüft nur Stargate-Sitzung, stellt hohe Leistung sicher
 
 ## Sicherheitsüberlegungen

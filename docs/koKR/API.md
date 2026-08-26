@@ -146,7 +146,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 응답은 콜백 존재 여부와 요청 타입에 따라 다릅니다:
 
 1. **콜백 있음**:
-   - `{callback}/_session_exchange?id={session_id}`로 리디렉션
+   - `{callback}/_session_exchange?ticket={opaque_ticket}`로 리디렉션
    - 상태 코드: `302 Found`
 
 2. **콜백 없음**:
@@ -155,8 +155,7 @@ curl http://auth.example.com/_login?callback=app.example.com
      ```json
      {
        "success": true,
-       "message": "Login successful",
-       "session_id": "<session_id>"
+       "message": "Login successful"
      }
      ```
 
@@ -275,7 +274,7 @@ curl -X POST \
 
 ## 로그아웃 엔드포인트
 
-### `GET /_logout`
+### `POST /_logout`
 
 현재 사용자를 로그아웃하고 세션을 파괴합니다.
 
@@ -295,14 +294,14 @@ Logged out
 #### 예제
 
 ```bash
-curl -b cookies.txt http://auth.example.com/_logout
+curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
 ## 세션 교환 엔드포인트
 
 ### `GET /_session_exchange`
 
-크로스 도메인 세션 공유에 사용됩니다. 지정된 세션 ID의 Cookie를 설정하고 루트 경로로 리디렉션합니다.
+크로스 도메인 세션 공유에 사용됩니다. 수명이 짧고 대상 도메인에 바인딩된 암호화 티켓을 교환하고 인증된 세션을 확인한 뒤 Cookie를 설정하고 루트 경로로 리디렉션합니다.
 
 이 엔드포인트는 주로 여러 도메인/하위 도메인 간에 인증 세션을 공유하는 데 사용됩니다. 사용자가 한 도메인에 로그인한 후, 이 엔드포인트를 사용하여 다른 도메인에 세션 Cookie를 설정할 수 있습니다.
 
@@ -310,7 +309,7 @@ curl -b cookies.txt http://auth.example.com/_logout
 
 | 매개변수 | 타입 | 필수 | 설명 |
 |----------|------|------|------|
-| `id` | String | 예 | 설정할 세션 ID |
+| `ticket` | String | 예 | 로그인 후 반환되며 대상 도메인에 바인딩된 교환 티켓 |
 
 #### 응답
 
@@ -326,7 +325,8 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 
 | 상태 코드 | 설명 | 응답 본문 |
 |-----------|------|-----------|
-| `400 Bad Request` | 세션 ID 누락 | 오류 메시지 |
+| `400 Bad Request` | 티켓 누락 | 오류 메시지 |
+| `401 Unauthorized` | 티켓이 유효하지 않거나 만료, 재사용 또는 다른 도메인용임 | 오류 메시지 |
 
 #### Cookie 도메인
 
@@ -335,14 +335,14 @@ Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Do
 #### 예제
 
 ```bash
-# 세션 Cookie 설정 (크로스 도메인 시나리오용)
-curl "http://auth.example.com/_session_exchange?id=<session_id>"
+# 티켓이 바인딩된 콜백 도메인에서 교환
+curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 ```
 
 **일반적인 사용 시나리오:**
 
 1. 사용자가 `auth.example.com`에 로그인
-2. 로그인 성공 후, `app.example.com/_session_exchange?id=<session_id>`로 리디렉션
+2. 로그인 성공 후, `app.example.com/_session_exchange?ticket=<opaque_ticket>`로 리디렉션
 3. 세션 Cookie가 `.example.com` 도메인에 설정됩니다 (`COOKIE_DOMAIN=.example.com`이 설정된 경우)
 4. `app.example.com/`로 리디렉션
 5. 사용자는 모든 하위 도메인 `*.example.com`에서 이 세션을 사용할 수 있습니다
@@ -428,7 +428,7 @@ Error message
 4. 인증되지 않은 경우, `https://auth.example.com/_login?callback=app.example.com`로 리디렉션
 5. 사용자가 비밀번호를 입력하고 제출
 6. Stargate가 비밀번호를 검증하고 세션을 생성하여 Cookie 설정
-7. `https://app.example.com/_session_exchange?id=<session_id>`로 리디렉션
+7. `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`로 리디렉션
 8. 세션 Cookie가 `app.example.com` 도메인에 설정됩니다
 9. 사용자가 다시 보호된 리소스에 액세스하고 인증이 성공합니다
 

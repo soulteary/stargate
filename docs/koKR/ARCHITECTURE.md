@@ -239,8 +239,8 @@ Stargate는 인증 기능을 확장하기 위한 선택적 서비스 통합을 �
      4. 위의 항목이 없고 원본 도메인이 인증 서비스 도메인과 다른 경우, 원본 도메인을 콜백으로 사용
 
 3. **세션 교환**
-   - 콜백이 있는 경우, `{callback}/_session_exchange?id=<session_id>`로 리디렉션합니다
-   - `GET /_session_exchange?id=<session_id>`
+   - 콜백이 있는 경우, `{callback}/_session_exchange?ticket=<opaque_ticket>`로 리디렉션합니다
+   - `GET /_session_exchange?ticket=<opaque_ticket>`
    - 세션 Cookie를 설정합니다 (`COOKIE_DOMAIN`이 설정된 경우, 지정된 도메인에 설정)
    - 루트 경로 `/`로 리디렉션합니다
 
@@ -270,7 +270,7 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
    - 세션 Cookie를 설정합니다
 
 5. **세션 교환**
-   - 콜백이 있는 경우, `{callback}/_session_exchange?id=<session_id>`로 리디렉션합니다
+   - 콜백이 있는 경우, `{callback}/_session_exchange?ticket=<opaque_ticket>`로 리디렉션합니다
    - 후속 forwardAuth는 Stargate 세션만 검증하여 고성능을 보장합니다
 
 ## 보안 고려 사항

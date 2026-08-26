@@ -167,7 +167,7 @@ Login processing retrieves the callback in the following priority order:
 The response varies depending on whether there is a callback and the request type:
 
 1. **With callback**:
-   - Redirects to `{callback}/_session_exchange?id={session_id}`
+   - Redirects to `{callback}/_session_exchange?ticket={opaque_ticket}`
    - Status code: `302 Found`
 
 2. **Without callback**:
@@ -176,8 +176,7 @@ The response varies depending on whether there is a callback and the request typ
      ```json
      {
        "success": true,
-       "message": "Login successful",
-       "session_id": "<session_id>"
+       "message": "Login successful"
      }
      ```
 
@@ -316,7 +315,7 @@ curl -X POST \
 
 ## Logout Endpoint
 
-### `GET /_logout`
+### `POST /_logout`
 
 Logs out the current user and destroys the session.
 
@@ -336,7 +335,7 @@ The session cookie will be cleared.
 #### Example
 
 ```bash
-curl -b cookies.txt http://auth.example.com/_logout
+curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
 ## Session Exchange Endpoint
@@ -393,9 +392,9 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`), Stargate provides TOTP (authenticator app) bind/unbind and verification as part of login. These endpoints require an authenticated session.
 
-### `GET /totp/enroll`
+### `POST /totp/enroll`
 
-Displays the TOTP bind page. User can scan QR code and submit a 6-digit code to complete binding.
+Starts enrollment and displays the TOTP bind page. POST prevents cross-site navigation from creating enrollment state.
 
 - **Authentication**: Required (session cookie). Unauthenticated users are redirected to `/_login`.
 - **Response**: 200 OK with enrollment page HTML; or 302 to `/_login` if not authenticated; or 400/503 on configuration or Herald errors.
@@ -420,6 +419,7 @@ Displays the TOTP unbind confirmation page.
 Confirms TOTP unbind (removes TOTP from the account).
 
 - **Authentication**: Required (session cookie).
+- **Request Body**: `password` or a valid current TOTP `code` is required to prove recent authentication.
 - **Response**: Success redirects or returns OK; failure returns error.
 
 **Notes:** TOTP creation and verification are performed by Herald (which may proxy to herald-totp). Stargate only orchestrates the UI and session; it does not implement OTP algorithms.
@@ -530,7 +530,7 @@ Error messages support internationalization, returning Chinese or English messag
 3. Redirects to `https://auth.example.com/_login?callback=app.example.com`
 4. User enters password and submits `POST /_login` (`auth_method=password`)
 5. Stargate verifies password, creates session, sets cookie
-6. Redirects to `https://app.example.com/_session_exchange?id=<session_id>`
+6. Redirects to `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 7. Session cookie is set to the `app.example.com` domain
 8. User accesses protected resource again, forwardAuth verifies session, authentication succeeds
 
@@ -547,7 +547,7 @@ Error messages support internationalization, returning Chinese or English messag
 9. **Stargate → Herald**: verify(challenge_id, code)
 10. Herald returns ok + user_id (+ optional amr/authentication strength)
 11. Stargate issues session (cookie/JWT), gets user information from Warden and writes to session claims
-12. Redirects to `https://app.example.com/_session_exchange?id=<session_id>`
+12. Redirects to `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 13. Session cookie is set to the `app.example.com` domain
 14. User accesses protected resource again, forwardAuth **only verifies Stargate session**, does not trigger Warden/Herald
 

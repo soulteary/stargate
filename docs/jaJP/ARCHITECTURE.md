@@ -239,8 +239,8 @@ Stargateは認証機能を拡張するためのオプションサービス統合
      4. 上記のいずれもなく、元のドメインが認証サービスドメインと異なる場合、元のドメインをコールバックとして使用
 
 3. **セッション交換**
-   - コールバックが存在する場合、`{callback}/_session_exchange?id=<session_id>` にリダイレクト
-   - `GET /_session_exchange?id=<session_id>`
+   - コールバックが存在する場合、`{callback}/_session_exchange?ticket=<opaque_ticket>` にリダイレクト
+   - `GET /_session_exchange?ticket=<opaque_ticket>`
    - セッションCookieを設定（`COOKIE_DOMAIN` が設定されている場合、指定されたドメインに設定）
    - ルートパス `/` にリダイレクト
 
@@ -270,7 +270,7 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
    - セッションCookieを設定
 
 5. **セッション交換**
-   - コールバックが存在する場合、`{callback}/_session_exchange?id=<session_id>` にリダイレクト
+   - コールバックが存在する場合、`{callback}/_session_exchange?ticket=<opaque_ticket>` にリダイレクト
    - 後続のforwardAuthはStargateセッションのみを検証し、高性能を保証
 
 ## セキュリティの考慮事項

@@ -322,7 +322,7 @@ services:
 
 3. Login flow:
    - User logs in at `auth.example.com`
-   - Redirects to `app.example.com/_session_exchange?id=<session_id>`
+   - Redirects to `app.example.com/_session_exchange?ticket=<opaque_ticket>`
    - Session cookie is set to the `.example.com` domain
    - All `*.example.com` subdomains can use this session
 
