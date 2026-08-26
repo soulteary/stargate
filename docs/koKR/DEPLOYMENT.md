@@ -92,8 +92,8 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### 빌드 매개변수
 
-- **베이스 이미지**: `golang:1.26.6-alpine3.23` (빌드 단계)
-- **실행 이미지**: `alpine:3.23` (CA 인증서와 HTTPS·헬스 체크용 BusyBox `wget` 포함)
+- **베이스 이미지**: `golang:1.27.0-alpine3.24` (빌드 단계)
+- **실행 이미지**: `alpine:3.24` (CA 인증서와 HTTPS·헬스 체크용 BusyBox `wget` 포함)
 - **작업 디렉토리**: `/app`
 - **공개 포트**: `8080`
 
