@@ -1,6 +1,6 @@
 services:
   stargate: # Your Stargate forward auth service
-    image: ghcr.io/soulteary/stargate:latest
+    image: ghcr.io/soulteary/stargate:v0.12.0
     # Local development port mapping: host port 8080 -> container port 8080
     # Purpose: Direct access to service during local development without traefik
     # Production: Uses port 8080 via traefik proxy (not mapped to host)
@@ -14,6 +14,19 @@ services:
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
       - COOKIE_SECURE=false # Local HTTP only. Keep the default true in HTTPS deployments.
       - PORT=8080
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
     networks:
       - traefik
     labels:
@@ -24,7 +37,7 @@ services:
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
 
   whoami: # A demo whoami service that is protected with Stargate
-    image: traefik/whoami
+    image: traefik/whoami:v1.11.0
     networks:
       - traefik
     labels:
