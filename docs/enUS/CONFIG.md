@@ -55,6 +55,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `TRUSTED_PROXIES` | comma-separated IPs/CIDRs | empty | No |
 | `PROXY_HEADER` | HTTP header name | X-Forwarded-For | No |
 | `COOKIE_DOMAIN` | String | empty | No |
+| `COOKIE_SECURE` | true/false | true | No |
 | `CALLBACK_ALLOWED_HOSTS` | comma-separated hosts | empty | No |
 | `SESSION_EXCHANGE_SECRET` | Secret string (32+ chars) | empty | No |
 | `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | No |
@@ -312,8 +313,17 @@ After setting `COOKIE_DOMAIN=.example.com`:
 
 **Cookie and session behavior (current implementation)**:
 - **Session expiration**: Fixed to 24 hours in code; there is no `SESSION_TTL` (or similar) env variable.
-- **Cookie Secure**: Set from request protocol (e.g. `X-Forwarded-Proto: https`); there is no `COOKIE_SECURE` env variable.
+- **Cookie Secure**: Controlled by `COOKIE_SECURE` and enabled by default. Set it to `false` only for local HTTP development.
 - **Cookie SameSite**: Fixed to `Lax`; there is no `COOKIE_SAME_SITE` env variable.
+
+### `COOKIE_SECURE`
+
+Controls the `Secure` attribute on session and session-exchange cookies. The default `true` is appropriate for HTTPS deployments. Plain HTTP browsers will not return a Secure cookie, so the provided local Compose file and `start-local.sh` explicitly set `COOKIE_SECURE=false`.
+
+```bash
+# Local HTTP development only
+COOKIE_SECURE=false
+```
 
 ### `CALLBACK_ALLOWED_HOSTS`
 

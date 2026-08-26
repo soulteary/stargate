@@ -55,6 +55,7 @@ services:
 | `TRUSTED_PROXIES` | 逗号分隔的 IP/CIDR | 空 | 否 |
 | `PROXY_HEADER` | HTTP 头名称 | X-Forwarded-For | 否 |
 | `COOKIE_DOMAIN` | String | 空 | 否 |
+| `COOKIE_SECURE` | true/false | true | 否 |
 | `CALLBACK_ALLOWED_HOSTS` | 逗号分隔的主机名 | 空 | 否 |
 | `SESSION_EXCHANGE_SECRET` | 密钥字符串（至少 32 字符） | 空 | 否 |
 | `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | 否 |
@@ -312,8 +313,17 @@ COOKIE_DOMAIN=.example.com
 
 **Cookie 与会话行为说明（当前实现）**：
 - **会话过期时间**：由代码内常量固定为 24 小时，暂无 `SESSION_TTL` 等环境变量可配置。
-- **Cookie Secure**：根据请求协议（如 `X-Forwarded-Proto: https`）自动设置，暂无 `COOKIE_SECURE` 环境变量。
+- **Cookie Secure**：由 `COOKIE_SECURE` 控制，默认启用。仅在本地 HTTP 开发环境中设置为 `false`。
 - **Cookie SameSite**：固定为 `Lax`，暂无 `COOKIE_SAME_SITE` 环境变量。
+
+### `COOKIE_SECURE`
+
+控制会话 Cookie 与会话交换 Cookie 的 `Secure` 属性。默认值 `true` 适用于 HTTPS 部署。浏览器不会通过纯 HTTP 返回 Secure Cookie，因此仓库提供的本地 Compose 和 `start-local.sh` 会显式设置 `COOKIE_SECURE=false`。
+
+```bash
+# 仅用于本地 HTTP 开发
+COOKIE_SECURE=false
+```
 
 ### `CALLBACK_ALLOWED_HOSTS`
 

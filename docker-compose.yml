@@ -10,6 +10,9 @@ services:
     environment:
       - AUTH_HOST=auth.test.localhost # Replace with your auth host (e.g.: auth.example.com).
       - PASSWORDS=plaintext:test1234|test1337 # Replace with your passwords. See the docs for more info.
+      - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
+      - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
+      - COOKIE_SECURE=false # Local HTTP only. Keep the default true in HTTPS deployments.
       - PORT=8080
     networks:
       - traefik

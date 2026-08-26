@@ -37,7 +37,7 @@ export COOKIE_DOMAIN=.example.com
 export TRUSTED_PROXIES=10.20.0.10
 ```
 
-**说明**：当前实现中 Cookie 的 Secure 由 `X-Forwarded-Proto` 等请求头推断，SameSite 固定为 `Lax`；未提供 `COOKIE_SECURE`、`COOKIE_SAME_SITE`、`SESSION_TTL` 等环境变量，详见 [CONFIG.md](CONFIG.md)。
+**说明**：Cookie Secure 默认启用，并可通过 `COOKIE_SECURE` 配置；SameSite 仍固定为 `Lax`。当前未提供 `COOKIE_SAME_SITE`、`SESSION_TTL`，详见 [CONFIG.md](CONFIG.md)。
 
 ### 2. 密码安全
 
@@ -63,7 +63,7 @@ export TRUSTED_PROXIES=10.20.0.10
 
 **会话配置**（以当前实现为准，完整配置项见 [CONFIG.md](CONFIG.md)）:
 - **Cookie 域名**: 设置 `COOKIE_DOMAIN` 以在子域之间共享会话
-- **Secure 标志**: 由反向代理/请求协议（如 `X-Forwarded-Proto: https`）推断，暂无 `COOKIE_SECURE` 环境变量
+- **Secure 标志**: 默认通过 `COOKIE_SECURE=true` 启用；仅本地 HTTP 开发环境可关闭
 - **SameSite**: 当前固定为 `Lax`，暂无 `COOKIE_SAME_SITE` 环境变量
 - **HttpOnly**: Cookie 自动设置为 HttpOnly 以防止 XSS 攻击
 - **过期时间**: 当前为代码内固定 24 小时，暂无 `SESSION_TTL` 环境变量

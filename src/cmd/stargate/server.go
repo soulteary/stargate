@@ -83,6 +83,7 @@ func setupSessionStore() (*fibersession.Store, *redis.Client) {
 		WithExpiration(config.SessionExpiration).
 		WithCookieName(auth.SessionCookieName).
 		WithCookiePath("/").
+		WithSecure(config.CookieSecure.ToBool()).
 		WithHTTPOnly(true).
 		WithSameSite("Lax")
 

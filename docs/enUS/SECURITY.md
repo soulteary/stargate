@@ -37,7 +37,7 @@ export COOKIE_DOMAIN=.example.com
 export TRUSTED_PROXIES=10.20.0.10
 ```
 
-**Note**: In the current implementation, Cookie Secure is inferred from headers such as `X-Forwarded-Proto`; SameSite is fixed to `Lax`. The env vars `COOKIE_SECURE`, `COOKIE_SAME_SITE`, and `SESSION_TTL` are not implemented. See [CONFIG.md](CONFIG.md).
+**Note**: Cookie Secure is enabled by default and configurable through `COOKIE_SECURE`; SameSite remains fixed to `Lax`. `COOKIE_SAME_SITE` and `SESSION_TTL` are not implemented. See [CONFIG.md](CONFIG.md).
 
 ### 2. Password Security
 
@@ -63,7 +63,7 @@ export TRUSTED_PROXIES=10.20.0.10
 
 **Session Configuration** (per current implementation; full options in [CONFIG.md](CONFIG.md)):
 - **Cookie Domain**: Set `COOKIE_DOMAIN` to share sessions across subdomains
-- **Secure Flag**: Inferred from reverse proxy/request protocol (e.g. `X-Forwarded-Proto: https`); no `COOKIE_SECURE` env var
+- **Secure Flag**: Enabled by default through `COOKIE_SECURE=true`; disable only for local HTTP development
 - **SameSite**: Fixed to `Lax`; no `COOKIE_SAME_SITE` env var
 - **HttpOnly**: Cookies are automatically HttpOnly to prevent XSS attacks
 - **Expiration**: Fixed to 24 hours in code; no `SESSION_TTL` env var
