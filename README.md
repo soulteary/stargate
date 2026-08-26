@@ -117,7 +117,7 @@ docker-compose up -d
 
 ### Local Development
 
-For local development, ensure Go 1.26+ is installed, then:
+For local development, ensure Go 1.27+ is installed, then:
 
 ```bash
 chmod +x start-local.sh
