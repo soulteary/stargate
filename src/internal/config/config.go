@@ -398,6 +398,9 @@ func Initialize(l *logger.Logger) error {
 	if !WardenEnabled.ToBool() && Passwords.Value == "" {
 		return NewValidationError(Passwords.Name, i18n.TStatic("error.config_required_not_set"), Passwords.PossibleValues)
 	}
+	if StepUpEnabled.ToBool() && Passwords.Value == "" {
+		return NewValidationError(StepUpEnabled.Name, "requires PASSWORDS for re-authentication", StepUpEnabled.PossibleValues)
+	}
 
 	// Log language setting
 	if Language.Value != "" {

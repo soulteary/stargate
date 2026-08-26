@@ -14,6 +14,8 @@ const (
 	RouteSessionExchange = "/_session_exchange"
 	// RouteAuth is the authentication check route
 	RouteAuth = "/_auth"
+	// RouteStepUp is the additional authentication route
+	RouteStepUp = "/_step_up"
 	// RouteHealth is the health check route
 	RouteHealth = "/health"
 
