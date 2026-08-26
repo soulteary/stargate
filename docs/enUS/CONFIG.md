@@ -320,7 +320,7 @@ Encryption key for short-lived session exchange tickets. Configure at least 32 r
 SESSION_EXCHANGE_SECRET=<at-least-32-random-characters>
 ```
 
-The value is never logged. Without it, session exchange requests fail closed.
+The value is never logged. Without it, session exchange requests fail closed. When Redis session storage is enabled, consumed ticket hashes are also stored in Redis with their remaining lifetime so replay protection is shared by every Stargate replica. In-memory deployments enforce single use only within one process.
 
 ### `PORT`
 

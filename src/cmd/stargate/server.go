@@ -186,7 +186,7 @@ func setupHealthChecker(redisClient *redis.Client) *health.Aggregator {
 
 // setupRoutes registers all HTTP routes for the application.
 // This includes authentication, login, logout, session exchange, and health check endpoints.
-func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *health.Aggregator) {
+func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *health.Aggregator, replayStore handlers.SessionExchangeReplayStore) {
 	log.Debug().Msg("Registering routes")
 	// Initialize ForwardAuth handler
 	handlers.InitForwardAuthHandler(log)
@@ -204,7 +204,7 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	app.Get("/totp/revoke", handlers.TOTPRevokeRoute(store))
 	app.Post("/totp/revoke", sameOrigin, handlers.VerificationRateLimit(), handlers.TOTPRevokeConfirmAPI(store))
 	app.Post(RouteLogout, sameOrigin, handlers.LogoutRoute(store))
-	app.Get(RouteSessionExchange, handlers.SessionShareRoute(store))
+	app.Get(RouteSessionExchange, handlers.SessionShareRoute(store, replayStore))
 	app.Get(RouteAuth, handlers.CheckRoute(store))
 	app.Get(RouteStepUp, handlers.StepUpRoute(store))
 	app.Post(RouteStepUp, sameOrigin, handlers.LoginRateLimit(), handlers.StepUpAPI(store))
@@ -329,8 +329,9 @@ func createApp() *fiber.App {
 	setupMiddleware(app)
 	store, redisClient := setupSessionStore()
 	healthAggregator := setupHealthChecker(redisClient)
+	replayStore := handlers.NewSessionExchangeReplayStore(redisClient)
 
-	setupRoutes(app, store, healthAggregator)
+	setupRoutes(app, store, healthAggregator, replayStore)
 	setupStaticFiles(app)
 
 	return app

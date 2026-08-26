@@ -18,7 +18,11 @@ import (
 //   - ticket: encrypted, short-lived, single-use session exchange ticket
 //
 // Returns a Fiber handler function.
-func SessionShareRoute(store *session.Store) func(c *fiber.Ctx) error {
+func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeReplayStore) func(c *fiber.Ctx) error {
+	replayStore := defaultSessionExchangeReplayStore
+	if len(replayStores) > 0 && replayStores[0] != nil {
+		replayStore = replayStores[0]
+	}
 	// Create session config for cookie creation
 	sessionConfig := sessionkit.DefaultConfig().
 		WithCookieName(auth.SessionCookieName).
@@ -32,7 +36,7 @@ func SessionShareRoute(store *session.Store) func(c *fiber.Ctx) error {
 		if ticket == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.missing_session_id"))
 		}
-		sessionID, err := consumeSessionExchangeTicket(ticket, GetForwardedHost(ctx))
+		sessionID, err := consumeSessionExchangeTicketWithStore(ctx.Context(), ticket, GetForwardedHost(ctx), replayStore)
 		if err != nil {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "invalid session exchange ticket")
 		}
