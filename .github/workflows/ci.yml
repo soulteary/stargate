@@ -94,7 +94,7 @@ jobs:
 
       - name: 启动测试用 Redis
         run: |
-          docker run -d --name stargate-redis-test -p 6379:6379 redis:8-alpine
+          docker run -d --name stargate-redis-test -p 6379:6379 redis:8.2.1-alpine3.22
           echo "等待 Redis 就绪..."
           for i in $(seq 1 30); do
             if docker exec stargate-redis-test redis-cli ping 2>/dev/null | grep -q PONG; then
