@@ -16,13 +16,16 @@ func setupRefreshTest(t *testing.T) {
 	originalEnabled := config.AuthRefreshEnabled.Value
 	originalInterval := config.AuthRefreshInterval.Value
 	originalLookup := lookupRefreshUser
+	originalWardenEnabled := config.WardenEnabled.Value
 	t.Cleanup(func() {
 		config.AuthRefreshEnabled.Value = originalEnabled
 		config.AuthRefreshInterval.Value = originalInterval
 		lookupRefreshUser = originalLookup
+		config.WardenEnabled.Value = originalWardenEnabled
 	})
 	config.AuthRefreshEnabled.Value = "true"
 	config.AuthRefreshInterval.Value = "1s"
+	config.WardenEnabled.Value = "true"
 }
 
 func TestAuthRefreshRejectsMissingOrDisabledUser(t *testing.T) {
@@ -70,4 +73,39 @@ func TestAuthRefreshReplacesRevokedAuthorization(t *testing.T) {
 	testza.AssertTrue(t, refreshed)
 	testza.AssertEqual(t, "viewer", sess.Get("user_role"))
 	testza.AssertEqual(t, []string{"read"}, sess.Get("user_scope"))
+}
+
+func TestAuthRefreshSkipsAnonymousSession(t *testing.T) {
+	setupRefreshTest(t)
+	store := setupTestStore()
+	ctx, app := createTestContext("GET", "/_auth", nil, "")
+	defer app.ReleaseCtx(ctx)
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	lookupCalled := false
+	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
+		lookupCalled = true
+		return nil
+	}
+
+	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
+	testza.AssertNoError(t, err)
+	testza.AssertFalse(t, refreshed)
+	testza.AssertFalse(t, lookupCalled)
+}
+
+func TestAuthRefreshSkipsStandaloneSession(t *testing.T) {
+	setupRefreshTest(t)
+	config.WardenEnabled.Value = "false"
+
+	store := setupTestStore()
+	ctx, app := createTestContext("GET", "/_auth", nil, "")
+	defer app.ReleaseCtx(ctx)
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertNoError(t, auth.Authenticate(sess))
+
+	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
+	testza.AssertNoError(t, err)
+	testza.AssertFalse(t, refreshed)
 }

@@ -85,7 +85,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `STEP_UP_PATHS` | comma-separated paths | empty | No |
 | `OTLP_ENABLED` | true/false | false | No |
 | `OTLP_ENDPOINT` | String | empty | No |
-| `AUTH_REFRESH_ENABLED` | true/false | false | No |
+| `AUTH_REFRESH_ENABLED` | true/false | true | No |
 | `AUTH_REFRESH_INTERVAL` | duration | 5m | No |
 
 ## Required Configuration
@@ -1117,7 +1117,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
   - When `STEP_UP_ENABLED=true`, use `STEP_UP_PATHS` to define paths that require a second factor
 
 - **Auth Refresh**:
-  - When `AUTH_REFRESH_ENABLED=true`, Warden must be enabled (`WARDEN_ENABLED=true`); use `AUTH_REFRESH_INTERVAL` to tune refresh interval
+  - Authorization refresh is enabled by default for Warden sessions; it is a no-op in standalone password mode. Use `AUTH_REFRESH_INTERVAL` to tune the refresh interval or set `AUTH_REFRESH_ENABLED=false` only when delayed revocation is acceptable.
 
 - **Warden + Herald Combined Usage** (Optional):
   - When OTP authentication is needed, can optionally enable both Warden and Herald

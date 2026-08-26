@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 	forwardauth "github.com/soulteary/forwardauth-kit"
+	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/tracing-kit"
@@ -87,9 +88,12 @@ func CheckRoute(store SessionStoreForCheck) func(c *fiber.Ctx) error {
 			tracing.RecordError(forwardAuthSpan, err)
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
-		refreshed, err := refreshAuthorizationIfNeeded(spanCtx, sess)
-		if err != nil {
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
+		refreshed := false
+		if auth.IsAuthenticated(sess) {
+			refreshed, err = refreshAuthorizationIfNeeded(spanCtx, sess)
+			if err != nil {
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
+			}
 		}
 		if requiresStepUp(ctx, sess) {
 			return redirectToStepUp(ctx)
