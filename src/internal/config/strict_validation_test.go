@@ -92,11 +92,15 @@ func TestValidateStrictSettingsRejectsPaddedRedisDB(t *testing.T) {
 }
 
 func TestValidateStrictSettingsRejectsIPCallbackHost(t *testing.T) {
-	setValidStrictTestValues(t)
-	CallbackAllowedHosts.Value = "127.0.0.1"
-	SessionExchangeSecret.Value = "0123456789abcdef0123456789abcdef"
+	for _, host := range []string{"127.0.0.1", "127.0.0.1."} {
+		t.Run(host, func(t *testing.T) {
+			setValidStrictTestValues(t)
+			CallbackAllowedHosts.Value = host
+			SessionExchangeSecret.Value = "0123456789abcdef0123456789abcdef"
 
-	err := validateStrictSettings()
-	testza.AssertNotNil(t, err)
-	testza.AssertEqual(t, CallbackAllowedHosts.Name, err.(*ValidationError).KeyName)
+			err := validateStrictSettings()
+			testza.AssertNotNil(t, err)
+			testza.AssertEqual(t, CallbackAllowedHosts.Name, err.(*ValidationError).KeyName)
+		})
+	}
 }
