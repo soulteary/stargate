@@ -446,6 +446,6 @@ I messaggi di errore supportano l'internazionalizzazione, restituendo messaggi i
 
 1. **Tempo di scadenza sessione**: Predefinito 24 ore, richiede nuovo login dopo scadenza
 2. **Sicurezza cookie**: Tutti i cookie sono impostati con i flag `HttpOnly` e `SameSite=Lax`
-3. **Verifica password**: Le password sono normalizzate prima della verifica (rimuovere spazi, convertire in maiuscolo)
+3. **Verifica password**: Le password sono valori opachi e distinguono maiuscole, minuscole e spazi
 4. **Supporto più password**: Più password possono essere configurate, qualsiasi password che passa la verifica è accettabile
 5. **Sessioni cross-domain**: La variabile d'ambiente `COOKIE_DOMAIN` deve essere configurata per abilitare la condivisione sessione cross-domain
