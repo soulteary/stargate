@@ -344,7 +344,7 @@ CALLBACK_ALLOWED_HOSTS=app.example.com,admin.example.com
 
 ### `SESSION_EXCHANGE_SECRET`
 
-用于加密短时会话交换票据。回调需要使用 `/_session_exchange` 时，应配置至少 32 个随机字符；所有 Stargate 副本必须使用同一个值。
+用于加密短时会话交换票据。当 `COOKIE_DOMAIN` 或 `CALLBACK_ALLOWED_HOSTS` 启用跨域回调时必须配置，且至少包含 32 个随机字符；所有 Stargate 副本必须使用同一个值。
 
 ```bash
 SESSION_EXCHANGE_SECRET=<至少-32-个随机字符>
@@ -1214,3 +1214,14 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 7. **性能优化**：
    - 设置 `WARDEN_CACHE_TTL` 以减少对 Warden 的请求
    - 根据实际需求调整缓存时间
+
+## 旧版密码请求头认证
+
+`Stargate-Password` 认证默认关闭。仅在需要兼容受信任的旧客户端时显式启用：
+
+```bash
+PASSWORD_HEADER_AUTH_ENABLED=true
+PASSWORDS=bcrypt:<哈希>
+```
+
+该请求头属于凭据：必须使用 HTTPS、配置限流，并让反向代理在转发到后端前删除 `Stargate-Password`。浏览器认证仍推荐使用 Cookie 会话。
