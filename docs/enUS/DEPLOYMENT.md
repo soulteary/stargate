@@ -93,7 +93,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 #### Build Parameters
 
 - **Base Image**: `golang:1.26.5-alpine3.23` (build stage)
-- **Runtime Image**: `alpine:3.23` (runtime stage; includes curl for health checks)
+- **Runtime Image**: `alpine:3.23` (runtime stage; includes CA certificates and BusyBox `wget` for HTTPS and health checks)
 - **Working Directory**: `/app`
 - **Exposed Port**: `80`
 
@@ -380,7 +380,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -411,7 +411,7 @@ Add a load balancer before Traefik:
 services:
   traefik:
     labels:
-      - "traefik.http.services.stargate.loadbalancer.server.port=80"
+      - "traefik.http.services.stargate.loadbalancer.server.port=8080"
 ```
 
 ### Monitoring Configuration
