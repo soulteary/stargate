@@ -92,10 +92,10 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### Build Parameters
 
-- **Base Image**: `golang:1.26.5-alpine3.23` (build stage)
+- **Base Image**: `golang:1.26.6-alpine3.23` (build stage)
 - **Runtime Image**: `alpine:3.23` (runtime stage; includes CA certificates and BusyBox `wget` for HTTPS and health checks)
 - **Working Directory**: `/app`
-- **Exposed Port**: `80`
+- **Exposed Port**: `8080`
 
 ### Run Container
 
@@ -589,7 +589,7 @@ DEBUG=true
 
 ```bash
 # Test from inside container
-docker exec stargate wget -q -O - http://localhost:8080/healthz
+docker exec stargate wget -q -O - http://127.0.0.1:8080/healthz
 ```
 
 #### 3. View Traefik Logs
