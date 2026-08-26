@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net"
 	"strings"
 	"time"
 
@@ -80,6 +81,24 @@ var (
 		return v.Value != ""
 	}
 	ValidateAny = func(v EnvVariable) bool {
+		return true
+	}
+	ValidateIPOrCIDRList = func(v EnvVariable) bool {
+		if strings.TrimSpace(v.Value) == "" {
+			return true
+		}
+		for _, value := range strings.Split(v.Value, ",") {
+			value = strings.TrimSpace(value)
+			if value == "" {
+				return false
+			}
+			if net.ParseIP(value) != nil {
+				continue
+			}
+			if _, _, err := net.ParseCIDR(value); err != nil {
+				return false
+			}
+		}
 		return true
 	}
 	ValidateStrictPossibleValues = func(v EnvVariable) bool {

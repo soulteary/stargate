@@ -32,6 +32,14 @@ func setupTestConfig(t *testing.T) {
 	testza.AssertNoError(t, err)
 }
 
+func TestParseTrustedProxies(t *testing.T) {
+	original := config.TrustedProxies.Value
+	t.Cleanup(func() { config.TrustedProxies.Value = original })
+	config.TrustedProxies.Value = "127.0.0.1, 10.0.0.0/8,::1"
+
+	testza.AssertEqual(t, []string{"127.0.0.1", "10.0.0.0/8", "::1"}, parseTrustedProxies())
+}
+
 // ensureTestWorkingDir ensures tests run from the project root directory
 // where the src/internal/web/templates path exists
 func ensureTestWorkingDir(t *testing.T) {

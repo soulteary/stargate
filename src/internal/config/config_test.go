@@ -407,6 +407,7 @@ func TestInitialize_AllConfigVariables(t *testing.T) {
 func TestInitialize_WithDefaults(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("TRUSTED_PROXIES", "")
 	// Don't set optional variables to test defaults
 
 	err := Initialize(testLogger())
@@ -416,8 +417,18 @@ func TestInitialize_WithDefaults(t *testing.T) {
 	testza.AssertEqual(t, "Stargate - Login", LoginPageTitle.Value)
 	testza.AssertEqual(t, "Copyright © 2024 - Stargate", LoginPageFooterText.Value)
 	testza.AssertEqual(t, "X-Forwarded-User", UserHeaderName.Value)
+	testza.AssertEqual(t, "", TrustedProxies.Value)
+	testza.AssertEqual(t, "X-Forwarded-For", ProxyHeader.Value)
 	testza.AssertEqual(t, "", CookieDomain.Value)
 	testza.AssertEqual(t, "en", Language.Value)
+}
+
+func TestValidateIPOrCIDRList(t *testing.T) {
+	testza.AssertTrue(t, ValidateIPOrCIDRList(EnvVariable{Value: ""}))
+	testza.AssertTrue(t, ValidateIPOrCIDRList(EnvVariable{Value: "127.0.0.1, 10.0.0.0/8, ::1"}))
+	testza.AssertFalse(t, ValidateIPOrCIDRList(EnvVariable{Value: "proxy.example.com"}))
+	testza.AssertFalse(t, ValidateIPOrCIDRList(EnvVariable{Value: "10.0.0.0/99"}))
+	testza.AssertFalse(t, ValidateIPOrCIDRList(EnvVariable{Value: "127.0.0.1,"}))
 }
 
 func TestInitialize_Language_FR(t *testing.T) {

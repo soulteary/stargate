@@ -21,25 +21,33 @@ import (
 // CallbackCookieName stores the cookie name for origin domain
 const CallbackCookieName = "stargate_callback"
 
+func trustForwardedHeaders(ctx *fiber.Ctx) bool {
+	return strings.TrimSpace(config.TrustedProxies.String()) != "" && ctx.IsProxyTrusted()
+}
+
 // GetForwardedHost returns the forwarded hostname from the request.
 // It prioritizes the X-Forwarded-Host header if present, otherwise falls back to the request's Hostname.
 //
 // This is useful when the application is behind a reverse proxy (like Traefik)
 // that forwards the original hostname via headers.
 func GetForwardedHost(ctx *fiber.Ctx) string {
-	forwardedHost := ctx.Get("X-Forwarded-Host")
-	if forwardedHost != "" {
-		return forwardedHost
+	if trustForwardedHeaders(ctx) {
+		forwardedHost := strings.TrimSpace(strings.Split(ctx.Get("X-Forwarded-Host"), ",")[0])
+		if forwardedHost != "" {
+			return forwardedHost
+		}
 	}
-	return ctx.Hostname()
+	return string(ctx.Request().URI().Host())
 }
 
 // GetForwardedURI returns the forwarded URI from the request.
 // It prioritizes the X-Forwarded-Uri header if present, otherwise falls back to the request's Path.
 func GetForwardedURI(ctx *fiber.Ctx) string {
-	forwardedURI := ctx.Get("X-Forwarded-Uri")
-	if forwardedURI != "" {
-		return forwardedURI
+	if trustForwardedHeaders(ctx) {
+		forwardedURI := ctx.Get("X-Forwarded-Uri")
+		if forwardedURI != "" {
+			return forwardedURI
+		}
 	}
 	return ctx.Path()
 }
@@ -50,11 +58,13 @@ func GetForwardedURI(ctx *fiber.Ctx) string {
 // This is useful for determining whether the original request was HTTP or HTTPS
 // when behind a reverse proxy.
 func GetForwardedProto(ctx *fiber.Ctx) string {
-	forwardedProto := strings.ToLower(strings.TrimSpace(strings.Split(ctx.Get("X-Forwarded-Proto"), ",")[0]))
-	if forwardedProto == "http" || forwardedProto == "https" {
-		return forwardedProto
+	if trustForwardedHeaders(ctx) {
+		forwardedProto := strings.ToLower(strings.TrimSpace(strings.Split(ctx.Get("X-Forwarded-Proto"), ",")[0]))
+		if forwardedProto == "http" || forwardedProto == "https" {
+			return forwardedProto
+		}
 	}
-	if strings.EqualFold(ctx.Protocol(), "https") {
+	if ctx.Context().IsTLS() {
 		return "https"
 	}
 	return "http"

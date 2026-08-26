@@ -52,6 +52,8 @@ services:
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | 否 |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | 否 |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | 否 |
+| `TRUSTED_PROXIES` | 逗号分隔的 IP/CIDR | 空 | 否 |
+| `PROXY_HEADER` | HTTP 头名称 | X-Forwarded-For | 否 |
 | `COOKIE_DOMAIN` | String | 空 | 否 |
 | `CALLBACK_ALLOWED_HOSTS` | 逗号分隔的主机名 | 空 | 否 |
 | `SESSION_EXCHANGE_SECRET` | 密钥字符串（至少 32 字符） | 空 | 否 |
@@ -260,6 +262,17 @@ LOGIN_PAGE_FOOTER_TEXT=© 2024 我的公司
 ```bash
 USER_HEADER_NAME=X-Authenticated-User
 ```
+
+### `TRUSTED_PROXIES` 与 `PROXY_HEADER`
+
+`TRUSTED_PROXIES` 用于配置反向代理来源 IP 或 CIDR 白名单。默认值为空，因此在直接来源未被信任前，Stargate 会忽略 `X-Forwarded-Host`、`X-Forwarded-Uri`、`X-Forwarded-Proto` 以及客户端 IP 转发头。`PROXY_HEADER` 指定 Fiber 解析客户端 IP 使用的头，默认是 `X-Forwarded-For`。
+
+```bash
+TRUSTED_PROXIES=10.20.0.10,10.30.0.0/24
+PROXY_HEADER=X-Forwarded-For
+```
+
+应尽量只配置明确的代理地址；反向代理必须先删除客户端提供的转发头，再写入可信值。
 
 ### `COOKIE_DOMAIN`
 
