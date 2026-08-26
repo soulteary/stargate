@@ -1,4 +1,4 @@
-FROM golang:1.26.5-alpine3.23 AS Builder
+FROM golang:1.26.6-alpine3.23 AS Builder
 RUN echo '' > /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.23/main"         >> /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.23/community"    >> /etc/apk/repositories && \
@@ -39,14 +39,15 @@ COPY --from=Builder /app/stargate /bin/stargate
 COPY --from=Builder /app/src/internal/web/templates /app/web/templates
 ENV TZ=Asia/Shanghai
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
-RUN apk add tzdata curl && \
+RUN apk add --no-cache tzdata ca-certificates && \
     addgroup -S stargate && \
     adduser -S -D -H -u 10001 -G stargate stargate && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
-    rm -rf /var/cache/apk/* && \
     chown -R stargate:stargate /app
 WORKDIR /app
 ENV PORT=8080
 USER 10001:10001
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -q -O - "http://127.0.0.1:${PORT:-8080}/healthz" >/dev/null || exit 1
 CMD ["stargate"]
