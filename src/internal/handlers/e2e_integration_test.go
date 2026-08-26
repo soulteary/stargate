@@ -36,6 +36,11 @@ func testLoggerE2E() *logger.Logger {
 
 // setupTestRedis creates a test Redis client using redis-kit
 func setupTestRedis(t *testing.T) *redis.Client {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("requires Redis integration service")
+	}
+
 	cfg := client.DefaultConfig().
 		WithAddr("localhost:6379").
 		WithDB(14) // Use DB 14 for integration testing

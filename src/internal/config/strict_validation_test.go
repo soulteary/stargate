@@ -53,9 +53,9 @@ func TestValidateStrictSettingsRequiresCrossDomainExchangeSecret(t *testing.T) {
 
 func TestValidateStrictSettingsRejectsInvalidNumbers(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		configure func()
-		key      string
+		key       string
 	}{
 		{"port", func() { Port.Value = "70000" }, Port.Name},
 		{"cache ttl", func() { WardenCacheTTL.Value = "0" }, WardenCacheTTL.Name},

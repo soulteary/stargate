@@ -155,6 +155,7 @@ func TestCheckRoute_HeaderAuth_Valid(t *testing.T) {
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
+	InitForwardAuthHandler(testLogger())
 
 	store := setupTestStore()
 	handler := CheckRoute(store)
@@ -2142,7 +2143,6 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 	userHeader := string(ctx.Response().Header.Peek("X-Custom-User"))
 	testza.AssertEqual(t, "user1", userHeader)
 }
-
 
 func TestCheckRoute_PasswordHeaderDisabledByDefault(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")

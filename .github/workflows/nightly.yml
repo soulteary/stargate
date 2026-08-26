@@ -1,0 +1,99 @@
+name: Nightly compatibility
+
+on:
+  schedule:
+    - cron: '23 18 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  compatibility:
+    name: ${{ matrix.os }} / Go ${{ matrix.go-version }} / ${{ matrix.arch }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            go-version: 1.27.0
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            go-version: 1.27.0
+            arch: arm64
+          - os: windows-latest
+            go-version: 1.27.0
+            arch: amd64
+          - os: macos-15-intel
+            go-version: 1.27.0
+            arch: amd64
+          - os: macos-latest
+            go-version: 1.27.0
+            arch: arm64
+          - os: ubuntu-latest
+            go-version: 1.27.x
+            arch: amd64
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: Run cross-platform unit tests
+        run: go test -short ./...
+
+  docker:
+    name: Multi-architecture Docker build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
+        with:
+          platforms: arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build multi-architecture image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+          push: false
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha,scope=nightly-docker
+          cache-to: type=gha,mode=max,scope=nightly-docker
+
+  security:
+    name: Go dependency vulnerability scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.2.0
+
+      - name: Scan Go dependencies
+        run: govulncheck ./...
