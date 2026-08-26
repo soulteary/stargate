@@ -75,7 +75,11 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum * > checksums.txt
+          # Exclude checksums.txt itself: `sha256sum *` can sweep the manifest
+          # into its own listing (a self-referential line whose hash never
+          # matches the final file), which later makes `sha256sum -c` report
+          # "checksums.txt: FAILED". Hash every artifact EXCEPT the manifest.
+          sha256sum $(ls | grep -v '^checksums.txt$') > checksums.txt
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
