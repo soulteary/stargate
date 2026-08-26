@@ -31,7 +31,7 @@ When participating in this project, please respect all contributors, accept cons
 
 ### Prerequisites
 
-- Go 1.26 or higher
+- Go 1.27 or higher
 - Redis (optional, for session storage testing)
 - Git
 - Traefik (optional, for integration testing)
