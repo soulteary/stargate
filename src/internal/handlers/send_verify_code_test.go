@@ -35,6 +35,91 @@ func setupSendVerifyCodeBaseEnv(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 }
 
+func newWardenUserServer(t *testing.T, phone, mail string) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/user" {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(struct {
+			Phone  string `json:"phone"`
+			Mail   string `json:"mail"`
+			UserID string `json:"user_id"`
+			Status string `json:"status"`
+		}{Phone: phone, Mail: mail, UserID: "user-1", Status: "active"})
+	}))
+}
+
+func TestSendVerifyCodeAPIRejectsInvalidPhone(t *testing.T) {
+	setupSendVerifyCodeBaseEnv(t)
+	t.Setenv("HERALD_ENABLED", "true")
+	testza.AssertNoError(t, config.Initialize(testLoggerSendVerifyCode()))
+
+	ctx, app := createTestContext("POST", "/_send_verify_code", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "phone=not-a-phone")
+	defer app.ReleaseCtx(ctx)
+
+	err := SendVerifyCodeAPI()(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+	testza.AssertContains(t, string(ctx.Response().Body()), "invalid_phone_format")
+}
+
+func TestSendVerifyCodeAPIReportsUninitializedHerald(t *testing.T) {
+	setupSendVerifyCodeBaseEnv(t)
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("WARDEN_ENABLED", "true")
+	wardenServer := newWardenUserServer(t, "13800138000", "user@example.com")
+	defer wardenServer.Close()
+	t.Setenv("WARDEN_URL", wardenServer.URL)
+
+	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	testza.AssertNoError(t, config.Initialize(testLog))
+	testza.AssertNoError(t, auth.InitWardenClient(testLog))
+
+	ctx, app := createTestContext("POST", "/_send_verify_code", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "phone=13800138000")
+	defer app.ReleaseCtx(ctx)
+
+	err := SendVerifyCodeAPI()(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusServiceUnavailable, ctx.Response().StatusCode())
+	testza.AssertContains(t, string(ctx.Response().Body()), "connection_failed")
+}
+
+func TestSendVerifyCodeAPIRejectsDisabledSMSChannel(t *testing.T) {
+	setupSendVerifyCodeBaseEnv(t)
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("LOGIN_SMS_ENABLED", "false")
+	t.Setenv("LOGIN_EMAIL_ENABLED", "false")
+	wardenServer := newWardenUserServer(t, "13800138000", "")
+	defer wardenServer.Close()
+	t.Setenv("WARDEN_URL", wardenServer.URL)
+
+	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	testza.AssertNoError(t, config.Initialize(testLog))
+	testza.AssertNoError(t, auth.InitWardenClient(testLog))
+
+	ctx, app := createTestContext("POST", "/_send_verify_code", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "phone=13800138000&deliver_via=sms")
+	defer app.ReleaseCtx(ctx)
+
+	err := SendVerifyCodeAPI()(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+	testza.AssertContains(t, string(ctx.Response().Body()), "channel_disabled")
+}
+
 func TestSendVerifyCodeAPI_NoIdentifier(t *testing.T) {
 	setupSendVerifyCodeBaseEnv(t)
 	t.Setenv("HERALD_ENABLED", "true")

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
@@ -12,6 +13,29 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
+
+func TestRevokeErrorReason(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want string
+	}{
+		{name: "nil", want: ""},
+		{name: "http unauthorized", err: errors.New("401"), want: "unauthorized"},
+		{name: "text unauthorized", err: errors.New("unauthorized"), want: "unauthorized"},
+		{name: "missing route", err: errors.New("Cannot POST /totp/revoke"), want: "unavailable"},
+		{name: "rate limited", err: errors.New("rate_limit exceeded"), want: "rate_limited"},
+		{name: "bad gateway", err: errors.New("502 upstream failure"), want: "service_unavailable"},
+		{name: "connection", err: errors.New("connection refused"), want: "service_unavailable"},
+		{name: "unknown", err: errors.New("invalid response"), want: "service_error"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testza.AssertEqual(t, tt.want, revokeErrorReason(tt.err))
+		})
+	}
+}
 
 func TestTOTPRevokeRoute_NotAuthenticated_Redirects(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
