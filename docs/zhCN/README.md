@@ -12,6 +12,7 @@
 
 - **[README.md](../../README.zhCN.md)** - 项目概述和快速开始指南
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - 技术架构和设计决策
+- **[MIGRATION_V1.md](MIGRATION_V1.md)** - 从 v0.12.0 升级到 v1.0.0 的迁移指南
 
 ### 详细文档
 
@@ -71,12 +72,14 @@ stargate/
 │   │   ├── ARCHITECTURE.md # 架构文档（英文）
 │   │   ├── API.md          # API 文档（英文）
 │   │   ├── CONFIG.md       # 配置参考（英文）
+│   │   ├── MIGRATION_V1.md # v1.0.0 迁移指南（英文）
 │   │   └── DEPLOYMENT.md   # 部署指南（英文）
 │   └── zhCN/
 │       ├── README.md       # 文档索引（中文，本文件）
 │       ├── ARCHITECTURE.md # 架构文档（中文）
 │       ├── API.md          # API 文档（中文）
 │       ├── CONFIG.md       # 配置参考（中文）
+│       ├── MIGRATION_V1.md # v1.0.0 迁移指南（中文）
 │       └── DEPLOYMENT.md   # 部署指南（中文）
 └── ...
 ```
