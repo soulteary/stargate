@@ -13,10 +13,11 @@ import (
 	"time"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/extractors"
+	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/pquerna/otp/totp"
-	logger "github.com/soulteary/logger-kit"
+	logger "github.com/soulteary/logger-kit/v2"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
@@ -167,8 +168,8 @@ func TestCheckPassword_SHA512IsRejected(t *testing.T) {
 
 func TestAuthenticate(t *testing.T) {
 	app := fiber.New()
-	store := session.New(session.Config{
-		KeyLookup: "cookie:" + SessionCookieName,
+	store := session.NewStore(session.Config{
+		Extractor: extractors.FromCookie(SessionCookieName),
 	})
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
@@ -188,8 +189,8 @@ func TestAuthenticate(t *testing.T) {
 
 func TestUnauthenticate(t *testing.T) {
 	app := fiber.New()
-	store := session.New(session.Config{
-		KeyLookup: "cookie:" + SessionCookieName,
+	store := session.NewStore(session.Config{
+		Extractor: extractors.FromCookie(SessionCookieName),
 	})
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
@@ -219,7 +220,7 @@ func TestUnauthenticate(t *testing.T) {
 
 func TestIsAuthenticated_NotAuthenticated(t *testing.T) {
 	app := fiber.New()
-	store := session.New()
+	store := session.NewStore()
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 	defer app.ReleaseCtx(ctx)
@@ -343,8 +344,8 @@ func TestCheckPassword_CaseSensitive(t *testing.T) {
 
 func TestAuthenticate_MultipleTimes(t *testing.T) {
 	app := fiber.New()
-	store := session.New(session.Config{
-		KeyLookup: "cookie:" + SessionCookieName,
+	store := session.NewStore(session.Config{
+		Extractor: extractors.FromCookie(SessionCookieName),
 	})
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
@@ -374,7 +375,7 @@ func TestAuthenticate_MultipleTimes(t *testing.T) {
 
 func TestIsAuthenticated_WithNilValue(t *testing.T) {
 	app := fiber.New()
-	store := session.New()
+	store := session.NewStore()
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 	defer app.ReleaseCtx(ctx)
@@ -633,8 +634,8 @@ func TestCheckPassword_WhitespaceOnly(t *testing.T) {
 // Note: This is hard to test without mocking, but we can at least verify the function doesn't panic
 func TestAuthenticate_SaveError(t *testing.T) {
 	app := fiber.New()
-	store := session.New(session.Config{
-		KeyLookup: "cookie:" + SessionCookieName,
+	store := session.NewStore(session.Config{
+		Extractor: extractors.FromCookie(SessionCookieName),
 	})
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
@@ -653,8 +654,8 @@ func TestAuthenticate_SaveError(t *testing.T) {
 // Note: This is hard to test without mocking, but we can at least verify the function doesn't panic
 func TestUnauthenticate_DestroyError(t *testing.T) {
 	app := fiber.New()
-	store := session.New(session.Config{
-		KeyLookup: "cookie:" + SessionCookieName,
+	store := session.NewStore(session.Config{
+		Extractor: extractors.FromCookie(SessionCookieName),
 	})
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
@@ -672,7 +673,7 @@ func TestUnauthenticate_DestroyError(t *testing.T) {
 // TestIsAuthenticated_WithFalseValue tests that IsAuthenticated returns false for false value
 func TestIsAuthenticated_WithFalseValue(t *testing.T) {
 	app := fiber.New()
-	store := session.New()
+	store := session.NewStore()
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 	defer app.ReleaseCtx(ctx)
@@ -690,7 +691,7 @@ func TestIsAuthenticated_WithFalseValue(t *testing.T) {
 // TestIsAuthenticated_WithNonBoolValue tests that IsAuthenticated handles non-bool values
 func TestIsAuthenticated_WithNonBoolValue(t *testing.T) {
 	app := fiber.New()
-	store := session.New()
+	store := session.NewStore()
 
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 	defer app.ReleaseCtx(ctx)

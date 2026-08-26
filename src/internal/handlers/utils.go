@@ -14,14 +14,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
 // CallbackCookieName stores the cookie name for origin domain
 const CallbackCookieName = "stargate_callback"
 
-func trustForwardedHeaders(ctx *fiber.Ctx) bool {
+func trustForwardedHeaders(ctx fiber.Ctx) bool {
 	return strings.TrimSpace(config.TrustedProxies.String()) != "" && ctx.IsProxyTrusted()
 }
 
@@ -30,7 +30,7 @@ func trustForwardedHeaders(ctx *fiber.Ctx) bool {
 //
 // This is useful when the application is behind a reverse proxy (like Traefik)
 // that forwards the original hostname via headers.
-func GetForwardedHost(ctx *fiber.Ctx) string {
+func GetForwardedHost(ctx fiber.Ctx) string {
 	if trustForwardedHeaders(ctx) {
 		forwardedHost := strings.TrimSpace(strings.Split(ctx.Get("X-Forwarded-Host"), ",")[0])
 		if forwardedHost != "" {
@@ -42,7 +42,7 @@ func GetForwardedHost(ctx *fiber.Ctx) string {
 
 // GetForwardedURI returns the forwarded URI from the request.
 // It prioritizes the X-Forwarded-Uri header if present, otherwise falls back to the request's Path.
-func GetForwardedURI(ctx *fiber.Ctx) string {
+func GetForwardedURI(ctx fiber.Ctx) string {
 	if trustForwardedHeaders(ctx) {
 		forwardedURI := ctx.Get("X-Forwarded-Uri")
 		if forwardedURI != "" {
@@ -53,26 +53,23 @@ func GetForwardedURI(ctx *fiber.Ctx) string {
 }
 
 // GetForwardedProto returns the forwarded protocol from the request.
-// It prioritizes the X-Forwarded-Proto header if present, otherwise falls back to the request's Protocol.
+// It prioritizes the X-Forwarded-Proto header if present, otherwise falls back to the request's scheme.
 //
 // This is useful for determining whether the original request was HTTP or HTTPS
 // when behind a reverse proxy.
-func GetForwardedProto(ctx *fiber.Ctx) string {
+func GetForwardedProto(ctx fiber.Ctx) string {
 	if trustForwardedHeaders(ctx) {
 		forwardedProto := strings.ToLower(strings.TrimSpace(strings.Split(ctx.Get("X-Forwarded-Proto"), ",")[0]))
 		if forwardedProto == "http" || forwardedProto == "https" {
 			return forwardedProto
 		}
 	}
-	if ctx.Context().IsTLS() {
-		return "https"
-	}
-	return "http"
+	return ctx.Scheme()
 }
 
 // IsDifferentDomain checks if the origin host is different from the auth host.
 // This is used to determine if we need to store the callback in a cookie.
-func IsDifferentDomain(ctx *fiber.Ctx) bool {
+func IsDifferentDomain(ctx fiber.Ctx) bool {
 	originHost := GetForwardedHost(ctx)
 	authHost := config.AuthHost.String()
 
@@ -160,7 +157,7 @@ func ValidateCallbackHost(raw string) (string, error) {
 
 // SetCallbackCookie stores the origin host in a cookie if it's different from the auth host.
 // This allows the callback to persist even if the user refreshes the login page.
-func SetCallbackCookie(ctx *fiber.Ctx, callbackHost string) {
+func SetCallbackCookie(ctx fiber.Ctx, callbackHost string) {
 	if callbackHost == "" {
 		return
 	}
@@ -193,12 +190,12 @@ func SetCallbackCookie(ctx *fiber.Ctx, callbackHost string) {
 }
 
 // GetCallbackFromCookie retrieves the callback host from cookie.
-func GetCallbackFromCookie(ctx *fiber.Ctx) string {
+func GetCallbackFromCookie(ctx fiber.Ctx) string {
 	return ctx.Cookies(CallbackCookieName)
 }
 
 // ClearCallbackCookie removes the callback cookie.
-func ClearCallbackCookie(ctx *fiber.Ctx) {
+func ClearCallbackCookie(ctx fiber.Ctx) {
 	cookie := &fiber.Cookie{
 		Name:     CallbackCookieName,
 		Value:    "",
@@ -219,7 +216,7 @@ func ClearCallbackCookie(ctx *fiber.Ctx) {
 // It uses X-Forwarded-* headers to build the correct URL with protocol and host.
 //
 // The URL format is: {protocol}://{authHost}/_login?callback={originalHost}
-func BuildCallbackURL(ctx *fiber.Ctx) string {
+func BuildCallbackURL(ctx fiber.Ctx) string {
 	callbackHost := GetForwardedHost(ctx)
 	proto := GetForwardedProto(ctx)
 	authHost := config.AuthHost.String()
@@ -250,7 +247,7 @@ func BuildCallbackURL(ctx *fiber.Ctx) string {
 //   - Accept header starts with "*/*" (accepts all types)
 //
 // This is used to determine whether to redirect to a login page (HTML) or return an error response (API).
-func IsHTMLRequest(ctx *fiber.Ctx) bool {
+func IsHTMLRequest(ctx fiber.Ctx) bool {
 	acceptHeader := ctx.Get("Accept")
 	if acceptHeader == "" {
 		return true // Default to HTML request
@@ -278,7 +275,7 @@ func IsHTMLRequest(ctx *fiber.Ctx) bool {
 //   - message: Error message to send
 //
 // Returns an error if the response cannot be sent.
-func SendErrorResponse(ctx *fiber.Ctx, statusCode int, message string) error {
+func SendErrorResponse(ctx fiber.Ctx, statusCode int, message string) error {
 	acceptHeader := ctx.Get("Accept")
 	bestFormat := ""
 

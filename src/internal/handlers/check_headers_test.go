@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
-	logger "github.com/soulteary/logger-kit"
+	"github.com/gofiber/fiber/v3"
+	logger "github.com/soulteary/logger-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )

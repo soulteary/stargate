@@ -4,9 +4,9 @@ import (
 	"context"
 	"crypto/subtle"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
-	forwardauth "github.com/soulteary/forwardauth-kit"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
+	forwardauth "github.com/soulteary/forwardauth-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -14,7 +14,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 )
 
-func allowTrustedHeaderAuth(ctx *fiber.Ctx) bool {
+func allowTrustedHeaderAuth(ctx fiber.Ctx) bool {
 	if !config.HeaderAuthEnabled.ToBool() {
 		return false
 	}
@@ -26,7 +26,7 @@ func allowTrustedHeaderAuth(ctx *fiber.Ctx) bool {
 	return subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) == 1
 }
 
-func sanitizeTrustedIdentityHeaders(ctx *fiber.Ctx) {
+func sanitizeTrustedIdentityHeaders(ctx fiber.Ctx) {
 	if !allowTrustedHeaderAuth(ctx) {
 		ctx.Request().Header.Del("X-User-Phone")
 		ctx.Request().Header.Del("X-User-Mail")
@@ -38,7 +38,7 @@ func sanitizeTrustedIdentityHeaders(ctx *fiber.Ctx) {
 // SessionStoreForCheck is the minimal interface required by CheckRoute to get session.
 // *session.Store implements it; tests can pass a mock to simulate store.Get failure.
 type SessionStoreForCheck interface {
-	Get(ctx *fiber.Ctx) (*session.Session, error)
+	Get(ctx fiber.Ctx) (*session.Session, error)
 }
 
 // CheckRoute is the main authentication check handler for Traefik Forward Auth.
@@ -51,17 +51,17 @@ type SessionStoreForCheck interface {
 //   - store: Session store (or mock implementing SessionStoreForCheck) for managing user sessions
 //
 // Returns a Fiber handler function.
-func CheckRoute(store SessionStoreForCheck) func(c *fiber.Ctx) error {
+func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 	// Get the ForwardAuth handler
 	handler := GetForwardAuthHandler()
 	if handler == nil {
 		// Fallback: handler not initialized, return error
-		return func(ctx *fiber.Ctx) error {
+		return func(ctx fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "ForwardAuth handler not initialized")
 		}
 	}
 
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		sanitizeTrustedIdentityHeaders(ctx)
 		// Get trace context from middleware
 		traceCtx := ctx.Locals("trace_context")
@@ -88,6 +88,7 @@ func CheckRoute(store SessionStoreForCheck) func(c *fiber.Ctx) error {
 			tracing.RecordError(forwardAuthSpan, err)
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
+		defer sess.Release()
 		refreshed := false
 		if auth.IsAuthenticated(sess) {
 			refreshed, err = refreshAuthorizationIfNeeded(spanCtx, sess)

@@ -3,7 +3,7 @@ package handlers
 import (
 	"testing"
 
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3/middleware/session"
 )
 
 // Ensure *session.Store satisfies IndexSessionStore at compile time.

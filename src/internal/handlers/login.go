@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
-	logger "github.com/soulteary/logger-kit"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
+	logger "github.com/soulteary/logger-kit/v2"
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/herald/pkg/herald"
@@ -140,7 +140,7 @@ func (a *AuthAuthenticator) Authenticate(sess *session.Session) error {
 }
 
 // loginAPIHandler is the internal handler that can be tested with mocked dependencies.
-func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator Authenticator) error {
+func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator Authenticator) error {
 	// Get trace context from middleware
 	traceCtx := ctx.Locals("trace_context")
 	if traceCtx == nil {
@@ -467,6 +467,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
+	defer sess.Release()
 	if err := sess.Regenerate(); err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to rotate session")
 	}
@@ -601,6 +602,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				if err != nil {
 					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 				}
+				defer sess.Release()
 				sessionID = sess.ID()
 			}
 			if sessionID == "" {
@@ -610,7 +612,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 		}
 		proto := GetForwardedProto(ctx)
 		if proto == "" {
-			proto = ctx.Protocol()
+			proto = ctx.Scheme()
 		}
 		ticket, err := createSessionExchangeTicket(sessionID, callback)
 		if err != nil {
@@ -627,7 +629,7 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 				"message":  i18n.T(ctx, "success.login"),
 			})
 		}
-		return ctx.Redirect(redirectURL)
+		return ctx.Redirect().To(redirectURL)
 	}
 
 	// If still no callback (origin domain is the auth service itself), return response based on request type
@@ -668,16 +670,16 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 //   - store: Session store for managing user sessions
 //
 // Returns a Fiber handler function.
-func LoginAPI(store *session.Store) func(c *fiber.Ctx) error {
+func LoginAPI(store *session.Store) func(c fiber.Ctx) error {
 	sessionGetter := &SessionStoreAdapter{store: store}
 	authenticator := &AuthAuthenticator{}
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		return loginAPIHandler(ctx, sessionGetter, authenticator)
 	}
 }
 
 // loginRouteHandler is the internal handler that can be tested with mocked dependencies.
-func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
+func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 	// Get callback parameter (priority: URL query parameter, then cookie)
 	// URL parameter takes priority as it represents the explicit intent of the current request
 	callback := ctx.Query("callback")
@@ -699,6 +701,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 	if err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
+	defer sess.Release()
 
 	if auth.IsAuthenticated(sess) {
 		// Use X-Forwarded-* headers to build correct redirect URL
@@ -708,7 +711,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		}
 		proto := GetForwardedProto(ctx)
 		if proto == "" {
-			proto = ctx.Protocol()
+			proto = ctx.Scheme()
 		}
 		// If callback exists, redirect to callback's _session_exchange endpoint
 		// If no callback, redirect to current host's root path
@@ -718,12 +721,12 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "session exchange is not configured")
 			}
 			redirectURL := fmt.Sprintf("%s://%s/_session_exchange?ticket=%s", proto, callback, ticket)
-			return ctx.Redirect(redirectURL)
+			return ctx.Redirect().To(redirectURL)
 		}
 		// When no callback, redirect to current host's root path
 		host := config.AuthHost.String()
 		redirectURL := fmt.Sprintf("%s://%s/", proto, host)
-		return ctx.Redirect(redirectURL)
+		return ctx.Redirect().To(redirectURL)
 	}
 
 	// Select template based on Warden configuration
@@ -758,9 +761,9 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 //   - store: Session store for managing user sessions
 //
 // Returns a Fiber handler function.
-func LoginRoute(store *session.Store) func(c *fiber.Ctx) error {
+func LoginRoute(store *session.Store) func(c fiber.Ctx) error {
 	sessionGetter := &SessionStoreAdapter{store: store}
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		return loginRouteHandler(ctx, sessionGetter)
 	}
 }

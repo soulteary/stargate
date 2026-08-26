@@ -10,11 +10,12 @@ import (
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/gofiber/fiber/v2/utils"
-	health "github.com/soulteary/health-kit"
-	logger "github.com/soulteary/logger-kit"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/extractors"
+	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/gofiber/utils/v2"
+	health "github.com/soulteary/health-kit/v2"
+	logger "github.com/soulteary/logger-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -54,13 +55,13 @@ func testLogger() *logger.Logger {
 }
 
 func setupTestStore() *session.Store {
-	return session.New(session.Config{
-		KeyLookup:    "cookie:" + auth.SessionCookieName,
+	return session.NewStore(session.Config{
+		Extractor:    extractors.FromCookie(auth.SessionCookieName),
 		KeyGenerator: utils.UUID,
 	})
 }
 
-func createTestContext(method, path string, headers map[string]string, body string) (*fiber.Ctx, *fiber.App) {
+func createTestContext(method, path string, headers map[string]string, body string) (fiber.Ctx, *fiber.App) {
 	app := fiber.New()
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 
@@ -84,7 +85,7 @@ func createTestContext(method, path string, headers map[string]string, body stri
 	return ctx, app
 }
 
-func responseCookieValue(ctx *fiber.Ctx, name string) string {
+func responseCookieValue(ctx fiber.Ctx, name string) string {
 	raw := ctx.Response().Header.PeekCookie(name)
 	if len(raw) == 0 {
 		return ""
@@ -1099,7 +1100,7 @@ func TestLoginRoute_NoCallback_RedirectsToRoot(t *testing.T) {
 	testza.AssertContains(t, location, "https://auth.example.com/")
 }
 
-// TestLoginRoute_WithForwardedProto_Empty tests that uses ctx.Protocol() when X-Forwarded-Proto is empty
+// TestLoginRoute_WithForwardedProto_Empty tests that uses ctx.Scheme() when X-Forwarded-Proto is empty
 func TestLoginRoute_WithForwardedProto_Empty(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -1130,7 +1131,7 @@ func TestLoginRoute_WithForwardedProto_Empty(t *testing.T) {
 // TestIndexRoute_SessionStoreError tests error handling when session store fails
 func TestIndexRoute_SessionStoreError(t *testing.T) {
 	mockStore := &MockSessionGetter{
-		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
 			return nil, fiber.ErrInternalServerError
 		},
 	}
@@ -1148,10 +1149,10 @@ func TestIndexRoute_SessionStoreError(t *testing.T) {
 
 // MockSessionGetter is a mock implementation of SessionGetter for testing.
 type MockSessionGetter struct {
-	GetFunc func(ctx *fiber.Ctx) (*session.Session, error)
+	GetFunc func(ctx fiber.Ctx) (*session.Session, error)
 }
 
-func (m *MockSessionGetter) Get(ctx *fiber.Ctx) (*session.Session, error) {
+func (m *MockSessionGetter) Get(ctx fiber.Ctx) (*session.Session, error) {
 	if m.GetFunc != nil {
 		return m.GetFunc(ctx)
 	}
@@ -1176,7 +1177,7 @@ func TestLogoutRoute_SessionStoreError(t *testing.T) {
 	defer app.ReleaseCtx(ctx)
 
 	mockSessionGetter := &MockSessionGetter{
-		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
 			return nil, fiber.ErrInternalServerError
 		},
 	}
@@ -1201,7 +1202,7 @@ func TestLogoutRoute_UnauthenticateError(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	mockSessionGetter := &MockSessionGetter{
-		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
 			return sess, nil
 		},
 	}
@@ -1230,7 +1231,7 @@ func TestLogoutHandler_Success(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	mockSessionGetter := &MockSessionGetter{
-		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
 			return sess, nil
 		},
 	}
@@ -1499,7 +1500,7 @@ func TestLoginAPI_EmptySessionID_RetryGetSession(t *testing.T) {
 	testza.AssertTrue(t, ctx.Response().StatusCode() == fiber.StatusFound || ctx.Response().StatusCode() == fiber.StatusMovedPermanently)
 }
 
-// TestLoginAPI_EmptyProto_UsesContextProtocol tests that uses ctx.Protocol() when X-Forwarded-Proto is empty
+// TestLoginAPI_EmptyProto_UsesContextProtocol tests that uses ctx.Scheme() when X-Forwarded-Proto is empty
 func TestLoginAPI_EmptyProto_UsesContextProtocol(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -1547,7 +1548,7 @@ func TestLoginAPI_SessionStoreError(t *testing.T) {
 	defer app.ReleaseCtx(ctx)
 
 	mockSessionGetter := &MockSessionGetter{
-		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
 			return nil, fiber.ErrInternalServerError
 		},
 	}
@@ -1579,7 +1580,7 @@ func TestLoginAPI_AuthenticateError(t *testing.T) {
 	testza.AssertNoError(t, err)
 
 	mockSessionGetter := &MockSessionGetter{
-		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
 			return sess, nil
 		},
 	}
@@ -1639,7 +1640,7 @@ func TestLoginRoute_SessionStoreError(t *testing.T) {
 	defer app.ReleaseCtx(ctx)
 
 	mockSessionGetter := &MockSessionGetter{
-		GetFunc: func(ctx *fiber.Ctx) (*session.Session, error) {
+		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
 			return nil, fiber.ErrInternalServerError
 		},
 	}

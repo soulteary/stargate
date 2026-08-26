@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 )
 
 // TestCheckRoute_HandlerNil verifies that when GetForwardAuthHandler returns nil,
@@ -33,7 +33,7 @@ func TestCheckRoute_HandlerNil(t *testing.T) {
 // mockSessionStoreFailing is a SessionStoreForCheck that always returns an error from Get.
 type mockSessionStoreFailing struct{}
 
-func (m *mockSessionStoreFailing) Get(_ *fiber.Ctx) (*session.Session, error) {
+func (m *mockSessionStoreFailing) Get(_ fiber.Ctx) (*session.Session, error) {
 	return nil, errors.New("store error")
 }
 

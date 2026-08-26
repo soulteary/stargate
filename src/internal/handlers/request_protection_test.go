@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 )
 
 func newRequestProtectionTestRequest(method, path string) *http.Request {
@@ -17,7 +17,7 @@ func newRequestProtectionTestRequest(method, path string) *http.Request {
 
 func TestRequireSameOriginRejectsCrossSiteBrowserWrite(t *testing.T) {
 	app := fiber.New()
-	app.Post("/write", RequireSameOrigin(), func(c *fiber.Ctx) error {
+	app.Post("/write", RequireSameOrigin(), func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 	req := newRequestProtectionTestRequest(fiber.MethodPost, "/write")
@@ -32,7 +32,7 @@ func TestRequireSameOriginRejectsCrossSiteBrowserWrite(t *testing.T) {
 
 func TestRequireSameOriginAllowsMatchingOrigin(t *testing.T) {
 	app := fiber.New()
-	app.Post("/write", RequireSameOrigin(), func(c *fiber.Ctx) error {
+	app.Post("/write", RequireSameOrigin(), func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 	req := newRequestProtectionTestRequest(fiber.MethodPost, "/write")
@@ -47,7 +47,7 @@ func TestRequireSameOriginAllowsMatchingOrigin(t *testing.T) {
 
 func TestLoginRateLimitRejectsBurst(t *testing.T) {
 	app := fiber.New()
-	app.Post("/_login", LoginRateLimit(), func(c *fiber.Ctx) error {
+	app.Post("/_login", LoginRateLimit(), func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 	for i := 0; i < 10; i++ {

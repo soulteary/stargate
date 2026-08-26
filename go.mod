@@ -4,8 +4,8 @@ go 1.26.6
 
 require (
 	github.com/MarvinJWendt/testza v0.5.2
-	github.com/gofiber/fiber/v2 v2.52.15
-	github.com/gofiber/template v1.7.5
+	github.com/gofiber/fiber/v3 v3.5.0
+	github.com/gofiber/template/html/v3 v3.0.8
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/pterm/pterm v0.12.83
@@ -13,16 +13,16 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/soulteary/audit-kit v1.5.1
 	github.com/soulteary/cli-kit v1.7.0
-	github.com/soulteary/forwardauth-kit v1.3.0
-	github.com/soulteary/health-kit v1.3.0
+	github.com/soulteary/forwardauth-kit/v2 v2.0.0
+	github.com/soulteary/health-kit/v2 v2.0.0
 	github.com/soulteary/herald v1.0.0
-	github.com/soulteary/i18n-kit v1.2.0
-	github.com/soulteary/logger-kit v1.5.0
-	github.com/soulteary/metrics-kit v1.3.0
-	github.com/soulteary/middleware-kit v1.2.0
+	github.com/soulteary/i18n-kit/v2 v2.0.0
+	github.com/soulteary/logger-kit/v2 v2.0.0
+	github.com/soulteary/metrics-kit/v2 v2.0.0
+	github.com/soulteary/middleware-kit/v2 v2.0.0
 	github.com/soulteary/redis-kit v1.4.0
 	github.com/soulteary/secure-kit v1.4.0
-	github.com/soulteary/session-kit v1.4.0
+	github.com/soulteary/session-kit/v2 v2.0.0
 	github.com/soulteary/tracing-kit v1.3.0
 	github.com/soulteary/version-kit v1.4.0
 	github.com/soulteary/warden v1.0.0
@@ -50,7 +50,6 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.10.0 // indirect
-	github.com/gofiber/fiber/v3 v3.5.0 // indirect
 	github.com/gofiber/schema v1.8.4 // indirect
 	github.com/gofiber/utils/v2 v2.4.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -70,7 +69,6 @@ require (
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/soulteary/http-kit v1.3.0 // indirect
-	github.com/soulteary/logger-kit/v2 v2.0.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect

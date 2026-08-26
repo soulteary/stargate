@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )
@@ -20,7 +20,7 @@ func stepUpVerified(sess *session.Session) bool {
 	return ok && age >= 0 && age <= stepUpValidity
 }
 
-func requiresStepUp(ctx *fiber.Ctx, sess *session.Session) bool {
+func requiresStepUp(ctx fiber.Ctx, sess *session.Session) bool {
 	if !config.StepUpEnabled.ToBool() || stepUpVerified(sess) {
 		return false
 	}
@@ -45,15 +45,19 @@ func safeStepUpCallback(raw string) string {
 	return raw
 }
 
-func redirectToStepUp(ctx *fiber.Ctx) error {
+func redirectToStepUp(ctx fiber.Ctx) error {
 	callback := safeStepUpCallback(GetForwardedURI(ctx))
-	return ctx.Redirect("/_step_up?callback=" + url.QueryEscape(callback))
+	return ctx.Redirect().To("/_step_up?callback=" + url.QueryEscape(callback))
 }
 
-func StepUpRoute(store *session.Store) func(c *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func StepUpRoute(store *session.Store) func(c fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		sess, err := store.Get(ctx)
-		if err != nil || !auth.IsAuthenticated(sess) {
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
+		}
+		defer sess.Release()
+		if !auth.IsAuthenticated(sess) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
 		}
 		callback := safeStepUpCallback(ctx.Query("callback"))
@@ -61,10 +65,14 @@ func StepUpRoute(store *session.Store) func(c *fiber.Ctx) error {
 	}
 }
 
-func StepUpAPI(store *session.Store) func(c *fiber.Ctx) error {
-	return func(ctx *fiber.Ctx) error {
+func StepUpAPI(store *session.Store) func(c fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		sess, err := store.Get(ctx)
-		if err != nil || !auth.IsAuthenticated(sess) {
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
+		}
+		defer sess.Release()
+		if !auth.IsAuthenticated(sess) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
 		}
 		if !auth.CheckPassword(ctx.FormValue("password")) {
@@ -74,6 +82,6 @@ func StepUpAPI(store *session.Store) func(c *fiber.Ctx) error {
 		if err := sess.Save(); err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to save additional authentication")
 		}
-		return ctx.Redirect(safeStepUpCallback(ctx.FormValue("callback")))
+		return ctx.Redirect().To(safeStepUpCallback(ctx.FormValue("callback")))
 	}
 }

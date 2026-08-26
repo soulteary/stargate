@@ -4,7 +4,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v3"
 	common_tracing "github.com/soulteary/tracing-kit"
 	"github.com/stretchr/testify/assert"
 )
@@ -16,11 +16,11 @@ func TestTracingMiddleware(t *testing.T) {
 	app := fiber.New()
 	app.Use(TracingMiddleware("test-service"))
 
-	app.Get("/test", func(c *fiber.Ctx) error {
+	app.Get("/test", func(c fiber.Ctx) error {
 		return c.SendString("ok")
 	})
 
-	app.Get("/error", func(c *fiber.Ctx) error {
+	app.Get("/error", func(c fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusInternalServerError, "test error")
 	})
 
@@ -45,7 +45,7 @@ func TestTracingMiddleware(t *testing.T) {
 	})
 
 	t.Run("Bad Request", func(t *testing.T) {
-		app.Get("/bad", func(c *fiber.Ctx) error {
+		app.Get("/bad", func(c fiber.Ctx) error {
 			return c.SendStatus(400)
 		})
 
@@ -57,7 +57,7 @@ func TestTracingMiddleware(t *testing.T) {
 	})
 
 	t.Run("Root Path", func(t *testing.T) {
-		app.Get("/", func(c *fiber.Ctx) error {
+		app.Get("/", func(c fiber.Ctx) error {
 			return c.SendString("root")
 		})
 

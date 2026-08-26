@@ -1,10 +1,10 @@
 package handlers
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/middleware/session"
 
-	sessionkit "github.com/soulteary/session-kit"
+	sessionkit "github.com/soulteary/session-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -18,7 +18,7 @@ import (
 //   - ticket: encrypted, short-lived, single-use session exchange ticket
 //
 // Returns a Fiber handler function.
-func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeReplayStore) func(c *fiber.Ctx) error {
+func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeReplayStore) func(c fiber.Ctx) error {
 	replayStore := defaultSessionExchangeReplayStore
 	if len(replayStores) > 0 && replayStores[0] != nil {
 		replayStore = replayStores[0]
@@ -32,7 +32,7 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 		WithSameSite("Lax").
 		WithHTTPOnly(true)
 
-	return func(ctx *fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
 		ticket := ctx.Query("ticket")
 		if ticket == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.missing_session_id"))
@@ -44,7 +44,11 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 
 		ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
 		sess, err := store.Get(ctx)
-		if err != nil || !auth.IsAuthenticated(sess) {
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "invalid session exchange ticket")
+		}
+		defer sess.Release()
+		if !auth.IsAuthenticated(sess) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "invalid session exchange ticket")
 		}
 
@@ -52,6 +56,6 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 		cookie := sessionkit.CreateCookie(sessionConfig, sessionID)
 		ctx.Cookie(cookie)
 
-		return ctx.Redirect("/")
+		return ctx.Redirect().To("/")
 	}
 }

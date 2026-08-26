@@ -12,11 +12,12 @@ import (
 	"time"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/session"
-	"github.com/gofiber/fiber/v2/utils"
+	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/fiber/v3/extractors"
+	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/gofiber/utils/v2"
 	"github.com/redis/go-redis/v9"
-	logger "github.com/soulteary/logger-kit"
+	logger "github.com/soulteary/logger-kit/v2"
 	"github.com/soulteary/redis-kit/cache"
 	"github.com/soulteary/redis-kit/client"
 	"github.com/soulteary/stargate/src/internal/auth"
@@ -399,8 +400,8 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 	testza.AssertNoError(t, InitHeraldClient(testLoggerE2E()))
 
 	// Create Stargate app
-	store := session.New(session.Config{
-		KeyLookup:      "cookie:" + auth.SessionCookieName,
+	store := session.NewStore(session.Config{
+		Extractor:      extractors.FromCookie(auth.SessionCookieName),
 		KeyGenerator:   utils.UUID,
 		CookiePath:     "/",
 		CookieHTTPOnly: true,
