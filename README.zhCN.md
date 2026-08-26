@@ -41,7 +41,7 @@ Stargate 非常适合以下场景：
 ## ✨ 功能特性
 
 ### 🔐 企业级安全
-- **多种密码加密算法**：支持 plaintext（测试用）、bcrypt、MD5、SHA512 等多种加密算法
+- **明确的密码校验模式**：生产环境使用 bcrypt，plaintext 仅用于本地测试
 - **安全会话管理**：基于 Cookie 的会话管理，支持自定义域名和过期时间
 - **灵活的认证方式**：同时支持基于密码和基于会话的认证
 - **OTP/验证码支持**：与 Herald 服务集成，支持短信/邮件验证码
@@ -170,7 +170,7 @@ LOGIN_PAGE_TITLE=我的认证服务
 LANGUAGE=zh  # 或 'en'
 ```
 
-**支持的密码算法：** `plaintext`（仅测试用）、`bcrypt`、`md5`、`sha512`
+**支持的密码算法：** `plaintext`（仅限本地测试）和 `bcrypt`。MD5 与未加盐 SHA-512 配置会被拒绝。
 
 **完整配置参考请参阅：[docs/zhCN/CONFIG.md](docs/zhCN/CONFIG.md)**
 
@@ -228,7 +228,7 @@ HERALD_HMAC_SECRET=your-herald-hmac-secret       # 生产环境
 
 在部署到生产环境之前：
 
-- ✅ 使用强密码算法（`bcrypt` 或 `sha512`，避免使用 `plaintext`）
+- ✅ 密码认证使用 `bcrypt`，`plaintext` 仅限本地测试
 - ✅ 通过 Traefik 或您的反向代理启用 HTTPS
 - ✅ 设置 `COOKIE_DOMAIN` 以在子域名间正确管理会话
 - ✅ 如需更高级功能，可选择集成 Warden + Herald 进行 OTP 认证

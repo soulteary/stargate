@@ -109,7 +109,7 @@ src/
 
 ### 4. 密码与安全
 
-密码校验由 `internal/auth` 与 `internal/config` 配合完成：配置中指定算法（如 plaintext、bcrypt、md5、sha512）及密码列表，auth 使用外部 secure-kit 等能力进行校验。会话与认证状态由 session-kit 提供。
+密码校验由 `internal/auth` 与 `internal/config` 配合完成：生产环境接受 bcrypt 哈希，本地测试可使用 plaintext；MD5 与未加盐 SHA-512 会在配置校验阶段被拒绝。密码区分大小写，并保留空白字符。会话与认证状态由 session-kit 提供。
 
 ## 系统架构
 
@@ -331,9 +331,9 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 
 ### 密码安全
 
-- 支持多种加密算法（推荐使用 bcrypt 或 sha512）
+- 生产环境使用 bcrypt 校验密码，本地测试可使用 plaintext
 - 密码配置通过环境变量传递，不存储在代码中
-- 密码验证时进行规范化处理（去除空格、转大写）
+- 密码校验区分大小写，并保留空白字符
 
 ### 请求安全
 
