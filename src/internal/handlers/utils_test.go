@@ -159,6 +159,47 @@ func TestBuildCallbackURL_WithoutHeaders(t *testing.T) {
 	testza.AssertEqual(t, expected, result)
 }
 
+func TestValidateCallbackHostRejectsOpenRedirects(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
+	err := config.Initialize(testLoggerUtils())
+	testza.AssertNoError(t, err)
+
+	for _, candidate := range []string{
+		"evil.example.net",
+		"app.example.com.evil.example.net",
+		"https://evil.example.net",
+		"user@app.example.com",
+		"app.example.com/redirect",
+		"app.example.com\\@evil.example.net",
+	} {
+		_, err := ValidateCallbackHost(candidate)
+		testza.AssertNotNil(t, err, candidate)
+	}
+
+	host, err := ValidateCallbackHost("app.example.com")
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, "app.example.com", host)
+}
+
+func TestBuildCallbackURLDropsUntrustedForwardedHost(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
+	err := config.Initialize(testLoggerUtils())
+	testza.AssertNoError(t, err)
+
+	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
+		"X-Forwarded-Host":  "evil.example.net",
+		"X-Forwarded-Proto": "https",
+	})
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertEqual(t, "https://auth.example.com/_login", BuildCallbackURL(ctx))
+	testza.AssertEqual(t, "", string(ctx.Response().Header.Peek("Set-Cookie")))
+}
+
 func TestIsHTMLRequest_EmptyAccept(t *testing.T) {
 	ctx, app := createTestContextForUtils("GET", "/test", nil)
 	defer app.ReleaseCtx(ctx)
