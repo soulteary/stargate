@@ -298,6 +298,16 @@ Logged out
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## Step-up 認証エンドポイント
+
+### `GET /_step_up`
+
+認証済みセッションにパスワード再確認フォームを表示します。任意の `callback` クエリパラメータはローカルパスである必要があり、安全でない値は `/` に置き換えられます。
+
+### `POST /_step_up`
+
+パスワードを再確認し、成功した Step-up 認証をセッションに 10 分間記録します。フォームフィールドは `password` と任意のローカル `callback` です。同一オリジン検証とレート制限で保護されています。
+
 ## セッション交換エンドポイント
 
 ### `GET /_session_exchange`
@@ -348,31 +358,54 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 4. `app.example.com/` にリダイレクト
 5. ユーザーはすべてのサブドメイン `*.example.com` でこのセッションを使用できます
 
+## TOTP エンドポイント
+
+Herald と Herald TOTP が有効な場合に利用できます。すべて認証済みセッションが必要です。
+
+### `POST /totp/enroll`
+
+登録を開始し、TOTP の関連付けページを表示します。
+
+### `POST /totp/enroll/confirm`
+
+`code` フィールドの 6 桁の TOTP コードで登録を確定します。
+
+### `GET /totp/revoke`
+
+TOTP の関連付けを解除する確認ページを表示します。
+
+### `POST /totp/revoke`
+
+`password` または現在の `code` で確認した後、TOTP の関連付けを解除します。
+
 ## ヘルスチェックエンドポイント
 
-### `GET /health`
+### `GET /healthz`
 
-サービスのヘルスチェックエンドポイント。サービスの状態を監視するために使用されます。
+Redis、Warden、Herald を確認しないプロセスの liveness エンドポイントです。コンテナのヘルスチェックと Kubernetes の liveness プローブに使用します。
 
-#### レスポンス
+### `GET /readyz`
 
-**成功レスポンス（200 OK）**
-
-```
-HTTP/1.1 200 OK
-```
-
-#### 例
+設定済みの Redis、Warden、Herald 依存関係を集約した readiness エンドポイントです。ロードバランサーと Kubernetes の readiness プローブに使用します。
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
+curl http://auth.example.com/readyz
 ```
 
-**典型的な使用例：**
+`GET /health` は `GET /readyz` の非推奨互換エイリアスとして残されています。
 
-- Docker ヘルスチェック
-- Kubernetes の liveness プローブ
-- ロードバランサーのヘルスチェック
+## メトリクスエンドポイント
+
+### `GET /metrics`
+
+Prometheus メトリクスをテキスト形式で返します。認証は不要なため、ネットワークまたはプロキシのルールで保護してください。
+
+## 実行時ログレベルエンドポイント
+
+### `GET /log/level`
+
+現在のログレベルを返します。`PUT /log/level` または `POST /log/level` に JSON 本文 `{"level":"debug"}` かクエリパラメータ `?level=debug` を渡して変更します。Stargate はこのエンドポイントを `127.0.0.1` に制限しているため、公開リバースプロキシで露出させないでください。
 
 ## ルートエンドポイント
 

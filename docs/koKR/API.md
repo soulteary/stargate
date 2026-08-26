@@ -298,6 +298,16 @@ Logged out
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## Step-up 인증 엔드포인트
+
+### `GET /_step_up`
+
+인증된 세션에 비밀번호 재확인 양식을 표시합니다. 선택적 `callback` 쿼리 매개변수는 로컬 경로여야 하며 안전하지 않은 값은 `/`로 대체됩니다.
+
+### `POST /_step_up`
+
+비밀번호를 다시 확인하고 성공한 Step-up 인증을 세션에 10분 동안 기록합니다. 양식 필드는 `password`와 선택적 로컬 `callback`입니다. 동일 출처 검사와 속도 제한으로 보호됩니다.
+
 ## 세션 교환 엔드포인트
 
 ### `GET /_session_exchange`
@@ -348,31 +358,54 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 4. `app.example.com/`로 리디렉션
 5. 사용자는 모든 하위 도메인 `*.example.com`에서 이 세션을 사용할 수 있습니다
 
+## TOTP 엔드포인트
+
+Herald와 Herald TOTP가 활성화된 경우 사용할 수 있습니다. 모든 엔드포인트에 인증된 세션이 필요합니다.
+
+### `POST /totp/enroll`
+
+등록을 시작하고 TOTP 연결 페이지를 표시합니다.
+
+### `POST /totp/enroll/confirm`
+
+`code` 필드의 6자리 TOTP 코드로 등록을 확인합니다.
+
+### `GET /totp/revoke`
+
+TOTP 연결 해제 확인 페이지를 표시합니다.
+
+### `POST /totp/revoke`
+
+`password` 또는 현재 `code`로 확인한 후 TOTP 연결을 해제합니다.
+
 ## 헬스 체크 엔드포인트
 
-### `GET /health`
+### `GET /healthz`
 
-서비스의 헬스 체크 엔드포인트. 서비스 상태를 모니터링하는 데 사용됩니다.
+Redis, Warden, Herald를 조회하지 않는 프로세스 liveness 엔드포인트입니다. 컨테이너 헬스 체크와 Kubernetes liveness 프로브에 사용합니다.
 
-#### 응답
+### `GET /readyz`
 
-**성공 응답 (200 OK)**
-
-```
-HTTP/1.1 200 OK
-```
-
-#### 예제
+설정된 Redis, Warden, Herald 의존성의 집계 readiness 엔드포인트입니다. 로드 밸런서와 Kubernetes readiness 프로브에 사용합니다.
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
+curl http://auth.example.com/readyz
 ```
 
-**일반적인 사용 예:**
+`GET /health`는 `GET /readyz`의 더 이상 권장되지 않는 호환 별칭으로 유지됩니다.
 
-- Docker 헬스 체크
-- Kubernetes liveness 프로브
-- 로드 밸런서 헬스 체크
+## 메트릭 엔드포인트
+
+### `GET /metrics`
+
+Prometheus 메트릭을 텍스트 형식으로 반환합니다. 인증이 필요하지 않으므로 네트워크 또는 프록시 규칙으로 보호해야 합니다.
+
+## 런타임 로그 레벨 엔드포인트
+
+### `GET /log/level`
+
+현재 로그 레벨을 반환합니다. `PUT /log/level` 또는 `POST /log/level`에 JSON 본문 `{"level":"debug"}`나 쿼리 매개변수 `?level=debug`를 전달해 변경합니다. Stargate는 이 엔드포인트를 `127.0.0.1`로 제한하므로 공개 리버스 프록시를 통해 노출하면 안 됩니다.
 
 ## 루트 엔드포인트
 

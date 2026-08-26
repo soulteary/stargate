@@ -78,7 +78,7 @@ src/
 - **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP 解除画面・確認（Herald TOTP 経由）
 - **LogoutRoute**: ログアウト処理
 - **SessionShareRoute**: クロスドメインセッション共有
-- **HealthRoute**: ヘルスチェック（Warden・Herald 状態含む）
+- **ヘルスルート**: プロセスの liveness は `/healthz`、Redis・Warden・Herald の集約 readiness は `/readyz`
 - **IndexRoute**: ルートパスの処理
 - **GET /metrics**: Prometheus メトリクス（metrics-kit）
 
@@ -344,7 +344,7 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
 - Zerolog（logger-kit 経由）で構造化ログ
 - デバッグモードをサポート（DEBUG=true）
 - すべての重要な操作がログに記録される
-- ヘルスチェック（`GET /health`）と Prometheus メトリクス（`GET /metrics`）で監視可能
+- プロセスの liveness（`GET /healthz`）、依存関係の readiness（`GET /readyz`）、Prometheus メトリクス（`GET /metrics`）で監視可能
 
 ## テスト
 

@@ -299,6 +299,16 @@ Le cookie de session sera effacé.
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## Point de Terminaison d'Authentification Renforcée
+
+### `GET /_step_up`
+
+Affiche un formulaire de revérification du mot de passe pour une session authentifiée. Le paramètre de requête facultatif `callback` doit être un chemin local ; les valeurs non sûres sont remplacées par `/`.
+
+### `POST /_step_up`
+
+Revérifie le mot de passe et enregistre l'authentification renforcée dans la session pendant 10 minutes. Champs du formulaire : `password` et `callback` local facultatif. La route est protégée par un contrôle same-origin et une limitation de débit.
+
 ## Point de Terminaison d'Échange de Session
 
 ### `GET /_session_exchange`
@@ -349,31 +359,54 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 4. Redirige vers `app.example.com/`
 5. L'utilisateur peut utiliser cette session sur tous les sous-domaines `*.example.com`
 
-## Point de Terminaison de Vérification de Santé
+## Points de Terminaison TOTP
 
-### `GET /health`
+Ces points de terminaison sont disponibles lorsque Herald et Herald TOTP sont activés. Ils nécessitent une session authentifiée.
 
-Point de terminaison de vérification de santé du service. Utilisé pour surveiller le statut du service.
+### `POST /totp/enroll`
 
-#### Réponse
+Démarre l'inscription et affiche la page d'association TOTP.
 
-**Réponse de Succès (200 OK)**
+### `POST /totp/enroll/confirm`
 
-```
-HTTP/1.1 200 OK
-```
+Confirme l'inscription avec le code TOTP à six chiffres dans le champ `code`.
 
-#### Exemple
+### `GET /totp/revoke`
+
+Affiche la page de confirmation de suppression de l'association TOTP.
+
+### `POST /totp/revoke`
+
+Supprime l'association TOTP après confirmation avec `password` ou un `code` actuel.
+
+## Points de Terminaison de Santé
+
+### `GET /healthz`
+
+Sonde de liveness du processus sans interroger Redis, Warden ou Herald. Utilisez-la pour les vérifications de conteneur et les sondes de liveness Kubernetes.
+
+### `GET /readyz`
+
+État de disponibilité agrégé des dépendances Redis, Warden et Herald configurées. Utilisez-le pour les répartiteurs de charge et les sondes de readiness Kubernetes.
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
+curl http://auth.example.com/readyz
 ```
 
-**Utilisations Typiques :**
+`GET /health` reste un alias de compatibilité obsolète de `GET /readyz`.
 
-- Vérifications de santé Docker
-- Sondes de liveness Kubernetes
-- Vérifications de santé de répartiteur de charge
+## Point de Terminaison des Métriques
+
+### `GET /metrics`
+
+Renvoie les métriques Prometheus au format texte. Ce point de terminaison ne requiert pas d'authentification et doit être protégé par des règles réseau ou de proxy.
+
+## Point de Terminaison du Niveau de Journalisation
+
+### `GET /log/level`
+
+Renvoie le niveau de journalisation actuel. `PUT /log/level` ou `POST /log/level` le modifie avec le corps JSON `{"level":"debug"}` ou le paramètre `?level=debug`. Stargate limite ce point de terminaison à `127.0.0.1` ; il ne doit pas être exposé par le reverse proxy public.
 
 ## Point de Terminaison Racine
 

@@ -78,7 +78,7 @@ Die Handler sind verantwortlich für die Verarbeitung von HTTP-Anfragen:
 - **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP-Unbind-Seite und Bestätigung (über Herald TOTP)
 - **LogoutRoute**: Logout-Verarbeitung
 - **SessionShareRoute**: Cross-Domain-Sitzungsfreigabe
-- **HealthRoute**: Gesundheitsprüfung (inkl. Warden- und Herald-Status)
+- **Health-Routen**: `/healthz` für Prozess-Liveness und `/readyz` für den aggregierten Status von Redis, Warden und Herald
 - **IndexRoute**: Root-Pfad-Verarbeitung
 - **GET /metrics**: Prometheus-Metriken (metrics-kit)
 
@@ -345,7 +345,7 @@ Template-Datei `internal/web/templates/login.html` ändern.
 - Verwendet Zerolog (über logger-kit) für strukturierte Protokollierung
 - Unterstützt Debug-Modus (DEBUG=true)
 - Alle kritischen Operationen werden protokolliert
-- Gesundheitsprüfungs-Endpunkt (`GET /health`) und Prometheus-Metriken (`GET /metrics`) für die Überwachung verfügbar
+- Prozess-Liveness (`GET /healthz`), Abhängigkeitsbereitschaft (`GET /readyz`) und Prometheus-Metriken (`GET /metrics`) für die Überwachung verfügbar
 
 ## Tests
 

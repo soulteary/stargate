@@ -298,6 +298,16 @@ Il cookie di sessione sarà cancellato.
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## Endpoint di Autenticazione Step-up
+
+### `GET /_step_up`
+
+Mostra un modulo di riverifica della password per una sessione autenticata. Il parametro di query facoltativo `callback` deve essere un percorso locale; i valori non sicuri vengono sostituiti con `/`.
+
+### `POST /_step_up`
+
+Riverifica la password e registra l'autenticazione step-up nella sessione per 10 minuti. Campi del modulo: `password` e `callback` locale facoltativo. La route è protetta dal controllo same-origin e dal rate limit.
+
 ## Endpoint Scambio Sessione
 
 ### `GET /_session_exchange`
@@ -348,31 +358,54 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 4. Reindirizza a `app.example.com/`
 5. L'utente può utilizzare questa sessione su tutti i sottodomini `*.example.com`
 
-## Endpoint Verifica Salute
+## Endpoint TOTP
 
-### `GET /health`
+Questi endpoint sono disponibili quando Herald e Herald TOTP sono abilitati. Richiedono una sessione autenticata.
 
-Endpoint verifica salute del servizio. Utilizzato per monitorare lo stato del servizio.
+### `POST /totp/enroll`
 
-#### Risposta
+Avvia la registrazione e mostra la pagina di associazione TOTP.
 
-**Risposta di Successo (200 OK)**
+### `POST /totp/enroll/confirm`
 
-```
-HTTP/1.1 200 OK
-```
+Conferma la registrazione con il codice TOTP a sei cifre nel campo `code`.
 
-#### Esempio
+### `GET /totp/revoke`
+
+Mostra la pagina di conferma per rimuovere l'associazione TOTP.
+
+### `POST /totp/revoke`
+
+Rimuove l'associazione TOTP dopo la conferma con `password` o con un `code` corrente.
+
+## Endpoint di Salute
+
+### `GET /healthz`
+
+Sonda di liveness del processo senza interrogare Redis, Warden o Herald. Usarla per i controlli del container e le sonde di liveness Kubernetes.
+
+### `GET /readyz`
+
+Stato di readiness aggregato delle dipendenze Redis, Warden e Herald configurate. Usarlo per bilanciatori di carico e sonde di readiness Kubernetes.
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
+curl http://auth.example.com/readyz
 ```
 
-**Utilizzi Tipici:**
+`GET /health` rimane un alias di compatibilità deprecato per `GET /readyz`.
 
-- Verifiche salute Docker
-- Sonde liveness Kubernetes
-- Verifiche salute bilanciatore di carico
+## Endpoint Metriche
+
+### `GET /metrics`
+
+Restituisce metriche Prometheus in formato testo. L'endpoint non richiede autenticazione e deve essere protetto tramite regole di rete o del proxy.
+
+## Endpoint del Livello di Log a Runtime
+
+### `GET /log/level`
+
+Restituisce il livello di log corrente. `PUT /log/level` o `POST /log/level` lo modifica con il corpo JSON `{"level":"debug"}` o il parametro `?level=debug`. Stargate limita questo endpoint a `127.0.0.1`; non deve essere esposto tramite il reverse proxy pubblico.
 
 ## Endpoint Root
 

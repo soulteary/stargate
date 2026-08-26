@@ -104,7 +104,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 ```bash
 docker run -d \
   --name stargate \
-  -p 80:80 \
+  -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
   -e PASSWORDS=plaintext:yourpassword \
   stargate:latest
@@ -115,7 +115,7 @@ docker run -d \
 ```bash
 docker run -d \
   --name stargate \
-  -p 80:80 \
+  -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
   -e PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy \
   -e DEBUG=false \
@@ -131,7 +131,7 @@ docker run -d \
 
 - `-d`：后台运行
 - `--name stargate`：容器名称
-- `-p 80:80`：端口映射（主机端口:容器端口）
+- `-p 8080:8080`：端口映射（主机端口:容器端口）
 - `-e`：环境变量
 - `--restart unless-stopped`：自动重启策略
 
@@ -167,7 +167,7 @@ docker rm -f stargate
 ```yaml
 services:
   stargate:
-    image: stargate
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -181,7 +181,7 @@ services:
       - traefik.docker.network=proxy
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`)
-      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth
+      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
 
   whoami:
     image: traefik/whoami
@@ -207,7 +207,7 @@ networks:
 services:
   # Stargate 认证服务
   stargate:
-    image: stargate:latest
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
@@ -231,7 +231,7 @@ services:
       - traefik.docker.network=traefik
       - traefik.http.routers.auth.entrypoints=http,https
       - traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)
-      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth
+      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
 
   # Warden 用户白名单服务
   warden:
@@ -336,7 +336,7 @@ docker-compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: stargate
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$2a$10$...
@@ -358,7 +358,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: stargate:latest
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$2a$10$...
@@ -369,7 +369,7 @@ services:
       - "traefik.docker.network=traefik"
       - "traefik.http.routers.auth.entrypoints=http,https"
       - "traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)"
-      - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
+      - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
       - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User"
 ```
 
@@ -682,7 +682,7 @@ COOKIE_DOMAIN=.example.com
 
 ```yaml
 # 确保中间件地址正确
-- "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
+- "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
 ```
 
 #### 5. Warden 服务问题
@@ -818,7 +818,7 @@ docker stop stargate
 3. **拉取新镜像**：
 
 ```bash
-docker pull stargate:latest
+docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 4. **启动新容器**：
@@ -827,7 +827,7 @@ docker pull stargate:latest
 docker run -d \
   --name stargate \
   ...（使用备份的配置）
-  stargate:latest
+  ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 5. **验证服务**：

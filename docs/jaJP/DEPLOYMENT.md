@@ -104,7 +104,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 ```bash
 docker run -d \
   --name stargate \
-  -p 80:80 \
+  -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
   -e PASSWORDS=plaintext:yourpassword \
   stargate:latest
@@ -115,7 +115,7 @@ docker run -d \
 ```bash
 docker run -d \
   --name stargate \
-  -p 80:80 \
+  -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
   -e PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy \
   -e DEBUG=false \
@@ -131,7 +131,7 @@ docker run -d \
 
 - `-d`: バックグラウンドで実行
 - `--name stargate`: コンテナ名
-- `-p 80:80`: ポートマッピング（ホストポート:コンテナポート）
+- `-p 8080:8080`: ポートマッピング（ホストポート:コンテナポート）
 - `-e`: 環境変数
 - `--restart unless-stopped`: 自動再起動ポリシー
 
@@ -167,7 +167,7 @@ docker rm -f stargate
 ```yaml
 services:
   stargate:
-    image: stargate
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -178,7 +178,7 @@ services:
       - traefik.docker.network=proxy
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`)
-      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth
+      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
 
   whoami:
     image: traefik/whoami
@@ -225,7 +225,7 @@ docker-compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: stargate
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$2a$10$...
@@ -247,7 +247,7 @@ Stargate は Traefik と統合するように設計されており、Forward Aut
 ```yaml
 services:
   stargate:
-    image: stargate:latest
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$2a$10$...
@@ -258,7 +258,7 @@ services:
       - "traefik.docker.network=traefik"
       - "traefik.http.routers.auth.entrypoints=http,https"
       - "traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)"
-      - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
+      - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
       - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User"
 ```
 
@@ -427,12 +427,12 @@ services:
 
 #### 2. ヘルスチェックエンドポイント
 
-監視に `/health` エンドポイントを使用：
+プロセスの liveness には `/healthz`、依存関係の readiness には `/readyz` を使用します。`/health` は非推奨の readiness 互換エイリアスです。
 
 ```bash
 # ヘルスチェックスクリプト
 #!/bin/bash
-if curl -f http://localhost/health > /dev/null 2>&1; then
+if curl -f http://localhost/healthz > /dev/null 2>&1; then
   exit 0
 else
   exit 1
@@ -571,7 +571,7 @@ COOKIE_DOMAIN=.example.com
 
 ```yaml
 # ミドルウェアのアドレスが正しいことを確認
-- "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
+- "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
 ```
 
 ### デバッグのヒント
@@ -632,7 +632,7 @@ docker stop stargate
 3. **新しいイメージのダウンロード:**
 
 ```bash
-docker pull stargate:latest
+docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 4. **新しいコンテナの起動:**
@@ -641,7 +641,7 @@ docker pull stargate:latest
 docker run -d \
   --name stargate \
   ...(保存された設定を使用)
-  stargate:latest
+  ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 5. **サービスの確認:**

@@ -104,7 +104,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 ```bash
 docker run -d \
   --name stargate \
-  -p 80:80 \
+  -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
   -e PASSWORDS=plaintext:yourpassword \
   stargate:latest
@@ -115,7 +115,7 @@ docker run -d \
 ```bash
 docker run -d \
   --name stargate \
-  -p 80:80 \
+  -p 8080:8080 \
   -e AUTH_HOST=auth.example.com \
   -e PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy \
   -e DEBUG=false \
@@ -131,7 +131,7 @@ docker run -d \
 
 - `-d`: Run in background
 - `--name stargate`: Container name
-- `-p 80:80`: Port mapping (host port:container port)
+- `-p 8080:8080`: Port mapping (host port:container port)
 - `-e`: Environment variable
 - `--restart unless-stopped`: Auto-restart policy
 
@@ -167,7 +167,7 @@ The project provides a `docker-compose.yml` example file in the project root. St
 ```yaml
 services:
   stargate:
-    image: stargate
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -181,7 +181,7 @@ services:
       - traefik.docker.network=proxy
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`)
-      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth
+      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
 
   whoami:
     image: traefik/whoami
@@ -228,7 +228,7 @@ Edit `docker-compose.yml` and modify environment variables:
 ```yaml
 services:
   stargate:
-    image: stargate
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$2a$10$...
@@ -250,7 +250,7 @@ Configure Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: stargate:latest
+    image: ghcr.io/soulteary/stargate:v1.0.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$2a$10$...
@@ -261,7 +261,7 @@ services:
       - "traefik.docker.network=traefik"
       - "traefik.http.routers.auth.entrypoints=http,https"
       - "traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)"
-      - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
+      - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
       - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User"
 ```
 
@@ -574,7 +574,7 @@ COOKIE_DOMAIN=.example.com
 
 ```yaml
 # Ensure middleware address is correct
-- "traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth"
+- "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
 ```
 
 ### Debugging Tips
@@ -635,7 +635,7 @@ docker stop stargate
 3. **Pull New Image:**
 
 ```bash
-docker pull stargate:latest
+docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 4. **Start New Container:**
@@ -644,7 +644,7 @@ docker pull stargate:latest
 docker run -d \
   --name stargate \
   ...(use backed up configuration)
-  stargate:latest
+  ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 5. **Verify Service:**
