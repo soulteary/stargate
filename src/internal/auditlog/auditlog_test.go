@@ -1,6 +1,7 @@
 package auditlog
 
 import (
+	"bytes"
 	"context"
 	"sync"
 	"testing"
@@ -73,9 +74,22 @@ func TestGetLoggerWithoutInit(t *testing.T) {
 	logger = nil
 	loggerInit = sync.Once{}
 
-	// GetLogger should auto-initialize with no-op storage
 	l := GetLogger()
-	assert.NotNil(t, l)
+	assert.Nil(t, l)
+}
+
+func TestStreamStorageHonorsFormats(t *testing.T) {
+	record := audit.NewRecord(audit.EventLoginSuccess, audit.ResultSuccess)
+	record.UserID = "user1"
+
+	var jsonOutput bytes.Buffer
+	assert.NoError(t, NewStreamStorage(&jsonOutput, "json").Write(context.Background(), record))
+	assert.Contains(t, jsonOutput.String(), "\"event_type\"")
+
+	var textOutput bytes.Buffer
+	assert.NoError(t, NewStreamStorage(&textOutput, "text").Write(context.Background(), record))
+	assert.Contains(t, textOutput.String(), "event=")
+	assert.Contains(t, textOutput.String(), "user_id=\"user1\"")
 }
 
 func TestStop_WhenLoggerNil(t *testing.T) {

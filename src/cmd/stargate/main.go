@@ -11,6 +11,7 @@ import (
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 	logger "github.com/soulteary/logger-kit"
+	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/tracing-kit"
@@ -34,6 +35,10 @@ func runApplication() error {
 	if err := initConfig(); err != nil {
 		return err
 	}
+	if err := auditlog.InitDefault(); err != nil {
+		return err
+	}
+	defer func() { _ = auditlog.Stop() }()
 
 	// Initialize OpenTelemetry tracing if enabled
 	if config.OTLPEnabled.ToBool() {
