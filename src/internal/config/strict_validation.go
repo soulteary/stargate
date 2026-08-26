@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net"
 	"net/url"
 	"strconv"
 	"strings"
@@ -40,7 +41,8 @@ func validateCallbackHostList(variable *EnvVariable) error {
 		}
 		parsed, err := url.Parse("//" + raw)
 		if err != nil || parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
-			parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Hostname() == "" {
+			parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Hostname() == "" ||
+			net.ParseIP(strings.TrimSuffix(parsed.Hostname(), ".")) != nil {
 			return strictValidationError(variable, "must contain only comma-separated host[:port] values")
 		}
 	}
@@ -68,8 +70,9 @@ func validateStrictSettings() error {
 	if _, err := time.ParseDuration(AuthRefreshInterval.Value); err != nil || AuthRefreshInterval.ToDuration() <= 0 {
 		return strictValidationError(&AuthRefreshInterval, "must be a positive Go duration")
 	}
-	redisDB, err := strconv.Atoi(strings.TrimSpace(SessionStorageRedisDB.Value))
-	if err != nil || redisDB < 0 {
+	redisDBValue := SessionStorageRedisDB.Value
+	redisDB, err := strconv.Atoi(redisDBValue)
+	if err != nil || redisDB < 0 || strings.TrimSpace(redisDBValue) != redisDBValue {
 		return strictValidationError(&SessionStorageRedisDB, "must be a non-negative integer")
 	}
 	if SessionStorageEnabled.ToBool() && strings.TrimSpace(SessionStorageRedisAddr.Value) == "" {
