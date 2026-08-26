@@ -80,3 +80,12 @@ func TestHeaderCarrier_Keys(t *testing.T) {
 	assert.Contains(t, keys, "b")
 	assert.Contains(t, keys, "c")
 }
+
+func TestSanitizeTraceURLRemovesSensitiveQueryValues(t *testing.T) {
+	raw := "/_session/exchange?ticket=secret-ticket&callback=app.example.com"
+	sanitized := sanitizeTraceURL(raw)
+
+	assert.Equal(t, "/_session/exchange", sanitized)
+	assert.NotContains(t, sanitized, "secret-ticket")
+	assert.Equal(t, "/", sanitizeTraceURL("?ticket=secret-ticket"))
+}
