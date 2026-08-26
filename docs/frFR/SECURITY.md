@@ -42,3 +42,7 @@ Si vous découvrez une vulnérabilité de sécurité, veuillez la signaler via:
    - Incluez une description détaillée de la vulnérabilité
 
 **Veuillez ne pas signaler les vulnérabilités de sécurité via les problèmes GitHub publics.**
+
+## Frontière de confiance du déploiement
+
+Forward Auth protège uniquement les requêtes qui passent réellement par le proxy inverse configuré. N'exposez pas directement les ports des services backend. Limitez leur accès au réseau du proxy et supprimez les en-têtes d'identité ou d'authentification fournis par le client avant le transfert.

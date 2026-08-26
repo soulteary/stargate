@@ -42,3 +42,7 @@ Wenn Sie eine Sicherheitslücke entdecken, melden Sie diese bitte über:
    - Fügen Sie eine detaillierte Beschreibung der Sicherheitslücke bei
 
 **Bitte melden Sie Sicherheitslücken nicht über öffentliche GitHub Issues.**
+
+## Vertrauensgrenze der Bereitstellung
+
+Forward Auth schützt nur Anfragen, die tatsächlich über den konfigurierten Reverse Proxy laufen. Veröffentlichen Sie Backend-Ports nicht direkt. Erlauben Sie Zugriffe nur aus dem Proxy-Netz und entfernen Sie vom Client gesetzte Identitäts- oder Zugangsdaten-Header vor der Weiterleitung.

@@ -24,6 +24,7 @@ Stargate supporte deux méthodes d'authentification, vérifiées dans l'ordre de
 
 1. **Authentification par En-tête** (requêtes API)
    - En-tête de requête : `Stargate-Password: <password>`
+   - Désactivée par défaut. Définissez `PASSWORD_HEADER_AUTH_ENABLED=true` uniquement pour des clients historiques de confiance.
    - Adapté aux requêtes API, scripts d'automatisation, etc.
 
 2. **Authentification par Cookie** (requêtes Web)
@@ -446,6 +447,6 @@ Les messages d'erreur supportent l'internationalisation, retournant des messages
 
 1. **Temps d'expiration de session** : Par défaut 24 heures, nécessite une reconnexion après expiration
 2. **Sécurité des cookies** : Tous les cookies sont définis avec les flags `HttpOnly` et `SameSite=Lax`
-3. **Vérification du mot de passe** : Les mots de passe sont normalisés avant vérification (supprimer les espaces, convertir en majuscules)
+3. **Vérification du mot de passe** : Les mots de passe sont des valeurs opaques sensibles à la casse ; les espaces et la casse sont conservés
 4. **Support de plusieurs mots de passe** : Plusieurs mots de passe peuvent être configurés, tout mot de passe qui passe la vérification est acceptable
 5. **Sessions cross-domain** : La variable d'environnement `COOKIE_DOMAIN` doit être configurée pour activer le partage de session cross-domain

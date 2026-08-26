@@ -344,7 +344,7 @@ Stargate rejects callback hosts outside this list with HTTP 400. Do not add doma
 
 ### `SESSION_EXCHANGE_SECRET`
 
-Encryption key for short-lived session exchange tickets. Configure at least 32 random characters whenever callbacks use `/_session_exchange`, and use the same value on every Stargate replica.
+Encryption key for short-lived session exchange tickets. This setting is required and must contain at least 32 random characters whenever `COOKIE_DOMAIN` or `CALLBACK_ALLOWED_HOSTS` enables cross-domain callbacks, and use the same value on every Stargate replica.
 
 ```bash
 SESSION_EXCHANGE_SECRET=<at-least-32-random-characters>
@@ -935,7 +935,7 @@ MD5 and unsalted SHA-512 password hashes are rejected because they are fast, uns
 
 ### Password Verification Rules
 
-1. **Password Normalization**: Spaces are removed and converted to uppercase before verification
+1. **Password Normalization**: Passwords are compared as opaque, case-sensitive values; whitespace and case are preserved
 2. **Multiple Password Support**: Multiple passwords can be configured, any password that passes verification is acceptable
 3. **Algorithm Consistency**: All passwords must use the same algorithm
 
@@ -1200,3 +1200,14 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 7. **Performance Optimization**:
    - Set `WARDEN_CACHE_TTL` to reduce requests to Warden
    - Adjust cache time according to actual needs
+
+## Legacy Password Header Authentication
+
+`Stargate-Password` authentication is disabled by default. To opt in for a trusted legacy client:
+
+```bash
+PASSWORD_HEADER_AUTH_ENABLED=true
+PASSWORDS=bcrypt:<hash>
+```
+
+Treat the header as a credential: require HTTPS, apply rate limits, and configure the reverse proxy to remove `Stargate-Password` before forwarding the request to the backend. Cookie sessions remain the recommended browser authentication method.

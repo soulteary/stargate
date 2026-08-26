@@ -439,3 +439,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 5. **監視とデバッグ**:
    - 開発環境では `DEBUG=true` を設定して詳細なログを取得
    - 本番環境では `DEBUG=false` を設定してログ出力を削減
+
+## レガシー・パスワードヘッダー認証
+
+`Stargate-Password` 認証はデフォルトで無効です。信頼できるレガシークライアントに限り `PASSWORD_HEADER_AUTH_ENABLED=true` で有効化してください。HTTPS とレート制限を使用し、バックエンドへ転送する前にリバースプロキシでこのヘッダーを削除してください。
