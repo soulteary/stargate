@@ -68,7 +68,7 @@ func logoutHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, unauthenticator 
 	return ctx.SendString("Logged out")
 }
 
-// LogoutRoute handles GET requests to /_logout for user logout.
+// LogoutRoute handles POST requests to /_logout for user logout.
 // It destroys the user's session and returns a confirmation message.
 //
 // Parameters:

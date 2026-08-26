@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/session"
 
+	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -74,6 +75,22 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c *fiber.Ctx) error {
 		userID, _ := sess.Get("user_id").(string)
 		if userID == "" {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "user_id not in session"})
+		}
+		reauthenticated := false
+		if password := ctx.FormValue("password"); password != "" {
+			reauthenticated = auth.CheckPassword(password)
+		}
+		if !reauthenticated {
+			if code := ctx.FormValue("code"); code != "" {
+				verifyResp, verifyErr := client.TOTPVerify(ctx.Context(), &herald.TOTPVerifyRequest{
+					Subject: userID,
+					Code:    code,
+				})
+				reauthenticated = verifyErr == nil && verifyResp != nil && verifyResp.OK
+			}
+		}
+		if !reauthenticated {
+			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "recent_authentication_required"})
 		}
 		_, err = client.TOTPRevoke(ctx.Context(), userID)
 		if err != nil {

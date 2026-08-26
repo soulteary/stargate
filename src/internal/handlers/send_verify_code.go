@@ -244,7 +244,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 		heraldClient := getHeraldClient()
 		if heraldClient == nil {
 			// Herald client not initialized, check if OTP is available as fallback
-			otpEnabled := config.WardenOTPEnabled.ToBool()
+			otpEnabled := config.HeraldTOTPEnabled.ToBool()
 			if otpEnabled {
 				return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"), "connection_failed")
 			}
@@ -287,7 +287,7 @@ func SendVerifyCodeAPI() func(c *fiber.Ctx) error {
 				if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
 					reason = "connection_failed"
 					// Herald service is unavailable, suggest OTP fallback if enabled
-					otpEnabled := config.WardenOTPEnabled.ToBool()
+					otpEnabled := config.HeraldTOTPEnabled.ToBool()
 					if otpEnabled {
 						auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
 						return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"), reason)

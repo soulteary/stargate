@@ -13,7 +13,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
-// TOTPEnrollRoute handles GET /totp/enroll - shows TOTP bind page (requires auth).
+// TOTPEnrollRoute handles POST /totp/enroll - starts enrollment and shows the bind page.
 // Calls herald-totp enroll/start and renders page with QR (otpauth_uri) and enroll_id.
 func TOTPEnrollRoute(store *session.Store) func(c *fiber.Ctx) error {
 	return func(ctx *fiber.Ctx) error {

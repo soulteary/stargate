@@ -1443,14 +1443,14 @@ func TestSafeContext_Invalid(t *testing.T) {
 	})
 }
 
-func TestGetOTPSecret(t *testing.T) {
+func TestGetOTPSecret_LegacyConfigIsIgnored(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_OTP_SECRET_KEY", "secret-key")
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
-	testza.AssertEqual(t, "secret-key", GetOTPSecret())
+	testza.AssertEqual(t, "", GetOTPSecret())
 }
 
 func TestVerifyOTP_Valid(t *testing.T) {
