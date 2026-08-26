@@ -27,6 +27,7 @@ Stargate 支持两种认证方式，按以下优先级检查：
 
 1. **Header 认证**（API 请求）
    - 请求头：`Stargate-Password: <password>`
+   - 默认关闭。仅为受信任的旧客户端设置 `PASSWORD_HEADER_AUTH_ENABLED=true`。
    - 适用于 API 请求、自动化脚本等场景
 
 2. **Cookie 认证**（Web 请求）
@@ -549,6 +550,6 @@ curl http://auth.example.com/
 
 1. **会话过期时间**：默认 24 小时，过期后需要重新登录
 2. **Cookie 安全**：所有 Cookie 都设置了 `HttpOnly` 和 `SameSite=Lax` 标志
-3. **密码验证**：密码在验证前会进行规范化处理（去除空格、转大写）
+3. **密码验证**：密码按不透明且区分大小写的原始值校验；不会移除空格或转换大小写
 4. **多密码支持**：可以配置多个密码，任一密码验证通过即可
 5. **跨域会话**：需要配置 `COOKIE_DOMAIN` 环境变量才能实现跨域会话共享
