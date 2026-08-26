@@ -4,7 +4,7 @@
 
 ## 技術スタック
 
-- **言語**: Go 1.26
+- **言語**: Go 1.27
 - **Web フレームワーク**: [Fiber v2.52.x](https://github.com/gofiber/fiber)
 - **テンプレートエンジン**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **セッション管理**: session-kit（Fiber 対応ストア；メモリ・Redis）
