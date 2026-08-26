@@ -152,6 +152,7 @@ func TestCheckRoute_NotAuthenticated(t *testing.T) {
 func TestCheckRoute_HeaderAuth_Valid(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
 
@@ -681,6 +682,7 @@ func TestSessionShareRoute_WithoutCookieDomain(t *testing.T) {
 func TestCheckRoute_SetsUserHeader(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
 	t.Setenv("USER_HEADER_NAME", "X-Custom-User")
 	testLog := testLogger()
 	err := config.Initialize(testLog)
@@ -706,6 +708,7 @@ func TestCheckRoute_SetsUserHeader(t *testing.T) {
 func TestCheckRoute_SetsDefaultUserHeader(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
 	testLog := testLogger()
 	err := config.Initialize(testLog)
 	testza.AssertNoError(t, err)
@@ -2138,4 +2141,25 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 	// Verify custom user header is set (forwardauth-kit uses actual user_id when available)
 	userHeader := string(ctx.Response().Header.Peek("X-Custom-User"))
 	testza.AssertEqual(t, "user1", userHeader)
+}
+
+
+func TestCheckRoute_PasswordHeaderDisabledByDefault(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "false")
+	testLog := testLogger()
+	testza.AssertNoError(t, config.Initialize(testLog))
+	InitForwardAuthHandler(testLog)
+
+	store := setupTestStore()
+	handler := CheckRoute(store)
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"Stargate-Password": "test123",
+		"Accept":            "application/json",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertNoError(t, handler(ctx))
+	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
 }
