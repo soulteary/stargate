@@ -42,7 +42,7 @@ func validateCallbackHostList(variable *EnvVariable) error {
 		parsed, err := url.Parse("//" + raw)
 		if err != nil || parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
 			parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Hostname() == "" ||
-			net.ParseIP(parsed.Hostname()) != nil {
+			net.ParseIP(strings.TrimSuffix(parsed.Hostname(), ".")) != nil {
 			return strictValidationError(variable, "must contain only comma-separated host[:port] values")
 		}
 	}
