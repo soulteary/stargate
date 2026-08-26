@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   pr-checks:
-    name: Format, lint, and unit tests
+    name: Documentation, format, lint, and unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -36,6 +36,11 @@ jobs:
             esac
           done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           echo "code=$code_changed" >> "$GITHUB_OUTPUT"
+
+      - name: Check documentation contracts
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: bash .github/scripts/check-doc-contracts.sh "$BASE_SHA"
 
       - name: Set up Go
         if: steps.changes.outputs.code == 'true'
