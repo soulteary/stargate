@@ -92,10 +92,10 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### Parametri di Build
 
-- **Immagine Base**: `golang:1.26.5-alpine3.23` (stage di build)
+- **Immagine Base**: `golang:1.26.6-alpine3.23` (stage di build)
 - **Immagine di Esecuzione**: `alpine:3.23` (certificati CA e BusyBox `wget` per HTTPS e health check)
 - **Directory di Lavoro**: `/app`
-- **Porta Esposta**: `80`
+- **Porta Esposta**: `8080`
 
 ### Eseguire il Container
 
