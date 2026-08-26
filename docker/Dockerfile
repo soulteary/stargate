@@ -28,7 +28,7 @@ RUN if command -v upx > /dev/null 2>&1; then \
 FROM alpine:3.23
 COPY --from=builder /app/stargate /bin/stargate
 COPY --from=builder /app/src/internal/web/templates /app/web/templates
-RUN apk add --no-cache curl && \
+RUN apk add --no-cache ca-certificates && \
     addgroup -S stargate && \
     adduser -S -D -H -u 10001 -G stargate stargate && \
     chown -R stargate:stargate /app
@@ -36,4 +36,6 @@ WORKDIR /app
 ENV PORT=8080
 USER 10001:10001
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD wget -q -O - "http://127.0.0.1:${PORT:-8080}/healthz" >/dev/null || exit 1
 CMD ["stargate"]
