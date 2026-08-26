@@ -117,7 +117,7 @@ docker-compose up -d
 
 ### 本地开发
 
-本地开发需要 Go 1.26 或更高版本，然后：
+本地开发需要 Go 1.27 或更高版本，然后：
 
 ```bash
 chmod +x start-local.sh
