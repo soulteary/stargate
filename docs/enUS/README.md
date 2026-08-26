@@ -12,6 +12,7 @@ Welcome to the Stargate Forward Auth Service documentation.
 
 - **[README.md](../../README.md)** - Project overview and quick start guide
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture and design decisions
+- **[MIGRATION_V1.md](MIGRATION_V1.md)** - Upgrade guide from v0.12.0 to v1.0.0
 
 ### Detailed Documents
 
@@ -71,12 +72,14 @@ stargate/
 │   │   ├── ARCHITECTURE.md # Architecture document (English)
 │   │   ├── API.md          # API document (English)
 │   │   ├── CONFIG.md       # Configuration reference (English)
+│   │   ├── MIGRATION_V1.md # v1.0.0 migration guide (English)
 │   │   └── DEPLOYMENT.md   # Deployment guide (English)
 │   └── zhCN/
 │       ├── README.md       # Documentation index (Chinese)
 │       ├── ARCHITECTURE.md # Architecture document (Chinese)
 │       ├── API.md          # API document (Chinese)
 │       ├── CONFIG.md       # Configuration reference (Chinese)
+│       ├── MIGRATION_V1.md # v1.0.0 migration guide (Chinese)
 │       └── DEPLOYMENT.md   # Deployment guide (Chinese)
 └── ...
 ```
