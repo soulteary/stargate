@@ -84,7 +84,7 @@ src/
 
 ### 4. 비밀번호 및 보안
 
-비밀번호 검증은 `internal/auth`와 `internal/config`에서 수행됩니다. 설정에서 알고리즘(plaintext, bcrypt, md5, sha512 등)과 비밀번호 목록을 지정하고, auth는 secure-kit 등 외부 기능으로 검증합니다. 세션 및 인증 상태는 session-kit에서 제공합니다.
+비밀번호 검증은 `internal/auth`와 `internal/config`에서 수행됩니다. 운영 환경에서는 `bcrypt`, 로컬 테스트에서만 `plaintext`를 사용할 수 있으며 MD5와 salt 없는 SHA-512는 거부됩니다. 세션 및 인증 상태는 session-kit에서 제공합니다.
 
 ## 시스템 아키텍처
 
@@ -286,9 +286,9 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
 
 ### 비밀번호 보안
 
-- 여러 암호화 알고리즘 지원 (bcrypt 또는 sha512 사용 권장)
+- 운영 환경에서는 `bcrypt`, 로컬 테스트에서는 `plaintext`만 지원
 - 비밀번호 설정은 환경 변수를 통해 전달되며 코드에 저장되지 않음
-- 검증 시 비밀번호 정규화 (공백 제거, 대문자로 변환)
+- 비밀번호는 대소문자를 구분하며 공백도 변경하지 않고 검증
 
 ### 요청 보안
 

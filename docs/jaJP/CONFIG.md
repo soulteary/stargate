@@ -96,8 +96,6 @@ PASSWORDS=plaintext:test123|admin456|user789
 # BCrypt ハッシュ
 PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 
-# SHA512 ハッシュ
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
 ```
 
 ## オプション設定
@@ -272,100 +270,69 @@ COOKIE_DOMAIN=.example.com
 PORT=8080
 ```
 
+## セキュリティおよび連携設定
+
+次の表は `internal/config` に実際に登録されているセキュリティ関連変数と同期しています。任意項目が空の場合、対応する連携は無効です。
+
+| 変数 | 値 | デフォルト | 用途 |
+|------|----|------------|------|
+| `TRUSTED_PROXIES` | IP/CIDR リスト | 空 | Forwarded ヘッダーを信頼する送信元 |
+| `PROXY_HEADER` | ヘッダー名 | `X-Forwarded-For` | 送信元 IP ヘッダー |
+| `COOKIE_SECURE` | true/false | true | セッション Cookie の Secure 属性 |
+| `CALLBACK_ALLOWED_HOSTS` | ホスト一覧 | 空 | 許可するリダイレクト先 |
+| `SESSION_EXCHANGE_SECRET` | 32 文字以上の秘密値 | 空 | 短命なクロスドメインチケットの署名 |
+| `HEADER_AUTH_ENABLED` | true/false | false | 信頼済みヘッダー認証 |
+| `HEADER_AUTH_SHARED_SECRET` | 秘密値 | 空 | ヘッダー認証の共有秘密 |
+| `HEADER_AUTH_SECRET_HEADER` | ヘッダー名 | `X-Stargate-Header-Auth` | 共有秘密を運ぶヘッダー |
+| `WARDEN_ENABLED` | true/false | false | Warden 連携 |
+| `WARDEN_URL` | URL | 空 | Warden エンドポイント |
+| `WARDEN_API_KEY` | 秘密値 | 空 | API キー認証 |
+| `WARDEN_HMAC_KEY_ID` | 文字列 | 空 | HMAC キー ID |
+| `WARDEN_HMAC_SECRET` | 秘密値 | 空 | HMAC 署名秘密 |
+| `WARDEN_TLS_CA_CERT_FILE` | パス | 空 | カスタム CA |
+| `WARDEN_TLS_CLIENT_CERT_FILE` | パス | 空 | mTLS クライアント証明書 |
+| `WARDEN_TLS_CLIENT_KEY_FILE` | パス | 空 | mTLS クライアント鍵 |
+| `WARDEN_TLS_SERVER_NAME` | 文字列 | 空 | 期待する TLS サーバー名 |
+| `WARDEN_CACHE_TTL` | 秒 | 300 | Warden キャッシュ時間 |
+| `WARDEN_OTP_ENABLED` | true/false | false | 旧 OTP 連携 |
+| `WARDEN_OTP_SECRET_KEY` | 秘密値 | 空 | 旧 OTP 秘密 |
+| `HERALD_ENABLED` | true/false | false | Herald 連携 |
+| `HERALD_URL` | URL | 空 | Herald エンドポイント |
+| `HERALD_API_KEY` | 秘密値 | 空 | API キー認証 |
+| `HERALD_HMAC_KEY_ID` | 文字列 | 空 | HMAC キー ID |
+| `HERALD_HMAC_SECRET` | 秘密値 | 空 | HMAC 署名秘密 |
+| `HERALD_TLS_CA_CERT_FILE` | パス | 空 | カスタム CA |
+| `HERALD_TLS_CLIENT_CERT_FILE` | パス | 空 | mTLS クライアント証明書 |
+| `HERALD_TLS_CLIENT_KEY_FILE` | パス | 空 | mTLS クライアント鍵 |
+| `HERALD_TLS_SERVER_NAME` | 文字列 | 空 | 期待する TLS サーバー名 |
+| `HERALD_TOTP_ENABLED` | true/false | false | TOTP ログインと管理 |
+| `LOGIN_SMS_ENABLED` | true/false | true | SMS ログインチャネル |
+| `LOGIN_EMAIL_ENABLED` | true/false | true | メールログインチャネル |
+| `SESSION_STORAGE_ENABLED` | true/false | false | Redis セッションストレージ |
+| `SESSION_STORAGE_REDIS_ADDR` | host:port | `localhost:6379` | Redis アドレス |
+| `SESSION_STORAGE_REDIS_PASSWORD` | 秘密値 | 空 | Redis パスワード |
+| `SESSION_STORAGE_REDIS_DB` | 整数 | 0 | Redis DB |
+| `SESSION_STORAGE_REDIS_KEY_PREFIX` | 文字列 | `stargate:session:` | Redis キープレフィックス |
+| `AUDIT_LOG_ENABLED` | true/false | true | 監査ログ |
+| `AUDIT_LOG_FORMAT` | json/text | json | 監査ログ形式 |
+| `STEP_UP_ENABLED` | true/false | false | 追加認証 |
+| `STEP_UP_PATHS` | パス一覧 | 空 | 保護する業務パス |
+| `OTLP_ENABLED` | true/false | false | OpenTelemetry エクスポート |
+| `OTLP_ENDPOINT` | URL | 空 | OTLP エンドポイント |
+| `AUTH_REFRESH_ENABLED` | true/false | true | 認可情報の定期更新 |
+| `AUTH_REFRESH_INTERVAL` | 期間 | `5m` | 更新間隔 |
+
+HMAC の Key ID と Secret は必ず同時に設定します。mTLS のクライアント証明書と鍵も完全なペアが必要で、不完全な設定では起動に失敗します。
+
 ## パスワード設定
 
-Stargate は複数のパスワード暗号化アルゴリズムをサポートします。パスワード設定形式: `algorithm:password1|password2|password3`
-
-### サポートされているアルゴリズム
-
-#### `plaintext` - プレーンテキストパスワード
-
-**説明:**
-
-- プレーンテキストで保存、暗号化なし
-- **テスト環境のみ**
-- 本番環境では強く推奨されません
-
-**例:**
+本番環境では `bcrypt`、ローカルテストでのみ `plaintext` を使用できます。MD5 とソルトなし SHA-512 は設定検証で拒否されます。パスワードは大文字と小文字を区別し、空白も保持します。
 
 ```bash
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS=bcrypt:<bcrypt-hash>
+# ローカルテストのみ:
+PASSWORDS=plaintext:test123
 ```
-
-#### `bcrypt` - BCrypt ハッシュ
-
-**説明:**
-
-- BCrypt アルゴリズムを使用してハッシュ化
-- 高セキュリティ、本番環境で推奨
-- パスワードは BCrypt ハッシュ値を使用する必要があります
-
-**BCrypt ハッシュの生成:**
-
-```bash
-# Go を使用
-go run -c 'golang.org/x/crypto/bcrypt' <<< 'password'
-
-# オンラインツールまたはその他のツールを使用
-```
-
-**例:**
-
-```bash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
-```
-
-#### `md5` - MD5 ハッシュ
-
-**説明:**
-
-- MD5 アルゴリズムを使用してハッシュ化
-- セキュリティが低い、本番環境では推奨されません
-- パスワードは MD5 ハッシュ値（32 文字の 16 進文字列）を使用する必要があります
-
-**MD5 ハッシュの生成:**
-
-```bash
-# Linux/macOS
-echo -n "password" | md5sum
-
-# またはオンラインツールを使用
-```
-
-**例:**
-
-```bash
-PASSWORDS=md5:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-#### `sha512` - SHA512 ハッシュ
-
-**説明:**
-
-- SHA512 アルゴリズムを使用してハッシュ化
-- 高セキュリティ、本番環境で推奨
-- パスワードは SHA512 ハッシュ値（128 文字の 16 進文字列）を使用する必要があります
-
-**SHA512 ハッシュの生成:**
-
-```bash
-# Linux/macOS
-echo -n "password" | shasum -a 512
-
-# またはオンラインツールを使用
-```
-
-**例:**
-
-```bash
-PASSWORDS=sha512:5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8
-```
-
-### パスワード検証のルール
-
-1. **パスワードの正規化**: 検証前にスペースを削除し、大文字に変換
-2. **複数パスワードのサポート**: 複数のパスワードを設定でき、検証を通過したパスワードはすべて受け入れられます
-3. **アルゴリズムの一貫性**: すべてのパスワードは同じアルゴリズムを使用する必要があります
 
 ## 設定例
 
@@ -454,7 +421,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## 設定のベストプラクティス
 
 1. **本番環境のセキュリティ**:
-   - `bcrypt` または `sha512` アルゴリズムを使用し、`plaintext` を避ける
+   - 本番環境では `bcrypt` を使用し、`plaintext` はローカルテストに限定する
    - `DEBUG=false` に設定
    - 強力なパスワードを使用
 

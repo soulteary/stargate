@@ -84,7 +84,7 @@ Les gestionnaires sont responsables du traitement des requêtes HTTP :
 
 ### 4. Mot de passe et sécurité
 
-La vérification du mot de passe est assurée par `internal/auth` avec `internal/config` : la configuration spécifie l'algorithme (ex. plaintext, bcrypt, md5, sha512) et la liste des mots de passe ; auth utilise des capacités externes comme secure-kit pour la vérification. La session et l'état d'authentification sont fournis par session-kit.
+La vérification du mot de passe est assurée par `internal/auth` avec `internal/config` : la configuration accepte `bcrypt` en production et `plaintext` uniquement pour les tests locaux ; MD5 et SHA-512 non salé sont refusés. La session et l'état d'authentification sont fournis par session-kit.
 
 ## Architecture Système
 
@@ -286,9 +286,9 @@ Lorsque les intégrations Warden et Herald sont activées, l'authentification OT
 
 ### Sécurité du Mot de Passe
 
-- Supporte plusieurs algorithmes de chiffrement (recommandé d'utiliser bcrypt ou sha512)
+- Accepte `bcrypt` en production et `plaintext` uniquement pour les tests locaux
 - Configuration du mot de passe transmise via variables d'environnement, non stockée dans le code
-- Normalisation du mot de passe lors de la vérification (supprimer les espaces, convertir en majuscules)
+- Les mots de passe sont sensibles à la casse et les espaces sont conservés lors de la vérification
 
 ### Sécurité des Requêtes
 

@@ -42,7 +42,7 @@ Stargate è perfetto per:
 
 ### 🔐 Sicurezza di Livello Aziendale
 
-- **Più Algoritmi di Crittografia Password**: Scegli tra plaintext (test), bcrypt, MD5, SHA512 e altro ancora
+- **Verifica password**: bcrypt in produzione; plaintext solo per test locali
 - **Gestione Sicura delle Sessioni**: Sessioni basate su Cookie con dominio e scadenza personalizzabili
 - **Autenticazione Flessibile**: Supporto per autenticazione basata su password e basata su sessione
 - **Supporto OTP/Codice di Verifica**: Integrazione con il servizio Herald per codici di verifica SMS/Email
@@ -174,7 +174,7 @@ LOGIN_PAGE_TITLE=Il Mio Servizio di Autenticazione
 LANGUAGE=it  # o 'en'
 ```
 
-**Algoritmi password supportati:** `plaintext` (solo test), `bcrypt`, `md5`, `sha512`
+**Algoritmi supportati:** `plaintext` (solo test locali) e `bcrypt`; MD5 e SHA-512 senza salt sono rifiutati
 
 **Per la configurazione dettagliata, vedere: [docs/itIT/CONFIG.md](docs/itIT/CONFIG.md)**
 
@@ -212,7 +212,7 @@ HERALD_API_KEY=your-api-key  # Sviluppo
 
 Prima di distribuire in produzione:
 
-- ✅ Utilizzare algoritmi password forti (`bcrypt` o `sha512`, evitare `plaintext`)
+- ✅ Utilizzare `bcrypt` in produzione; limitare `plaintext` ai test locali
 - ✅ Abilitare HTTPS via Traefik o il tuo proxy inverso
 - ✅ Impostare `COOKIE_DOMAIN` per una gestione sessione appropriata tra sottodomini
 - ✅ Per funzionalità avanzate, integrare opzionalmente Warden + Herald per l'autenticazione OTP
