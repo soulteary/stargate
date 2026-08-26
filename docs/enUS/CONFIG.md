@@ -52,6 +52,8 @@ Below are all environment variables used in code. "Required" means the service w
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | No |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | No |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | No |
+| `TRUSTED_PROXIES` | comma-separated IPs/CIDRs | empty | No |
+| `PROXY_HEADER` | HTTP header name | X-Forwarded-For | No |
 | `COOKIE_DOMAIN` | String | empty | No |
 | `CALLBACK_ALLOWED_HOSTS` | comma-separated hosts | empty | No |
 | `SESSION_EXCHANGE_SECRET` | Secret string (32+ chars) | empty | No |
@@ -260,6 +262,17 @@ User header name set after successful authentication.
 ```bash
 USER_HEADER_NAME=X-Authenticated-User
 ```
+
+### `TRUSTED_PROXIES` and `PROXY_HEADER`
+
+`TRUSTED_PROXIES` is the comma-separated allowlist of reverse-proxy source IPs or CIDRs. It is empty by default, so Stargate ignores `X-Forwarded-Host`, `X-Forwarded-Uri`, `X-Forwarded-Proto`, and the configured client-IP header until the immediate peer is trusted. `PROXY_HEADER` selects the header Fiber uses for the client IP and defaults to `X-Forwarded-For`.
+
+```bash
+TRUSTED_PROXIES=10.20.0.10,10.30.0.0/24
+PROXY_HEADER=X-Forwarded-For
+```
+
+Configure the narrowest proxy addresses possible. The proxy must remove client-supplied forwarding headers and write its own values before forwarding the request.
 
 ### `COOKIE_DOMAIN`
 

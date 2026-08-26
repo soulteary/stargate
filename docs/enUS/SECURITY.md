@@ -26,6 +26,7 @@ This document explains Stargate's security features, security configuration, and
 - Set `MODE=production` to enable production mode
 - Configure `COOKIE_DOMAIN` for proper session management
 - Use HTTPS via reverse proxy (Traefik, Nginx, etc.)
+- Set `TRUSTED_PROXIES` to the reverse proxy's source IPs or CIDRs
 - Configure secure session cookie settings
 
 **Configuration Example**:
@@ -33,6 +34,7 @@ This document explains Stargate's security features, security configuration, and
 export AUTH_HOST=auth.example.com
 export PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 export COOKIE_DOMAIN=.example.com
+export TRUSTED_PROXIES=10.20.0.10
 ```
 
 **Note**: In the current implementation, Cookie Secure is inferred from headers such as `X-Forwarded-Proto`; SameSite is fixed to `Lax`. The env vars `COOKIE_SECURE`, `COOKIE_SAME_SITE`, and `SESSION_TTL` are not implemented. See [CONFIG.md](CONFIG.md).
@@ -81,7 +83,8 @@ export COOKIE_DOMAIN=.example.com
 
 **Recommended Configuration**:
 - Use Traefik with Let's Encrypt for automatic SSL certificates
-- Configure `TRUSTED_PROXY_IPS` if behind a reverse proxy
+- Configure the narrowest possible `TRUSTED_PROXIES` allowlist; forwarded headers are ignored by default
+- Ensure the proxy overwrites forwarding headers instead of appending untrusted client values
 - Use network policies to restrict service access
 - Monitor and log authentication attempts
 

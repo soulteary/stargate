@@ -60,6 +60,17 @@ func setupTemplates() *html.Engine {
 	return html.New(templatesPath, ".html")
 }
 
+func parseTrustedProxies() []string {
+	values := strings.Split(config.TrustedProxies.String(), ",")
+	proxies := make([]string, 0, len(values))
+	for _, value := range values {
+		if value = strings.TrimSpace(value); value != "" {
+			proxies = append(proxies, value)
+		}
+	}
+	return proxies
+}
+
 // setupSessionStore initializes the session store with configured settings.
 // It sets up cookie-based session management with configurable domain support.
 // If Redis storage is enabled via SESSION_STORAGE_ENABLED=true, it will use Redis for session storage.
@@ -318,12 +329,16 @@ func createApp() *fiber.App {
 
 	log.Debug().Msg("Creating web server instance")
 	app := fiber.New(fiber.Config{
-		Views:                 engine,
-		DisableStartupMessage: true,
-		BodyLimit:             1 * 1024 * 1024,
-		ReadTimeout:           10 * time.Second,
-		WriteTimeout:          15 * time.Second,
-		IdleTimeout:           60 * time.Second,
+		Views:                   engine,
+		DisableStartupMessage:   true,
+		BodyLimit:               1 * 1024 * 1024,
+		ReadTimeout:             10 * time.Second,
+		WriteTimeout:            15 * time.Second,
+		IdleTimeout:             60 * time.Second,
+		EnableTrustedProxyCheck: true,
+		TrustedProxies:          parseTrustedProxies(),
+		ProxyHeader:             config.ProxyHeader.String(),
+		EnableIPValidation:      true,
 	})
 
 	setupMiddleware(app)

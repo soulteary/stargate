@@ -26,6 +26,7 @@
 - 设置 `MODE=production` 启用生产模式
 - 配置 `COOKIE_DOMAIN` 以正确管理会话
 - 通过反向代理（Traefik、Nginx 等）使用 HTTPS
+- 将反向代理的来源 IP 或 CIDR 配置到 `TRUSTED_PROXIES`
 - 配置安全的会话 Cookie 设置
 
 **配置示例**:
@@ -33,6 +34,7 @@
 export AUTH_HOST=auth.example.com
 export PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
 export COOKIE_DOMAIN=.example.com
+export TRUSTED_PROXIES=10.20.0.10
 ```
 
 **说明**：当前实现中 Cookie 的 Secure 由 `X-Forwarded-Proto` 等请求头推断，SameSite 固定为 `Lax`；未提供 `COOKIE_SECURE`、`COOKIE_SAME_SITE`、`SESSION_TTL` 等环境变量，详见 [CONFIG.md](CONFIG.md)。
@@ -81,7 +83,8 @@ export COOKIE_DOMAIN=.example.com
 
 **推荐配置**:
 - 使用带 Let's Encrypt 的 Traefik 自动获取 SSL 证书
-- 如果在反向代理后面，配置 `TRUSTED_PROXY_IPS`
+- 配置尽可能精确的 `TRUSTED_PROXIES` 白名单；默认忽略所有转发头
+- 确保代理覆盖转发头，而不是追加客户端提供的不可信值
 - 使用网络策略限制服务访问
 - 监控和记录认证尝试
 

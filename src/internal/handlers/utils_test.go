@@ -44,6 +44,24 @@ func TestGetForwardedHost_WithHeader(t *testing.T) {
 	testza.AssertEqual(t, "forwarded.example.com", result)
 }
 
+func TestGetForwardedHeadersIgnoredWithoutTrustedProxy(t *testing.T) {
+	original := config.TrustedProxies.Value
+	t.Cleanup(func() { config.TrustedProxies.Value = original })
+	config.TrustedProxies.Value = ""
+
+	ctx, app := createTestContextForUtils("GET", "/original", map[string]string{
+		"X-Forwarded-Host":  "attacker.example.com",
+		"X-Forwarded-Uri":   "/admin",
+		"X-Forwarded-Proto": "https",
+		"Host":              "direct.example.com",
+	})
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertEqual(t, "direct.example.com", GetForwardedHost(ctx))
+	testza.AssertEqual(t, "/", GetForwardedURI(ctx))
+	testza.AssertEqual(t, "http", GetForwardedProto(ctx))
+}
+
 func TestGetForwardedHost_WithoutHeader(t *testing.T) {
 	ctx, app := createTestContextForUtils("GET", "/test", map[string]string{
 		"Host": "original.example.com",
