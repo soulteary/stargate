@@ -139,7 +139,7 @@ Comprehensive documentation is available to help you get the most out of Stargat
 
 ### Quick Reference
 
-- **API Endpoints**: `GET /_auth` (auth check), `GET /_login` (login page), `POST /_login` (login), `POST /_send_verify_code` (send OTP), `POST /_logout` (logout), `GET /_session_exchange?ticket=...` (cross-domain), `POST /totp/enroll`, `POST /totp/enroll/confirm`, `GET /totp/revoke`, `POST /totp/revoke` (TOTP when Herald TOTP enabled), `GET /health` (health check), `GET /metrics` (Prometheus)
+- **API Endpoints**: `GET /_auth` (auth check), `GET /_login` (login page), `POST /_login` (login), `POST /_send_verify_code` (send OTP), `POST /_logout` (logout), `GET /_session_exchange?ticket=...` (cross-domain), `POST /totp/enroll`, `POST /totp/enroll/confirm`, `GET /totp/revoke`, `POST /totp/revoke` (TOTP when Herald TOTP enabled), `GET /healthz`, `GET /readyz` (health check), `GET /metrics` (Prometheus)
 - **Deployment**: Docker Compose recommended for quick start. See [DEPLOYMENT.md](docs/enUS/DEPLOYMENT.md) for production deployment.
 - **Development**: For development-related documentation, see [ARCHITECTURE.md](docs/enUS/ARCHITECTURE.md)
 

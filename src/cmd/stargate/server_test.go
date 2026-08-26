@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -224,11 +225,37 @@ func TestSetupRoutes(t *testing.T) {
 		setupRoutes(app, store, aggregator, handlers.NewSessionExchangeReplayStore(nil))
 	})
 
-	// Verify routes are registered by testing health endpoint
-	req := httptest.NewRequest("GET", RouteHealth, nil)
-	resp, err := app.Test(req)
+	// Verify liveness, readiness, and the compatibility route are registered.
+	for _, route := range []string{RouteHealthz, RouteReadyz, RouteHealth} {
+		req := httptest.NewRequest("GET", route, nil)
+		resp, err := app.Test(req)
+		testza.AssertNoError(t, err)
+		testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+	}
+}
+
+func TestHealthzStaysLiveWhenDependencyIsUnready(t *testing.T) {
+	setupTestConfig(t)
+
+	app := fiber.New()
+	store, _ := setupSessionStore()
+	aggregator := health.NewAggregator(health.DefaultConfig().WithServiceName("stargate"))
+	aggregator.AddChecker(health.NewCheckerFunc("dependency", func(context.Context) health.CheckResult {
+		return health.CheckResult{Name: "dependency", Status: health.StatusUnhealthy}
+	}))
+	setupRoutes(app, store, aggregator, handlers.NewSessionExchangeReplayStore(nil))
+
+	liveness, err := app.Test(httptest.NewRequest("GET", RouteHealthz, nil))
 	testza.AssertNoError(t, err)
-	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+	testza.AssertEqual(t, fiber.StatusOK, liveness.StatusCode)
+
+	readiness, err := app.Test(httptest.NewRequest("GET", RouteReadyz, nil))
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusServiceUnavailable, readiness.StatusCode)
+
+	legacy, err := app.Test(httptest.NewRequest("GET", RouteHealth, nil))
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusServiceUnavailable, legacy.StatusCode)
 }
 
 func TestFindAssetsPath(t *testing.T) {
@@ -343,6 +370,8 @@ func TestCreateApp_AllRoutesRegistered(t *testing.T) {
 	// Test all routes are registered
 	routes := []string{
 		RouteHealth,
+		RouteHealthz,
+		RouteReadyz,
 		RouteRoot,
 		RouteLogin,
 		RouteLogout,

@@ -16,8 +16,12 @@ const (
 	RouteAuth = "/_auth"
 	// RouteStepUp is the additional authentication route
 	RouteStepUp = "/_step_up"
-	// RouteHealth is the health check route
+	// RouteHealth is the deprecated readiness-check compatibility route.
 	RouteHealth = "/health"
+	// RouteHealthz is the process liveness route.
+	RouteHealthz = "/healthz"
+	// RouteReadyz is the dependency readiness route.
+	RouteReadyz = "/readyz"
 
 	// StaticAssetsPath is the static assets path
 	StaticAssetsPath = "./internal/web/templates/assets"

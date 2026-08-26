@@ -103,9 +103,9 @@ Handlers are responsible for processing HTTP requests:
 - **GET /metrics**: Prometheus metrics (metrics-kit)
 
 **Health check endpoints (to avoid confusion with downstream services):**
-- **Stargate**: Exposes `GET /health` as the aggregated health entrypoint. It reports Stargate, Redis (when session storage is enabled), and optionally Warden/Herald status.
-- **Herald**: Uses `GET /healthz`. When Herald is enabled, Stargate's `/health` calls `HERALD_URL/healthz` to determine Herald availability.
-- **Warden**: Uses `GET /health`. When Warden is enabled, Stargate's `/health` calls `WARDEN_URL/health` to determine Warden availability.
+- **Stargate**: Exposes `GET /healthz` for process liveness and `GET /readyz` for aggregated dependency readiness. The deprecated `GET /health` route aliases readiness.
+- **Herald**: Uses `GET /healthz`. When Herald is enabled, Stargate readiness calls `HERALD_URL/healthz`.
+- **Warden**: Uses `GET /health`. When Warden is enabled, Stargate readiness calls `WARDEN_URL/health`.
 
 ### 4. Password and Security
 
@@ -390,7 +390,7 @@ Modify the `internal/web/templates/login.html` template file.
 - Uses Zerolog (via logger-kit) for structured logging
 - Supports debug mode (DEBUG=true)
 - All critical operations are logged
-- Health check endpoint (`GET /health`) and Prometheus metrics (`GET /metrics`) available for monitoring
+- Liveness (`GET /healthz`), readiness (`GET /readyz`), and Prometheus metrics (`GET /metrics`) available for monitoring
 
 ## Testing
 

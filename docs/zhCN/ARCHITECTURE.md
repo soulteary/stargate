@@ -103,9 +103,9 @@ src/
 - **GET /metrics**: Prometheus 指标（metrics-kit）
 
 **健康检查端点说明（避免与下游混淆）：**
-- **Stargate**：暴露 `GET /health`，作为自身及聚合健康检查入口。该端点会汇总 Stargate、Redis（若启用会话存储）、以及可选的 Warden / Herald 健康状态。
-- **Herald**：健康检查路径为 `GET /healthz`。当启用 Herald 时，Stargate 的 `/health` 会请求 `HERALD_URL/healthz` 以判断 Herald 是否可用。
-- **Warden**：健康检查路径为 `GET /health`。当启用 Warden 时，Stargate 的 `/health` 会请求 `WARDEN_URL/health` 以判断 Warden 是否可用。
+- **Stargate**：暴露 `GET /healthz` 作为进程存活检查，暴露 `GET /readyz` 聚合依赖就绪状态；弃用的 `GET /health` 保留为就绪检查别名。
+- **Herald**：健康检查路径为 `GET /healthz`。启用 Herald 时，Stargate 就绪检查会请求 `HERALD_URL/healthz`。
+- **Warden**：健康检查路径为 `GET /health`。启用 Warden 时，Stargate 就绪检查会请求 `WARDEN_URL/health`。
 
 ### 4. 密码与安全
 
@@ -390,7 +390,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 - 使用 Zerolog（通过 logger-kit）进行结构化日志记录
 - 支持调试模式（DEBUG=true）
 - 所有关键操作都有日志记录
-- 健康检查端点（`GET /health`）与 Prometheus 指标（`GET /metrics`）可用于监控
+- 存活检查（`GET /healthz`）、就绪检查（`GET /readyz`）与 Prometheus 指标（`GET /metrics`）可用于监控
 
 ## 测试
 

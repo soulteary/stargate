@@ -488,7 +488,7 @@ services:
 services:
   stargate:
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      test: ["CMD", "curl", "-f", "http://localhost/healthz"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -538,12 +538,12 @@ services:
 
 #### 2. 健康检查端点
 
-使用 `/health` 端点进行监控：
+使用 `/healthz` 检查进程存活。需要在 Redis、Warden 和 Herald 依赖就绪后才接收流量时，另用 `/readyz`；旧的 `/health` 端点保留为弃用的就绪检查别名。
 
 ```bash
 # 健康检查脚本
 #!/bin/bash
-if curl -f http://localhost/health > /dev/null 2>&1; then
+if curl -f http://localhost/healthz > /dev/null 2>&1; then
   exit 0
 else
   exit 1
@@ -601,7 +601,7 @@ docker stats stargate
 使用健康检查端点监控响应时间：
 
 ```bash
-time curl http://auth.example.com/health
+time curl http://auth.example.com/healthz
 ```
 
 ### 定期维护
@@ -772,7 +772,7 @@ DEBUG=true
 
 ```bash
 # 从容器内测试
-docker exec stargate curl -f http://localhost/health
+docker exec stargate curl -f http://localhost/healthz
 ```
 
 #### 3. 查看 Traefik 日志
@@ -785,7 +785,7 @@ docker logs traefik
 
 ```bash
 # 测试健康检查
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 
 # 测试认证（使用 Header）
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
@@ -833,7 +833,7 @@ docker run -d \
 5. **验证服务**：
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
 ```
 
 ### 回滚

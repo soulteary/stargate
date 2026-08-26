@@ -139,7 +139,7 @@ chmod +x start-local.sh
 
 ### 快速参考
 
-- **API 端点**：`GET /_auth`（认证检查）、`GET /_login`（登录页）、`POST /_login`（登录）、`POST /_send_verify_code`（发送 OTP）、`POST /_logout`（登出）、`GET /_session_exchange?ticket=...`（跨域）、`POST /totp/enroll`、`POST /totp/enroll/confirm`、`GET /totp/revoke`、`POST /totp/revoke`（Herald TOTP 启用时）、`GET /health`（健康检查）、`GET /metrics`（Prometheus）
+- **API 端点**：`GET /_auth`（认证检查）、`GET /_login`（登录页）、`POST /_login`（登录）、`POST /_send_verify_code`（发送 OTP）、`POST /_logout`（登出）、`GET /_session_exchange?ticket=...`（跨域）、`POST /totp/enroll`、`POST /totp/enroll/confirm`、`GET /totp/revoke`、`POST /totp/revoke`（Herald TOTP 启用时）、`GET /healthz`, `GET /readyz`（健康检查）、`GET /metrics`（Prometheus）
 - **部署**：推荐使用 Docker Compose 快速开始。生产环境部署请参阅 [DEPLOYMENT.md](docs/zhCN/DEPLOYMENT.md)
 - **开发**：开发相关文档请参阅 [ARCHITECTURE.md](docs/zhCN/ARCHITECTURE.md)
 

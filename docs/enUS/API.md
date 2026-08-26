@@ -424,31 +424,22 @@ Confirms TOTP unbind (removes TOTP from the account).
 
 **Notes:** TOTP creation and verification are performed by Herald (which may proxy to herald-totp). Stargate only orchestrates the UI and session; it does not implement OTP algorithms.
 
-## Health Check Endpoint
+## Health Check Endpoints
 
-### `GET /health`
+### `GET /healthz`
 
-Service health check endpoint. Used to monitor service status.
+Process liveness endpoint. It returns `200 OK` while Stargate is running and does not query Redis, Warden, or Herald. Use it for container health checks and Kubernetes liveness probes.
 
-#### Response
+### `GET /readyz`
 
-**Success Response (200 OK)**
-
-```
-HTTP/1.1 200 OK
-```
-
-#### Example
+Dependency readiness endpoint. It aggregates the configured Redis, Warden, and Herald checks and returns a non-2xx response when a required dependency is unavailable. Use it for Kubernetes readiness probes and load-balancer routing.
 
 ```bash
-curl http://auth.example.com/health
+curl http://auth.example.com/healthz
+curl http://auth.example.com/readyz
 ```
 
-**Typical Uses:**
-
-- Docker health checks
-- Kubernetes liveness probes
-- Load balancer health checks
+`GET /health` remains a deprecated compatibility alias for `GET /readyz`.
 
 ## Metrics Endpoint
 
