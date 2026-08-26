@@ -1,23 +1,24 @@
 services:
   stargate: # Your Stargate forward auth service
-    image: stargate
-    # Local development port mapping: host port 8080 -> container port 80
+    image: ghcr.io/soulteary/stargate:latest
+    # Local development port mapping: host port 8080 -> container port 8080
     # Purpose: Direct access to service during local development without traefik
-    # Production: Uses port 80 via traefik proxy (not mapped to host)
+    # Production: Uses port 8080 via traefik proxy (not mapped to host)
     # Note: Uncomment the ports configuration below to enable local development port mapping
     # ports:
-    #   - "8080:80"
+    #   - "8080:8080"
     environment:
       - AUTH_HOST=auth.test.localhost # Replace with your auth host (e.g.: auth.example.com).
       - PASSWORDS=plaintext:test1234|test1337 # Replace with your passwords. See the docs for more info.
+      - PORT=8080
     networks:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
+      - traefik.docker.network=traefik
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`) # Replace auth.test.localhost with your auth host defined above.
-      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate/_auth
+      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
 
   whoami: # A demo whoami service that is protected with Stargate
     image: traefik/whoami
@@ -25,7 +26,7 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
+      - traefik.docker.network=traefik
       - traefik.http.routers.whoami.entrypoints=http
       - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
       - "traefik.http.routers.whoami.middlewares=stargate"
