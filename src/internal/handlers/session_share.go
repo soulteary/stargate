@@ -56,6 +56,6 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 		cookie := sessionkit.CreateCookie(sessionConfig, sessionID)
 		ctx.Cookie(cookie)
 
-		return ctx.Redirect().To("/")
+		return ctx.Redirect().Status(fiber.StatusFound).To("/")
 	}
 }

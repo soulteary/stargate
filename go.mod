@@ -24,7 +24,7 @@ require (
 	github.com/soulteary/secure-kit v1.4.0
 	github.com/soulteary/session-kit/v2 v2.0.0
 	github.com/soulteary/tracing-kit v1.3.0
-	github.com/soulteary/version-kit v1.4.0
+	github.com/soulteary/version-kit/v2 v2.0.0
 	github.com/soulteary/warden v1.0.0
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasthttp v1.73.0
@@ -32,6 +32,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.46.0
 	golang.org/x/crypto v0.55.0 // indirect
 )
+
+require github.com/gofiber/utils/v2 v2.4.2
 
 require (
 	atomicgo.dev/assert v0.0.2 // indirect
@@ -51,7 +53,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-sql-driver/mysql v1.10.0 // indirect
 	github.com/gofiber/schema v1.8.4 // indirect
-	github.com/gofiber/utils/v2 v2.4.2 // indirect
+	github.com/gofiber/template/v2 v2.1.1 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.6.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect

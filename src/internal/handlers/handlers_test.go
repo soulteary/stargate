@@ -62,7 +62,13 @@ func setupTestStore() *session.Store {
 }
 
 func createTestContext(method, path string, headers map[string]string, body string) (fiber.Ctx, *fiber.App) {
-	app := fiber.New()
+	// An acquired fasthttp test context uses 0.0.0.0 as its remote IP. Mark
+	// that synthetic address as trusted so tests exercise the same forwarded
+	// header path as the production app when TRUSTED_PROXIES is configured.
+	app := fiber.New(fiber.Config{
+		TrustProxy:       true,
+		TrustProxyConfig: fiber.TrustProxyConfig{Proxies: []string{"0.0.0.0"}},
+	})
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 
 	ctx.Request().SetRequestURI(path)

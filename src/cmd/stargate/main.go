@@ -17,7 +17,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/tracing-kit"
-	version "github.com/soulteary/version-kit"
+	version "github.com/soulteary/version-kit/v2"
 )
 
 // log is the global logger instance

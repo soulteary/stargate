@@ -20,7 +20,10 @@ func testLoggerUtils() *logger.Logger {
 }
 
 func createTestContextForUtils(method, path string, headers map[string]string) (fiber.Ctx, *fiber.App) {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		TrustProxy:       true,
+		TrustProxyConfig: fiber.TrustProxyConfig{Proxies: []string{"0.0.0.0"}},
+	})
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 
 	ctx.Request().SetRequestURI(path)

@@ -12,7 +12,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
-	version "github.com/soulteary/version-kit"
+	version "github.com/soulteary/version-kit/v2"
 )
 
 func TestShowBanner(t *testing.T) {

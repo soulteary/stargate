@@ -47,7 +47,7 @@ func safeStepUpCallback(raw string) string {
 
 func redirectToStepUp(ctx fiber.Ctx) error {
 	callback := safeStepUpCallback(GetForwardedURI(ctx))
-	return ctx.Redirect().To("/_step_up?callback=" + url.QueryEscape(callback))
+	return ctx.Redirect().Status(fiber.StatusFound).To("/_step_up?callback=" + url.QueryEscape(callback))
 }
 
 func StepUpRoute(store *session.Store) func(c fiber.Ctx) error {
@@ -82,6 +82,6 @@ func StepUpAPI(store *session.Store) func(c fiber.Ctx) error {
 		if err := sess.Save(); err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to save additional authentication")
 		}
-		return ctx.Redirect().To(safeStepUpCallback(ctx.FormValue("callback")))
+		return ctx.Redirect().Status(fiber.StatusFound).To(safeStepUpCallback(ctx.FormValue("callback")))
 	}
 }

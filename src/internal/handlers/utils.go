@@ -64,7 +64,13 @@ func GetForwardedProto(ctx fiber.Ctx) string {
 			return forwardedProto
 		}
 	}
-	return ctx.Scheme()
+	// Fiber's Scheme also consults forwarded headers when the application-level
+	// proxy configuration trusts the peer. Avoid that path here when Stargate's
+	// own TRUSTED_PROXIES setting disables forwarded headers.
+	if ctx.RequestCtx().IsTLS() {
+		return "https"
+	}
+	return "http"
 }
 
 // IsDifferentDomain checks if the origin host is different from the auth host.
@@ -298,7 +304,7 @@ func SendErrorResponse(ctx fiber.Ctx, statusCode int, message string) error {
 		return ctx.Status(statusCode).JSON(fiber.Map{
 			"error": message,
 			"code":  statusCode,
-		})
+		}, fiber.MIMEApplicationJSON)
 	case "xml":
 		ctx.Set("Content-Type", "application/xml")
 		return ctx.Status(statusCode).SendString(`<errors><error code="` + fmt.Sprintf("%d", statusCode) + `">` + message + `</error></errors>`)

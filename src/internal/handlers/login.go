@@ -629,7 +629,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 				"message":  i18n.T(ctx, "success.login"),
 			})
 		}
-		return ctx.Redirect().To(redirectURL)
+		return ctx.Redirect().Status(fiber.StatusFound).To(redirectURL)
 	}
 
 	// If still no callback (origin domain is the auth service itself), return response based on request type
@@ -721,12 +721,12 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "session exchange is not configured")
 			}
 			redirectURL := fmt.Sprintf("%s://%s/_session_exchange?ticket=%s", proto, callback, ticket)
-			return ctx.Redirect().To(redirectURL)
+			return ctx.Redirect().Status(fiber.StatusFound).To(redirectURL)
 		}
 		// When no callback, redirect to current host's root path
 		host := config.AuthHost.String()
 		redirectURL := fmt.Sprintf("%s://%s/", proto, host)
-		return ctx.Redirect().To(redirectURL)
+		return ctx.Redirect().Status(fiber.StatusFound).To(redirectURL)
 	}
 
 	// Select template based on Warden configuration
