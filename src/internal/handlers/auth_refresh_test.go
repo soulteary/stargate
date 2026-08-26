@@ -37,7 +37,11 @@ func TestAuthRefreshRejectsMissingOrDisabledUser(t *testing.T) {
 	testza.AssertNoError(t, err)
 	sess.Set("user_mail", "disabled@example.com")
 	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())
+	sessionID := sess.ID()
 	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	sess, err = store.Get(ctx)
+	testza.AssertNoError(t, err)
 	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
 		return &warden.AllowListUser{Status: "disabled"}
 	}
@@ -58,6 +62,11 @@ func TestAuthRefreshReplacesRevokedAuthorization(t *testing.T) {
 	sess.Set("user_mail", "active@example.com")
 	sess.Set("user_scope", []string{"old-admin"})
 	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())
+	sessionID := sess.ID()
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	sess, err = store.Get(ctx)
+	testza.AssertNoError(t, err)
 	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
 		return &warden.AllowListUser{
 			UserID: "user-1",
@@ -103,7 +112,11 @@ func TestAuthRefreshSkipsStandaloneSession(t *testing.T) {
 	defer app.ReleaseCtx(ctx)
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
+	sessionID := sess.ID()
 	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	sess, err = store.Get(ctx)
+	testza.AssertNoError(t, err)
 
 	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
 	testza.AssertNoError(t, err)
