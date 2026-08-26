@@ -26,6 +26,7 @@ func TestMain(m *testing.M) {
 	// Set up required environment variables for config
 	_ = os.Setenv("AUTH_HOST", "auth.example.com")
 	_ = os.Setenv("PASSWORDS", "plaintext:test123")
+	_ = os.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com,test.example.com,cookie.example.com,form.example.com,query.example.com")
 
 	// Initialize config and ForwardAuth handler
 	testLog := testLogger()
@@ -492,6 +493,24 @@ func TestLoginRoute_WithCallback(t *testing.T) {
 	err = handler(ctx)
 	// We just verify the handler doesn't panic
 	_ = err
+}
+
+func TestLoginRoute_RejectsUntrustedCallback(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
+	err := config.Initialize(testLogger())
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	handler := LoginRoute(store)
+	ctx, app := createTestContext("GET", "/_login?callback=evil.example.net", nil, "")
+	defer app.ReleaseCtx(ctx)
+
+	err = handler(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+	testza.AssertEqual(t, "", string(ctx.Response().Header.Peek("Location")))
 }
 
 func TestLoginRoute_WithoutCallback(t *testing.T) {

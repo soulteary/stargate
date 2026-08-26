@@ -572,6 +572,12 @@ func loginAPIHandler(ctx *fiber.Ctx, sessionGetter SessionGetter, authenticator 
 			callback = originHost
 		}
 	}
+	if callback != "" {
+		callback, err = ValidateCallbackHost(callback)
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, "invalid callback host")
+		}
+	}
 
 	// If callback exists, redirect to session exchange endpoint
 	if callback != "" {
@@ -686,6 +692,13 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 		// If URL has callback parameter, update cookie (if domain is different)
 		SetCallbackCookie(ctx, callback)
 	}
+	if callback != "" {
+		canonical, err := ValidateCallbackHost(callback)
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, "invalid callback host")
+		}
+		callback = canonical
+	}
 
 	sess, err := sessionGetter.Get(ctx)
 	if err != nil {
@@ -709,7 +722,7 @@ func loginRouteHandler(ctx *fiber.Ctx, sessionGetter SessionGetter) error {
 			return ctx.Redirect(redirectURL)
 		}
 		// When no callback, redirect to current host's root path
-		host := GetForwardedHost(ctx)
+		host := config.AuthHost.String()
 		redirectURL := fmt.Sprintf("%s://%s/", proto, host)
 		return ctx.Redirect(redirectURL)
 	}

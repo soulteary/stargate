@@ -53,6 +53,7 @@ services:
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | 否 |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | 否 |
 | `COOKIE_DOMAIN` | String | 空 | 否 |
+| `CALLBACK_ALLOWED_HOSTS` | 逗号分隔的主机名 | 空 | 否 |
 | `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | 否 |
 | `PORT` | String | 空（:80） | 否 |
 | `WARDEN_ENABLED` | true/false | false | 否 |
@@ -301,6 +302,16 @@ COOKIE_DOMAIN=.example.com
 - **会话过期时间**：由代码内常量固定为 24 小时，暂无 `SESSION_TTL` 等环境变量可配置。
 - **Cookie Secure**：根据请求协议（如 `X-Forwarded-Proto: https`）自动设置，暂无 `COOKIE_SECURE` 环境变量。
 - **Cookie SameSite**：固定为 `Lax`，暂无 `COOKIE_SAME_SITE` 环境变量。
+
+### `CALLBACK_ALLOWED_HOSTS`
+
+允许接收登录后回调的精确主机名列表，使用逗号分隔。若使用端口，必须在列表中显式写出。`COOKIE_DOMAIN` 覆盖的子域名也会被允许。
+
+```bash
+CALLBACK_ALLOWED_HOSTS=app.example.com,admin.example.com
+```
+
+不在允许列表中的回调主机会收到 HTTP 400。不要加入可能由不可信用户注册或控制的域名。
 
 ### `PORT`
 

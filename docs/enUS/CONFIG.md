@@ -53,6 +53,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | No |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | No |
 | `COOKIE_DOMAIN` | String | empty | No |
+| `CALLBACK_ALLOWED_HOSTS` | comma-separated hosts | empty | No |
 | `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | No |
 | `PORT` | String | empty (:80) | No |
 | `WARDEN_ENABLED` | true/false | false | No |
@@ -301,6 +302,16 @@ After setting `COOKIE_DOMAIN=.example.com`:
 - **Session expiration**: Fixed to 24 hours in code; there is no `SESSION_TTL` (or similar) env variable.
 - **Cookie Secure**: Set from request protocol (e.g. `X-Forwarded-Proto: https`); there is no `COOKIE_SECURE` env variable.
 - **Cookie SameSite**: Fixed to `Lax`; there is no `COOKIE_SAME_SITE` env variable.
+
+### `CALLBACK_ALLOWED_HOSTS`
+
+Comma-separated allowlist of exact hosts that may receive a post-login callback. Ports, when used, must be listed explicitly. Subdomains covered by `COOKIE_DOMAIN` are also allowed.
+
+```bash
+CALLBACK_ALLOWED_HOSTS=app.example.com,admin.example.com
+```
+
+Stargate rejects callback hosts outside this list with HTTP 400. Do not add domains that can be registered or controlled by untrusted users.
 
 ### `PORT`
 

@@ -9,6 +9,8 @@ package handlers
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -48,11 +50,14 @@ func GetForwardedURI(ctx *fiber.Ctx) string {
 // This is useful for determining whether the original request was HTTP or HTTPS
 // when behind a reverse proxy.
 func GetForwardedProto(ctx *fiber.Ctx) string {
-	forwardedProto := ctx.Get("X-Forwarded-Proto")
-	if forwardedProto != "" {
+	forwardedProto := strings.ToLower(strings.TrimSpace(strings.Split(ctx.Get("X-Forwarded-Proto"), ",")[0]))
+	if forwardedProto == "http" || forwardedProto == "https" {
 		return forwardedProto
 	}
-	return ctx.Protocol()
+	if strings.EqualFold(ctx.Protocol(), "https") {
+		return "https"
+	}
+	return "http"
 }
 
 // IsDifferentDomain checks if the origin host is different from the auth host.
@@ -70,11 +75,77 @@ func IsDifferentDomain(ctx *fiber.Ctx) bool {
 
 // normalizeHost removes port number from hostname for comparison.
 func normalizeHost(host string) string {
-	// If contains port number, only take the hostname part
-	if idx := strings.Index(host, ":"); idx != -1 {
-		return host[:idx]
+	parsed, err := parseCallbackHost(host)
+	if err != nil {
+		return ""
 	}
-	return host
+	return strings.ToLower(strings.TrimSuffix((&url.URL{Host: parsed}).Hostname(), "."))
+}
+
+func parseCallbackHost(raw string) (string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || strings.ContainsAny(raw, "\\\r\n\t") {
+		return "", fmt.Errorf("invalid callback host")
+	}
+
+	value := raw
+	if !strings.Contains(value, "://") {
+		value = "//" + value
+	}
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return "", fmt.Errorf("invalid callback host")
+	}
+	if parsed.Scheme != "" && parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return "", fmt.Errorf("invalid callback scheme")
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return "", fmt.Errorf("callback paths are not allowed")
+	}
+
+	hostname := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
+	if hostname == "" || net.ParseIP(hostname) != nil {
+		return "", fmt.Errorf("callback host must be a DNS name")
+	}
+	if strings.Contains(parsed.Host, ":") {
+		if _, _, err := net.SplitHostPort(parsed.Host); err != nil {
+			return "", fmt.Errorf("invalid callback port")
+		}
+	}
+	return parsed.Host, nil
+}
+
+// ValidateCallbackHost returns a canonical callback host only when it is explicitly
+// allowed or belongs to the configured cookie domain.
+func ValidateCallbackHost(raw string) (string, error) {
+	host, err := parseCallbackHost(raw)
+	if err != nil {
+		return "", err
+	}
+	hostname := strings.ToLower(strings.TrimSuffix((&url.URL{Host: host}).Hostname(), "."))
+
+	authHost, err := parseCallbackHost(config.AuthHost.String())
+	if err == nil && strings.EqualFold(host, authHost) {
+		return host, nil
+	}
+
+	for _, allowed := range strings.Split(config.CallbackAllowedHosts.String(), ",") {
+		allowed = strings.TrimSpace(allowed)
+		if allowed == "" {
+			continue
+		}
+		canonical, parseErr := parseCallbackHost(allowed)
+		if parseErr == nil && strings.EqualFold(host, canonical) {
+			return host, nil
+		}
+	}
+
+	cookieDomain := strings.ToLower(strings.Trim(strings.TrimSpace(config.CookieDomain.String()), "."))
+	if cookieDomain != "" && (hostname == cookieDomain || strings.HasSuffix(hostname, "."+cookieDomain)) {
+		return host, nil
+	}
+
+	return "", fmt.Errorf("callback host is not allowed")
 }
 
 // SetCallbackCookie stores the origin host in a cookie if it's different from the auth host.
@@ -84,8 +155,11 @@ func SetCallbackCookie(ctx *fiber.Ctx, callbackHost string) {
 		return
 	}
 
-	// Normalize domain
-	callbackHost = normalizeHost(callbackHost)
+	// Never persist an untrusted redirect target.
+	callbackHost, err := ValidateCallbackHost(callbackHost)
+	if err != nil {
+		return
+	}
 	authHost := normalizeHost(config.AuthHost.String())
 
 	// Only set cookie if domains are different
@@ -141,11 +215,20 @@ func BuildCallbackURL(ctx *fiber.Ctx) string {
 	authHost := config.AuthHost.String()
 
 	// If origin domain is different from auth service domain, store origin domain in cookie
-	if IsDifferentDomain(ctx) {
+	if canonical, err := ValidateCallbackHost(callbackHost); err == nil && IsDifferentDomain(ctx) {
+		callbackHost = canonical
 		SetCallbackCookie(ctx, callbackHost)
+	} else if err != nil {
+		callbackHost = ""
 	}
 
-	return fmt.Sprintf("%s://%s/_login?callback=%s", proto, authHost, callbackHost)
+	loginURL := url.URL{Scheme: proto, Host: authHost, Path: "/_login"}
+	if callbackHost != "" {
+		query := loginURL.Query()
+		query.Set("callback", callbackHost)
+		loginURL.RawQuery = query.Encode()
+	}
+	return loginURL.String()
 }
 
 // IsHTMLRequest checks if the request accepts HTML responses.
