@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"html/template"
 	"time"
 
@@ -84,7 +83,7 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable"))
 		}
 		// If already bound TOTP, redirect to revoke page
-		statusResp, err := client.TOTPStatus(context.Background(), userID)
+		statusResp, err := client.TOTPStatus(ctx.Context(), userID)
 		if err != nil {
 			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP status check failed")
 			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP status check failed")
