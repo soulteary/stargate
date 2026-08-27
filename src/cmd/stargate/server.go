@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,6 +27,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
+	internal_tls "github.com/soulteary/stargate/src/internal/tlsconfig"
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
 )
 
@@ -160,8 +162,16 @@ func setupHealthChecker(redisClient *redis.Client) *health.Aggregator {
 	if config.HeraldEnabled.ToBool() {
 		heraldURL := config.HeraldURL.String()
 		if heraldURL != "" {
-			aggregator.AddChecker(health.NewHTTPChecker("herald", heraldURL+"/healthz").
-				WithTimeout(2 * time.Second))
+			client, err := internal_tls.HTTPClient(
+				"Herald", config.HeraldTLSCACertFile.String(), config.HeraldTLSClientCert.String(),
+				config.HeraldTLSClientKey.String(), config.HeraldTLSServerName.String(), 2*time.Second,
+			)
+			if err != nil {
+				aggregator.AddChecker(health.NewCustomChecker("herald", func(_ context.Context) error { return err }))
+			} else {
+				aggregator.AddChecker(health.NewHTTPChecker("herald", heraldURL+"/healthz").
+					WithTimeout(2 * time.Second).WithClient(client))
+			}
 		} else {
 			aggregator.AddChecker(health.NewDisabledChecker("herald").
 				WithMessage("Herald URL not configured"))
@@ -175,8 +185,16 @@ func setupHealthChecker(redisClient *redis.Client) *health.Aggregator {
 	if config.WardenEnabled.ToBool() {
 		wardenURL := config.WardenURL.String()
 		if wardenURL != "" {
-			aggregator.AddChecker(health.NewHTTPChecker("warden", wardenURL+"/health").
-				WithTimeout(2 * time.Second))
+			client, err := internal_tls.HTTPClient(
+				"Warden", config.WardenTLSCACertFile.String(), config.WardenTLSClientCert.String(),
+				config.WardenTLSClientKey.String(), config.WardenTLSServerName.String(), 2*time.Second,
+			)
+			if err != nil {
+				aggregator.AddChecker(health.NewCustomChecker("warden", func(_ context.Context) error { return err }))
+			} else {
+				aggregator.AddChecker(health.NewHTTPChecker("warden", wardenURL+"/health").
+					WithTimeout(2 * time.Second).WithClient(client))
+			}
 		} else {
 			aggregator.AddChecker(health.NewDisabledChecker("warden").
 				WithMessage("Warden URL not configured"))
