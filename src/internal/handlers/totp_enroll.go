@@ -138,13 +138,20 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 			log.Warn().Err(err).Str("enroll_id", enrollID).Msg("TOTP enroll confirm failed")
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "invalid_code"})
 		}
+		if confirmResp == nil {
+			log.Error().Str("enroll_id", enrollID).Msg("TOTP enroll confirm returned an empty response")
+			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "invalid_provider_response"})
+		}
 		if confirmResp.Subject != boundSubject || !confirmResp.TotpEnabled {
 			log.Error().Str("expected_subject", boundSubject).Str("confirmed_subject", confirmResp.Subject).Msg("TOTP enrollment subject mismatch")
 			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "enrollment_subject_mismatch"})
 		}
 		clearTOTPEnrollment(sess)
 		if err := sess.Save(); err != nil {
-			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"ok": false, "error": "session_save_failed"})
+			// Herald has already completed enrollment and backup codes are only
+			// returned once. Preserve that authoritative result for the user;
+			// stale local enrollment metadata expires after a short interval.
+			log.Error().Err(err).Str("enroll_id", enrollID).Msg("Failed to clear completed TOTP enrollment from session")
 		}
 		return ctx.JSON(fiber.Map{
 			"ok":           true,
