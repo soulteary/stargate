@@ -352,6 +352,18 @@ func TestInitializeWardenRequiresReachableAuthenticationPath(t *testing.T) {
 	testza.AssertContains(t, err.Error(), "authentication path")
 }
 
+func TestInitializeAllowsLocalPasswordLoginForWarden(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "false")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "https://warden.example.com")
+	t.Setenv("HERALD_ENABLED", "false")
+	t.Setenv("HEADER_AUTH_ENABLED", "false")
+
+	testza.AssertNoError(t, Initialize(testLogger()))
+}
+
 func TestInitializeAllowsHeraldAuthenticationPathForWarden(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "")
