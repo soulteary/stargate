@@ -2,6 +2,8 @@
 
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
+Upgrading from v0.12.0? Read the [v1.0.0 migration guide](MIGRATION_V1.md) before changing production traffic.
+
 ## Table of Contents
 
 - [Deployment Methods](#deployment-methods)
@@ -154,8 +156,6 @@ docker stop stargate
 # Remove container
 docker rm stargate
 
-# Stop and remove
-docker rm -f stargate
 ```
 
 ## Docker Compose Deployment
@@ -204,23 +204,24 @@ networks:
 ### Start Services
 
 ```bash
-docker-compose up -d
+docker network inspect traefik >/dev/null 2>&1 || docker network create traefik
+docker compose up -d
 ```
 
 ### Stop Services
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### View Logs
 
 ```bash
 # View all service logs
-docker-compose logs -f
+docker compose logs -f
 
 # View specific service logs
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 ### Custom Configuration
@@ -460,7 +461,7 @@ Stargate exposes Prometheus metrics at `GET /metrics`. Configure your Prometheus
 docker logs -f stargate
 
 # Docker Compose
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 #### Log Levels
@@ -629,12 +630,17 @@ If you encounter problems:
 
 ### Upgrade Steps
 
-1. **Backup Configuration**: Save current environment variable configuration
+1. **Prepare a reusable environment file:** Copy the current container settings into `stargate.env`, keep secrets out of shell history, and restrict the file permissions.
 
-2. **Stop Service:**
+```bash
+chmod 600 stargate.env
+```
+
+2. **Keep the previous container for rollback:**
 
 ```bash
 docker stop stargate
+docker rename stargate stargate-previous
 ```
 
 3. **Pull New Image:**
@@ -648,14 +654,17 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  ...(use backed up configuration)
+  --env-file ./stargate.env \
+  -p 8080:8080 \
+  --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 5. **Verify Service:**
 
 ```bash
-curl http://auth.example.com/healthz
+curl --fail http://127.0.0.1:8080/healthz
+curl --fail http://127.0.0.1:8080/readyz
 ```
 
 ### Rollback
@@ -663,12 +672,8 @@ curl http://auth.example.com/healthz
 If problems occur after upgrade:
 
 ```bash
-# Stop new container
-docker stop stargate
-
-# Start with old image
-docker run -d \
-  --name stargate \
-  ...(use backed up configuration)
-  stargate:<old-version>
+# Remove the new container and restore the unchanged previous container
+docker rm -f stargate
+docker rename stargate-previous stargate
+docker start stargate
 ```

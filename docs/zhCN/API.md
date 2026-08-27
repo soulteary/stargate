@@ -2,6 +2,8 @@
 
 本文档详细描述了 Stargate Forward Auth Service 的所有 API 端点。
 
+从 v0.12.0 升级时，请先阅读 [v1.0.0 迁移指南](MIGRATION_V1.md)，再调整客户端。
+
 ## 目录
 
 - [认证检查端点](#认证检查端点)

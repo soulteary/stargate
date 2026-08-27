@@ -68,7 +68,7 @@ v1.0.0 使用加密、短时、单次有效且绑定目标域名的 `?ticket=` �
 | 旧契约 | v1.0.0 契约 | 迁移动作 |
 | --- | --- | --- |
 | `GET /_logout` | `POST /_logout` | 将链接或客户端改为提交 POST 请求。 |
-| `GET /totp/enroll` | `POST /totp/enroll` | 使用 POST 发起注册。 |
+| `GET /totp/enroll` 会直接发起绑定 | `GET /totp/enroll` 只展示安全确认页，`POST /totp/enroll` 才发起绑定 | 改变状态的客户端改用 POST，浏览器导航仍使用 GET。 |
 | 所有探针使用 `GET /health` | `GET /healthz` 与 `GET /readyz` | 区分进程存活和依赖就绪。 |
 | `GET /metrics` | `GET /metrics`（保持不变） | 继续使用现有的 Prometheus 兼容采集目标。 |
 | 会话交换 `?id=` | 会话交换 `?ticket=` | 跟随 Stargate 重定向，不再暴露会话 ID。 |

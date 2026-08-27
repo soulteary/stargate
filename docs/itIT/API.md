@@ -2,6 +2,8 @@
 
 Questo documento descrive in dettaglio tutti gli endpoint API del servizio Stargate Forward Auth.
 
+Per aggiornare da v0.12.0, leggere prima la [guida alla migrazione v1.0.0](MIGRATION_V1.md).
+
 ## Indice
 
 - [Endpoint Verifica Autenticazione](#endpoint-verifica-autenticazione)

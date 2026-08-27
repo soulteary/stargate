@@ -2,6 +2,8 @@
 
 Dieses Dokument beschreibt im Detail alle API-Endpunkte des Stargate Forward Auth-Dienstes.
 
+Beim Upgrade von v0.12.0 zuerst den [Migrationsleitfaden für v1.0.0](MIGRATION_V1.md) lesen.
+
 ## Inhaltsverzeichnis
 
 - [Authentifizierungsprüfungs-Endpunkt](#authentifizierungsprüfungs-endpunkt)

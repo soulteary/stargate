@@ -68,7 +68,7 @@ Do not place arbitrary client networks in `TRUSTED_PROXIES`.
 | Previous contract | v1.0.0 contract | Action |
 | --- | --- | --- |
 | `GET /_logout` | `POST /_logout` | Update links and clients to submit a POST request. |
-| `GET /totp/enroll` | `POST /totp/enroll` | Start enrollment with POST. |
+| `GET /totp/enroll` started enrollment | `GET /totp/enroll` shows a safe confirmation page; `POST /totp/enroll` starts enrollment | Update state-changing clients to POST while keeping browser navigation on GET. |
 | `GET /health` for all probes | `GET /healthz` and `GET /readyz` | Separate liveness from dependency readiness. |
 | `GET /metrics` | `GET /metrics` (unchanged) | Keep the existing Prometheus-compatible scrape target. |
 | Session exchange `?id=` | Session exchange `?ticket=` | Follow Stargate redirects; do not expose session IDs. |

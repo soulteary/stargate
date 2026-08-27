@@ -2,6 +2,8 @@
 
 이 문서는 Stargate Forward Auth 서비스의 자세한 배포 가이드를 제공합니다.
 
+v0.12.0에서 업그레이드할 때는 먼저 [v1.0.0 마이그레이션 가이드](MIGRATION_V1.md)를 확인하십시오.
+
 ## 목차
 
 - [배포 방법](#배포-방법)
@@ -154,8 +156,6 @@ docker stop stargate
 # 컨테이너 삭제
 docker rm stargate
 
-# 중지하고 삭제
-docker rm -f stargate
 ```
 
 ## Docker Compose 배포
@@ -204,23 +204,24 @@ networks:
 ### 서비스 시작
 
 ```bash
-docker-compose up -d
+docker network inspect traefik >/dev/null 2>&1 || docker network create traefik
+docker compose up -d
 ```
 
 ### 서비스 중지
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### 로그 표시
 
 ```bash
 # 모든 서비스의 로그 표시
-docker-compose logs -f
+docker compose logs -f
 
 # 특정 서비스의 로그 표시
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 ### 커스텀 설정
@@ -460,7 +461,7 @@ Stargate는 `GET /metrics`에서 Prometheus 메트릭을 노출합니다. Promet
 docker logs -f stargate
 
 # Docker Compose
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 #### 로그 레벨
@@ -629,12 +630,17 @@ curl -H "Cookie: stargate_session_id=<session_id>" http://auth.example.com/_auth
 
 ### 업데이트 절차
 
-1. **설정 백업**: 현재 환경 변수 설정 백업
+1. **재사용 가능한 환경 파일 준비**: 현재 구성을 `stargate.env`에 저장하고 파일 권한을 제한합니다.
 
-2. **서비스 중지:**
+```bash
+chmod 600 stargate.env
+```
+
+2. **롤백을 위해 이전 컨테이너 보존:**
 
 ```bash
 docker stop stargate
+docker rename stargate stargate-previous
 ```
 
 3. **새 이미지 다운로드:**
@@ -648,14 +654,17 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  ...(저장된 설정 사용)
+  --env-file ./stargate.env \
+  -p 8080:8080 \
+  --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 5. **서비스 확인:**
 
 ```bash
-curl http://auth.example.com/healthz
+curl --fail http://127.0.0.1:8080/healthz
+curl --fail http://127.0.0.1:8080/readyz
 ```
 
 ### 롤백
@@ -663,12 +672,8 @@ curl http://auth.example.com/healthz
 업데이트 후 문제가 발생한 경우:
 
 ```bash
-# 새 컨테이너 중지
-docker stop stargate
-
-# 이전 이미지로 시작
-docker run -d \
-  --name stargate \
-  ...(저장된 설정 사용)
-  stargate:<old-version>
+# 새 컨테이너를 제거하고 변경되지 않은 이전 컨테이너 복원
+docker rm -f stargate
+docker rename stargate-previous stargate
+docker start stargate
 ```
