@@ -77,6 +77,9 @@ jobs:
           git fetch origin main
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
 
+      - name: Check documentation contracts
+        run: bash .github/scripts/check-doc-contracts.sh
+
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
