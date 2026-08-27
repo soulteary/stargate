@@ -293,7 +293,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 					if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
 						verifyResp != nil && !verifyResp.OK && verifyResp.Reason != "" {
 						reason := verifyResp.Reason
-						auditlog.LogVerifyCodeCheck(ctx.Context(), userID, auditChannel, auditDestination, ctx.IP(), false, reason)
+						auditlog.LogVerifyCodeCheck(ctx.Context(), userID, challengeID, auditChannel, auditDestination, ctx.IP(), false, reason)
 						var errorMsg string
 						switch reason {
 						case "expired":
@@ -343,7 +343,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 					reason = "invalid"
 				}
 				log.Warn().Str("reason", reason).Msg("Challenge verification failed")
-				auditlog.LogVerifyCodeCheck(ctx.Context(), userID, auditChannel, auditDestination, ctx.IP(), false, reason)
+				auditlog.LogVerifyCodeCheck(ctx.Context(), userID, challengeID, auditChannel, auditDestination, ctx.IP(), false, reason)
 
 				// Provide detailed error message based on reason
 				var errorMsg string
@@ -383,7 +383,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 			)
 			heraldSpan.End()
 			metrics.RecordHeraldCall("verify_challenge", "success", duration)
-			auditlog.LogVerifyCodeCheck(ctx.Context(), userID, auditChannel, auditDestination, ctx.IP(), true, "")
+			auditlog.LogVerifyCodeCheck(ctx.Context(), userID, challengeID, auditChannel, auditDestination, ctx.IP(), true, "")
 
 			// Verify user ID matches
 			if verifyResp.UserID != userID {

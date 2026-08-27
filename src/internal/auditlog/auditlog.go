@@ -73,9 +73,15 @@ func (s *StreamStorage) Write(_ context.Context, record *audit.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.format == "text" {
-		_, err := fmt.Fprintf(s.writer, "timestamp=%d event=%s result=%s user_id=%q channel=%q destination=%q ip=%q reason=%q metadata=%v\n",
-			record.Timestamp, record.EventType, record.Result, record.UserID, record.Channel, record.Destination,
-			record.IP, record.Reason, record.Metadata)
+		metadata, err := json.Marshal(record.Metadata)
+		if err != nil {
+			return fmt.Errorf("marshal audit metadata: %w", err)
+		}
+		_, err = fmt.Fprintf(s.writer, "timestamp=%d event=%q event_id=%q result=%q user_id=%q challenge_id=%q session_id=%q channel=%q destination=%q purpose=%q resource=%q provider=%q provider_message_id=%q ip=%q user_agent=%q request_id=%q trace_id=%q duration_ms=%d reason=%q metadata=%s\n",
+			record.Timestamp, record.EventType, record.EventID, record.Result, record.UserID, record.ChallengeID,
+			record.SessionID, record.Channel, record.Destination, record.Purpose, record.Resource, record.Provider,
+			record.ProviderMessageID, record.IP, record.UserAgent, record.RequestID, record.TraceID, record.DurationMS,
+			record.Reason, metadata)
 		return err
 	}
 	data, err := json.Marshal(record)
@@ -134,7 +140,7 @@ func LogLogout(ctx context.Context, userID, ip string) {
 }
 
 // LogVerifyCodeSend records a verification code send event
-func LogVerifyCodeSend(ctx context.Context, userID, channel, destination, ip string, success bool, reason string) {
+func LogVerifyCodeSend(ctx context.Context, userID, challengeID, channel, destination, ip string, success bool, reason string) {
 	l := GetLogger()
 	if l == nil {
 		return
@@ -147,16 +153,17 @@ func LogVerifyCodeSend(ctx context.Context, userID, channel, destination, ip str
 		result = audit.ResultFailure
 	}
 
-	l.LogChallenge(ctx, eventType, "", userID, result,
+	l.LogChallenge(ctx, eventType, challengeID, userID, result,
 		audit.WithRecordChannel(channel),
 		audit.WithRecordDestination(destination),
+		audit.WithRecordPurpose("login"),
 		audit.WithRecordIP(ip),
 		audit.WithRecordReason(reason),
 	)
 }
 
 // LogVerifyCodeCheck records a verification code check event
-func LogVerifyCodeCheck(ctx context.Context, userID, channel, destination, ip string, success bool, reason string) {
+func LogVerifyCodeCheck(ctx context.Context, userID, challengeID, channel, destination, ip string, success bool, reason string) {
 	l := GetLogger()
 	if l == nil {
 		return
@@ -169,9 +176,10 @@ func LogVerifyCodeCheck(ctx context.Context, userID, channel, destination, ip st
 		result = audit.ResultFailure
 	}
 
-	l.LogChallenge(ctx, eventType, "", userID, result,
+	l.LogChallenge(ctx, eventType, challengeID, userID, result,
 		audit.WithRecordChannel(channel),
 		audit.WithRecordDestination(destination),
+		audit.WithRecordPurpose("login"),
 		audit.WithRecordIP(ip),
 		audit.WithRecordReason(reason),
 	)

@@ -260,29 +260,29 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 					// Herald service is unavailable, suggest OTP fallback if enabled
 					otpEnabled := config.HeraldTOTPEnabled.ToBool()
 					if otpEnabled {
-						auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
+						auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
 						return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"), reason)
 					}
-					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
+					auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
 					return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), reason)
 				}
 				// Other errors (rate limit, etc.)
 				if heraldErr.StatusCode == http.StatusTooManyRequests {
 					reason = "rate_limited"
-					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
+					auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
 					return sendVerifyCodeErrorJSON(ctx, fiber.StatusTooManyRequests, i18n.T(ctx, "error.rate_limited_retry"), reason)
 				}
 				reason = "provider_error"
 			}
 
 			// Default error handling
-			auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
+			auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
 			return sendVerifyCodeErrorJSON(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.send_verify_code_failed"), reason)
 		}
 
 		// Log successful verification code send
 		metrics.RecordHeraldCall("create_challenge", "success", heraldDuration)
-		auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), true, "")
+		auditlog.LogVerifyCodeSend(ctx.Context(), userID, createResp.ChallengeID, channel, destination, ctx.IP(), true, "")
 
 		heraldSpan.SetAttributes(
 			attribute.String("herald.challenge_id", createResp.ChallengeID),
