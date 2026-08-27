@@ -15,15 +15,19 @@ if grep -Fq '[1.0.0]:' "$rc_notes"; then
   exit 1
 fi
 
-if bash "$repo_root/.github/scripts/extract-release-notes.sh" v1.0.0 "$temp_dir/formal.md" "$repo_root/CHANGELOG.md" >/dev/null 2>&1; then
-  echo "Formal release unexpectedly accepted an Unreleased changelog entry" >&2
+if bash "$repo_root/.github/scripts/extract-release-notes.sh" v1.0.0 "$temp_dir/formal.md" "$repo_root/CHANGELOG.md"; then
+  grep -Fq '## [1.0.0] - 2026-08-27' "$temp_dir/formal.md"
+else
+  echo "Formal release unexpectedly rejected a dated changelog entry" >&2
   exit 1
 fi
 
-dated_changelog="$temp_dir/CHANGELOG.md"
-sed 's/## \[1.0.0\] - Unreleased/## [1.0.0] - 2026-08-27/' "$repo_root/CHANGELOG.md" > "$dated_changelog"
-bash "$repo_root/.github/scripts/extract-release-notes.sh" v1.0.0 "$temp_dir/formal.md" "$dated_changelog"
-grep -Fq '## [1.0.0] - 2026-08-27' "$temp_dir/formal.md"
+unreleased_changelog="$temp_dir/unreleased-CHANGELOG.md"
+sed 's/## \[1.0.0\] - 2026-08-27/## [1.0.0] - Unreleased/' "$repo_root/CHANGELOG.md" > "$unreleased_changelog"
+if bash "$repo_root/.github/scripts/extract-release-notes.sh" v1.0.0 "$temp_dir/unreleased.md" "$unreleased_changelog" >/dev/null 2>&1; then
+  echo "Formal release unexpectedly accepted an Unreleased changelog entry" >&2
+  exit 1
+fi
 
 if bash "$repo_root/.github/scripts/extract-release-notes.sh" v9.9.9 "$temp_dir/missing.md" "$repo_root/CHANGELOG.md" >/dev/null 2>&1; then
   echo "Missing changelog version unexpectedly succeeded" >&2
