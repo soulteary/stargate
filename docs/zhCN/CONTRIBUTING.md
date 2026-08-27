@@ -224,7 +224,7 @@ git push origin feature/your-feature-name
 
 **环境信息**
 - OS: [e.g. macOS 12.0]
-- Go 版本: [e.g. 1.26]
+- Go 版本: [e.g. 1.27]
 - Traefik 版本: [e.g. v2.10]（如适用）
 - Stargate 版本: [e.g. v1.0.0]
 ```

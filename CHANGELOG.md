@@ -26,7 +26,7 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - Added strict callback-host, cookie-domain, HTTP-header, service-URL, secret-length, and TLS-pair validation.
 - Added Redis-backed shared session and session-ticket replay state for multi-instance deployments.
 - Split liveness (`/healthz`) from dependency readiness (`/readyz`) and added TLS-aware Warden and Herald checks.
-- Added Prometheus metrics, structured audit events, configurable log levels, container hardening, SBOMs, artifact attestations, checksums, Cosign signatures, and multi-architecture image scanning.
+- Added structured audit events, configurable log levels, container hardening, SBOMs, artifact attestations, checksums, Cosign signatures, and multi-architecture image scanning.
 - User-visible verification errors no longer expose upstream provider details.
 
 ### Compatibility and documentation

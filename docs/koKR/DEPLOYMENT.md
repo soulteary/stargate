@@ -438,7 +438,7 @@ services:
 ```bash
 # 헬스 체크 스크립트
 #!/bin/bash
-if curl -f http://localhost/healthz > /dev/null 2>&1; then
+if curl -f http://localhost:8080/healthz > /dev/null 2>&1; then
   exit 0
 else
   exit 1
@@ -609,6 +609,7 @@ docker logs traefik
 curl http://auth.example.com/healthz
 
 # 인증 테스트 (헤더 사용)
+# 서버 전제 조건: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
 
 # 인증 테스트 (Cookie 사용)

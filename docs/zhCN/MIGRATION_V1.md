@@ -70,7 +70,7 @@ v1.0.0 使用加密、短时、单次有效且绑定目标域名的 `?ticket=` �
 | `GET /_logout` | `POST /_logout` | 将链接或客户端改为提交 POST 请求。 |
 | `GET /totp/enroll` | `POST /totp/enroll` | 使用 POST 发起注册。 |
 | 所有探针使用 `GET /health` | `GET /healthz` 与 `GET /readyz` | 区分进程存活和依赖就绪。 |
-| 无指标端点 | `GET /metrics` | 将 Prometheus 兼容采集目标指向此端点。 |
+| `GET /metrics` | `GET /metrics`（保持不变） | 继续使用现有的 Prometheus 兼容采集目标。 |
 | 会话交换 `?id=` | 会话交换 `?ticket=` | 跟随 Stargate 重定向，不再暴露会话 ID。 |
 
 `GET /health` 仅作为已弃用的就绪检查兼容别名保留，新部署不应继续使用。浏览器中改变认证状态的请求会受到同源检查和端点级限流保护。

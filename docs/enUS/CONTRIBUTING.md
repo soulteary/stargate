@@ -224,7 +224,7 @@ Clearly and concisely describe what actually happened.
 
 **Environment Information**
 - OS: [e.g. macOS 12.0]
-- Go Version: [e.g. 1.26]
+- Go Version: [e.g. 1.27]
 - Traefik Version: [e.g. v2.10] (if applicable)
 - Stargate Version: [e.g. v1.0.0]
 ```
