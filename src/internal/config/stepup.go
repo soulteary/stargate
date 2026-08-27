@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"regexp"
 	"strings"
 )
@@ -12,6 +13,25 @@ type StepUpMatcher struct {
 }
 
 var stepUpMatcher *StepUpMatcher
+
+// ValidStepUpPathPattern reports whether a configured step-up pattern is a
+// local absolute path without ambiguous dot segments or backslashes.
+func ValidStepUpPathPattern(raw string) bool {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.ContainsAny(raw, "\\#") {
+		return false
+	}
+	parsed, err := url.ParseRequestURI(raw)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+		return false
+	}
+	for _, segment := range strings.Split(parsed.Path, "/") {
+		if segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return true
+}
 
 // InitStepUpMatcher initializes the step-up path matcher
 func InitStepUpMatcher() {

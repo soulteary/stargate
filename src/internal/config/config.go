@@ -493,6 +493,16 @@ func Initialize(l *logger.Logger) error {
 	if StepUpEnabled.ToBool() && strings.TrimSpace(StepUpPaths.Value) == "" {
 		return NewValidationError(StepUpPaths.Name, "must contain at least one protected path when step-up is enabled", StepUpPaths.PossibleValues)
 	}
+	if StepUpEnabled.ToBool() {
+		for _, pattern := range strings.Split(StepUpPaths.Value, ",") {
+			if strings.TrimSpace(pattern) == "" {
+				continue
+			}
+			if !ValidStepUpPathPattern(pattern) {
+				return NewValidationError(StepUpPaths.Name, "must contain only local absolute path patterns without queries, fragments, backslashes, or dot segments", StepUpPaths.PossibleValues)
+			}
+		}
+	}
 	if StepUpEnabled.ToBool() && strings.TrimSpace(TrustedProxies.Value) == "" {
 		return NewValidationError(TrustedProxies.Name, "must identify the proxies allowed to provide the original request URI when step-up is enabled", TrustedProxies.PossibleValues)
 	}

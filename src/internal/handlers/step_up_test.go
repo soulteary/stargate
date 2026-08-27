@@ -107,6 +107,8 @@ func TestRequiresStepUpUsesForwardedBusinessPath(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 
+	testza.AssertFalse(t, requiresStepUp(ctx, sess))
+	testza.AssertNoError(t, auth.Authenticate(sess))
 	testza.AssertTrue(t, requiresStepUp(ctx, sess))
 	sess.Set("step_up_verified_at", time.Now().Unix())
 	testza.AssertFalse(t, requiresStepUp(ctx, sess))
@@ -120,6 +122,7 @@ func TestRequiresStepUpIgnoresForwardedQuery(t *testing.T) {
 	defer app.ReleaseCtx(ctx)
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
+	testza.AssertNoError(t, auth.Authenticate(sess))
 
 	testza.AssertTrue(t, requiresStepUp(ctx, sess))
 }
@@ -129,6 +132,10 @@ func TestStepUpRequestPathRejectsInvalidURI(t *testing.T) {
 	testza.AssertFalse(t, ok)
 	_, ok = stepUpRequestPath("not-a-path")
 	testza.AssertFalse(t, ok)
+	for _, invalid := range []string{"//evil.example/admin", "/admin/../public", "/admin/%2e%2e/public", `/admin\\public`} {
+		_, ok = stepUpRequestPath(invalid)
+		testza.AssertFalse(t, ok)
+	}
 	path, ok := stepUpRequestPath("/admin?x=1")
 	testza.AssertTrue(t, ok)
 	testza.AssertEqual(t, "/admin", path)
@@ -142,6 +149,7 @@ func TestRequiresStepUpFailsClosedWithoutValidForwardedURI(t *testing.T) {
 		ctx, app := createTestContext("GET", "/_auth", map[string]string{"X-Forwarded-Uri": forwardedURI}, "")
 		sess, err := store.Get(ctx)
 		testza.AssertNoError(t, err)
+		testza.AssertNoError(t, auth.Authenticate(sess))
 		testza.AssertTrue(t, requiresStepUp(ctx, sess))
 		sess.Release()
 		app.ReleaseCtx(ctx)
@@ -174,5 +182,9 @@ func TestStepUpAPIRecordsRecentVerification(t *testing.T) {
 func TestSafeStepUpCallbackRejectsExternalURLs(t *testing.T) {
 	testza.AssertEqual(t, "/", safeStepUpCallback("https://evil.example"))
 	testza.AssertEqual(t, "/", safeStepUpCallback("//evil.example"))
+	testza.AssertEqual(t, "/", safeStepUpCallback("/admin/../public"))
+	testza.AssertEqual(t, "/", safeStepUpCallback("/admin/%2e%2e/public"))
+	testza.AssertEqual(t, "/", safeStepUpCallback(`/admin\\public`))
 	testza.AssertEqual(t, "/admin", safeStepUpCallback("/admin"))
+	testza.AssertEqual(t, "/admin?tab=users", safeStepUpCallback("/admin?tab=users"))
 }
