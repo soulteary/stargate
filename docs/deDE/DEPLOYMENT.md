@@ -404,10 +404,7 @@ services:
       replicas: 3
 ```
 
-**Hinweis:** Wenn Redis-Sitzungsspeicher nicht aktiviert ist (`SESSION_STORAGE_ENABLED=false`), werden Sitzungen nur im Speicher gehalten und nicht zwischen Instanzen geteilt. Für Multi-Instance-Bereitstellung:
-
-- Redis-Sitzungsspeicher aktivieren (`SESSION_STORAGE_ENABLED=true` und `SESSION_STORAGE_REDIS_*` konfigurieren), oder
-- Sitzungspersistenz des Load Balancers (Sticky Session) verwenden
+**Erforderlich:** Für mehrere Instanzen, Rolling Upgrades und domänenübergreifende Bereitstellungen muss Redis-Sitzungsspeicher aktiviert werden (`SESSION_STORAGE_ENABLED=true` und `SESSION_STORAGE_REDIS_*`). Redis teilt Sitzungen und den Replay-Status einmaliger Tickets zwischen allen Replikaten. Sticky Sessions allein werden nicht unterstützt und dürfen nur zusätzlich zur Routing-Optimierung eingesetzt werden.
 
 #### 2. Lastverteilung
 

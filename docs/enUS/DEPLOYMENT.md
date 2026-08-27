@@ -404,10 +404,7 @@ services:
       replicas: 3
 ```
 
-**Note:** When Redis session storage is not enabled (`SESSION_STORAGE_ENABLED=false`), sessions are stored in memory and are not shared between instances. For multi-instance deployment, either:
-
-- Enable Redis session storage (`SESSION_STORAGE_ENABLED=true` and configure `SESSION_STORAGE_REDIS_*`), or
-- Use load balancer session persistence (sticky session)
+**Required:** Multi-instance, rolling-upgrade, and cross-domain deployments must enable Redis session storage (`SESSION_STORAGE_ENABLED=true` and configure `SESSION_STORAGE_REDIS_*`). Redis shares both sessions and single-use ticket replay state across replicas. Load-balancer sticky sessions alone are not supported; they may be used only as an additional routing optimization.
 
 #### 2. Load Balancing
 

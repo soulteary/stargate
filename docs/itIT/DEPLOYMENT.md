@@ -404,10 +404,7 @@ services:
       replicas: 3
 ```
 
-**Nota:** Senza storage Redis (`SESSION_STORAGE_ENABLED=false`), le sessioni sono solo in memoria e non condivise tra istanze. Per deployment multi-istanza:
-
-- Abilitare storage sessione Redis (`SESSION_STORAGE_ENABLED=true` e configurare `SESSION_STORAGE_REDIS_*`), oppure
-- Utilizzare persistenza sessione del bilanciatore di carico (Sticky Session)
+**Obbligatorio:** I deployment multi-istanza, gli aggiornamenti progressivi e gli scenari cross-domain devono abilitare Redis (`SESSION_STORAGE_ENABLED=true` e `SESSION_STORAGE_REDIS_*`). Redis condivide tra le repliche sia le sessioni sia lo stato anti-replay dei ticket monouso. Le Sticky Session da sole non sono supportate e possono essere usate solo come ottimizzazione aggiuntiva del routing.
 
 #### 2. Bilanciamento Carico
 

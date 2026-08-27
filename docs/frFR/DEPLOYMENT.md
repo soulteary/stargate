@@ -404,10 +404,7 @@ services:
       replicas: 3
 ```
 
-**Note :** Sans stockage Redis (`SESSION_STORAGE_ENABLED=false`), les sessions sont en mémoire et ne sont pas partagées entre instances. Pour un déploiement multi-instance :
-
-- Activer le stockage Redis (`SESSION_STORAGE_ENABLED=true` et configurer `SESSION_STORAGE_REDIS_*`), ou
-- Utiliser la persistance de session du répartiteur de charge (Sticky Session)
+**Obligatoire :** Les déploiements multi-instances, les mises à niveau progressives et les scénarios inter-domaines doivent activer le stockage Redis (`SESSION_STORAGE_ENABLED=true` et `SESSION_STORAGE_REDIS_*`). Redis partage les sessions et l'état anti-rejeu des tickets à usage unique entre les réplicas. Les Sticky Sessions seules ne sont pas prises en charge et ne peuvent servir que d'optimisation de routage supplémentaire.
 
 #### 2. Répartition de Charge
 
