@@ -404,10 +404,7 @@ services:
       replicas: 3
 ```
 
-**주의:** Redis 세션 저장소를 사용하지 않으면(`SESSION_STORAGE_ENABLED=false`) 세션은 메모리에만 저장되며 인스턴스 간 공유되지 않습니다. 다중 인스턴스 배포 시:
-
-- Redis 세션 저장소 활성화(`SESSION_STORAGE_ENABLED=true` 및 `SESSION_STORAGE_REDIS_*` 설정), 또는
-- 로드 밸런서의 세션 영속성(Sticky Session) 사용
+**필수:** 다중 인스턴스, 롤링 업그레이드 및 교차 도메인 배포에서는 Redis 세션 저장소(`SESSION_STORAGE_ENABLED=true` 및 `SESSION_STORAGE_REDIS_*`)를 활성화해야 합니다. Redis는 세션과 일회용 티켓의 재사용 방지 상태를 모든 복제본에서 공유합니다. Sticky Session만 사용하는 구성은 지원되지 않으며 추가 라우팅 최적화로만 사용할 수 있습니다.
 
 #### 2. 로드 밸런싱
 

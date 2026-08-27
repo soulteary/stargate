@@ -404,10 +404,7 @@ services:
       replicas: 3
 ```
 
-**注意:** Redis セッションストレージを有効にしていない場合（`SESSION_STORAGE_ENABLED=false`）、セッションはメモリのみでインスタンス間で共有されません。マルチインスタンスデプロイでは：
-
-- Redis セッションストレージを有効化（`SESSION_STORAGE_ENABLED=true` と `SESSION_STORAGE_REDIS_*` を設定）、または
-- ロードバランサーのセッション永続化（Sticky Session）を使用
+**必須:** マルチインスタンス、ローリングアップグレード、クロスドメイン構成では Redis セッションストレージ（`SESSION_STORAGE_ENABLED=true` と `SESSION_STORAGE_REDIS_*`）を有効にしてください。Redis はセッションと使い捨てチケットのリプレイ防止状態を全レプリカで共有します。Sticky Session だけの構成はサポートされず、追加のルーティング最適化としてのみ利用できます。
 
 #### 2. ロードバランシング
 

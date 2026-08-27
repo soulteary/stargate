@@ -514,10 +514,7 @@ services:
       replicas: 3
 ```
 
-**注意：** 未启用 Redis 会话存储（`SESSION_STORAGE_ENABLED=false`）时，会话仅保存在内存中，多实例间不共享。若需多实例部署，可：
-
-- 启用 Redis 会话存储（`SESSION_STORAGE_ENABLED=true` 并配置 `SESSION_STORAGE_REDIS_*`），或
-- 使用负载均衡器的会话保持（Sticky Session）
+**必须配置：** 多实例、滚动升级和跨域部署必须启用 Redis 会话存储（`SESSION_STORAGE_ENABLED=true` 并配置 `SESSION_STORAGE_REDIS_*`）。Redis 会在副本间同时共享 Session 与单次 Ticket 的重放状态。仅使用负载均衡器会话保持（Sticky Session）不受支持；它只能作为额外的路由优化。
 
 #### 2. 负载均衡
 
