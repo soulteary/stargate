@@ -27,12 +27,7 @@ func InitStepUpMatcher() {
 				continue
 			}
 
-			// Convert glob pattern to regex
-			// Simple conversion: * -> .*, ? -> ., ^ and $ for exact match
-			regexPattern := "^" + strings.ReplaceAll(
-				strings.ReplaceAll(regexp.QuoteMeta(pathStr), "\\*", ".*"),
-				"\\?", ".",
-			) + "$"
+			regexPattern := stepUpRegexPattern(pathStr)
 
 			pattern, err := regexp.Compile(regexPattern)
 			if err != nil {
@@ -47,6 +42,24 @@ func InitStepUpMatcher() {
 		patterns: patterns,
 		enabled:  enabled,
 	}
+}
+
+func stepUpRegexPattern(path string) string {
+	// Explicit glob patterns retain their exact glob semantics. Plain paths
+	// match the path itself and descendants separated by '/', not unrelated
+	// paths that happen to share the same string prefix.
+	if strings.ContainsAny(path, "*?") {
+		return "^" + strings.ReplaceAll(
+			strings.ReplaceAll(regexp.QuoteMeta(path), "\\*", ".*"),
+			"\\?", ".",
+		) + "$"
+	}
+
+	if path == "/" {
+		return "^/.*$"
+	}
+	path = strings.TrimSuffix(path, "/")
+	return "^" + regexp.QuoteMeta(path) + "(?:/.*)?$"
 }
 
 // GetStepUpMatcher returns the step-up matcher instance

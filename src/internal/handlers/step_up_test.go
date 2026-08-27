@@ -14,6 +14,7 @@ import (
 )
 
 func TestRedirectToStepUpPreservesOnlyLocalCallback(t *testing.T) {
+	setupStepUpTest(t)
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{"X-Forwarded-Uri": "/admin/users?tab=roles"}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -76,11 +77,25 @@ func TestStepUpAPIRejectsWrongPassword(t *testing.T) {
 }
 
 func setupStepUpTest(t *testing.T) {
+	setupStepUpTestWithPaths(t, "/admin/*")
+}
+
+func setupStepUpTestWithPaths(t *testing.T, paths string) {
 	t.Helper()
+	previousEnabled := config.StepUpEnabled.Value
+	previousPaths := config.StepUpPaths.Value
+	previousTrustedProxies := config.TrustedProxies.Value
+	t.Cleanup(func() {
+		config.StepUpEnabled.Value = previousEnabled
+		config.StepUpPaths.Value = previousPaths
+		config.TrustedProxies.Value = previousTrustedProxies
+		config.InitStepUpMatcher()
+	})
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
-	t.Setenv("STEP_UP_PATHS", "/admin/*")
+	t.Setenv("STEP_UP_PATHS", paths)
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
 	testza.AssertNoError(t, config.Initialize(testLogger()))
 }
 
@@ -98,11 +113,7 @@ func TestRequiresStepUpUsesForwardedBusinessPath(t *testing.T) {
 }
 
 func TestRequiresStepUpIgnoresForwardedQuery(t *testing.T) {
-	t.Setenv("AUTH_HOST", "auth.example.com")
-	t.Setenv("PASSWORDS", "plaintext:test123")
-	t.Setenv("STEP_UP_ENABLED", "true")
-	t.Setenv("STEP_UP_PATHS", "/admin")
-	testza.AssertNoError(t, config.Initialize(testLogger()))
+	setupStepUpTestWithPaths(t, "/admin")
 
 	store := setupTestStore()
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{"X-Forwarded-Uri": "/admin?view=users"}, "")
@@ -114,9 +125,27 @@ func TestRequiresStepUpIgnoresForwardedQuery(t *testing.T) {
 }
 
 func TestStepUpRequestPathRejectsInvalidURI(t *testing.T) {
-	testza.AssertEqual(t, "/", stepUpRequestPath("https://evil.example/admin"))
-	testza.AssertEqual(t, "/", stepUpRequestPath("not-a-path"))
-	testza.AssertEqual(t, "/admin", stepUpRequestPath("/admin?x=1"))
+	_, ok := stepUpRequestPath("https://evil.example/admin")
+	testza.AssertFalse(t, ok)
+	_, ok = stepUpRequestPath("not-a-path")
+	testza.AssertFalse(t, ok)
+	path, ok := stepUpRequestPath("/admin?x=1")
+	testza.AssertTrue(t, ok)
+	testza.AssertEqual(t, "/admin", path)
+}
+
+func TestRequiresStepUpFailsClosedWithoutValidForwardedURI(t *testing.T) {
+	setupStepUpTest(t)
+	store := setupTestStore()
+
+	for _, forwardedURI := range []string{"", "https://evil.example/admin", "not-a-path"} {
+		ctx, app := createTestContext("GET", "/_auth", map[string]string{"X-Forwarded-Uri": forwardedURI}, "")
+		sess, err := store.Get(ctx)
+		testza.AssertNoError(t, err)
+		testza.AssertTrue(t, requiresStepUp(ctx, sess))
+		sess.Release()
+		app.ReleaseCtx(ctx)
+	}
 }
 
 func TestStepUpAPIRecordsRecentVerification(t *testing.T) {

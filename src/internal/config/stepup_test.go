@@ -27,6 +27,7 @@ func TestInitStepUpMatcher_Enabled_EmptyPaths(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
 	t.Setenv("STEP_UP_PATHS", "")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
 
 	err := Initialize(testLogger())
 	testza.AssertNotNil(t, err)
@@ -37,7 +38,8 @@ func TestInitStepUpMatcher_Enabled_SinglePath(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
-	t.Setenv("STEP_UP_PATHS", "/admin*")
+	t.Setenv("STEP_UP_PATHS", "/admin")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
 
 	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
@@ -47,6 +49,7 @@ func TestInitStepUpMatcher_Enabled_SinglePath(t *testing.T) {
 	testza.AssertNotNil(t, matcher)
 	testza.AssertTrue(t, matcher.RequiresStepUp("/admin"))
 	testza.AssertTrue(t, matcher.RequiresStepUp("/admin/users"))
+	testza.AssertFalse(t, matcher.RequiresStepUp("/administrator"))
 	testza.AssertFalse(t, matcher.RequiresStepUp("/api"))
 	testza.AssertFalse(t, matcher.RequiresStepUp("/"))
 }
@@ -55,7 +58,8 @@ func TestInitStepUpMatcher_Enabled_MultiplePaths(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
-	t.Setenv("STEP_UP_PATHS", "/admin*,/api/secret*")
+	t.Setenv("STEP_UP_PATHS", "/admin,/api/secret")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
 
 	err := Initialize(testLogger())
 	testza.AssertNoError(t, err)
@@ -67,6 +71,18 @@ func TestInitStepUpMatcher_Enabled_MultiplePaths(t *testing.T) {
 	testza.AssertTrue(t, matcher.RequiresStepUp("/api/secret"))
 	testza.AssertTrue(t, matcher.RequiresStepUp("/api/secret/data"))
 	testza.AssertFalse(t, matcher.RequiresStepUp("/api/public"))
+}
+
+func TestInitializeStepUpRequiresTrustedProxy(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("STEP_UP_ENABLED", "true")
+	t.Setenv("STEP_UP_PATHS", "/admin")
+	t.Setenv("TRUSTED_PROXIES", "")
+
+	err := Initialize(testLogger())
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "TRUSTED_PROXIES")
 }
 
 func TestGetStepUpMatcher_NilInitializes(t *testing.T) {
