@@ -50,11 +50,11 @@ func TestAuditLogFunctions(t *testing.T) {
 	})
 
 	t.Run("LogVerifyCodeCheck Success", func(t *testing.T) {
-		LogVerifyCodeCheck(ctx, "user1", "127.0.0.1", true, "")
+		LogVerifyCodeCheck(ctx, "user1", "sms", "13800000000", "127.0.0.1", true, "")
 	})
 
 	t.Run("LogVerifyCodeCheck Failure", func(t *testing.T) {
-		LogVerifyCodeCheck(ctx, "user1", "127.0.0.1", false, "invalid_code")
+		LogVerifyCodeCheck(ctx, "user1", "email", "user@example.com", "127.0.0.1", false, "invalid_code")
 	})
 
 	t.Run("LogSessionCreate", func(t *testing.T) {
@@ -82,6 +82,8 @@ func TestGetLoggerWithoutInit(t *testing.T) {
 func TestStreamStorageHonorsFormats(t *testing.T) {
 	record := audit.NewRecord(audit.EventLoginSuccess, audit.ResultSuccess)
 	record.UserID = "user1"
+	record.Channel = "email"
+	record.Destination = "u***@example.com"
 
 	var jsonOutput bytes.Buffer
 	assert.NoError(t, NewStreamStorage(&jsonOutput, "json").Write(context.Background(), record))
@@ -91,6 +93,8 @@ func TestStreamStorageHonorsFormats(t *testing.T) {
 	assert.NoError(t, NewStreamStorage(&textOutput, "text").Write(context.Background(), record))
 	assert.Contains(t, textOutput.String(), "event=")
 	assert.Contains(t, textOutput.String(), "user_id=\"user1\"")
+	assert.Contains(t, textOutput.String(), "channel=\"email\"")
+	assert.Contains(t, textOutput.String(), "destination=\"u***@example.com\"")
 }
 
 func TestInitDefaultAcceptsCaseInsensitiveFormat(t *testing.T) {

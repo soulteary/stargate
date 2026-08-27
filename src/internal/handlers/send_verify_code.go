@@ -18,6 +18,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
 	"github.com/soulteary/tracing-kit"
+	"github.com/soulteary/warden/pkg/warden"
 )
 
 // sendVerifyCodeErrorJSON returns JSON in the shape expected by the login page Send Code UI:
@@ -54,6 +55,58 @@ func getLocaleFromConfig() string {
 	default:
 		return "en-US"
 	}
+}
+
+// selectVerificationDestination resolves the same canonical Warden-backed
+// channel and destination for challenge creation and verification auditing.
+// Request identifiers are lookup inputs only and are never used as fallback
+// destinations.
+func selectVerificationDestination(userInfo *warden.AllowListUser, deliverVia string) (channel, destination, reason string) {
+	if userInfo == nil {
+		return "", "", "destination_unavailable"
+	}
+	canonicalPhone := strings.TrimSpace(userInfo.Phone)
+	canonicalMail := strings.TrimSpace(userInfo.Mail)
+	canonicalDingTalkID := strings.TrimSpace(userInfo.DingtalkUserID)
+
+	if deliverVia == "sms" && !config.LoginSMSEnabled.ToBool() {
+		return "", "", "channel_disabled"
+	}
+	if deliverVia == "email" && !config.LoginEmailEnabled.ToBool() {
+		return "", "", "channel_disabled"
+	}
+	switch deliverVia {
+	case "dingtalk":
+		if canonicalDingTalkID != "" {
+			return "dingtalk", canonicalDingTalkID, ""
+		}
+		if canonicalPhone != "" {
+			return "dingtalk", canonicalPhone, ""
+		}
+		return "", "", "dingtalk_not_bound"
+	case "email":
+		if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
+			return "email", canonicalMail, ""
+		}
+		if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
+			return "sms", canonicalPhone, ""
+		}
+	case "sms", "":
+		if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
+			return "sms", canonicalPhone, ""
+		}
+		if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
+			return "email", canonicalMail, ""
+		}
+	default:
+		if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
+			return "sms", canonicalPhone, ""
+		}
+		if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
+			return "email", canonicalMail, ""
+		}
+	}
+	return "", "", "destination_unavailable"
 }
 
 // SendVerifyCodeAPI handles POST requests to /_send_verify_code for sending verification codes via Herald
@@ -123,51 +176,19 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 		// Warden. Request identifiers are lookup inputs, not trusted destinations:
 		// binding a victim user_id to an attacker-supplied fallback address would
 		// turn the verification challenge into an account-takeover primitive.
-		canonicalPhone := strings.TrimSpace(userInfo.Phone)
-		canonicalMail := strings.TrimSpace(userInfo.Mail)
-		canonicalDingTalkID := strings.TrimSpace(userInfo.DingtalkUserID)
-
-		var channel, destination string
 		deliverVia := ctx.FormValue("deliver_via")
-		if deliverVia == "sms" && !config.LoginSMSEnabled.ToBool() {
-			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_sms_disabled"), "channel_disabled")
-		}
-		if deliverVia == "email" && !config.LoginEmailEnabled.ToBool() {
-			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_email_disabled"), "channel_disabled")
-		}
-		switch deliverVia {
-		case "dingtalk":
-			if canonicalDingTalkID != "" {
-				channel, destination = "dingtalk", canonicalDingTalkID
-			} else if canonicalPhone != "" {
-				// Herald may resolve the DingTalk user by the canonical Warden phone.
-				channel, destination = "dingtalk", canonicalPhone
-			} else {
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), "dingtalk_not_bound")
-			}
-		case "email":
-			if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
-				channel, destination = "email", canonicalMail
-			} else if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
-				channel, destination = "sms", canonicalPhone
-			} else {
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "destination_unavailable")
-			}
-		case "sms":
-			if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
-				channel, destination = "sms", canonicalPhone
-			} else if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
-				channel, destination = "email", canonicalMail
-			} else {
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "destination_unavailable")
-			}
-		default:
-			if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
-				channel, destination = "sms", canonicalPhone
-			} else if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
-				channel, destination = "email", canonicalMail
-			} else {
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "destination_unavailable")
+		channel, destination, selectionReason := selectVerificationDestination(userInfo, deliverVia)
+		if selectionReason != "" {
+			switch selectionReason {
+			case "channel_disabled":
+				if deliverVia == "sms" {
+					return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_sms_disabled"), selectionReason)
+				}
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_email_disabled"), selectionReason)
+			case "dingtalk_not_bound":
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), selectionReason)
+			default:
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), selectionReason)
 			}
 		}
 
