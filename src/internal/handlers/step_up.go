@@ -24,18 +24,37 @@ func requiresStepUp(ctx fiber.Ctx, sess *session.Session) bool {
 	if !config.StepUpEnabled.ToBool() || stepUpVerified(sess) {
 		return false
 	}
-	return config.GetStepUpMatcher().RequiresStepUp(stepUpRequestPath(GetForwardedURI(ctx)))
+	raw, ok := stepUpForwardedURI(ctx)
+	if !ok {
+		return true
+	}
+	path, ok := stepUpRequestPath(raw)
+	if !ok {
+		return true
+	}
+	return config.GetStepUpMatcher().RequiresStepUp(path)
+}
+
+// stepUpForwardedURI returns the original request URI only when it came from a
+// trusted proxy. Falling back to Stargate's own /_auth path would silently
+// disable every configured business-path rule.
+func stepUpForwardedURI(ctx fiber.Ctx) (string, bool) {
+	if !trustForwardedHeaders(ctx) {
+		return "", false
+	}
+	forwardedURI := strings.TrimSpace(ctx.Get("X-Forwarded-Uri"))
+	return forwardedURI, forwardedURI != ""
 }
 
 // stepUpRequestPath removes the query and fragment before matching protected
 // routes. ForwardAuth proxies commonly send X-Forwarded-Uri as a request URI;
 // matching the raw value lets `/admin?x=1` bypass an exact `/admin` rule.
-func stepUpRequestPath(raw string) string {
+func stepUpRequestPath(raw string) (string, bool) {
 	parsed, err := url.ParseRequestURI(raw)
 	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Path == "" || !strings.HasPrefix(parsed.Path, "/") {
-		return "/"
+		return "", false
 	}
-	return parsed.Path
+	return parsed.Path, true
 }
 
 func safeStepUpCallback(raw string) string {
@@ -46,7 +65,8 @@ func safeStepUpCallback(raw string) string {
 }
 
 func redirectToStepUp(ctx fiber.Ctx) error {
-	callback := safeStepUpCallback(GetForwardedURI(ctx))
+	forwardedURI, _ := stepUpForwardedURI(ctx)
+	callback := safeStepUpCallback(forwardedURI)
 	return ctx.Redirect().Status(fiber.StatusFound).To("/_step_up?callback=" + url.QueryEscape(callback))
 }
 

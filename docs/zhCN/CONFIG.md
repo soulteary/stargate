@@ -792,7 +792,7 @@ Redis 数据库编号。
 
 ### Step-up 认证（可选）
 
-对部分路径要求二次认证（如再次输入密码或 OTP）时启用。
+对部分路径要求再次验证密码时启用。
 
 #### `STEP_UP_ENABLED`
 
@@ -818,6 +818,8 @@ Redis 数据库编号。
 **示例：** `/admin,/api/sensitive`
 
 启用 `STEP_UP_ENABLED=true` 时必须配置至少一个路径。匹配仅使用请求路径，查询参数不会影响保护规则。
+
+同时必须配置 `TRUSTED_PROXIES`。受信任的 ForwardAuth 代理必须通过 `X-Forwarded-Uri` 传递原始请求 URI；缺少该可信路径来源或 URI 无效时，Stargate 会拒绝通过 Step-up 检查。普通路径会匹配自身和下级路径段，例如 `/admin` 同时保护 `/admin` 和 `/admin/users`，但不会误匹配 `/administrator`。仍支持显式的 `*`、`?` Glob 模式。
 
 ### OpenTelemetry（可选）
 

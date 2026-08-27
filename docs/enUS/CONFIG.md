@@ -778,7 +778,7 @@ Audit log output format.
 
 ### Step-up Authentication (Optional)
 
-Require a second factor (e.g. password or OTP) for selected paths.
+Require password re-authentication for selected paths.
 
 #### `STEP_UP_ENABLED`
 
@@ -804,6 +804,8 @@ Paths that require step-up; comma-separated; prefix matching supported.
 **Example:** `/admin,/api/sensitive`
 
 At least one path is required when `STEP_UP_ENABLED=true`. Matching uses the request path only; query parameters do not affect protection.
+
+`TRUSTED_PROXIES` must also be configured. The trusted ForwardAuth proxy must send the original request URI in `X-Forwarded-Uri`; Stargate rejects the Step-up check when this trusted path provenance is missing or invalid. A plain path matches itself and child path segments, so `/admin` protects both `/admin` and `/admin/users` but not `/administrator`. Explicit `*` and `?` glob patterns remain supported.
 
 ### OpenTelemetry (Optional)
 

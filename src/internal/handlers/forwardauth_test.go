@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"errors"
-	"os"
 	"testing"
 	"time"
 
@@ -25,8 +24,10 @@ func TestGetForwardAuthHandler_ReturnsNonNilAfterInit(t *testing.T) {
 // TestInitForwardAuthHandler_WithMinimalConfig verifies InitForwardAuthHandler runs without panic
 // when given minimal env and config. Can be run in isolation via -run InitForwardAuthHandler.
 func TestInitForwardAuthHandler_WithMinimalConfig(t *testing.T) {
-	_ = os.Setenv("AUTH_HOST", "auth.test.com")
-	_ = os.Setenv("PASSWORDS", "plaintext:minimal")
+	t.Setenv("AUTH_HOST", "auth.test.com")
+	t.Setenv("PASSWORDS", "plaintext:minimal")
+	t.Setenv("STEP_UP_ENABLED", "false")
+	t.Setenv("STEP_UP_PATHS", "")
 	testLog := testLogger()
 	if err := config.Initialize(testLog); err != nil {
 		t.Fatalf("config.Initialize: %v", err)
@@ -56,14 +57,8 @@ func TestForwardAuthCheckRoute_ReturnsHandler(t *testing.T) {
 // TestInitForwardAuthHandler_WithStepUpPaths verifies InitForwardAuthHandler runs with step-up paths
 // (covers parseStepUpPaths: comma-separated, trimmed).
 func TestInitForwardAuthHandler_WithStepUpPaths(t *testing.T) {
-	_ = os.Setenv("AUTH_HOST", "auth.test.com")
-	_ = os.Setenv("PASSWORDS", "plaintext:minimal")
-	_ = os.Setenv("STEP_UP_ENABLED", "true")
-	_ = os.Setenv("STEP_UP_PATHS", " /admin*, /api/secret*, ")
+	setupStepUpTestWithPaths(t, " /admin*, /api/secret*, ")
 	testLog := testLogger()
-	if err := config.Initialize(testLog); err != nil {
-		t.Fatalf("config.Initialize: %v", err)
-	}
 	InitForwardAuthHandler(testLog)
 	h := GetForwardAuthHandler()
 	if h == nil {
