@@ -76,25 +76,11 @@ var (
 // Note: This function assumes the password format has been validated during configuration initialization.
 // If the format is invalid, it will return empty values, which will cause authentication to fail safely.
 func GetValidPasswords() (string, []string) {
-	// Schema: "algorithm:pass1|pass2|pass3"
-	passwordsRaw := config.Passwords.String()
-	if passwordsRaw == "" {
+	algorithm, passwords, ok := config.ParsePasswords(config.Passwords.String())
+	if !ok {
 		return "", []string{}
 	}
-
-	parts := strings.SplitN(passwordsRaw, ":", 2)
-	if len(parts) < 2 {
-		// Invalid format, return empty to fail safely
-		return "", []string{}
-	}
-
-	algorithm := strings.ToLower(strings.TrimSpace(parts[0]))
-	passwordsStr := parts[1]
-	if passwordsStr == "" {
-		return algorithm, []string{}
-	}
-
-	return algorithm, strings.Split(passwordsStr, "|")
+	return algorithm, passwords
 }
 
 // CheckPassword validates a password against the configured valid passwords.
@@ -106,6 +92,9 @@ func GetValidPasswords() (string, []string) {
 //
 // Returns true if the password matches any of the configured passwords, false otherwise.
 func CheckPassword(password string) bool {
+	if password == "" {
+		return false
+	}
 	algo, validPasswords := GetValidPasswords()
 
 	// If no valid passwords configured, authentication fails
