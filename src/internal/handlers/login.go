@@ -232,6 +232,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 		challengeID := ctx.FormValue("challenge_id")
 		otpCode := ctx.FormValue("otp_code")
 		useOTP := ctx.FormValue("use_otp") == "true"
+		auditChannel, auditDestination, _ := selectVerificationDestination(userInfo, ctx.FormValue("deliver_via"))
 
 		// Only per-user TOTP managed by Herald is supported.
 		otpEnabled := config.HeraldTOTPEnabled.ToBool()
@@ -292,7 +293,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 					if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
 						verifyResp != nil && !verifyResp.OK && verifyResp.Reason != "" {
 						reason := verifyResp.Reason
-						auditlog.LogVerifyCodeCheck(ctx.Context(), userID, ctx.IP(), false, reason)
+						auditlog.LogVerifyCodeCheck(ctx.Context(), userID, auditChannel, auditDestination, ctx.IP(), false, reason)
 						var errorMsg string
 						switch reason {
 						case "expired":
@@ -342,7 +343,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 					reason = "invalid"
 				}
 				log.Warn().Str("reason", reason).Msg("Challenge verification failed")
-				auditlog.LogVerifyCodeCheck(ctx.Context(), userID, ctx.IP(), false, reason)
+				auditlog.LogVerifyCodeCheck(ctx.Context(), userID, auditChannel, auditDestination, ctx.IP(), false, reason)
 
 				// Provide detailed error message based on reason
 				var errorMsg string
@@ -382,7 +383,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 			)
 			heraldSpan.End()
 			metrics.RecordHeraldCall("verify_challenge", "success", duration)
-			auditlog.LogVerifyCodeCheck(ctx.Context(), userID, ctx.IP(), true, "")
+			auditlog.LogVerifyCodeCheck(ctx.Context(), userID, auditChannel, auditDestination, ctx.IP(), true, "")
 
 			// Verify user ID matches
 			if verifyResp.UserID != userID {

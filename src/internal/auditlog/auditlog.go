@@ -73,8 +73,9 @@ func (s *StreamStorage) Write(_ context.Context, record *audit.Record) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.format == "text" {
-		_, err := fmt.Fprintf(s.writer, "timestamp=%d event=%s result=%s user_id=%q ip=%q reason=%q metadata=%v\n",
-			record.Timestamp, record.EventType, record.Result, record.UserID, record.IP, record.Reason, record.Metadata)
+		_, err := fmt.Fprintf(s.writer, "timestamp=%d event=%s result=%s user_id=%q channel=%q destination=%q ip=%q reason=%q metadata=%v\n",
+			record.Timestamp, record.EventType, record.Result, record.UserID, record.Channel, record.Destination,
+			record.IP, record.Reason, record.Metadata)
 		return err
 	}
 	data, err := json.Marshal(record)
@@ -155,7 +156,7 @@ func LogVerifyCodeSend(ctx context.Context, userID, channel, destination, ip str
 }
 
 // LogVerifyCodeCheck records a verification code check event
-func LogVerifyCodeCheck(ctx context.Context, userID, ip string, success bool, reason string) {
+func LogVerifyCodeCheck(ctx context.Context, userID, channel, destination, ip string, success bool, reason string) {
 	l := GetLogger()
 	if l == nil {
 		return
@@ -169,6 +170,8 @@ func LogVerifyCodeCheck(ctx context.Context, userID, ip string, success bool, re
 	}
 
 	l.LogChallenge(ctx, eventType, "", userID, result,
+		audit.WithRecordChannel(channel),
+		audit.WithRecordDestination(destination),
 		audit.WithRecordIP(ip),
 		audit.WithRecordReason(reason),
 	)
