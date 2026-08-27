@@ -548,7 +548,7 @@ services:
 ```bash
 # 健康检查脚本
 #!/bin/bash
-if curl -f http://localhost/healthz > /dev/null 2>&1; then
+if curl -f http://localhost:8080/healthz > /dev/null 2>&1; then
   exit 0
 else
   exit 1
@@ -794,6 +794,7 @@ docker logs traefik
 curl http://auth.example.com/healthz
 
 # 测试认证（使用 Header）
+# 服务端启动前必须设置：PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
 
 # 测试认证（使用 Cookie）

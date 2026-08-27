@@ -70,7 +70,7 @@ Do not place arbitrary client networks in `TRUSTED_PROXIES`.
 | `GET /_logout` | `POST /_logout` | Update links and clients to submit a POST request. |
 | `GET /totp/enroll` | `POST /totp/enroll` | Start enrollment with POST. |
 | `GET /health` for all probes | `GET /healthz` and `GET /readyz` | Separate liveness from dependency readiness. |
-| No metrics endpoint | `GET /metrics` | Point Prometheus-compatible scraping here. |
+| `GET /metrics` | `GET /metrics` (unchanged) | Keep the existing Prometheus-compatible scrape target. |
 | Session exchange `?id=` | Session exchange `?ticket=` | Follow Stargate redirects; do not expose session IDs. |
 
 `GET /health` remains as a deprecated compatibility alias for readiness. New deployments should not use it. Browser requests that change authentication state are subject to same-origin checks and endpoint-specific rate limits.

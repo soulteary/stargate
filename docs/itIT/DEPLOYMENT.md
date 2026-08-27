@@ -438,7 +438,7 @@ Usare `/healthz` per la liveness del processo e `/readyz` per la readiness delle
 ```bash
 # Script verifica salute
 #!/bin/bash
-if curl -f http://localhost/healthz > /dev/null 2>&1; then
+if curl -f http://localhost:8080/healthz > /dev/null 2>&1; then
   exit 0
 else
   exit 1
@@ -609,6 +609,7 @@ docker logs traefik
 curl http://auth.example.com/healthz
 
 # Testare autenticazione (utilizzando Header)
+# Prerequisito del server: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
 
 # Testare autenticazione (utilizzando Cookie)

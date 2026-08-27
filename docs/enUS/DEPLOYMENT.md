@@ -438,7 +438,7 @@ Use `/healthz` for process liveness. Use `/readyz` separately when traffic shoul
 ```bash
 # Health check script
 #!/bin/bash
-if curl -f http://localhost/healthz > /dev/null 2>&1; then
+if curl -f http://localhost:8080/healthz > /dev/null 2>&1; then
   exit 0
 else
   exit 1
@@ -609,6 +609,7 @@ docker logs traefik
 curl http://auth.example.com/healthz
 
 # Test authentication (using Header)
+# Server prerequisite: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" http://auth.example.com/_auth
 
 # Test authentication (using Cookie)
