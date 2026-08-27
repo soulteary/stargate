@@ -114,6 +114,8 @@ func validateHeaderContracts() error {
 		"authorization": {}, "connection": {}, "content-length": {}, "cookie": {},
 		"host": {}, "proxy-authorization": {}, "set-cookie": {}, "stargate-password": {},
 		"te": {}, "trailer": {}, "transfer-encoding": {}, "upgrade": {},
+		"x-auth-amr": {}, "x-auth-email": {}, "x-auth-name": {},
+		"x-auth-role": {}, "x-auth-scopes": {}, "x-auth-user": {},
 		"x-forwarded-host": {}, "x-forwarded-proto": {}, "x-forwarded-uri": {},
 		"x-user-mail": {}, "x-user-phone": {},
 	}

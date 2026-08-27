@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 
 	audit "github.com/soulteary/audit-kit"
@@ -45,7 +46,7 @@ func InitDefault() error {
 		Init(audit.NewNoopStorage(), cfg)
 		return nil
 	}
-	format := config.AuditLogFormat.String()
+	format := strings.ToLower(strings.TrimSpace(config.AuditLogFormat.String()))
 	if format != "json" && format != "text" {
 		return fmt.Errorf("unsupported audit log format %q", format)
 	}
