@@ -233,6 +233,7 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	sameOrigin := handlers.RequireSameOrigin()
 	app.Post(RouteLogin, sameOrigin, handlers.LoginRateLimit(), handlers.LoginAPI(store))
 	app.Post("/_send_verify_code", sameOrigin, handlers.VerificationRateLimit(), handlers.SendVerifyCodeAPI())
+	app.Get("/totp/enroll", handlers.TOTPEnrollPageRoute(store))
 	app.Post("/totp/enroll", sameOrigin, handlers.VerificationRateLimit(), handlers.TOTPEnrollRoute(store))
 	app.Post("/totp/enroll/confirm", sameOrigin, handlers.VerificationRateLimit(), handlers.TOTPEnrollConfirmAPI(store))
 	app.Get("/totp/revoke", handlers.TOTPRevokeRoute(store))

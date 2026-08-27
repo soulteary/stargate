@@ -33,6 +33,25 @@ func clearTOTPEnrollment(sess *session.Session) {
 	sess.Delete(totpEnrollmentStartedKey)
 }
 
+// TOTPEnrollPageRoute renders a safe confirmation page. Enrollment state is
+// created only by the same-origin POST /totp/enroll action.
+func TOTPEnrollPageRoute(store *session.Store) func(c fiber.Ctx) error {
+	return func(ctx fiber.Ctx) error {
+		sess, err := store.Get(ctx)
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
+		}
+		defer sess.Release()
+		if !auth.IsAuthenticated(sess) {
+			return ctx.Redirect().Status(fiber.StatusFound).To("/_login")
+		}
+		if !hasRecentAuthentication(sess) {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "recent authentication required")
+		}
+		return ctx.Type("html").SendString(`<!doctype html><html><body><main><h1>Bind Authenticator (TOTP)</h1><p>Start enrollment to generate a new authenticator secret and recovery codes.</p><form method="post" action="/totp/enroll"><button type="submit">Start enrollment</button></form><p><a href="/totp/revoke">Manage existing TOTP</a></p></main></body></html>`)
+	}
+}
+
 // TOTPEnrollRoute handles POST /totp/enroll - starts enrollment and shows the bind page.
 // Calls herald-totp enroll/start and renders page with QR (otpauth_uri) and enroll_id.
 func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
