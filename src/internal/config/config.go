@@ -517,6 +517,9 @@ func Initialize(l *logger.Logger) error {
 	if (WardenTLSClientCert.Value == "") != (WardenTLSClientKey.Value == "") {
 		return NewValidationError(WardenTLSClientCert.Name, "client certificate and key must be configured together", WardenTLSClientCert.PossibleValues)
 	}
+	if HeraldEnabled.ToBool() && !WardenEnabled.ToBool() {
+		return NewValidationError(HeraldEnabled.Name, "requires WARDEN_ENABLED=true to resolve authenticated users", HeraldEnabled.PossibleValues)
+	}
 	if HeraldEnabled.ToBool() {
 		if strings.TrimSpace(HeraldURL.Value) == "" {
 			return NewValidationError(HeraldURL.Name, i18n.TStatic("error.config_required_not_set"), HeraldURL.PossibleValues)
@@ -524,6 +527,9 @@ func Initialize(l *logger.Logger) error {
 	}
 	if HeraldTOTPEnabled.ToBool() && !HeraldEnabled.ToBool() {
 		return NewValidationError(HeraldTOTPEnabled.Name, "requires HERALD_ENABLED=true", HeraldTOTPEnabled.PossibleValues)
+	}
+	if WardenEnabled.ToBool() && Passwords.Value == "" && !HeraldEnabled.ToBool() && !HeaderAuthEnabled.ToBool() {
+		return NewValidationError(WardenEnabled.Name, "requires PASSWORDS or an enabled Herald/header authentication path", WardenEnabled.PossibleValues)
 	}
 	if (HeraldTLSClientCert.Value == "") != (HeraldTLSClientKey.Value == "") {
 		return NewValidationError(HeraldTLSClientCert.Name, "client certificate and key must be configured together", HeraldTLSClientCert.PossibleValues)

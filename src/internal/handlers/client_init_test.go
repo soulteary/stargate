@@ -13,6 +13,8 @@ func TestInitHeraldClientReturnsAndRemembersConfigurationError(t *testing.T) {
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("HERALD_ENABLED", "true")
 	t.Setenv("HERALD_URL", "https://herald.example.com")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "https://warden.example.com")
 	t.Setenv("HERALD_TLS_CA_CERT_FILE", filepath.Join(t.TempDir(), "missing-ca.pem"))
 
 	ResetHeraldClientForTest()
