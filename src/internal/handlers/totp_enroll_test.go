@@ -24,6 +24,30 @@ type failSetStorage struct {
 	fail bool
 }
 
+func TestTOTPEnrollPageRouteRequiresAuthentication(t *testing.T) {
+	store := setupTestStore()
+	ctx, app := createTestContext("GET", "/totp/enroll", nil, "")
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertNoError(t, TOTPEnrollPageRoute(store)(ctx))
+	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
+	testza.AssertEqual(t, "/_login", string(ctx.Response().Header.Peek("Location")))
+}
+
+func TestTOTPEnrollPageRouteRendersPostForm(t *testing.T) {
+	store := setupTestStore()
+	ctx, app := createTestContext("GET", "/totp/enroll", nil, "")
+	defer app.ReleaseCtx(ctx)
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
+
+	testza.AssertNoError(t, TOTPEnrollPageRoute(store)(ctx))
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+	testza.AssertContains(t, string(ctx.Response().Body()), `method="post" action="/totp/enroll"`)
+}
+
 func (s *failSetStorage) Set(key string, value []byte, expiration time.Duration) error {
 	if s.fail {
 		return errors.New("injected session write failure")

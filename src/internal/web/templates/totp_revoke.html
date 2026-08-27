@@ -36,6 +36,11 @@
       <div id="error" class="error"></div>
       <div id="success" class="success">TOTP has been unbound. <a href="/">Back to home</a></div>
       <form id="revokeForm" method="post" action="/totp/revoke">
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password">
+        <p>or</p>
+        <label for="code">Current authenticator code</label>
+        <input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="TOTP or backup code">
         <div class="actions">
           <button type="button" class="btn btn-secondary" id="btnCancel">Cancel</button>
           <button type="submit" class="btn btn-danger" id="btnRevoke">Unbind TOTP</button>
@@ -64,7 +69,13 @@
         var successEl = document.getElementById('success');
         errEl.classList.remove('show');
         successEl.classList.remove('show');
-        fetch(form.action, { method: 'POST', credentials: 'same-origin' })
+        var body = new URLSearchParams(new FormData(form)).toString();
+        fetch(form.action, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: body
+        })
           .then(function(r) { return r.json().then(function(j){ return { ok: r.ok, json: j }; }); })
           .then(function(res) {
             if (res.ok && res.json.ok) {
