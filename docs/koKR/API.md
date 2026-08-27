@@ -183,6 +183,12 @@ curl -X POST \
      -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
+
+# Warden + Herald: /_send_verify_code가 반환한 challenge로 로그인
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
 ```
 
 ## 인증 코드 전송 엔드포인트
@@ -205,6 +211,7 @@ curl -X POST \
 |------|------|------|------|
 | `phone` | String | 아니오 | 사용자 전화번호 (`phone` 또는 `mail` 중 하나) |
 | `mail` | String | 아니오 | 사용자 이메일 (`phone` 또는 `mail` 중 하나) |
+| `deliver_via` | String | 아니오 | 선호 채널: `sms`, `email`, `dingtalk`. 생략하면 Warden 레코드에서 활성화된 채널을 선택합니다. |
 
 #### 처리 흐름
 
@@ -239,9 +246,10 @@ curl -X POST \
 | 상태 코드 | 설명 | 응답 본문 |
 |----------|------|----------|
 | `400 Bad Request` | 잘못된 요청 매개변수 (phone 또는 mail 누락) | 오류 메시지 |
-| `404 Not Found` | 사용자가 Warden 화이트리스트에 없음 | 오류 메시지 |
+| `401 Unauthorized` | Warden에 사용자가 없거나 활성 상태가 아님 | `success=false` JSON 오류 |
 | `429 Too Many Requests` | 속도 제한 트리거됨 | 오류 메시지 |
-| `500 Internal Server Error` | 서버 오류 또는 Herald 서비스 사용 불가 | 오류 메시지 |
+| `503 Service Unavailable` | Herald 클라이언트 또는 서비스를 사용할 수 없음 | `success=false` JSON 오류 |
+| `500 Internal Server Error` | 그 밖의 공급자 전송 오류 | `success=false` JSON 오류 |
 
 #### 예제
 

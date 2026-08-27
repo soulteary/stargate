@@ -184,6 +184,12 @@ curl -X POST \
      -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
+
+# Warden + Herald : connexion avec le challenge renvoyé par /_send_verify_code
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
 ```
 
 ## Point de Terminaison d'Envoi de Code de Vérification
@@ -206,6 +212,7 @@ Données de formulaire (`application/x-www-form-urlencoded`) uniquement :
 |-------|------|--------|-------------|
 | `phone` | String | Non | Numéro de téléphone utilisateur (un parmi `phone` ou `mail`) |
 | `mail` | String | Non | Email utilisateur (un parmi `phone` ou `mail`) |
+| `deliver_via` | String | Non | Canal préféré : `sms`, `email` ou `dingtalk`. Sans valeur, Stargate choisit un canal activé du compte Warden. |
 
 #### Flux de Traitement
 
@@ -240,9 +247,10 @@ Données de formulaire (`application/x-www-form-urlencoded`) uniquement :
 | Code de Statut | Description | Corps de Réponse |
 |----------------|-------------|-------------------|
 | `400 Bad Request` | Paramètres de requête invalides (phone ou mail manquant) | Message d'erreur |
-| `404 Not Found` | Utilisateur non présent dans la liste blanche Warden | Message d'erreur |
+| `401 Unauthorized` | Utilisateur absent de Warden ou inactif | Erreur JSON avec `success=false` |
 | `429 Too Many Requests` | Limite de débit déclenchée | Message d'erreur |
-| `500 Internal Server Error` | Erreur serveur ou service Herald indisponible | Message d'erreur |
+| `503 Service Unavailable` | Client ou service Herald indisponible | Erreur JSON avec `success=false` |
+| `500 Internal Server Error` | Autre erreur du fournisseur lors de l'envoi | Erreur JSON avec `success=false` |
 
 #### Exemples
 

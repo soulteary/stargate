@@ -150,7 +150,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 | `phone` | String | 否 | 用户手机号（与 `mail` 二选一） |
 | `mail` | String | 否 | 用户邮箱（与 `phone` 二选一） |
 | `challenge_id` | String | 是 | Herald 返回的 challenge_id |
-| `code` | String | 是 | 用户输入的验证码 |
+| `verify_code` | String | 是 | 用户输入的验证码 |
 | `callback` | String | 否 | 登录成功后的回调 URL |
 
 #### Callback 获取优先级
@@ -206,7 +206,7 @@ curl -X POST \
 ```bash
 # 提交登录表单（使用验证码）
 curl -X POST \
-     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&code=123456&callback=app.example.com" \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -240,6 +240,7 @@ curl -X POST \
 |------|------|------|------|
 | `phone` | String | 否 | 用户手机号（与 `mail` 二选一） |
 | `mail` | String | 否 | 用户邮箱（与 `phone` 二选一） |
+| `deliver_via` | String | 否 | 首选通道：`sms`、`email` 或 `dingtalk`。省略时，从 Warden 用户记录中选择已启用的可用通道。 |
 
 #### 处理流程
 
@@ -274,9 +275,10 @@ curl -X POST \
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
 | `400 Bad Request` | 请求参数错误（缺少 phone 或 mail） | 错误消息 |
-| `404 Not Found` | 用户不在 Warden 白名单中 | 错误消息 |
+| `401 Unauthorized` | Warden 中不存在该用户或用户不是活跃状态 | `success=false` 的 JSON 错误 |
 | `429 Too Many Requests` | 触发限流 | 错误消息 |
-| `500 Internal Server Error` | 服务器错误或 Herald 服务不可用 | 错误消息 |
+| `503 Service Unavailable` | Herald 客户端未初始化或服务不可用 | `success=false` 的 JSON 错误 |
+| `500 Internal Server Error` | Herald 因其他提供商错误拒绝发送 | `success=false` 的 JSON 错误 |
 
 #### 示例
 
