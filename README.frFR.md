@@ -9,7 +9,7 @@
 
 ![Stargate](.github/assets/banner.jpg)
 
-Stargate est un service d'authentification avant prêt pour la production, léger, conçu pour être le **point d'authentification unique** de toute votre infrastructure. Construit avec Go et optimisé pour les performances, Stargate s'intègre parfaitement avec Traefik et d'autres proxies inverses pour protéger vos services backend—**sans écrire une seule ligne de code d'authentification dans vos applications**.
+Stargate est un service Forward Auth léger qui centralise l'authentification à la frontière du proxy inverse. Il s'intègre à Traefik et fournit des flux par mot de passe, session, Warden et Herald aux services protégés.
 
 ## 🌐 Documentation Multilingue
 
@@ -36,11 +36,11 @@ Stargate est parfait pour :
 - **Outils Internes et Tableaux de Bord** : Ajouter rapidement l'authentification aux services internes et aux panneaux d'administration
 - **Intégration de Passerelle API** : Utiliser avec Traefik, Nginx ou d'autres proxies inverses comme couche d'authentification unifiée
 - **Développement et Tests** : Authentification simple basée sur un mot de passe pour les environnements de développement
-- **Authentification Entreprise** : Intégration avec Warden (liste blanche d'utilisateurs) et Herald (OTP/codes de vérification) pour une authentification de niveau production
+- **Authentification Intégrée** : Intégration avec Warden (liste blanche d'utilisateurs) et Herald (OTP/codes de vérification)
 
 ## ✨ Fonctionnalités
 
-### 🔐 Sécurité de Niveau Entreprise
+### 🔐 Contrôles de Sécurité
 
 - **Vérification des mots de passe** : bcrypt en production ; plaintext uniquement pour les tests locaux
 - **Gestion de Session Sécurisée** : Sessions basées sur Cookie avec domaine et expiration personnalisables
@@ -58,7 +58,7 @@ Stargate est parfait pour :
 
 - **Léger et Rapide** : Construit sur Go et le framework Fiber pour des performances exceptionnelles
 - **Utilisation Minimale des Ressources** : Faible empreinte mémoire, parfait pour les environnements conteneurisés
-- **Prêt pour la Production** : Architecture testée en conditions réelles conçue pour la fiabilité
+- **Observabilité du Déploiement** : Sondes de santé, métriques, journaux structurés et paramètres de conteneur renforcés
 
 ### 📦 Expérience Développeur
 
@@ -140,6 +140,7 @@ Une documentation complète est disponible pour vous aider à tirer le meilleur 
 - 🔌 **[Document API](docs/frFR/API.md)** - Référence complète des points de terminaison API avec exemples
 - ⚙️ **[Référence de Configuration](docs/frFR/CONFIG.md)** - Options de configuration détaillées et meilleures pratiques
 - 🚀 **[Guide de Déploiement](docs/frFR/DEPLOYMENT.md)** - Stratégies de déploiement en production et recommandations
+- 🔄 **[Guide de migration v1.0.0](docs/enUS/MIGRATION_V1.md)** - Changements de configuration et de comportement depuis v0.12.0
 
 ### Référence Rapide
 

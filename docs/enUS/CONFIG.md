@@ -264,7 +264,7 @@ User header name set after successful authentication.
 **Description:**
 
 - After successful authentication, Stargate sets this header in the response
-- Header value is `authenticated`
+- Header value is the authenticated user ID when available; password-only authentication uses `authenticated`
 - Backend services can determine if a user is authenticated via this header
 - Must be a non-empty string
 
@@ -1112,7 +1112,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
   - When `SESSION_STORAGE_ENABLED=true`, Redis must be reachable (default `SESSION_STORAGE_REDIS_ADDR=localhost:6379`)
 
 - **Step-up Authentication**:
-  - When `STEP_UP_ENABLED=true`, use `STEP_UP_PATHS` to define paths that require a second factor
+  - When `STEP_UP_ENABLED=true`, use `STEP_UP_PATHS` to define paths that require an additional password verification; this is not a separate authentication factor
 
 - **Auth Refresh**:
   - Authorization refresh is enabled by default for Warden sessions; it is a no-op in standalone password mode. Use `AUTH_REFRESH_INTERVAL` to tune the refresh interval or set `AUTH_REFRESH_ENABLED=false` only when delayed revocation is acceptable.

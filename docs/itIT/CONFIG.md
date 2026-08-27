@@ -202,7 +202,7 @@ Nome dell'intestazione utente impostato dopo autenticazione riuscita.
 **Descrizione:**
 
 - Dopo autenticazione riuscita, Stargate imposta questa intestazione nella risposta
-- Il valore dell'intestazione è `authenticated`
+- Il valore è l'ID dell'utente autenticato quando disponibile; l'autenticazione con sola password usa `authenticated`
 - I servizi backend possono determinare se un utente è autenticato tramite questa intestazione
 - Deve essere una stringa non vuota
 

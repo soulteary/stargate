@@ -9,7 +9,7 @@
 
 ![Stargate](.github/assets/banner.jpg)
 
-Stargate è un servizio di autenticazione forward pronto per la produzione, leggero, progettato per essere il **punto di autenticazione unico** per tutta la tua infrastruttura. Costruito con Go e ottimizzato per le prestazioni, Stargate si integra perfettamente con Traefik e altri proxy inversi per proteggere i tuoi servizi backend—**senza scrivere una sola riga di codice di autenticazione nelle tue applicazioni**.
+Stargate è un servizio Forward Auth leggero che centralizza l'autenticazione al confine del proxy inverso. Si integra con Traefik e offre flussi con password, sessione, Warden e Herald ai servizi protetti.
 
 ## 🌐 Documentazione Multilingue
 
@@ -36,11 +36,11 @@ Stargate è perfetto per:
 - **Strumenti Interni e Dashboard**: Aggiungere rapidamente l'autenticazione a servizi interni e pannelli di amministrazione
 - **Integrazione Gateway API**: Utilizzare con Traefik, Nginx o altri proxy inversi come strato di autenticazione unificato
 - **Sviluppo e Test**: Autenticazione semplice basata su password per ambienti di sviluppo
-- **Autenticazione Aziendale**: Integrazione con Warden (whitelist utenti) e Herald (OTP/codici di verifica) per autenticazione di livello produzione
+- **Autenticazione Integrata**: Integrazione con Warden (whitelist utenti) e Herald (OTP/codici di verifica)
 
 ## ✨ Funzionalità
 
-### 🔐 Sicurezza di Livello Aziendale
+### 🔐 Controlli di Sicurezza
 
 - **Verifica password**: bcrypt in produzione; plaintext solo per test locali
 - **Gestione Sicura delle Sessioni**: Sessioni basate su Cookie con dominio e scadenza personalizzabili
@@ -58,7 +58,7 @@ Stargate è perfetto per:
 
 - **Leggero e Veloce**: Costruito su Go e il framework Fiber per prestazioni eccezionali
 - **Utilizzo Minimo delle Risorse**: Impronta di memoria ridotta, perfetto per ambienti containerizzati
-- **Pronto per la Produzione**: Architettura testata in battaglia progettata per l'affidabilità
+- **Osservabilità del Deployment**: Probe di salute, metriche, log strutturati e impostazioni container rafforzate
 
 ### 📦 Esperienza Sviluppatore
 
@@ -140,6 +140,7 @@ Accedi alla pagina di login a `http://localhost:8080/_login?callback=localhost`
 - 🔌 **[Documento API](docs/itIT/API.md)** - Riferimento completo degli endpoint API con esempi
 - ⚙️ **[Riferimento Configurazione](docs/itIT/CONFIG.md)** - Opzioni di configurazione dettagliate e best practice
 - 🚀 **[Guida al Deployment](docs/itIT/DEPLOYMENT.md)** - Strategie di deployment in produzione e raccomandazioni
+- 🔄 **[Guida alla migrazione v1.0.0](docs/enUS/MIGRATION_V1.md)** - Modifiche di configurazione e comportamento da v0.12.0
 
 ### Riferimento Rapido
 
