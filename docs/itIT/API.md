@@ -183,6 +183,12 @@ curl -X POST \
      -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
+
+# Warden + Herald: login con il challenge restituito da /_send_verify_code
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
 ```
 
 ## Endpoint Invio Codice di Verifica
@@ -205,6 +211,7 @@ Solo dati del form (`application/x-www-form-urlencoded`):
 |-------|------|-----------|-------------|
 | `phone` | String | No | Numero di telefono utente (uno tra `phone` o `mail`) |
 | `mail` | String | No | Email utente (uno tra `phone` o `mail`) |
+| `deliver_via` | String | No | Canale preferito: `sms`, `email` o `dingtalk`; se omesso, Stargate sceglie un canale abilitato dal record Warden. |
 
 #### Flusso di Elaborazione
 
@@ -239,9 +246,10 @@ Solo dati del form (`application/x-www-form-urlencoded`):
 | Codice di Stato | Descrizione | Corpo della Risposta |
 |-----------------|-------------|----------------------|
 | `400 Bad Request` | Parametri richiesta non validi (manca phone o mail) | Messaggio di errore |
-| `404 Not Found` | Utente non nella whitelist Warden | Messaggio di errore |
+| `401 Unauthorized` | Utente assente da Warden o non attivo | Errore JSON con `success=false` |
 | `429 Too Many Requests` | Limite di velocità attivato | Messaggio di errore |
-| `500 Internal Server Error` | Errore server o servizio Herald non disponibile | Messaggio di errore |
+| `503 Service Unavailable` | Client o servizio Herald non disponibile | Errore JSON con `success=false` |
+| `500 Internal Server Error` | Altro errore del provider durante l'invio | Errore JSON con `success=false` |
 
 #### Esempi
 

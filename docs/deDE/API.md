@@ -183,6 +183,12 @@ curl -X POST \
      -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
+
+# Warden + Herald: mit dem von /_send_verify_code zurückgegebenen Challenge-Wert anmelden
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
 ```
 
 ## Endpunkt zum Senden von Verifizierungscode
@@ -205,6 +211,7 @@ Nur Formulardaten (`application/x-www-form-urlencoded`):
 |------|-----|--------------|--------------|
 | `phone` | String | Nein | Benutzertelefonnummer (eines von `phone` oder `mail`) |
 | `mail` | String | Nein | Benutzer-E-Mail (eines von `phone` oder `mail`) |
+| `deliver_via` | String | Nein | Bevorzugter Kanal: `sms`, `email` oder `dingtalk`; ohne Angabe wird ein aktivierter Kanal aus dem Warden-Datensatz gewählt. |
 
 #### Verarbeitungsablauf
 
@@ -239,9 +246,10 @@ Nur Formulardaten (`application/x-www-form-urlencoded`):
 | Statuscode | Beschreibung | Antwortkörper |
 |------------|--------------|----------------|
 | `400 Bad Request` | Ungültige Anfrageparameter (phone oder mail fehlt) | Fehlermeldung |
-| `404 Not Found` | Benutzer nicht in Warden-Whitelist | Fehlermeldung |
+| `401 Unauthorized` | Benutzer fehlt in Warden oder ist nicht aktiv | JSON-Fehler mit `success=false` |
 | `429 Too Many Requests` | Rate-Limit ausgelöst | Fehlermeldung |
-| `500 Internal Server Error` | Serverfehler oder Herald-Service nicht verfügbar | Fehlermeldung |
+| `503 Service Unavailable` | Herald-Client oder -Service ist nicht verfügbar | JSON-Fehler mit `success=false` |
+| `500 Internal Server Error` | Anderer Providerfehler beim Senden | JSON-Fehler mit `success=false` |
 
 #### Beispiele
 

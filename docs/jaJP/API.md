@@ -183,6 +183,12 @@ curl -X POST \
      -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
+
+# Warden + Herald：/_send_verify_code が返した challenge でログイン
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
 ```
 
 ## 検証コード送信エンドポイント
@@ -205,6 +211,7 @@ curl -X POST \
 |-----------|-----|------|------|
 | `phone` | String | いいえ | ユーザーの電話番号 (`phone` または `mail` のいずれか) |
 | `mail` | String | いいえ | ユーザーのメール (`phone` または `mail` のいずれか) |
+| `deliver_via` | String | いいえ | 希望するチャネル：`sms`、`email`、`dingtalk`。省略時は Warden レコードから有効なチャネルを選択します。 |
 
 #### 処理フロー
 
@@ -239,9 +246,10 @@ curl -X POST \
 | ステータスコード | 説明 | レスポンスボディ |
 |-----------------|------|------------------|
 | `400 Bad Request` | 無効なリクエストパラメータ（phoneまたはmailが欠落） | エラーメッセージ |
-| `404 Not Found` | ユーザーがWardenホワイトリストに存在しない | エラーメッセージ |
+| `401 Unauthorized` | Warden にユーザーが存在しない、または非アクティブ | `success=false` の JSON エラー |
 | `429 Too Many Requests` | レート制限がトリガーされた | エラーメッセージ |
-| `500 Internal Server Error` | サーバーエラーまたはHeraldサービスが利用不可 | エラーメッセージ |
+| `503 Service Unavailable` | Herald クライアントまたはサービスを利用できない | `success=false` の JSON エラー |
+| `500 Internal Server Error` | その他のプロバイダー送信エラー | `success=false` の JSON エラー |
 
 #### 例
 

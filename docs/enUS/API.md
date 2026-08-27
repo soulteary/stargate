@@ -150,7 +150,7 @@ Form data (`application/x-www-form-urlencoded`):
 | `phone` | String | No | User phone number (one of `phone` or `mail`) |
 | `mail` | String | No | User email (one of `phone` or `mail`) |
 | `challenge_id` | String | Yes | challenge_id returned by Herald |
-| `code` | String | Yes | Verification code entered by user |
+| `verify_code` | String | Yes | Verification code entered by user |
 | `callback` | String | No | Callback URL after successful login |
 
 #### Callback Retrieval Priority
@@ -206,7 +206,7 @@ curl -X POST \
 ```bash
 # Submit login form (with verification code)
 curl -X POST \
-     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&code=123456&callback=app.example.com" \
+     -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -240,12 +240,7 @@ Form data (`application/x-www-form-urlencoded`) only:
 |-------|------|----------|-------------|
 | `phone` | String | No | User phone number (one of `phone` or `mail`) |
 | `mail` | String | No | User email (one of `phone` or `mail`) |
-
-#### Request Headers (optional)
-
-| Header | Description |
-|--------|-------------|
-| `Idempotency-Key` | Passed through to Herald; same key within TTL returns cached challenge (no duplicate send). Omit for each new send. |
+| `deliver_via` | String | No | Preferred channel: `sms`, `email`, or `dingtalk`. If omitted, Stargate selects an enabled channel backed by the Warden record. |
 
 #### Processing Flow
 
@@ -280,9 +275,10 @@ Form data (`application/x-www-form-urlencoded`) only:
 | Status Code | Description | Response Body |
 |-------------|-------------|---------------|
 | `400 Bad Request` | Invalid request parameters (missing phone or mail) | Error message |
-| `404 Not Found` | User not in Warden whitelist | Error message |
+| `401 Unauthorized` | User is absent from Warden or is not active | JSON error with `success=false` |
 | `429 Too Many Requests` | Rate limit triggered | Error message |
-| `500 Internal Server Error` | Server error or Herald service unavailable | Error message |
+| `503 Service Unavailable` | Herald client or service is unavailable | JSON error with `success=false` |
+| `500 Internal Server Error` | Herald rejected the send for another provider error | JSON error with `success=false` |
 
 #### Examples
 
