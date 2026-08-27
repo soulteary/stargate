@@ -71,20 +71,22 @@ if ! command -v go &> /dev/null; then
     exit 1
 fi
 
-# 设置默认值（命令行参数优先级最高，然后是环境变量，最后是默认值）
-AUTH_HOST=${AUTH_HOST:-"localhost"}
-PASSWORDS=${PASSWORDS:-"plaintext:test123|admin123"}
-DEBUG=${DEBUG:-"true"}
-LANGUAGE=${LANGUAGE:-"zh"}
-COOKIE_SECURE=${COOKIE_SECURE:-"false"}
-CALLBACK_ALLOWED_HOSTS=${CALLBACK_ALLOWED_HOSTS:-"localhost"}
-SESSION_EXCHANGE_SECRET=${SESSION_EXCHANGE_SECRET:-"local-development-session-secret-change-me"}
 # 端口设置：命令行参数 > 环境变量 > 默认值
 if [ -n "$CUSTOM_PORT" ]; then
     PORT="$CUSTOM_PORT"
 elif [ -z "$PORT" ]; then
     PORT="8080"
 fi
+
+# 设置默认值（命令行参数优先级最高，然后是环境变量，最后是默认值）
+# 本地认证主机和回调必须包含实际监听端口，否则登录后会跳到端口 80。
+AUTH_HOST=${AUTH_HOST:-"localhost:$PORT"}
+PASSWORDS=${PASSWORDS:-"plaintext:test123|admin123"}
+DEBUG=${DEBUG:-"true"}
+LANGUAGE=${LANGUAGE:-"zh"}
+COOKIE_SECURE=${COOKIE_SECURE:-"false"}
+CALLBACK_ALLOWED_HOSTS=${CALLBACK_ALLOWED_HOSTS:-"localhost:$PORT"}
+SESSION_EXCHANGE_SECRET=${SESSION_EXCHANGE_SECRET:-"local-development-session-secret-change-me"}
 
 # Warden 配置（可选）
 WARDEN_ENABLED=${WARDEN_ENABLED:-"false"}
@@ -114,7 +116,7 @@ echo ""
 
 # 提示用户
 echo -e "${YELLOW}提示:${NC}"
-echo "  1. 访问登录页面: http://localhost:$PORT/_login?callback=localhost"
+echo "  1. 访问登录页面: http://localhost:$PORT/_login?callback=localhost:$PORT"
 echo "  2. 测试密码: test123 或 admin123"
 if [ "$WARDEN_ENABLED" = "true" ]; then
     echo "  3. Warden 模式已启用，可以使用用户列表认证"
