@@ -264,7 +264,7 @@ LOGIN_PAGE_FOOTER_TEXT='© 2024 我的公司'
 **说明：**
 
 - 认证成功后，Stargate 会在响应头中设置此头
-- 头值为 `authenticated`
+- 有用户标识时，头值为已认证用户 ID；仅密码认证时使用 `authenticated`
 - 后端服务可以通过此头判断用户是否已认证
 - 必须是非空字符串
 
@@ -1126,7 +1126,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
   - `SESSION_STORAGE_ENABLED=true` 时，需保证 Redis 可访问（默认 `SESSION_STORAGE_REDIS_ADDR=localhost:6379`）
 
 - **Step-up 认证**：
-  - `STEP_UP_ENABLED=true` 时，可通过 `STEP_UP_PATHS` 指定需二次认证的路径
+  - `STEP_UP_ENABLED=true` 时，可通过 `STEP_UP_PATHS` 指定需要再次验证密码的路径；这不是独立的第二认证因素
 
 - **授权刷新**：
   - Warden 会话默认启用授权刷新；在独立密码模式下该配置不会生效。可通过 `AUTH_REFRESH_INTERVAL` 调整刷新间隔；仅在可接受撤权延迟时设置 `AUTH_REFRESH_ENABLED=false`。

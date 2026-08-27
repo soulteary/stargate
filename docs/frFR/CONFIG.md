@@ -202,7 +202,7 @@ Nom de l'en-tête utilisateur défini après authentification réussie.
 **Description :**
 
 - Après authentification réussie, Stargate définit cet en-tête dans la réponse
-- La valeur de l'en-tête est `authenticated`
+- La valeur est l'identifiant de l'utilisateur authentifié lorsqu'il est disponible ; l'authentification par mot de passe seule utilise `authenticated`
 - Les services backend peuvent déterminer si un utilisateur est authentifié via cet en-tête
 - Doit être une chaîne non vide
 

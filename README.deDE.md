@@ -9,7 +9,7 @@
 
 ![Stargate](.github/assets/banner.jpg)
 
-Stargate ist ein produktionsreifer, leichtgewichtiger Forward Auth Service, der als **einzelner Authentifizierungspunkt** für Ihre gesamte Infrastruktur konzipiert wurde. Mit Go entwickelt und für Leistung optimiert, integriert sich Stargate nahtlos mit Traefik und anderen Reverse-Proxies, um Ihre Backend-Services zu schützen—**ohne eine einzige Zeile Authentifizierungscode in Ihren Anwendungen zu schreiben**.
+Stargate ist ein leichtgewichtiger Forward-Auth-Dienst, der die Authentifizierung an der Reverse-Proxy-Grenze zentralisiert. Er integriert sich mit Traefik und stellt Passwort-, Sitzungs-, Warden- und Herald-Abläufe für geschützte Dienste bereit.
 
 ## 🌐 Mehrsprachige Dokumentation
 
@@ -36,11 +36,11 @@ Stargate ist perfekt für:
 - **Interne Tools & Dashboards**: Schnell Authentifizierung zu internen Services und Admin-Panels hinzufügen
 - **API-Gateway-Integration**: Mit Traefik, Nginx oder anderen Reverse-Proxies als einheitliche Auth-Schicht verwenden
 - **Entwicklung & Testing**: Einfache passwortbasierte Authentifizierung für Entwicklungsumgebungen
-- **Unternehmensauthentifizierung**: Integration mit Warden (Benutzer-Whitelist) und Herald (OTP/Verifizierungscodes) für produktionsreife Authentifizierung
+- **Integrierte Authentifizierung**: Integration mit Warden (Benutzer-Whitelist) und Herald (OTP/Verifizierungscodes)
 
 ## ✨ Funktionen
 
-### 🔐 Unternehmensgrade Sicherheit
+### 🔐 Sicherheitskontrollen
 
 - **Passwortprüfung**: bcrypt für Produktion; Plaintext nur für lokale Tests
 - **Sichere Sitzungsverwaltung**: Cookie-basierte Sitzungen mit anpassbarer Domain und Ablaufzeit
@@ -58,7 +58,7 @@ Stargate ist perfekt für:
 
 - **Leichtgewichtig & Schnell**: Auf Go und Fiber-Framework aufgebaut für außergewöhnliche Leistung
 - **Minimaler Ressourcenverbrauch**: Geringer Speicher-Footprint, perfekt für containerisierte Umgebungen
-- **Produktionsbereit**: Erprobte Architektur, die für Zuverlässigkeit entwickelt wurde
+- **Bereitstellungsbeobachtung**: Health-Probes, Metriken, strukturierte Logs und gehärtete Container-Vorgaben
 
 ### 📦 Entwicklererfahrung
 
@@ -140,6 +140,7 @@ Umfassende Dokumentation ist verfügbar, um Ihnen zu helfen, das Beste aus Starg
 - 🔌 **[API-Dokument](docs/deDE/API.md)** - Vollständige API-Endpunkt-Referenz mit Beispielen
 - ⚙️ **[Konfigurationsreferenz](docs/deDE/CONFIG.md)** - Detaillierte Konfigurationsoptionen und Best Practices
 - 🚀 **[Bereitstellungsanleitung](docs/deDE/DEPLOYMENT.md)** - Produktionsbereitstellungsstrategien und Empfehlungen
+- 🔄 **[v1.0.0-Migrationsleitfaden](docs/enUS/MIGRATION_V1.md)** - Konfigurations- und Verhaltensänderungen seit v0.12.0
 
 ### Schnellreferenz
 

@@ -202,7 +202,7 @@ Name des Benutzer-Headers, der nach erfolgreicher Authentifizierung gesetzt wird
 **Beschreibung:**
 
 - Nach erfolgreicher Authentifizierung setzt Stargate diesen Header in der Antwort
-- Der Wert des Headers ist `authenticated`
+- Der Wert ist die ID des authentifizierten Benutzers, sofern verfügbar; reine Passwortauthentifizierung verwendet `authenticated`
 - Backend-Dienste können über diesen Header bestimmen, ob ein Benutzer authentifiziert ist
 - Muss eine nicht-leere Zeichenkette sein
 

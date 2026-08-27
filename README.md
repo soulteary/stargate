@@ -9,7 +9,7 @@
 
 ![Stargate](.github/assets/banner.jpg)
 
-Stargate is a production-ready, lightweight Forward Auth Service designed to be the **single point of authentication** for your entire infrastructure. Built with Go and optimized for performance, Stargate seamlessly integrates with Traefik and other reverse proxies to protect your backend services—**without writing a single line of auth code in your applications**.
+Stargate is a lightweight Forward Auth service that centralizes authentication at the reverse-proxy boundary. It integrates with Traefik and exposes password, session, Warden, and Herald-backed authentication flows for protected services.
 
 ## 🌐 Multi-language Documentation
 
@@ -59,7 +59,7 @@ Stargate is perfect for:
 
 ### 📦 Developer Experience
 - **Docker First**: Complete Docker image and docker-compose configuration out of the box
-- **Traefik Native**: Zero-configuration Traefik Forward Auth middleware integration
+- **Traefik Integration**: Explicit ForwardAuth middleware labels and response-header configuration
 - **Simple Configuration**: Environment variable-based configuration, no complex files needed
 
 ## 📋 Table of Contents
@@ -136,6 +136,7 @@ Comprehensive documentation is available to help you get the most out of Stargat
 - 🔌 **[API Document](docs/enUS/API.md)** - Complete API endpoint reference with examples
 - ⚙️ **[Configuration Reference](docs/enUS/CONFIG.md)** - Detailed configuration options and best practices
 - 🚀 **[Deployment Guide](docs/enUS/DEPLOYMENT.md)** - Production deployment strategies and recommendations
+- 🔄 **[v1.0.0 Migration Guide](docs/enUS/MIGRATION_V1.md)** - Configuration and behavior changes from v0.12.0
 
 ### Quick Reference
 
