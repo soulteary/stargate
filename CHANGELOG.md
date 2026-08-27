@@ -2,7 +2,7 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
-## [1.0.0] - Unreleased
+## [1.0.0] - 2026-08-27
 
 ### Breaking changes
 
