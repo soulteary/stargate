@@ -168,6 +168,7 @@ PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # Partage de session cross-domain
 COOKIE_DOMAIN=.example.com
+SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
 
 # Personnaliser la page de connexion
 LOGIN_PAGE_TITLE="Mon Service d'Authentification"

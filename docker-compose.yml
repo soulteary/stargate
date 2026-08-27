@@ -12,6 +12,7 @@ services:
       - PASSWORDS=plaintext:test1234|test1337 # Replace with your passwords. See the docs for more info.
       - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-172.30.0.0/24} # Set this to the actual Traefik network CIDR.
       - COOKIE_SECURE=false # Local HTTP only. Keep the default true in HTTPS deployments.
       - PORT=8080
     read_only: true
@@ -35,6 +36,7 @@ services:
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`) # Replace auth.test.localhost with your auth host defined above.
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
+      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 
   whoami: # A demo whoami service that is protected with Stargate
     image: traefik/whoami:v1.11.0

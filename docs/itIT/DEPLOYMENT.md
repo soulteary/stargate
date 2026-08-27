@@ -171,14 +171,19 @@ services:
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
+      - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
+      - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
+      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
+      - COOKIE_SECURE=false # Local HTTP only; omit for HTTPS.
     networks:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
+      - traefik.docker.network=traefik
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`)
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
+      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 
   whoami:
     image: traefik/whoami
@@ -186,7 +191,7 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
+      - traefik.docker.network=traefik
       - traefik.http.routers.whoami.entrypoints=http
       - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
       - "traefik.http.routers.whoami.middlewares=stargate"
@@ -229,9 +234,11 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
+      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
       - DEBUG=false
       - LANGUAGE=it
       - COOKIE_DOMAIN=.example.com
+      - SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
 ```
 
 ## Integrazione Traefik
@@ -251,6 +258,7 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
+      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
     networks:
       - traefik
     labels:
@@ -259,7 +267,7 @@ services:
       - "traefik.http.routers.auth.entrypoints=http,https"
       - "traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)"
       - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
-      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User"
+      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 ```
 
 #### 2. Configurare i Servizi Protetti
@@ -316,6 +324,7 @@ services:
   stargate:
     environment:
       - COOKIE_DOMAIN=.example.com
+      - SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
 ```
 
 2. Assicurarsi che tutti i domini associati siano instradati verso Stargate tramite Traefik
@@ -572,6 +581,7 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 # Assicurarsi che l'indirizzo middleware sia corretto
 - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
+- "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 ```
 
 ### Suggerimenti Debug
