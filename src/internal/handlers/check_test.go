@@ -4,10 +4,12 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 
@@ -103,6 +105,89 @@ func TestCheckRouteUsesForwardedRedirectHeadersFromTrustedPeer(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
 	testza.AssertEqual(t, "https://auth.example.com/_login?callback=app.example.com", string(ctx.Response().Header.Peek("Location")))
+}
+
+func TestCheckRouteRejectsStatelessPasswordOnStepUpPath(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
+	t.Setenv("STEP_UP_ENABLED", "true")
+	t.Setenv("STEP_UP_PATHS", "/admin")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
+	logger := testLoggerCheckHeaders()
+	testza.AssertNoError(t, config.Initialize(logger))
+	InitForwardAuthHandler(logger)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"Accept":            "application/json",
+		"Stargate-Password": "test123",
+		"X-Forwarded-Uri":   "/admin/settings",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertNoError(t, CheckRoute(setupTestStore())(ctx))
+	testza.AssertEqual(t, fiber.StatusForbidden, ctx.Response().StatusCode())
+	testza.AssertContains(t, string(ctx.Response().Body()), "step-up requires an authenticated session")
+}
+
+func TestCheckRouteRejectsStatelessIdentityUsingVerifiedSession(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
+	t.Setenv("STEP_UP_ENABLED", "true")
+	t.Setenv("STEP_UP_PATHS", "/admin")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
+	logger := testLoggerCheckHeaders()
+	testza.AssertNoError(t, config.Initialize(logger))
+	InitForwardAuthHandler(logger)
+
+	store := setupTestStore()
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"Accept":            "application/json",
+		"Stargate-Password": "test123",
+		"X-Forwarded-Uri":   "/admin/settings",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	sess.Set("user_id", "session-user")
+	sess.Set("step_up_verified_at", time.Now().Unix())
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
+
+	testza.AssertNoError(t, CheckRoute(store)(ctx))
+	testza.AssertEqual(t, fiber.StatusForbidden, ctx.Response().StatusCode())
+	testza.AssertContains(t, string(ctx.Response().Body()), "does not match the authentication identity")
+}
+
+func TestCheckRouteAllowsVerifiedSessionOnStepUpPath(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("STEP_UP_ENABLED", "true")
+	t.Setenv("STEP_UP_PATHS", "/admin")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
+	logger := testLoggerCheckHeaders()
+	testza.AssertNoError(t, config.Initialize(logger))
+	InitForwardAuthHandler(logger)
+
+	store := setupTestStore()
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"Accept":          "application/json",
+		"X-Forwarded-Uri": "/admin/settings",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	sess.Set("user_id", "session-user")
+	sess.Set("step_up_verified_at", time.Now().Unix())
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
+
+	testza.AssertNoError(t, CheckRoute(store)(ctx))
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+	testza.AssertEqual(t, "session-user", string(ctx.Response().Header.Peek("X-Forwarded-User")))
 }
 
 // Ensure *session.Store satisfies SessionStoreForCheck at compile time.

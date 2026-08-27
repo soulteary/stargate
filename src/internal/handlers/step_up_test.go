@@ -121,6 +121,14 @@ func TestRequiresStepUpUsesForwardedBusinessPath(t *testing.T) {
 	testza.AssertFalse(t, requiresStepUp(ctx, sess))
 }
 
+func TestStepUpAppliesWithoutSessionAuthentication(t *testing.T) {
+	setupStepUpTest(t)
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{"X-Forwarded-Uri": "/admin/users"}, "")
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertTrue(t, stepUpApplies(ctx))
+}
+
 func TestRequiresStepUpIgnoresForwardedQuery(t *testing.T) {
 	setupStepUpTestWithPaths(t, "/admin")
 
