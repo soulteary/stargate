@@ -21,7 +21,18 @@ func stepUpVerified(sess *session.Session) bool {
 }
 
 func requiresStepUp(ctx fiber.Ctx, sess *session.Session) bool {
-	if !config.StepUpEnabled.ToBool() || !auth.IsAuthenticated(sess) || stepUpVerified(sess) {
+	if !auth.IsAuthenticated(sess) || stepUpVerified(sess) {
+		return false
+	}
+	return stepUpApplies(ctx)
+}
+
+// stepUpApplies reports whether the original protected request is covered by
+// the configured step-up policy. It deliberately does not inspect the session:
+// stateless authentication methods must not bypass a protected path merely
+// because they cannot persist step-up state.
+func stepUpApplies(ctx fiber.Ctx) bool {
+	if !config.StepUpEnabled.ToBool() {
 		return false
 	}
 	raw, ok := stepUpForwardedURI(ctx)

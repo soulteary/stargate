@@ -139,6 +139,26 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 			}
 		}
 
+		// Header and password authentication are stateless. They are evaluated by
+		// forwardauth-kit after the session-only check above, so enforce the path
+		// policy again after a successful authentication result. A protected path
+		// requires a session because that is where the recent verification marker
+		// is stored.
+		if stepUpApplies(ctx) {
+			if !stepUpVerified(sess) {
+				if auth.IsAuthenticated(sess) {
+					return redirectToStepUp(ctx)
+				}
+				return SendErrorResponse(ctx, fiber.StatusForbidden, "step-up requires an authenticated session")
+			}
+			// A verification marker belongs to the session identity that created it.
+			// Password and trusted-header checkers run before the session checker, so
+			// never let a stateless result borrow a verified session's marker.
+			if result.AuthMethod != forwardauth.AuthMethodSession {
+				return SendErrorResponse(ctx, fiber.StatusForbidden, "step-up verification does not match the authentication identity")
+			}
+		}
+
 		// Set authentication headers
 		handler.SetAuthHeaders(faCtx, result)
 
