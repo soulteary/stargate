@@ -26,10 +26,13 @@ RUN if command -v upx > /dev/null 2>&1; then \
     fi
 
 FROM alpine:3.24
-RUN apk update && apk upgrade openssl
+# Release builds override this value to invalidate the package layer on every run.
+ARG ALPINE_PACKAGE_REFRESH=local
 COPY --from=builder /app/stargate /bin/stargate
 COPY --from=builder /app/src/internal/web/templates /app/web/templates
-RUN apk add --no-cache ca-certificates && \
+RUN echo "Alpine package refresh: ${ALPINE_PACKAGE_REFRESH}" && \
+    apk upgrade --no-cache && \
+    apk add --no-cache ca-certificates && \
     addgroup -S stargate && \
     adduser -S -D -H -u 10001 -G stargate stargate && \
     chown -R stargate:stargate /app
