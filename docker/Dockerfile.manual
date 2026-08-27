@@ -35,6 +35,7 @@ RUN if command -v upx > /dev/null 2>&1; then \
     fi
 
 FROM alpine:3.24
+RUN apk update && apk upgrade openssl
 COPY --from=Builder /app/stargate /bin/stargate
 COPY --from=Builder /app/src/internal/web/templates /app/web/templates
 ENV TZ=Asia/Shanghai

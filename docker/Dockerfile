@@ -26,6 +26,7 @@ RUN if command -v upx > /dev/null 2>&1; then \
     fi
 
 FROM alpine:3.24
+RUN apk update && apk upgrade openssl
 COPY --from=builder /app/stargate /bin/stargate
 COPY --from=builder /app/src/internal/web/templates /app/web/templates
 RUN apk add --no-cache ca-certificates && \
