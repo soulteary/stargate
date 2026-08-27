@@ -21,7 +21,7 @@ func stepUpVerified(sess *session.Session) bool {
 }
 
 func requiresStepUp(ctx fiber.Ctx, sess *session.Session) bool {
-	if !config.StepUpEnabled.ToBool() || stepUpVerified(sess) {
+	if !config.StepUpEnabled.ToBool() || !auth.IsAuthenticated(sess) || stepUpVerified(sess) {
 		return false
 	}
 	raw, ok := stepUpForwardedURI(ctx)
@@ -51,17 +51,27 @@ func stepUpForwardedURI(ctx fiber.Ctx) (string, bool) {
 // matching the raw value lets `/admin?x=1` bypass an exact `/admin` rule.
 func stepUpRequestPath(raw string) (string, bool) {
 	parsed, err := url.ParseRequestURI(raw)
-	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Path == "" || !strings.HasPrefix(parsed.Path, "/") {
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Path == "" || !strings.HasPrefix(parsed.Path, "/") || strings.HasPrefix(parsed.Path, "//") || strings.Contains(parsed.Path, "\\") || hasDotPathSegment(parsed.Path) {
 		return "", false
 	}
 	return parsed.Path, true
 }
 
 func safeStepUpCallback(raw string) string {
-	if raw == "" || !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") {
+	parsed, err := url.ParseRequestURI(raw)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Path == "" || !strings.HasPrefix(parsed.Path, "/") || strings.HasPrefix(parsed.Path, "//") || strings.Contains(parsed.Path, "\\") || hasDotPathSegment(parsed.Path) || parsed.Fragment != "" {
 		return "/"
 	}
 	return raw
+}
+
+func hasDotPathSegment(path string) bool {
+	for _, segment := range strings.Split(path, "/") {
+		if segment == "." || segment == ".." {
+			return true
+		}
+	}
+	return false
 }
 
 func redirectToStepUp(ctx fiber.Ctx) error {

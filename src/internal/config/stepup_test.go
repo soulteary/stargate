@@ -85,6 +85,22 @@ func TestInitializeStepUpRequiresTrustedProxy(t *testing.T) {
 	testza.AssertContains(t, err.Error(), "TRUSTED_PROXIES")
 }
 
+func TestInitializeRejectsUnsafeStepUpPathPatterns(t *testing.T) {
+	for _, paths := range []string{"admin", "//evil.example/admin", "/admin?tab=users", "/admin#users", `/admin\\users`, "/admin/../public", "/admin/%2e%2e/public"} {
+		t.Run(paths, func(t *testing.T) {
+			t.Setenv("AUTH_HOST", "auth.example.com")
+			t.Setenv("PASSWORDS", "plaintext:test123")
+			t.Setenv("STEP_UP_ENABLED", "true")
+			t.Setenv("STEP_UP_PATHS", paths)
+			t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
+
+			err := Initialize(testLogger())
+			testza.AssertNotNil(t, err)
+			testza.AssertContains(t, err.Error(), "STEP_UP_PATHS")
+		})
+	}
+}
+
 func TestGetStepUpMatcher_NilInitializes(t *testing.T) {
 	// Ensure stepUpMatcher is nil by not calling InitStepUpMatcher in a fresh package state.
 	// GetStepUpMatcher() calls InitStepUpMatcher() if nil, so we need to have env set.
