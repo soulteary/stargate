@@ -1,6 +1,8 @@
 package config
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -214,25 +216,6 @@ var (
 		DefaultValue:   "300",
 		PossibleValues: []string{"*"},
 		Validator:      ValidateAny,
-	}
-
-	// WardenVerifyCodeURL has been removed - verification codes are now handled by Herald service
-
-	WardenOTPEnabled = EnvVariable{
-		Name:           "WARDEN_OTP_ENABLED",
-		Required:       false,
-		DefaultValue:   "false",
-		PossibleValues: []string{"true", "false"},
-		Validator:      ValidateCaseInsensitivePossibleValues,
-	}
-
-	WardenOTPSecretKey = EnvVariable{
-		Name:           "WARDEN_OTP_SECRET_KEY",
-		Required:       false,
-		DefaultValue:   "",
-		PossibleValues: []string{"*"},
-		Validator:      ValidateAny,
-		Sensitive:      true,
 	}
 
 	HeraldURL = EnvVariable{
@@ -466,6 +449,12 @@ func Initialize(l *logger.Logger) error {
 		i18n.SetLanguage(i18n.LangKO)
 	default:
 		i18n.SetLanguage(i18n.LangEN)
+	}
+
+	for _, name := range []string{"WARDEN_OTP_ENABLED", "WARDEN_OTP_SECRET_KEY"} {
+		if _, configured := os.LookupEnv(name); configured {
+			return fmt.Errorf("%s has been removed; use Herald-backed TOTP with HERALD_TOTP_ENABLED", name)
+		}
 	}
 
 	// Then validate all other configuration variables

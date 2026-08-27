@@ -464,9 +464,3 @@ func VerifyOTP(secret, code string) bool {
 	log.Debug().Msg("OTP code verified successfully")
 	return true
 }
-
-// GetOTPSecret returns the OTP secret key from configuration.
-// This can be extended to fetch from remote API if needed.
-func GetOTPSecret() string {
-	return config.WardenOTPSecretKey.String()
-}

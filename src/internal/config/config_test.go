@@ -18,6 +18,21 @@ func testLogger() *logger.Logger {
 	})
 }
 
+func TestInitializeRejectsRemovedWardenOTPSettings(t *testing.T) {
+	for _, name := range []string{"WARDEN_OTP_ENABLED", "WARDEN_OTP_SECRET_KEY"} {
+		t.Run(name, func(t *testing.T) {
+			t.Setenv("AUTH_HOST", "auth.example.com")
+			t.Setenv("PASSWORDS", "plaintext:test123")
+			t.Setenv(name, "legacy-value")
+
+			err := Initialize(testLogger())
+			testza.AssertNotNil(t, err)
+			testza.AssertContains(t, err.Error(), name)
+			testza.AssertContains(t, err.Error(), "has been removed")
+		})
+	}
+}
+
 func TestEnvVariable_String(t *testing.T) {
 	v := EnvVariable{
 		Value: "test-value",
