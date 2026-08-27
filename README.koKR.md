@@ -168,6 +168,7 @@ PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # 크로스 도메인 세션 공유
 COOKIE_DOMAIN=.example.com
+SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
 
 # 로그인 페이지 사용자 정의
 LOGIN_PAGE_TITLE='내 인증 서비스'

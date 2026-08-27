@@ -173,15 +173,17 @@ services:
       - PASSWORDS=plaintext:test1234|test1337
       - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
+      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
       - COOKIE_SECURE=false # 仅本地 HTTP；HTTPS 部署请省略。
     networks:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
+      - traefik.docker.network=traefik
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`)
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
+      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 
   whoami:
     image: traefik/whoami
@@ -189,7 +191,7 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=proxy
+      - traefik.docker.network=traefik
       - traefik.http.routers.whoami.entrypoints=http
       - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
       - "traefik.http.routers.whoami.middlewares=stargate"
@@ -220,6 +222,7 @@ services:
       - DEBUG=false
       - LANGUAGE=zh
       - COOKIE_DOMAIN=.example.com
+      - SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
     networks:
       - traefik
       - internal
@@ -232,6 +235,7 @@ services:
       - traefik.http.routers.auth.entrypoints=http,https
       - traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
+      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 
   # Warden 用户白名单服务
   warden:
@@ -340,9 +344,11 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
+      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
       - DEBUG=false
       - LANGUAGE=zh
       - COOKIE_DOMAIN=.example.com
+      - SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
 ```
 
 ## Traefik 集成
@@ -362,6 +368,7 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
+      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
     networks:
       - traefik
     labels:
@@ -370,7 +377,7 @@ services:
       - "traefik.http.routers.auth.entrypoints=http,https"
       - "traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)"
       - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
-      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User"
+      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 ```
 
 #### 2. 配置受保护的服务
@@ -427,6 +434,7 @@ services:
   stargate:
     environment:
       - COOKIE_DOMAIN=.example.com
+      - SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
 ```
 
 2. 确保所有相关域名都通过 Traefik 路由到 Stargate
@@ -683,6 +691,7 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 # 确保中间件地址正确
 - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
+- "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 ```
 
 #### 5. Warden 服务问题

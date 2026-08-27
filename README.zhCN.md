@@ -164,6 +164,7 @@ PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # 跨域会话共享
 COOKIE_DOMAIN=.example.com
+SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
 
 # 自定义登录页面
 LOGIN_PAGE_TITLE='我的认证服务'
