@@ -68,6 +68,7 @@ X-Forwarded-User: authenticated
 **헤더 인증 사용 (API 요청)**
 
 ```bash
+# 서버 전제 조건: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```

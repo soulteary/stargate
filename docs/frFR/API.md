@@ -69,6 +69,7 @@ Le nom de l'en-tête utilisateur peut être configuré via la variable d'environ
 **Utilisation de l'Authentification par En-tête (Requête API)**
 
 ```bash
+# Prérequis côté serveur : PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```

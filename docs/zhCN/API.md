@@ -72,6 +72,7 @@ X-Forwarded-User: authenticated
 **使用 Header 认证（API 请求）**
 
 ```bash
+# 服务端启动前必须设置：PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```

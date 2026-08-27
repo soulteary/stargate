@@ -72,6 +72,7 @@ The user header name can be configured via the `USER_HEADER_NAME` environment va
 **Using Header Authentication (API Request)**
 
 ```bash
+# Server prerequisite: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```

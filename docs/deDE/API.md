@@ -68,6 +68,7 @@ Der Name des Benutzer-Headers kann über die Umgebungsvariable `USER_HEADER_NAME
 **Verwendung der Header-Authentifizierung (API-Anfrage)**
 
 ```bash
+# Server-Voraussetzung: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```

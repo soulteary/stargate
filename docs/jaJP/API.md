@@ -68,6 +68,7 @@ X-Forwarded-User: authenticated
 **ヘッダー認証の使用（API リクエスト）**
 
 ```bash
+# サーバー側の前提条件: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```

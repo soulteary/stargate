@@ -68,6 +68,7 @@ Il nome dell'header utente può essere configurato tramite la variabile d'ambien
 **Utilizzo Autenticazione Header (Richiesta API)**
 
 ```bash
+# Prerequisito del server: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```
