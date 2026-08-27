@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
@@ -1607,6 +1608,69 @@ func TestLoginAPI_AuthenticateError(t *testing.T) {
 	// Verify error response format
 	body := string(ctx.Response().Body())
 	testza.AssertContains(t, body, i18n.TStatic("error.authenticate_failed"))
+}
+
+// TestLoginAPI_ClearsPreviousIdentityState verifies that a successful login
+// cannot inherit authorization, step-up, refresh, or TOTP enrollment state
+// from a previous identity using the same browser session.
+func TestLoginAPI_ClearsPreviousIdentityState(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	err := config.Initialize(testLogger())
+	testza.AssertNoError(t, err)
+
+	store := setupTestStore()
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "password=test123")
+	defer app.ReleaseCtx(ctx)
+
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	previousID := sess.ID()
+
+	staleValues := map[string]any{
+		"user_id":                "previous-admin",
+		"user_phone":             "+8613800138000",
+		"user_mail":              "admin@example.com",
+		"user_status":            "active",
+		"user_scope":             []string{"admin"},
+		"user_role":              "administrator",
+		"user_name":              "Previous Admin",
+		"user_amr":               []string{"otp"},
+		"step_up_verified_at":    time.Now().Unix(),
+		"auth_refreshed_at":      time.Now().Unix(),
+		totpEnrollmentIDKey:      "enrollment-id",
+		totpEnrollmentSubjectKey: "previous-admin",
+		totpEnrollmentStartedKey: time.Now().Unix(),
+	}
+	for key, value := range staleValues {
+		sess.Set(key, value)
+	}
+	testza.AssertNoError(t, sess.Save())
+
+	mockSessionGetter := &MockSessionGetter{
+		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
+			return sess, nil
+		},
+	}
+	var checkedBeforeAuthentication bool
+	var rotatedID string
+	mockAuthenticator := &MockAuthenticator{
+		AuthenticateFunc: func(sess *session.Session) error {
+			rotatedID = sess.ID()
+			for key := range staleValues {
+				testza.AssertNil(t, sess.Get(key), "stale session key should be removed: %s", key)
+			}
+			checkedBeforeAuthentication = true
+			return auth.Authenticate(sess)
+		},
+	}
+
+	err = loginAPIHandler(ctx, mockSessionGetter, mockAuthenticator)
+	testza.AssertNoError(t, err)
+	testza.AssertTrue(t, checkedBeforeAuthentication)
+	testza.AssertNotEqual(t, previousID, rotatedID)
 }
 
 // TestLoginAPI_EmptySessionID_Error tests error handling when session ID is always empty

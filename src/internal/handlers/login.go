@@ -468,7 +468,11 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
 	defer sess.Release()
-	if err := sess.Regenerate(); err != nil {
+	// Reset both the session identifier and its data before binding the new
+	// identity. Regenerate only rotates the identifier and intentionally keeps
+	// the existing values, which could carry authorization or step-up state
+	// across account switches in the same browser.
+	if err := sess.Reset(); err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to rotate session")
 	}
 
