@@ -40,7 +40,9 @@ jobs:
       - name: Check documentation contracts
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: bash .github/scripts/check-doc-contracts.sh "$BASE_SHA"
+        run: |
+          bash .github/scripts/check-doc-contracts.sh "$BASE_SHA"
+          bash .github/scripts/test-doc-contracts.sh
 
       - name: Set up Go
         if: steps.changes.outputs.code == 'true'

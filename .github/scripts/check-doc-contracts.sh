@@ -54,22 +54,6 @@ check_markdown_structure() {
     failed=true
   fi
 
-  local endpoints=(
-    '/_login' '/_send_verify_code' '/totp/enroll'
-    '/totp/enroll/confirm' '/totp/revoke' '/_logout'
-    '/_session_exchange' '/_auth' '/_step_up' '/metrics'
-    '/log/level' '/healthz' '/readyz' '/health'
-  )
-  local api endpoint
-  for api in "$root"/docs/*/API.md; do
-    for endpoint in "${endpoints[@]}"; do
-      if ! grep -Fq "$endpoint" "$api"; then
-        echo "Missing endpoint $endpoint in ${api#"$root"/}" >&2
-        failed=true
-      fi
-    done
-  done
-
   [[ "$failed" == false ]]
 }
 
@@ -96,6 +80,7 @@ contract_violation_count() {
       push @environment, $1;
     }
     push @environment, "LOG_LEVEL";
+    my %runtime_environment = map { $_ => 1 } @environment;
 
     for my $file (glob "$root/docs/*/CONFIG.md") {
       open my $fh, "<", $file or die "open $file: $!";
@@ -104,6 +89,40 @@ contract_violation_count() {
       for my $name (@environment) {
         next if index($text, "`$name`") >= 0;
         warn "Missing $name in $file\n";
+        $count++;
+      }
+
+      my %documented;
+      while ($text =~ /^(?:\|\s*|#{3,6}\s*)`([A-Z][A-Z0-9_]*)`/mg) {
+        $documented{$1} = 1;
+      }
+      for my $name (sort keys %documented) {
+        next if $runtime_environment{$name};
+        warn "Documented setting $name is not registered at runtime in $file\n";
+        $count++;
+      }
+    }
+
+    my @routes = (
+      "GET /", "GET /healthz", "GET /readyz", "GET /health",
+      "GET /_login", "POST /_login", "POST /_send_verify_code",
+      "GET /totp/enroll", "POST /totp/enroll",
+      "POST /totp/enroll/confirm", "GET /totp/revoke", "POST /totp/revoke",
+      "POST /_logout", "GET /_session_exchange", "GET /_auth",
+      "GET /_step_up", "POST /_step_up", "GET /metrics",
+      "GET /log/level", "PUT /log/level", "POST /log/level",
+    );
+    for my $file (glob "$root/docs/*/API.md") {
+      open my $fh, "<", $file or die "open $file: $!";
+      local $/;
+      my $text = <$fh>;
+      for my $route (@routes) {
+        next if index($text, "`$route`") >= 0;
+        warn "Missing exact route contract $route in $file\n";
+        $count++;
+      }
+      if (index($text, "`enroll_id`") < 0) {
+        warn "Missing TOTP enrollment identifier contract in $file\n";
         $count++;
       }
     }
@@ -115,6 +134,10 @@ contract_violation_count() {
       ["invalid bcrypt command", qr/go run -c [^\n]*golang\.org\/x\/crypto\/bcrypt/],
       ["overstated Herald Key ID requirement", qr/(?:also requires|还需要) `HERALD_HMAC_KEY_ID`/],
       ["unsupported readiness claim", qr/(?:Enterprise-Grade|Enterprise Authentication|Battle-tested)/i],
+      ["verification endpoint incorrectly claims JSON input", qr/(?:or|oder|ou|o|または|또는|或)\s+JSON\s*\(`application\/json`\)/i],
+      ["container health check omits port 8080", qr{http://localhost/healthz}],
+      ["metrics incorrectly described as new in v1", qr/(?:No metrics endpoint|无指标端点|Added Prometheus metrics)/],
+      ["stale Go issue-template example", qr/Go (?:Version|版本): \[e\.g\. 1\.26\]/],
     );
 
     find({
@@ -155,6 +178,12 @@ contract_violation_count() {
         }
         while ($text =~ /^\s*-\s+PASSWORDS=bcrypt:[^\n]*(?<!\$)\$(?!\$)/mg) {
           warn "unescaped Compose bcrypt value in $file\n";
+          $count++;
+        }
+        while ($text =~ /((?:^.*\n){0,2})^\s*curl\s+-H\s+["\x27]Stargate-Password:/mg) {
+          my $context = $1;
+          next if $context =~ /PASSWORD_HEADER_AUTH_ENABLED=true/;
+          warn "header-auth command omits server enablement prerequisite in $file\n";
           $count++;
         }
       }
