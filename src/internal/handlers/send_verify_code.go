@@ -251,12 +251,12 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 					auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
 					return sendVerifyCodeErrorJSON(ctx, fiber.StatusTooManyRequests, i18n.T(ctx, "error.rate_limited_retry"), reason)
 				}
-				reason = heraldErr.Reason
+				reason = "provider_error"
 			}
 
 			// Default error handling
 			auditlog.LogVerifyCodeSend(ctx.Context(), userID, channel, destination, ctx.IP(), false, reason)
-			return sendVerifyCodeErrorJSON(ctx, fiber.StatusInternalServerError, i18n.Tf(ctx, "error.send_verify_code_failed", err.Error()), reason)
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.send_verify_code_failed"), reason)
 		}
 
 		// Log successful verification code send

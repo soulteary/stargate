@@ -627,3 +627,42 @@ func TestSendVerifyCodeAPIRejectsUntrustedFallbackDestination(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertContains(t, string(body), "destination_unavailable")
 }
+
+func TestSendVerifyCodeAPIRedactsProviderErrorDetails(t *testing.T) {
+	setupSendVerifyCodeBaseEnv(t)
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_API_KEY", "api-key")
+	t.Setenv("WARDEN_ENABLED", "true")
+
+	wardenServer := newWardenUserServer(t, "13800138000", "user@example.com")
+	defer wardenServer.Close()
+	heraldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(`{"reason":"sensitive-backend-details"}`))
+	}))
+	defer heraldServer.Close()
+
+	t.Setenv("WARDEN_URL", wardenServer.URL)
+	t.Setenv("HERALD_URL", heraldServer.URL)
+	auth.ResetWardenClientForTesting()
+	resetHeraldClientForTesting()
+	testLog := testLoggerSendVerifyCode()
+	testza.AssertNoError(t, config.Initialize(testLog))
+	testza.AssertNoError(t, auth.InitWardenClient(testLog))
+	testza.AssertNoError(t, InitHeraldClient(testLog))
+
+	app := fiber.New()
+	app.Post("/_send_verify_code", SendVerifyCodeAPI())
+	req := httptest.NewRequest("POST", "/_send_verify_code", strings.NewReader("phone=13800138000"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+
+	resp, err := app.Test(req)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusInternalServerError, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	testza.AssertNoError(t, err)
+	testza.AssertContains(t, string(body), "provider_error")
+	testza.AssertNotContains(t, string(body), "sensitive-backend-details")
+}
