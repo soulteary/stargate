@@ -2,7 +2,6 @@
 package handlers
 
 import (
-	"context"
 	"strings"
 	"time"
 
@@ -92,27 +91,13 @@ func InitForwardAuthHandler(l *logger.Logger) {
 		},
 
 		// Header-based authentication (Warden)
-		HeaderAuthEnabled:   config.HeaderAuthEnabled.ToBool(),
+		// Trusted identity headers are checked in CheckRoute, where the active
+		// request context can be propagated to Warden. forwardauth-kit v2.1.0
+		// exposes context-free callbacks, so enabling its header checker here
+		// would detach Warden calls from client cancellation.
+		HeaderAuthEnabled:   false,
 		HeaderAuthUserPhone: "X-User-Phone",
 		HeaderAuthUserMail:  "X-User-Mail",
-		HeaderAuthCheckFunc: func(phone, mail string) bool {
-			return auth.CheckUserInList(context.Background(), phone, mail)
-		},
-		HeaderAuthGetInfoFunc: func(phone, mail string) *forwardauth.UserInfo {
-			userInfo := auth.GetUserInfo(context.Background(), phone, mail)
-			if userInfo == nil {
-				return nil
-			}
-			return &forwardauth.UserInfo{
-				UserID: userInfo.UserID,
-				Email:  userInfo.Mail,
-				Phone:  userInfo.Phone,
-				Name:   userInfo.Name,
-				Scopes: userInfo.Scope, // Warden uses 'Scope', forwardauth-kit uses 'Scopes'
-				Role:   userInfo.Role,
-				Status: userInfo.Status,
-			}
-		},
 
 		// Step-up authentication
 		// Enforced by CheckRoute against X-Forwarded-Uri; the library only sees /_auth.

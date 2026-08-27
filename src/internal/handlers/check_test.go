@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -11,7 +12,28 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/warden/pkg/warden"
 )
+
+func TestTrustedHeaderAuthResultPropagatesCancellation(t *testing.T) {
+	originalLookup := lookupTrustedHeaderUser
+	t.Cleanup(func() { lookupTrustedHeaderUser = originalLookup })
+
+	requestCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+	lookupTrustedHeaderUser = func(ctx context.Context, phone, mail string) *warden.AllowListUser {
+		select {
+		case <-ctx.Done():
+		default:
+			t.Fatal("Warden lookup did not receive the canceled request context")
+		}
+		return &warden.AllowListUser{UserID: "user1", Phone: phone, Mail: mail}
+	}
+
+	result, err := trustedHeaderAuthResult(requestCtx, "13800138000", "")
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, "user1", result.UserID)
+}
 
 // TestCheckRoute_HandlerNil verifies that when GetForwardAuthHandler returns nil,
 // the check handler returns 500 and "ForwardAuth handler not initialized".

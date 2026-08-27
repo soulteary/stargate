@@ -26,13 +26,37 @@ func allowTrustedHeaderAuth(ctx fiber.Ctx) bool {
 	return subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) == 1
 }
 
-func sanitizeTrustedIdentityHeaders(ctx fiber.Ctx) {
-	if !allowTrustedHeaderAuth(ctx) {
+func sanitizeTrustedIdentityHeaders(ctx fiber.Ctx) bool {
+	trusted := allowTrustedHeaderAuth(ctx)
+	if !trusted {
 		ctx.Request().Header.Del("X-User-Phone")
 		ctx.Request().Header.Del("X-User-Mail")
 	}
 	// The proxy credential is only for Stargate and must never be propagated.
 	ctx.Request().Header.Del(config.HeaderAuthSecretHeader.String())
+	return trusted
+}
+
+var lookupTrustedHeaderUser = auth.GetUserInfo
+
+func trustedHeaderAuthResult(ctx context.Context, phone, mail string) (*forwardauth.AuthResult, error) {
+	if phone == "" && mail == "" {
+		return nil, nil
+	}
+	userInfo := lookupTrustedHeaderUser(ctx, phone, mail)
+	if userInfo == nil {
+		return nil, forwardauth.ErrUserNotFound
+	}
+	return &forwardauth.AuthResult{
+		Authenticated: true,
+		AuthMethod:    forwardauth.AuthMethodHeader,
+		UserID:        userInfo.UserID,
+		Email:         userInfo.Mail,
+		Phone:         userInfo.Phone,
+		Name:          userInfo.Name,
+		Scopes:        userInfo.Scope,
+		Role:          userInfo.Role,
+	}, nil
 }
 
 func handleNotAuthenticated(ctx fiber.Ctx) error {
@@ -69,7 +93,7 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 	}
 
 	return func(ctx fiber.Ctx) error {
-		sanitizeTrustedIdentityHeaders(ctx)
+		trustedIdentity := sanitizeTrustedIdentityHeaders(ctx)
 		// Get trace context from middleware
 		traceCtx := ctx.Locals("trace_context")
 		if traceCtx == nil {
@@ -111,8 +135,19 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		faCtx := forwardauth.NewFiberContext(ctx)
 		faSess := forwardauth.NewFiberSession(sess)
 
-		// Perform authentication check using forwardauth-kit
-		result, err := handler.Check(faCtx, faSess)
+		// Password authentication keeps its original priority over trusted
+		// identity headers. Otherwise resolve the trusted identity here with the
+		// active request context, before falling back to the session checker.
+		var result *forwardauth.AuthResult
+		passwordAttempt := config.PasswordHeaderAuthEnabled.ToBool() && ctx.Get("Stargate-Password") != ""
+		if trustedIdentity && !passwordAttempt {
+			result, err = trustedHeaderAuthResult(spanCtx, ctx.Get("X-User-Phone"), ctx.Get("X-User-Mail"))
+			if result == nil && err == nil {
+				result, err = handler.Check(faCtx, faSess)
+			}
+		} else {
+			result, err = handler.Check(faCtx, faSess)
+		}
 		if refreshed {
 			if saveErr := sess.Save(); saveErr != nil {
 				tracing.RecordError(forwardAuthSpan, saveErr)
