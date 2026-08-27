@@ -191,7 +191,7 @@ contract_violation_count() {
       ["verification endpoint incorrectly claims JSON input", qr/(?:or|oder|ou|o|または|또는|或)\s+JSON\s*\(`application\/json`\)/i],
       ["container health check omits port 8080", qr{http://localhost/healthz}],
       ["metrics incorrectly described as new in v1", qr/(?:No metrics endpoint|无指标端点|Added Prometheus metrics)/],
-      ["stale Go issue-template example", qr/Go (?:Version|版本): \[e\.g\. 1\.26\]/],
+      ["stale Go 1.26 requirement", qr/\bGo(?:\s+(?:Version|版本))?\s*[:：]?\s*1\.26(?:\.\d+)?\+?\b/i],
     );
 
     find({
