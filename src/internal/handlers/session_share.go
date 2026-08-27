@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"strings"
+
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
@@ -23,21 +25,13 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 	if len(replayStores) > 0 && replayStores[0] != nil {
 		replayStore = replayStores[0]
 	}
-	// Create session config for cookie creation
-	sessionConfig := sessionkit.DefaultConfig().
-		WithCookieName(auth.SessionCookieName).
-		WithExpiration(config.SessionExpiration).
-		WithCookieDomain(config.CookieDomain.Value).
-		WithSecure(config.CookieSecure.ToBool()).
-		WithSameSite("Lax").
-		WithHTTPOnly(true)
-
 	return func(ctx fiber.Ctx) error {
 		ticket := ctx.Query("ticket")
 		if ticket == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.missing_session_id"))
 		}
-		sessionID, err := consumeSessionExchangeTicketWithStore(ctx.Context(), ticket, GetForwardedHost(ctx), replayStore)
+		targetHost := GetForwardedHost(ctx)
+		sessionID, err := consumeSessionExchangeTicketWithStore(ctx.Context(), ticket, targetHost, replayStore)
 		if err != nil {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "invalid session exchange ticket")
 		}
@@ -52,10 +46,34 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "invalid session exchange ticket")
 		}
 
+		// A Domain cookie is valid only when the exchange target belongs to that
+		// domain. Cross-root-domain callbacks receive a host-only cookie.
+		sessionConfig := sessionkit.DefaultConfig().
+			WithCookieName(auth.SessionCookieName).
+			WithExpiration(config.SessionExpiration).
+			WithSecure(config.CookieSecure.ToBool()).
+			WithSameSite("Lax").
+			WithHTTPOnly(true)
+		if cookieDomain := sessionCookieDomainForHost(targetHost, config.CookieDomain.Value); cookieDomain != "" {
+			sessionConfig = sessionConfig.WithCookieDomain(cookieDomain)
+		}
+
 		// Use session-kit's CreateCookie for consistent cookie creation
 		cookie := sessionkit.CreateCookie(sessionConfig, sessionID)
 		ctx.Cookie(cookie)
 
 		return ctx.Redirect().Status(fiber.StatusFound).To("/")
 	}
+}
+
+func sessionCookieDomainForHost(host, configuredDomain string) string {
+	domain := strings.ToLower(strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(configuredDomain), "."), "."))
+	hostname := normalizeHost(host)
+	if domain == "" || hostname == "" {
+		return ""
+	}
+	if hostname == domain || strings.HasSuffix(hostname, "."+domain) {
+		return configuredDomain
+	}
+	return ""
 }

@@ -683,6 +683,35 @@ func TestSessionShareRoute_WithoutCookieDomain(t *testing.T) {
 	testza.AssertContains(t, cookieStr, sessionID)
 }
 
+func TestSessionShareRouteUsesHostOnlyCookieAcrossRootDomains(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("COOKIE_DOMAIN", ".example.com")
+	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.net")
+	t.Setenv("SESSION_EXCHANGE_SECRET", "0123456789abcdef0123456789abcdef")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+
+	store := setupTestStore()
+	seedCtx, seedApp := createTestContext("GET", "/", nil, "")
+	sess, err := store.Get(seedCtx)
+	testza.AssertNoError(t, err)
+	testza.AssertNoError(t, auth.Authenticate(sess))
+	sessionID := responseCookieValue(seedCtx, auth.SessionCookieName)
+	testza.AssertNotEqual(t, "", sessionID)
+	ticket, err := createSessionExchangeTicket(sessionID, "app.example.net")
+	testza.AssertNoError(t, err)
+	seedApp.ReleaseCtx(seedCtx)
+
+	ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.net"}, "")
+	defer app.ReleaseCtx(ctx)
+	testza.AssertNoError(t, SessionShareRoute(store)(ctx))
+	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
+	cookie := string(ctx.Response().Header.Peek("Set-Cookie"))
+	testza.AssertContains(t, cookie, auth.SessionCookieName)
+	testza.AssertContains(t, cookie, sessionID)
+	testza.AssertNotContains(t, strings.ToLower(cookie), "domain=")
+}
+
 func TestCheckRoute_SetsUserHeader(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
