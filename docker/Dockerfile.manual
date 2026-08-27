@@ -35,12 +35,15 @@ RUN if command -v upx > /dev/null 2>&1; then \
     fi
 
 FROM alpine:3.24
-RUN apk update && apk upgrade openssl
+# Release builds override this value to invalidate the package layer on every run.
+ARG ALPINE_PACKAGE_REFRESH=local
 COPY --from=Builder /app/stargate /bin/stargate
 COPY --from=Builder /app/src/internal/web/templates /app/web/templates
 ENV TZ=Asia/Shanghai
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories
-RUN apk add --no-cache tzdata ca-certificates && \
+RUN echo "Alpine package refresh: ${ALPINE_PACKAGE_REFRESH}" && \
+    apk upgrade --no-cache && \
+    apk add --no-cache tzdata ca-certificates && \
     addgroup -S stargate && \
     adduser -S -D -H -u 10001 -G stargate stargate && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone && \
