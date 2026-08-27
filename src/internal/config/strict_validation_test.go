@@ -9,9 +9,10 @@ import (
 func setValidStrictTestValues(t *testing.T) {
 	t.Helper()
 	variables := []*EnvVariable{
-		&CookieDomain, &CallbackAllowedHosts, &SessionExchangeSecret, &Port,
+		&AuthHost, &CookieDomain, &CallbackAllowedHosts, &SessionExchangeSecret, &Port,
 		&WardenCacheTTL, &AuthRefreshInterval, &SessionStorageRedisDB,
 		&SessionStorageEnabled, &SessionStorageRedisAddr, &WardenURL, &HeraldURL,
+		&UserHeaderName, &ProxyHeader, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader,
 	}
 	values := make([]string, len(variables))
 	for i, variable := range variables {
@@ -23,6 +24,7 @@ func setValidStrictTestValues(t *testing.T) {
 		}
 	})
 
+	AuthHost.Value = "auth.example.com"
 	CookieDomain.Value = ""
 	CallbackAllowedHosts.Value = ""
 	SessionExchangeSecret.Value = ""
@@ -34,6 +36,11 @@ func setValidStrictTestValues(t *testing.T) {
 	SessionStorageRedisAddr.Value = "localhost:6379"
 	WardenURL.Value = ""
 	HeraldURL.Value = ""
+	UserHeaderName.Value = "X-Forwarded-User"
+	ProxyHeader.Value = "X-Forwarded-For"
+	HeaderAuthEnabled.Value = "false"
+	HeaderAuthSharedSecret.Value = ""
+	HeaderAuthSecretHeader.Value = "X-Stargate-Header-Auth"
 }
 
 func TestValidateStrictSettingsAcceptsOperationalDefaults(t *testing.T) {
@@ -80,6 +87,98 @@ func TestValidateStrictSettingsRejectsUnsafeServiceURL(t *testing.T) {
 	err := validateStrictSettings()
 	testza.AssertNotNil(t, err)
 	testza.AssertEqual(t, WardenURL.Name, err.(*ValidationError).KeyName)
+}
+
+func TestValidateStrictSettingsNormalizesServiceRootURL(t *testing.T) {
+	setValidStrictTestValues(t)
+	WardenURL.Value = "https://warden.example.com/"
+	HeraldURL.Value = "https://herald.example.com/"
+
+	testza.AssertNoError(t, validateStrictSettings())
+	testza.AssertEqual(t, "https://warden.example.com", WardenURL.Value)
+	testza.AssertEqual(t, "https://herald.example.com", HeraldURL.Value)
+}
+
+func TestValidateStrictSettingsRejectsServiceURLPath(t *testing.T) {
+	setValidStrictTestValues(t)
+	WardenURL.Value = "https://warden.example.com/api"
+
+	err := validateStrictSettings()
+	testza.AssertNotNil(t, err)
+	testza.AssertEqual(t, WardenURL.Name, err.(*ValidationError).KeyName)
+}
+
+func TestValidateStrictSettingsRejectsInvalidAuthHost(t *testing.T) {
+	for _, host := range []string{"https://auth.example.com", "auth.example.com/login", "user@auth.example.com", "auth.example.com:70000"} {
+		t.Run(host, func(t *testing.T) {
+			setValidStrictTestValues(t)
+			AuthHost.Value = host
+
+			err := validateStrictSettings()
+			testza.AssertNotNil(t, err)
+			testza.AssertEqual(t, AuthHost.Name, err.(*ValidationError).KeyName)
+		})
+	}
+}
+
+func TestValidateStrictSettingsChecksCookieDomainBoundary(t *testing.T) {
+	tests := []struct {
+		domain string
+		valid  bool
+	}{
+		{domain: ".example.com", valid: true},
+		{domain: "auth.example.com", valid: true},
+		{domain: "example.net", valid: false},
+		{domain: "com", valid: false},
+		{domain: "127.0.0.1", valid: false},
+	}
+	for _, test := range tests {
+		t.Run(test.domain, func(t *testing.T) {
+			setValidStrictTestValues(t)
+			CookieDomain.Value = test.domain
+			SessionExchangeSecret.Value = "0123456789abcdef0123456789abcdef"
+
+			err := validateStrictSettings()
+			if test.valid {
+				testza.AssertNoError(t, err)
+				return
+			}
+			testza.AssertNotNil(t, err)
+			testza.AssertEqual(t, CookieDomain.Name, err.(*ValidationError).KeyName)
+		})
+	}
+}
+
+func TestValidateStrictSettingsRejectsHeaderCollisions(t *testing.T) {
+	tests := []struct {
+		configure func()
+		key       string
+	}{
+		{configure: func() { HeaderAuthSecretHeader.Value = "X-Forwarded-Uri" }, key: HeaderAuthSecretHeader.Name},
+		{configure: func() { HeaderAuthSecretHeader.Value = "invalid header" }, key: HeaderAuthSecretHeader.Name},
+		{configure: func() { UserHeaderName.Value = "Authorization" }, key: UserHeaderName.Name},
+		{configure: func() { ProxyHeader.Value = UserHeaderName.Value }, key: ProxyHeader.Name},
+	}
+	for _, test := range tests {
+		t.Run(test.key, func(t *testing.T) {
+			setValidStrictTestValues(t)
+			test.configure()
+
+			err := validateStrictSettings()
+			testza.AssertNotNil(t, err)
+			testza.AssertEqual(t, test.key, err.(*ValidationError).KeyName)
+		})
+	}
+}
+
+func TestValidateStrictSettingsRequiresStrongHeaderAuthSecret(t *testing.T) {
+	setValidStrictTestValues(t)
+	HeaderAuthEnabled.Value = "true"
+	HeaderAuthSharedSecret.Value = "too-short"
+
+	err := validateStrictSettings()
+	testza.AssertNotNil(t, err)
+	testza.AssertEqual(t, HeaderAuthSharedSecret.Name, err.(*ValidationError).KeyName)
 }
 
 func TestValidateStrictSettingsRejectsPaddedRedisDB(t *testing.T) {

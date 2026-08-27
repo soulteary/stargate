@@ -72,7 +72,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `WARDEN_TLS_CLIENT_KEY_FILE` | path | empty | No |
 | `WARDEN_TLS_SERVER_NAME` | String | empty | No |
 | `HEADER_AUTH_ENABLED` | true/false | false | No |
-| `HEADER_AUTH_SHARED_SECRET` | Secret string | empty | Yes when header auth enabled |
+| `HEADER_AUTH_SHARED_SECRET` | Secret string (at least 32 characters) | empty | Yes when header auth enabled |
 | `HEADER_AUTH_SECRET_HEADER` | HTTP header name | X-Stargate-Header-Auth | No |
 | `WARDEN_CACHE_TTL` | String | 300 | No |
 | `HERALD_ENABLED` | true/false | false | No |
@@ -1186,11 +1186,13 @@ Trusted identity headers are disabled by default. This mode requires Warden and 
 WARDEN_ENABLED=true
 WARDEN_URL=http://warden:8080
 HEADER_AUTH_ENABLED=true
-HEADER_AUTH_SHARED_SECRET=<random-shared-secret>
+HEADER_AUTH_SHARED_SECRET=<at-least-32-random-characters>
 # Optional; this is the default header name:
 HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 ```
 
 The proxy sends `X-User-Phone` or `X-User-Mail` together with the configured secret header. Stargate removes the secret header before forwarding and discards the identity headers when the secret does not match.
+
+Configured header names must be valid HTTP field names and must not reuse routing, authentication, identity, or hop-by-hop headers. In particular, do not configure the shared-secret header as `X-Forwarded-Uri`, `Stargate-Password`, `X-User-Phone`, or `X-User-Mail`; Stargate rejects these combinations at startup.
 
 Treat all three headers as trust-boundary inputs: use HTTPS, generate a strong shared secret, and configure the edge proxy to remove any client-supplied `X-User-Phone`, `X-User-Mail`, and header named by `HEADER_AUTH_SECRET_HEADER` before adding its own. Never expose this mode directly to untrusted clients.

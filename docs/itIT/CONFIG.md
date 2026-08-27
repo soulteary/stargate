@@ -284,7 +284,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Abilita l'header password legacy attendibile |
 | `LOG_LEVEL` | debug/info/warn/error | info | Livello di log iniziale |
 | `HEADER_AUTH_ENABLED` | true/false | false | Autenticazione tramite header attendibili |
-| `HEADER_AUTH_SHARED_SECRET` | segreto | vuoto | Segreto condiviso per header auth |
+| `HEADER_AUTH_SHARED_SECRET` | segreto, almeno 32 caratteri | vuoto | Segreto condiviso per header auth |
 | `HEADER_AUTH_SECRET_HEADER` | nome header | `X-Stargate-Header-Auth` | Trasporta il segreto condiviso |
 | `WARDEN_ENABLED` | true/false | false | Integrazione Warden |
 | `WARDEN_URL` | URL | vuoto | Endpoint Warden |

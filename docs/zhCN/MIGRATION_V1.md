@@ -59,7 +59,7 @@ v1.0.0 使用加密、短时、单次有效且绑定目标域名的 `?ticket=` �
 
 - 登录表单仍通过 `POST /_login` 提交。
 - `Stargate-Password` 请求头认证默认关闭。仅在可信代理集成中设置 `PASSWORD_HEADER_AUTH_ENABLED=true`，并确保代理先删除客户端传入的同名请求头。
-- 可信身份请求头需要同时启用 `HEADER_AUTH_ENABLED=true`、配置匹配的 `HEADER_AUTH_SHARED_SECRET` 并接入 Warden。代理必须先删除客户端传入的身份和密钥请求头，再写入可信值。
+- 可信身份请求头需要同时启用 `HEADER_AUTH_ENABLED=true`、配置至少 32 个字符的匹配 `HEADER_AUTH_SHARED_SECRET` 并接入 Warden。代理必须先删除客户端传入的身份和密钥请求头，再写入可信值。
 - Warden 或 Herald 客户端配置无效时，服务现在会在启动阶段直接失败，而不是以不完整状态运行。
 - 已移除旧版 Warden 全局 OTP 回退逻辑，请使用 Herald 支持的 TOTP 注册与校验。
 
