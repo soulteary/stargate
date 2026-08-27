@@ -198,7 +198,7 @@ Richiesta di invio codice di verifica. Questo endpoint è utilizzato nel flusso 
 
 #### Corpo della Richiesta
 
-Dati del form (`application/x-www-form-urlencoded`) o JSON (`application/json`) :
+Solo dati del form (`application/x-www-form-urlencoded`):
 
 | Campo | Tipo | Richiesto | Descrizione |
 |-------|------|-----------|-------------|
@@ -226,11 +226,10 @@ Dati del form (`application/x-www-form-urlencoded`) o JSON (`application/json`) 
 ```json
 {
   "success": true,
+  "message": "Verification code sent",
   "challenge_id": "ch_xxxxxxxxxxxx",
   "expires_in": 300,
-  "next_resend_in": 60,
-  "channel": "email",
-  "destination": "u***@example.com"
+  "next_resend_in": 60
 }
 ```
 
@@ -258,11 +257,6 @@ curl -X POST \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
-# Usando formato JSON
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"mail":"user@example.com"}' \
-     http://auth.example.com/_send_verify_code
 ```
 
 #### Note
@@ -360,15 +354,19 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## Endpoint TOTP
 
-Questi endpoint sono disponibili quando Herald e Herald TOTP sono abilitati. Richiedono una sessione autenticata.
+Questi endpoint sono disponibili quando Herald e Herald TOTP sono abilitati. La registrazione deve iniziare e terminare entro 10 minuti dal login che ha creato la sessione.
+
+### `GET /totp/enroll`
+
+Mostra una pagina di conferma senza creare lo stato di registrazione. Richiede una sessione creata da un login riuscito negli ultimi 10 minuti.
 
 ### `POST /totp/enroll`
 
-Avvia la registrazione e mostra la pagina di associazione TOTP.
+Avvia la registrazione e mostra la pagina di associazione TOTP. Richiede una sessione creata negli ultimi 10 minuti.
 
 ### `POST /totp/enroll/confirm`
 
-Conferma la registrazione con il codice TOTP a sei cifre nel campo `code`.
+Conferma la registrazione con dati del form (`application/x-www-form-urlencoded`). Sono obbligatori sia `enroll_id` sia il `code` TOTP a sei cifre. La risposta è JSON e, in caso di successo, include i codici di backup mostrati una sola volta.
 
 ### `GET /totp/revoke`
 

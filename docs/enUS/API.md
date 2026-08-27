@@ -233,7 +233,7 @@ Send verification code request. This endpoint is used in the Warden + Herald OTP
 
 #### Request Body
 
-Form data (`application/x-www-form-urlencoded`) or JSON (`application/json`):
+Form data (`application/x-www-form-urlencoded`) only:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
@@ -267,11 +267,10 @@ Form data (`application/x-www-form-urlencoded`) or JSON (`application/json`):
 ```json
 {
   "success": true,
+  "message": "Verification code sent",
   "challenge_id": "ch_xxxxxxxxxxxx",
   "expires_in": 300,
-  "next_resend_in": 60,
-  "channel": "email",
-  "destination": "u***@example.com"
+  "next_resend_in": 60
 }
 ```
 
@@ -299,11 +298,6 @@ curl -X POST \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
-# Using JSON format
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"mail":"user@example.com"}' \
-     http://auth.example.com/_send_verify_code
 ```
 
 #### Notes
@@ -401,22 +395,26 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## TOTP Endpoints
 
-When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`), Stargate provides TOTP (authenticator app) bind/unbind and verification as part of login. These endpoints require an authenticated session.
+When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`), Stargate provides TOTP (authenticator app) bind/unbind and verification as part of login. These endpoints require an authenticated session. Enrollment must start and finish within 10 minutes of the login that created the session.
+
+### `GET /totp/enroll`
+
+Displays a confirmation page without creating enrollment state. It requires a recently authenticated session; unauthenticated users are redirected to `/_login`, while an older session receives `401 Unauthorized`.
 
 ### `POST /totp/enroll`
 
 Starts enrollment and displays the TOTP bind page. POST prevents cross-site navigation from creating enrollment state.
 
-- **Authentication**: Required (session cookie). Unauthenticated users are redirected to `/_login`.
+- **Authentication**: A session created by a successful login within the last 10 minutes. Unauthenticated users are redirected to `/_login`; older sessions receive `401 Unauthorized`.
 - **Response**: 200 OK with enrollment page HTML; or 302 to `/_login` if not authenticated; or 400/503 on configuration or Herald errors.
 
 ### `POST /totp/enroll/confirm`
 
 Confirms TOTP binding with the code from the authenticator app.
 
-- **Authentication**: Required (session cookie).
-- **Request Body**: Form or JSON with `code` (6-digit TOTP code).
-- **Response**: Success redirects to a success page or root; failure returns error (e.g. 400 for invalid code).
+- **Authentication**: A session created by a successful login within the last 10 minutes.
+- **Request Body**: Form data (`application/x-www-form-urlencoded`) containing the `enroll_id` returned by the enrollment page and the 6-digit TOTP `code`.
+- **Response**: JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400`, and missing recent authentication returns `401`.
 
 ### `GET /totp/revoke`
 
@@ -431,7 +429,7 @@ Confirms TOTP unbind (removes TOTP from the account).
 
 - **Authentication**: Required (session cookie).
 - **Request Body**: `password` or a valid current TOTP `code` is required to prove recent authentication.
-- **Response**: Success redirects or returns OK; failure returns error.
+- **Response**: JSON. Success returns `{"ok":true,"subject":"..."}`; failed reauthentication returns `401`, and an upstream revoke failure returns `502`.
 
 **Notes:** TOTP creation and verification are performed by Herald (which may proxy to herald-totp). Stargate only orchestrates the UI and session; it does not implement OTP algorithms.
 
