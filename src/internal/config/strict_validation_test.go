@@ -157,6 +157,9 @@ func TestValidateStrictSettingsRejectsHeaderCollisions(t *testing.T) {
 		{configure: func() { HeaderAuthSecretHeader.Value = "X-Forwarded-Uri" }, key: HeaderAuthSecretHeader.Name},
 		{configure: func() { HeaderAuthSecretHeader.Value = "invalid header" }, key: HeaderAuthSecretHeader.Name},
 		{configure: func() { UserHeaderName.Value = "Authorization" }, key: UserHeaderName.Name},
+		{configure: func() { UserHeaderName.Value = "X-Auth-Email" }, key: UserHeaderName.Name},
+		{configure: func() { ProxyHeader.Value = "x-auth-amr" }, key: ProxyHeader.Name},
+		{configure: func() { HeaderAuthSecretHeader.Value = "X-Auth-User" }, key: HeaderAuthSecretHeader.Name},
 		{configure: func() { ProxyHeader.Value = UserHeaderName.Value }, key: ProxyHeader.Name},
 	}
 	for _, test := range tests {

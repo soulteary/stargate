@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	audit "github.com/soulteary/audit-kit"
+	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -90,6 +91,25 @@ func TestStreamStorageHonorsFormats(t *testing.T) {
 	assert.NoError(t, NewStreamStorage(&textOutput, "text").Write(context.Background(), record))
 	assert.Contains(t, textOutput.String(), "event=")
 	assert.Contains(t, textOutput.String(), "user_id=\"user1\"")
+}
+
+func TestInitDefaultAcceptsCaseInsensitiveFormat(t *testing.T) {
+	previousEnabled := config.AuditLogEnabled.Value
+	previousFormat := config.AuditLogFormat.Value
+	t.Cleanup(func() {
+		config.AuditLogEnabled.Value = previousEnabled
+		config.AuditLogFormat.Value = previousFormat
+		logger = nil
+		loggerInit = sync.Once{}
+	})
+	config.AuditLogEnabled.Value = "true"
+	config.AuditLogFormat.Value = " TEXT "
+	logger = nil
+	loggerInit = sync.Once{}
+
+	assert.NoError(t, InitDefault())
+	assert.NotNil(t, GetLogger())
+	assert.NoError(t, Stop())
 }
 
 func TestStop_WhenLoggerNil(t *testing.T) {
