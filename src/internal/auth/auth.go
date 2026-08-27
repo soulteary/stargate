@@ -4,9 +4,7 @@ package auth
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -18,6 +16,7 @@ import (
 	secure "github.com/soulteary/secure-kit"
 	session "github.com/soulteary/session-kit/v2"
 	"github.com/soulteary/stargate/src/internal/config"
+	internal_tls "github.com/soulteary/stargate/src/internal/tlsconfig"
 	"github.com/soulteary/warden/pkg/warden"
 )
 
@@ -204,36 +203,7 @@ func InitWardenClient(l *logger.Logger) error {
 }
 
 func buildWardenTLSConfig(caFile, certFile, keyFile, serverName string) (*tls.Config, error) {
-	if caFile == "" && certFile == "" && keyFile == "" && serverName == "" {
-		return nil, nil
-	}
-	if (certFile == "") != (keyFile == "") {
-		return nil, fmt.Errorf("WARDEN_TLS_CLIENT_CERT_FILE and WARDEN_TLS_CLIENT_KEY_FILE must be configured together")
-	}
-
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12, ServerName: serverName}
-	if caFile != "" {
-		pem, err := os.ReadFile(caFile)
-		if err != nil {
-			return nil, fmt.Errorf("read Warden CA certificate: %w", err)
-		}
-		roots, err := x509.SystemCertPool()
-		if err != nil || roots == nil {
-			roots = x509.NewCertPool()
-		}
-		if !roots.AppendCertsFromPEM(pem) {
-			return nil, fmt.Errorf("WARDEN_TLS_CA_CERT_FILE contains no valid certificates")
-		}
-		tlsConfig.RootCAs = roots
-	}
-	if certFile != "" {
-		certificate, err := tls.LoadX509KeyPair(certFile, keyFile)
-		if err != nil {
-			return nil, fmt.Errorf("load Warden client certificate: %w", err)
-		}
-		tlsConfig.Certificates = []tls.Certificate{certificate}
-	}
-	return tlsConfig, nil
+	return internal_tls.Build("Warden", caFile, certFile, keyFile, serverName)
 }
 
 // getWardenClient returns the warden client.

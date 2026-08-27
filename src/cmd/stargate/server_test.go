@@ -210,6 +210,27 @@ func TestSetupHealthChecker_Combinations(t *testing.T) {
 	}
 }
 
+func TestSetupHealthCheckerReportsTLSConfigurationFailure(t *testing.T) {
+	setupTestConfig(t)
+	previousEnabled := config.HeraldEnabled.Value
+	previousURL := config.HeraldURL.Value
+	previousCA := config.HeraldTLSCACertFile.Value
+	t.Cleanup(func() {
+		config.HeraldEnabled.Value = previousEnabled
+		config.HeraldURL.Value = previousURL
+		config.HeraldTLSCACertFile.Value = previousCA
+	})
+	config.HeraldEnabled.Value = "true"
+	config.HeraldURL.Value = "https://herald.example.com"
+	config.HeraldTLSCACertFile.Value = filepath.Join(t.TempDir(), "missing-ca.pem")
+
+	result := setupHealthChecker(nil).Check(context.Background())
+	heraldResult, ok := result.Checks["herald"]
+	testza.AssertTrue(t, ok)
+	testza.AssertEqual(t, health.StatusUnhealthy, heraldResult.Status)
+	testza.AssertContains(t, heraldResult.Error, "read Herald CA certificate")
+}
+
 func TestSetupRoutes(t *testing.T) {
 	setupTestConfig(t)
 
