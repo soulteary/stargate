@@ -72,6 +72,7 @@ X-Forwarded-User: authenticated
 **使用 Header 认证（API 请求）**
 
 ```bash
+# 服务端启动前必须设置：PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```
@@ -233,7 +234,7 @@ curl -X POST \
 
 #### 请求体
 
-表单数据（`application/x-www-form-urlencoded`）或 JSON（`application/json`）：
+仅支持表单数据（`application/x-www-form-urlencoded`）：
 
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
@@ -261,11 +262,10 @@ curl -X POST \
 ```json
 {
   "success": true,
+  "message": "验证码已发送",
   "challenge_id": "ch_xxxxxxxxxxxx",
   "expires_in": 300,
-  "next_resend_in": 60,
-  "channel": "email",
-  "destination": "u***@example.com"
+  "next_resend_in": 60
 }
 ```
 
@@ -293,11 +293,6 @@ curl -X POST \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
-# 使用 JSON 格式
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"mail":"user@example.com"}' \
-     http://auth.example.com/_send_verify_code
 ```
 
 #### 注意事项
@@ -395,22 +390,26 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## TOTP 端点
 
-当启用 Herald TOTP（`HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`）时，Stargate 提供 TOTP（认证器应用）绑定/解绑及登录时的验证。这些端点需要已认证会话。
+当启用 Herald TOTP（`HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`）时，Stargate 提供 TOTP（认证器应用）绑定/解绑及登录时的验证。这些端点需要已认证会话，且绑定流程必须在创建会话的登录成功后 10 分钟内开始并完成。
+
+### `GET /totp/enroll`
+
+显示绑定确认页，但不创建绑定状态。要求最近认证的会话；未认证用户重定向到 `/_login`，超过 10 分钟的会话返回 `401 Unauthorized`。
 
 ### `POST /totp/enroll`
 
 启动绑定并展示 TOTP 页面。使用 POST 可避免跨站导航创建绑定状态。
 
-- **认证**：需要（会话 Cookie）。未认证用户会重定向到 `/_login`。
+- **认证**：要求会话由最近 10 分钟内成功登录创建。未认证用户重定向到 `/_login`，过期会话返回 `401 Unauthorized`。
 - **响应**：200 OK 返回绑定页 HTML；未认证时 302 到 `/_login`；配置或 Herald 错误时 400/503。
 
 ### `POST /totp/enroll/confirm`
 
 使用认证器应用生成的 6 位码确认 TOTP 绑定。
 
-- **认证**：需要（会话 Cookie）。
-- **请求体**：表单或 JSON，包含 `code`（6 位 TOTP 码）。
-- **响应**：成功时重定向到成功页或根路径；失败返回错误（如 400 表示验证码错误）。
+- **认证**：要求会话由最近 10 分钟内成功登录创建。
+- **请求体**：表单数据（`application/x-www-form-urlencoded`），同时包含绑定页返回的 `enroll_id` 和 6 位 TOTP `code`。
+- **响应**：JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`；绑定状态无效或过期返回 `400`，缺少最近认证返回 `401`。
 
 ### `GET /totp/revoke`
 
@@ -425,7 +424,7 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 - **认证**：需要（会话 Cookie）。
 - **请求体**：必须提供密码或当前有效的 TOTP `code`，用于最近认证确认。
-- **响应**：成功时重定向或返回 OK；失败返回错误。
+- **响应**：JSON。成功返回 `{"ok":true,"subject":"..."}`；重新认证失败返回 `401`，上游解绑失败返回 `502`。
 
 **说明**：TOTP 的创建与校验由 Herald（可能代理到 herald-totp）完成。Stargate 仅负责页面与会话编排，不实现 OTP 算法。
 

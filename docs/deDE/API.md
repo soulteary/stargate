@@ -68,6 +68,7 @@ Der Name des Benutzer-Headers kann über die Umgebungsvariable `USER_HEADER_NAME
 **Verwendung der Header-Authentifizierung (API-Anfrage)**
 
 ```bash
+# Server-Voraussetzung: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```
@@ -198,7 +199,7 @@ Anfrage zum Senden eines Verifizierungscodes. Dieser Endpunkt wird im Warden + H
 
 #### Anfragekörper
 
-Formulardaten (`application/x-www-form-urlencoded`) oder JSON (`application/json`) :
+Nur Formulardaten (`application/x-www-form-urlencoded`):
 
 | Feld | Typ | Erforderlich | Beschreibung |
 |------|-----|--------------|--------------|
@@ -226,11 +227,10 @@ Formulardaten (`application/x-www-form-urlencoded`) oder JSON (`application/json
 ```json
 {
   "success": true,
+  "message": "Verification code sent",
   "challenge_id": "ch_xxxxxxxxxxxx",
   "expires_in": 300,
-  "next_resend_in": 60,
-  "channel": "email",
-  "destination": "u***@example.com"
+  "next_resend_in": 60
 }
 ```
 
@@ -258,11 +258,6 @@ curl -X POST \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
-# JSON-Format verwenden
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"mail":"user@example.com"}' \
-     http://auth.example.com/_send_verify_code
 ```
 
 #### Hinweise
@@ -360,15 +355,19 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## TOTP-Endpunkte
 
-Diese Endpunkte sind verfügbar, wenn Herald und Herald-TOTP aktiviert sind. Sie erfordern eine authentifizierte Sitzung.
+Diese Endpunkte sind verfügbar, wenn Herald und Herald-TOTP aktiviert sind. Die Registrierung muss innerhalb von 10 Minuten nach der Anmeldung gestartet und abgeschlossen werden.
+
+### `GET /totp/enroll`
+
+Zeigt eine Bestätigungsseite an, ohne Registrierungsstatus zu erzeugen. Erfordert eine innerhalb der letzten 10 Minuten erstellte authentifizierte Sitzung.
 
 ### `POST /totp/enroll`
 
-Startet die Registrierung und zeigt die TOTP-Bindungsseite an.
+Startet die Registrierung und zeigt die TOTP-Bindungsseite an. Erfordert eine innerhalb der letzten 10 Minuten erstellte Sitzung.
 
 ### `POST /totp/enroll/confirm`
 
-Bestätigt die Registrierung mit dem sechsstelligen TOTP-Code im Feld `code`.
+Bestätigt die Registrierung mit Formulardaten (`application/x-www-form-urlencoded`). Sowohl `enroll_id` als auch der sechsstellige TOTP-`code` sind erforderlich. Die Antwort ist JSON und enthält bei Erfolg auch die einmalig ausgegebenen Backup-Codes.
 
 ### `GET /totp/revoke`
 

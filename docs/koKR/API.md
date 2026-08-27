@@ -68,6 +68,7 @@ X-Forwarded-User: authenticated
 **헤더 인증 사용 (API 요청)**
 
 ```bash
+# 서버 전제 조건: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```
@@ -198,7 +199,7 @@ curl -X POST \
 
 #### 요청 본문
 
-폼 데이터 (`application/x-www-form-urlencoded`) 또는 JSON (`application/json`) :
+폼 데이터(`application/x-www-form-urlencoded`)만 지원합니다:
 
 | 필드 | 유형 | 필수 | 설명 |
 |------|------|------|------|
@@ -226,11 +227,10 @@ curl -X POST \
 ```json
 {
   "success": true,
+  "message": "Verification code sent",
   "challenge_id": "ch_xxxxxxxxxxxx",
   "expires_in": 300,
-  "next_resend_in": 60,
-  "channel": "email",
-  "destination": "u***@example.com"
+  "next_resend_in": 60
 }
 ```
 
@@ -258,11 +258,6 @@ curl -X POST \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
-# JSON 형식 사용
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"mail":"user@example.com"}' \
-     http://auth.example.com/_send_verify_code
 ```
 
 #### 참고 사항
@@ -360,15 +355,19 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## TOTP 엔드포인트
 
-Herald와 Herald TOTP가 활성화된 경우 사용할 수 있습니다. 모든 엔드포인트에 인증된 세션이 필요합니다.
+Herald와 Herald TOTP가 활성화된 경우 사용할 수 있습니다. 등록은 세션을 만든 로그인 후 10분 이내에 시작하고 완료해야 합니다.
+
+### `GET /totp/enroll`
+
+등록 상태를 만들지 않고 확인 페이지를 표시합니다. 최근 10분 이내의 로그인으로 생성된 세션이 필요합니다.
 
 ### `POST /totp/enroll`
 
-등록을 시작하고 TOTP 연결 페이지를 표시합니다.
+등록을 시작하고 TOTP 연결 페이지를 표시합니다. 최근 10분 이내에 생성된 세션이 필요합니다.
 
 ### `POST /totp/enroll/confirm`
 
-`code` 필드의 6자리 TOTP 코드로 등록을 확인합니다.
+폼 데이터(`application/x-www-form-urlencoded`)로 등록을 확인합니다. `enroll_id`와 6자리 TOTP `code`가 모두 필요합니다. 응답은 JSON이며 성공 시 한 번만 표시되는 백업 코드를 포함합니다.
 
 ### `GET /totp/revoke`
 

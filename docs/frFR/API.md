@@ -69,6 +69,7 @@ Le nom de l'en-tête utilisateur peut être configuré via la variable d'environ
 **Utilisation de l'Authentification par En-tête (Requête API)**
 
 ```bash
+# Prérequis côté serveur : PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```
@@ -199,7 +200,7 @@ Requête d'envoi de code de vérification. Ce point de terminaison est utilisé 
 
 #### Corps de Requête
 
-Données de formulaire (`application/x-www-form-urlencoded`) ou JSON (`application/json`) :
+Données de formulaire (`application/x-www-form-urlencoded`) uniquement :
 
 | Champ | Type | Requis | Description |
 |-------|------|--------|-------------|
@@ -227,11 +228,10 @@ Données de formulaire (`application/x-www-form-urlencoded`) ou JSON (`applicati
 ```json
 {
   "success": true,
+  "message": "Verification code sent",
   "challenge_id": "ch_xxxxxxxxxxxx",
   "expires_in": 300,
-  "next_resend_in": 60,
-  "channel": "email",
-  "destination": "u***@example.com"
+  "next_resend_in": 60
 }
 ```
 
@@ -259,11 +259,6 @@ curl -X POST \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
-# Utiliser le format JSON
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"mail":"user@example.com"}' \
-     http://auth.example.com/_send_verify_code
 ```
 
 #### Notes
@@ -361,15 +356,19 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## Points de Terminaison TOTP
 
-Ces points de terminaison sont disponibles lorsque Herald et Herald TOTP sont activés. Ils nécessitent une session authentifiée.
+Ces points de terminaison sont disponibles lorsque Herald et Herald TOTP sont activés. L'inscription doit commencer et se terminer dans les 10 minutes suivant la connexion qui a créé la session.
+
+### `GET /totp/enroll`
+
+Affiche une page de confirmation sans créer d'état d'inscription. Nécessite une session créée par une connexion réussie au cours des 10 dernières minutes.
 
 ### `POST /totp/enroll`
 
-Démarre l'inscription et affiche la page d'association TOTP.
+Démarre l'inscription et affiche la page d'association TOTP. Nécessite une session créée au cours des 10 dernières minutes.
 
 ### `POST /totp/enroll/confirm`
 
-Confirme l'inscription avec le code TOTP à six chiffres dans le champ `code`.
+Confirme l'inscription avec des données de formulaire (`application/x-www-form-urlencoded`). `enroll_id` et le `code` TOTP à six chiffres sont tous deux obligatoires. La réponse est en JSON et inclut les codes de secours à usage unique en cas de succès.
 
 ### `GET /totp/revoke`
 

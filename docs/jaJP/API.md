@@ -68,6 +68,7 @@ X-Forwarded-User: authenticated
 **ヘッダー認証の使用（API リクエスト）**
 
 ```bash
+# サーバー側の前提条件: PASSWORD_HEADER_AUTH_ENABLED=true
 curl -H "Stargate-Password: yourpassword" \
      http://auth.example.com/_auth
 ```
@@ -198,7 +199,7 @@ curl -X POST \
 
 #### リクエストボディ
 
-フォームデータ (`application/x-www-form-urlencoded`) または JSON (`application/json`) :
+フォームデータ（`application/x-www-form-urlencoded`）のみ：
 
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
@@ -226,11 +227,10 @@ curl -X POST \
 ```json
 {
   "success": true,
+  "message": "Verification code sent",
   "challenge_id": "ch_xxxxxxxxxxxx",
   "expires_in": 300,
-  "next_resend_in": 60,
-  "channel": "email",
-  "destination": "u***@example.com"
+  "next_resend_in": 60
 }
 ```
 
@@ -258,11 +258,6 @@ curl -X POST \
      -H "Content-Type: application/x-www-form-urlencoded" \
      http://auth.example.com/_send_verify_code
 
-# JSON形式を使用
-curl -X POST \
-     -H "Content-Type: application/json" \
-     -d '{"mail":"user@example.com"}' \
-     http://auth.example.com/_send_verify_code
 ```
 
 #### 注意事項
@@ -360,15 +355,19 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## TOTP エンドポイント
 
-Herald と Herald TOTP が有効な場合に利用できます。すべて認証済みセッションが必要です。
+Herald と Herald TOTP が有効な場合に利用できます。登録は、セッションを作成したログインから 10 分以内に開始して完了する必要があります。
+
+### `GET /totp/enroll`
+
+登録状態を作成せずに確認ページを表示します。直近 10 分以内のログインで作成されたセッションが必要です。
 
 ### `POST /totp/enroll`
 
-登録を開始し、TOTP の関連付けページを表示します。
+登録を開始し、TOTP の関連付けページを表示します。直近 10 分以内に作成されたセッションが必要です。
 
 ### `POST /totp/enroll/confirm`
 
-`code` フィールドの 6 桁の TOTP コードで登録を確定します。
+フォームデータ（`application/x-www-form-urlencoded`）で登録を確定します。`enroll_id` と 6 桁の TOTP `code` の両方が必要です。レスポンスは JSON で、成功時には一度だけ表示されるバックアップコードを含みます。
 
 ### `GET /totp/revoke`
 
