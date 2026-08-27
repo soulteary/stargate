@@ -1,4 +1,17 @@
 services:
+  traefik:
+    image: traefik:v3.7.12
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.http.address=:80
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks:
+      - traefik
+
   stargate: # Your Stargate forward auth service
     image: ghcr.io/soulteary/stargate:v1.0.0
     # Local development port mapping: host port 8080 -> container port 8080
@@ -12,7 +25,7 @@ services:
       - PASSWORDS=plaintext:test1234|test1337 # Replace with your passwords. See the docs for more info.
       - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
-      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-172.30.0.0/24} # Set this to the actual Traefik network CIDR.
+      - TRUSTED_PROXIES=172.30.0.0/24 # Matches the Compose-managed Traefik network below.
       - COOKIE_SECURE=false # Local HTTP only. Keep the default true in HTTPS deployments.
       - PORT=8080
     read_only: true
@@ -52,4 +65,7 @@ services:
 
 networks:
   traefik:
-    external: true
+    name: stargate-traefik
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
