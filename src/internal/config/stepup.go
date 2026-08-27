@@ -21,11 +21,13 @@ func ValidStepUpPathPattern(raw string) bool {
 	if raw == "" || !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.ContainsAny(raw, "\\#") {
 		return false
 	}
-	parsed, err := url.ParseRequestURI(raw)
-	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.RawQuery != "" || parsed.Fragment != "" {
+	// Do not parse the pattern as a request URI: '?' is a documented
+	// single-character glob here, not a query delimiter.
+	decoded, err := url.PathUnescape(raw)
+	if err != nil {
 		return false
 	}
-	for _, segment := range strings.Split(parsed.Path, "/") {
+	for _, segment := range strings.Split(decoded, "/") {
 		if segment == "." || segment == ".." {
 			return false
 		}

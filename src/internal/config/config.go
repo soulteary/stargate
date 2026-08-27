@@ -494,13 +494,18 @@ func Initialize(l *logger.Logger) error {
 		return NewValidationError(StepUpPaths.Name, "must contain at least one protected path when step-up is enabled", StepUpPaths.PossibleValues)
 	}
 	if StepUpEnabled.ToBool() {
+		usablePatterns := 0
 		for _, pattern := range strings.Split(StepUpPaths.Value, ",") {
 			if strings.TrimSpace(pattern) == "" {
 				continue
 			}
+			usablePatterns++
 			if !ValidStepUpPathPattern(pattern) {
 				return NewValidationError(StepUpPaths.Name, "must contain only local absolute path patterns without queries, fragments, backslashes, or dot segments", StepUpPaths.PossibleValues)
 			}
+		}
+		if usablePatterns == 0 {
+			return NewValidationError(StepUpPaths.Name, "must contain at least one usable protected path", StepUpPaths.PossibleValues)
 		}
 	}
 	if StepUpEnabled.ToBool() && strings.TrimSpace(TrustedProxies.Value) == "" {
