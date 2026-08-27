@@ -475,6 +475,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 	if err := sess.Reset(); err != nil {
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to rotate session")
 	}
+	sess.Set("auth_method", authMethod)
 
 	// Set user information to session for warden authentication before authenticating
 	if authMethod == "warden" {

@@ -36,6 +36,7 @@ func TestAuthRefreshRejectsMissingOrDisabledUser(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	sess.Set("user_mail", "disabled@example.com")
+	sess.Set("auth_method", "warden")
 	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())
 	sessionID := sess.ID()
 	testza.AssertNoError(t, auth.Authenticate(sess))
@@ -60,6 +61,7 @@ func TestAuthRefreshReplacesRevokedAuthorization(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	sess.Set("user_mail", "active@example.com")
+	sess.Set("auth_method", "warden")
 	sess.Set("user_scope", []string{"old-admin"})
 	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())
 	sessionID := sess.ID()
@@ -121,4 +123,25 @@ func TestAuthRefreshSkipsStandaloneSession(t *testing.T) {
 	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
 	testza.AssertNoError(t, err)
 	testza.AssertFalse(t, refreshed)
+}
+
+func TestAuthRefreshSkipsPasswordSessionInMixedDeployment(t *testing.T) {
+	setupRefreshTest(t)
+	store := setupTestStore()
+	ctx, app := createTestContext("GET", "/_auth", nil, "")
+	defer app.ReleaseCtx(ctx)
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	sess.Set("auth_method", "password")
+	testza.AssertNoError(t, auth.Authenticate(sess))
+
+	lookupCalled := false
+	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
+		lookupCalled = true
+		return nil
+	}
+	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
+	testza.AssertNoError(t, err)
+	testza.AssertFalse(t, refreshed)
+	testza.AssertFalse(t, lookupCalled)
 }
