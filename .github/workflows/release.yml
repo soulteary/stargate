@@ -261,7 +261,12 @@ jobs:
             COMMIT=${{ steps.version.outputs.commit }}
             BUILD_DATE=${{ steps.version.outputs.build_date }}
             ALPINE_PACKAGE_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
-          cache-from: type=gha,scope=release-docker
+          # Never reuse cached layers when scanning: a cached `apk upgrade`
+          # layer can pin outdated OS packages (e.g. openssl) and hide fixed
+          # CVEs, so the scan must always rebuild against the latest Alpine
+          # package snapshot.
+          no-cache: true
+          pull: true
           platforms: linux/amd64
 
       - name: Scan amd64 image for high and critical vulnerabilities
@@ -287,7 +292,10 @@ jobs:
             COMMIT=${{ steps.version.outputs.commit }}
             BUILD_DATE=${{ steps.version.outputs.build_date }}
             ALPINE_PACKAGE_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
-          cache-from: type=gha,scope=release-docker
+          # Same reasoning as the amd64 scan build: force a fresh package
+          # layer so vulnerability scans reflect the latest fixes.
+          no-cache: true
+          pull: true
           platforms: linux/arm64
 
       - name: Scan arm64 image for high and critical vulnerabilities
@@ -314,6 +322,9 @@ jobs:
             COMMIT=${{ steps.version.outputs.commit }}
             BUILD_DATE=${{ steps.version.outputs.build_date }}
             ALPINE_PACKAGE_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
+          # Always pull the freshest Alpine base so the published image picks
+          # up the same OS package fixes verified by the security scan above.
+          pull: true
           cache-from: type=gha,scope=release-docker
           cache-to: type=gha,mode=max,scope=release-docker
           platforms: linux/amd64,linux/arm64
