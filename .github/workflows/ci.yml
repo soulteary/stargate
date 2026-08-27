@@ -43,6 +43,7 @@ jobs:
         run: |
           bash .github/scripts/check-doc-contracts.sh "$BASE_SHA"
           bash .github/scripts/test-doc-contracts.sh
+          bash .github/scripts/test-go-version-contract.sh
 
       - name: Check release-note extraction
         run: bash .github/scripts/test-release-notes.sh
