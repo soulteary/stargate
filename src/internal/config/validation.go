@@ -125,36 +125,8 @@ var (
 	}
 
 	ValidatePasswords = func(v EnvVariable) bool {
-		// Schema: "algorithm:pass1|pass2|pass3"
-		passwordsRaw := v.Value
-		if passwordsRaw == "" {
-			return false
-		}
-		parts := strings.Split(passwordsRaw, ":")
-		if len(parts) < 2 {
-			return false
-		}
-		algorithm := parts[0]
-		passwords := strings.Split(parts[1], "|")
-
-		algoSupported := false
-		for possibleValue := range SupportedAlgorithms {
-			if algorithm == possibleValue {
-				algoSupported = true
-				break
-			}
-		}
-		if !algoSupported {
-			return false
-		}
-
-		for _, password := range passwords {
-			if password == "" {
-				return false
-			}
-		}
-
-		return true
+		_, _, ok := ParsePasswords(v.Value)
+		return ok
 	}
 
 	// ValidatePasswordsOrEmpty allows empty value (for pure Warden deployment); otherwise same as ValidatePasswords.
@@ -165,6 +137,33 @@ var (
 		return ValidatePasswords(v)
 	}
 )
+
+// ParsePasswords is the single parser for the PASSWORDS contract used by both
+// startup validation and authentication. Password values are opaque and may
+// contain additional colons, so only the first colon separates the algorithm.
+func ParsePasswords(raw string) (string, []string, bool) {
+	if raw == "" {
+		return "", nil, false
+	}
+	parts := strings.SplitN(raw, ":", 2)
+	if len(parts) != 2 {
+		return "", nil, false
+	}
+	algorithm := strings.ToLower(strings.TrimSpace(parts[0]))
+	if _, supported := SupportedAlgorithms[algorithm]; !supported {
+		return "", nil, false
+	}
+	passwords := strings.Split(parts[1], "|")
+	if len(passwords) == 0 {
+		return "", nil, false
+	}
+	for _, password := range passwords {
+		if password == "" {
+			return "", nil, false
+		}
+	}
+	return algorithm, passwords, true
+}
 
 type ValidationError struct {
 	KeyName        string

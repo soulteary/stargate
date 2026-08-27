@@ -293,6 +293,7 @@ func TestValidatePasswords_Invalid(t *testing.T) {
 		{"missing algorithm", "pass1", false},
 		{"empty password", "plaintext:", false},
 		{"empty password in list", "plaintext:pass1||pass3", false},
+		{"empty password after additional colon", "plaintext:pass1:|", false},
 		{"missing colon", "plaintextpass1", false},
 	}
 
