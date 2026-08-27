@@ -35,6 +35,13 @@ func sanitizeTrustedIdentityHeaders(ctx fiber.Ctx) {
 	ctx.Request().Header.Del(config.HeaderAuthSecretHeader.String())
 }
 
+func handleNotAuthenticated(ctx fiber.Ctx) error {
+	if IsHTMLRequest(ctx) {
+		return ctx.Redirect().Status(fiber.StatusFound).To(BuildCallbackURL(ctx))
+	}
+	return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
+}
+
 // SessionStoreForCheck is the minimal interface required by CheckRoute to get session.
 // *session.Store implements it; tests can pass a mock to simulate store.Get failure.
 type SessionStoreForCheck interface {
@@ -120,15 +127,15 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 				if limitErr := rateLimitPasswordHeaderFailure(ctx); limitErr != nil {
 					return limitErr
 				}
-				return handler.HandleNotAuthenticated(faCtx)
+				return handleNotAuthenticated(ctx)
 			case forwardauth.ErrNotAuthenticated, forwardauth.ErrUserNotFound:
-				return handler.HandleNotAuthenticated(faCtx)
+				return handleNotAuthenticated(ctx)
 			case forwardauth.ErrStepUpRequired:
 				return handler.HandleStepUpRequired(faCtx)
 			case forwardauth.ErrSessionRequired:
-				return handler.HandleNotAuthenticated(faCtx)
+				return handleNotAuthenticated(ctx)
 			default:
-				return handler.HandleNotAuthenticated(faCtx)
+				return handleNotAuthenticated(ctx)
 			}
 		}
 

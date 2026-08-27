@@ -8,6 +8,7 @@ import (
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/soulteary/stargate/src/internal/config"
 )
 
 // TestCheckRoute_HandlerNil verifies that when GetForwardAuthHandler returns nil,
@@ -54,6 +55,54 @@ func TestCheckRoute_SessionStoreError(t *testing.T) {
 	testza.AssertTrue(t, len(body) > 0)
 	// Response may be JSON with translated message (e.g. "failed to access session store")
 	testza.AssertTrue(t, strings.Contains(body, "session_store_failed") || strings.Contains(body, "session store"), "body should indicate session store failure: %s", body)
+}
+
+func TestCheckRouteIgnoresForwardedRedirectHeadersFromUntrustedPeer(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
+	t.Setenv("TRUSTED_PROXIES", "")
+	testLogger := testLoggerCheckHeaders()
+	testza.AssertNoError(t, config.Initialize(testLogger))
+	InitForwardAuthHandler(testLogger)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"Accept":            "text/html",
+		"Host":              "auth.example.com",
+		"X-Forwarded-Host":  "evil.example.net",
+		"X-Forwarded-Proto": "https",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err := CheckRoute(setupTestStore())(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
+	location := string(ctx.Response().Header.Peek("Location"))
+	testza.AssertEqual(t, "http://auth.example.com/_login?callback=auth.example.com", location)
+	testza.AssertNotContains(t, location, "evil.example.net")
+}
+
+func TestCheckRouteUsesForwardedRedirectHeadersFromTrustedPeer(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
+	t.Setenv("TRUSTED_PROXIES", "0.0.0.0")
+	testLogger := testLoggerCheckHeaders()
+	testza.AssertNoError(t, config.Initialize(testLogger))
+	InitForwardAuthHandler(testLogger)
+
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"Accept":            "text/html",
+		"Host":              "auth.example.com",
+		"X-Forwarded-Host":  "app.example.com",
+		"X-Forwarded-Proto": "https",
+	}, "")
+	defer app.ReleaseCtx(ctx)
+
+	err := CheckRoute(setupTestStore())(ctx)
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
+	testza.AssertEqual(t, "https://auth.example.com/_login?callback=app.example.com", string(ctx.Response().Header.Peek("Location")))
 }
 
 // Ensure *session.Store satisfies SessionStoreForCheck at compile time.
