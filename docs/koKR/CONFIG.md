@@ -284,7 +284,7 @@ PORT=8080
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 신뢰된 레거시 비밀번호 헤더 활성화 |
 | `LOG_LEVEL` | debug/info/warn/error | info | 시작 로그 레벨 |
 | `HEADER_AUTH_ENABLED` | true/false | false | 신뢰 헤더 인증 |
-| `HEADER_AUTH_SHARED_SECRET` | 비밀값 | 비어 있음 | 헤더 인증 공유 비밀 |
+| `HEADER_AUTH_SHARED_SECRET` | 최소 32자의 비밀값 | 비어 있음 | 헤더 인증 공유 비밀 |
 | `HEADER_AUTH_SECRET_HEADER` | 헤더 이름 | `X-Stargate-Header-Auth` | 공유 비밀 전달 헤더 |
 | `WARDEN_ENABLED` | true/false | false | Warden 연동 |
 | `WARDEN_URL` | URL | 비어 있음 | Warden 엔드포인트 |

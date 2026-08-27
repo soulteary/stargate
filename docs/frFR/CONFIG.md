@@ -284,7 +284,7 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Active l'en-tête de mot de passe historique de confiance |
 | `LOG_LEVEL` | debug/info/warn/error | info | Niveau de journalisation initial |
 | `HEADER_AUTH_ENABLED` | true/false | false | Authentification par en-têtes de confiance |
-| `HEADER_AUTH_SHARED_SECRET` | secret | vide | Secret partagé de l'authentification par en-tête |
+| `HEADER_AUTH_SHARED_SECRET` | secret, 32 caractères min. | vide | Secret partagé de l'authentification par en-tête |
 | `HEADER_AUTH_SECRET_HEADER` | nom d'en-tête | `X-Stargate-Header-Auth` | Transporte le secret partagé |
 | `WARDEN_ENABLED` | true/false | false | Intégration Warden |
 | `WARDEN_URL` | URL | vide | Point de terminaison Warden |

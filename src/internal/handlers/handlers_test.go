@@ -191,10 +191,12 @@ func TestCheckRoute_HeaderAuth_Invalid(t *testing.T) {
 	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
 }
 
+const trustedHeaderAuthTestSecret = "trusted-proxy-secret-32-characters"
+
 func enableTrustedHeaderAuth(t *testing.T) {
 	t.Helper()
 	t.Setenv("HEADER_AUTH_ENABLED", "true")
-	t.Setenv("HEADER_AUTH_SHARED_SECRET", "trusted-proxy-secret")
+	t.Setenv("HEADER_AUTH_SHARED_SECRET", trustedHeaderAuthTestSecret)
 }
 
 func TestLoginAPI_ValidPassword(t *testing.T) {
@@ -1809,7 +1811,7 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
 		"X-User-Phone":           "13800138000",
-		"X-Stargate-Header-Auth": "trusted-proxy-secret",
+		"X-Stargate-Header-Auth": trustedHeaderAuthTestSecret,
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -1909,7 +1911,7 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
 		"X-User-Mail":            "user2@example.com",
-		"X-Stargate-Header-Auth": "trusted-proxy-secret",
+		"X-Stargate-Header-Auth": trustedHeaderAuthTestSecret,
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -1981,7 +1983,7 @@ func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
 		"X-User-Phone":           "99999999999", // Not in list
-		"X-Stargate-Header-Auth": "trusted-proxy-secret",
+		"X-Stargate-Header-Auth": trustedHeaderAuthTestSecret,
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -2109,7 +2111,7 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
 		"X-User-Phone":           "13800138000",
 		"X-User-Mail":            "user1@example.com",
-		"X-Stargate-Header-Auth": "trusted-proxy-secret",
+		"X-Stargate-Header-Auth": trustedHeaderAuthTestSecret,
 	}, "")
 	defer app.ReleaseCtx(ctx)
 
@@ -2195,7 +2197,7 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{
 		"X-User-Phone":           "13800138000",
-		"X-Stargate-Header-Auth": "trusted-proxy-secret",
+		"X-Stargate-Header-Auth": trustedHeaderAuthTestSecret,
 	}, "")
 	defer app.ReleaseCtx(ctx)
 

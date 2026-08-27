@@ -72,7 +72,7 @@ services:
 | `WARDEN_TLS_CLIENT_KEY_FILE` | 路径 | 空 | 否 |
 | `WARDEN_TLS_SERVER_NAME` | String | 空 | 否 |
 | `HEADER_AUTH_ENABLED` | true/false | false | 否 |
-| `HEADER_AUTH_SHARED_SECRET` | 密钥字符串 | 空 | 启用请求头认证时为是 |
+| `HEADER_AUTH_SHARED_SECRET` | 至少 32 个字符的密钥字符串 | 空 | 启用请求头认证时为是 |
 | `HEADER_AUTH_SECRET_HEADER` | HTTP 头名称 | X-Stargate-Header-Auth | 否 |
 | `WARDEN_CACHE_TTL` | String | 300 | 否 |
 | `HERALD_ENABLED` | true/false | false | 否 |
@@ -1200,11 +1200,13 @@ PASSWORDS='bcrypt:<哈希>'
 WARDEN_ENABLED=true
 WARDEN_URL=http://warden:8080
 HEADER_AUTH_ENABLED=true
-HEADER_AUTH_SHARED_SECRET=<随机共享密钥>
+HEADER_AUTH_SHARED_SECRET=<至少32个随机字符>
 # 可选；以下为默认请求头名称：
 HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 ```
 
 代理需要同时发送 `X-User-Phone` 或 `X-User-Mail` 以及配置的密钥请求头。Stargate 在转发前会删除密钥请求头；密钥不匹配时会丢弃身份请求头。
+
+所有可配置请求头名称必须是合法的 HTTP Field Name，且不能复用路由、认证、身份或 Hop-by-hop 请求头。尤其不能把共享密钥请求头配置成 `X-Forwarded-Uri`、`Stargate-Password`、`X-User-Phone` 或 `X-User-Mail`；Stargate 会在启动时拒绝这些组合。
 
 这三个请求头都属于信任边界输入：必须使用 HTTPS 和高强度共享密钥，并让边缘代理先删除客户端传入的 `X-User-Phone`、`X-User-Mail` 以及由 `HEADER_AUTH_SECRET_HEADER` 指定名称的请求头，再写入代理自己的值。切勿把该模式直接暴露给不受信任的客户端。

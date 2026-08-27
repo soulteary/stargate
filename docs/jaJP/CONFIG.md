@@ -284,7 +284,7 @@ PORT=8080
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 信頼済みの旧パスワードヘッダーを有効化 |
 | `LOG_LEVEL` | debug/info/warn/error | info | 起動時のログレベル |
 | `HEADER_AUTH_ENABLED` | true/false | false | 信頼済みヘッダー認証 |
-| `HEADER_AUTH_SHARED_SECRET` | 秘密値 | 空 | ヘッダー認証の共有秘密 |
+| `HEADER_AUTH_SHARED_SECRET` | 32文字以上の秘密値 | 空 | ヘッダー認証の共有秘密 |
 | `HEADER_AUTH_SECRET_HEADER` | ヘッダー名 | `X-Stargate-Header-Auth` | 共有秘密を運ぶヘッダー |
 | `WARDEN_ENABLED` | true/false | false | Warden 連携 |
 | `WARDEN_URL` | URL | 空 | Warden エンドポイント |

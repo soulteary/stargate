@@ -59,7 +59,7 @@ Do not place arbitrary client networks in `TRUSTED_PROXIES`.
 
 - The login form remains available through `POST /_login`.
 - Authentication through the `Stargate-Password` request header is disabled by default. Set `PASSWORD_HEADER_AUTH_ENABLED=true` only for a trusted proxy integration, and make the proxy remove any client-supplied copy of that header.
-- Trusted identity headers require `HEADER_AUTH_ENABLED=true`, a matching `HEADER_AUTH_SHARED_SECRET`, and Warden. The proxy must remove client-supplied identity and secret headers before adding its own values.
+- Trusted identity headers require `HEADER_AUTH_ENABLED=true`, a matching `HEADER_AUTH_SHARED_SECRET` of at least 32 characters, and Warden. The proxy must remove client-supplied identity and secret headers before adding its own values.
 - Invalid Warden or Herald client configuration now fails at startup instead of producing a partially working service.
 - The legacy Warden global OTP fallback has been removed. Use Herald-backed TOTP enrollment and verification.
 

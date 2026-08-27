@@ -284,7 +284,7 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Aktiviert den vertrauenswürdigen Legacy-Passwort-Header |
 | `LOG_LEVEL` | debug/info/warn/error | info | Start-Protokollstufe |
 | `HEADER_AUTH_ENABLED` | true/false | false | Vertrauenswürdige Header-Authentifizierung |
-| `HEADER_AUTH_SHARED_SECRET` | Geheimnis | leer | Gemeinsames Geheimnis für Header-Authentifizierung |
+| `HEADER_AUTH_SHARED_SECRET` | Geheimnis, mindestens 32 Zeichen | leer | Gemeinsames Geheimnis für Header-Authentifizierung |
 | `HEADER_AUTH_SECRET_HEADER` | Headername | `X-Stargate-Header-Auth` | Transportiert das gemeinsame Geheimnis |
 | `WARDEN_ENABLED` | true/false | false | Warden-Integration |
 | `WARDEN_URL` | URL | leer | Warden-Endpunkt |
