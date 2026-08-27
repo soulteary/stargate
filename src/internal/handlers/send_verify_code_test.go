@@ -33,6 +33,8 @@ func resetHeraldClientForTesting() {
 func setupSendVerifyCodeBaseEnv(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "http://warden.test")
 }
 
 func newWardenUserServer(t *testing.T, phone, mail string) *httptest.Server {

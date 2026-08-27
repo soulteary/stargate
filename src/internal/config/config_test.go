@@ -324,6 +324,55 @@ func TestInitialize_MissingRequired(t *testing.T) {
 	testza.AssertNotNil(t, err)
 }
 
+func TestInitializeHeraldRequiresWarden(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_URL", "https://herald.example.com")
+	t.Setenv("WARDEN_ENABLED", "false")
+
+	err := Initialize(testLogger())
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "HERALD_ENABLED")
+	testza.AssertContains(t, err.Error(), "WARDEN_ENABLED=true")
+}
+
+func TestInitializeWardenRequiresReachableAuthenticationPath(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "https://warden.example.com")
+	t.Setenv("HERALD_ENABLED", "false")
+	t.Setenv("HEADER_AUTH_ENABLED", "false")
+
+	err := Initialize(testLogger())
+	testza.AssertNotNil(t, err)
+	testza.AssertContains(t, err.Error(), "WARDEN_ENABLED")
+	testza.AssertContains(t, err.Error(), "authentication path")
+}
+
+func TestInitializeAllowsHeraldAuthenticationPathForWarden(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "https://warden.example.com")
+	t.Setenv("HERALD_ENABLED", "true")
+	t.Setenv("HERALD_URL", "https://herald.example.com")
+
+	testza.AssertNoError(t, Initialize(testLogger()))
+}
+
+func TestInitializeAllowsTrustedHeaderAuthenticationPathForWarden(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "https://warden.example.com")
+	t.Setenv("HEADER_AUTH_ENABLED", "true")
+	t.Setenv("HEADER_AUTH_SHARED_SECRET", "0123456789abcdef0123456789abcdef")
+
+	testza.AssertNoError(t, Initialize(testLogger()))
+}
+
 func TestValidationError_Error(t *testing.T) {
 	err := NewValidationError("TEST_VAR", "invalid-value", []string{"value1", "value2"})
 
