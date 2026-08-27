@@ -81,7 +81,7 @@ Do not place arbitrary client networks in `TRUSTED_PROXIES`.
 - `COOKIE_SECURE` defaults to `true`; local HTTP testing must opt out explicitly.
 - Startup validation now rejects malformed URLs, ports, durations, Redis database values, undersized exchange secrets, incomplete TLS certificate/key pairs, and incomplete HMAC key ID/secret pairs.
 - `CALLBACK_ALLOWED_HOSTS` is required to permit explicit cross-domain callback destinations.
-- Warden and Herald HMAC/TLS settings must be complete when enabled. Herald HMAC authentication also requires `HERALD_HMAC_KEY_ID`.
+- Warden and Herald HMAC/TLS settings must be complete when enabled. `HERALD_HMAC_KEY_ID` may be omitted only when Herald has an effective default key ID; configure it explicitly for multi-key deployments without a suitable default.
 
 Run the v1.0.0 image with the production environment before cutover and resolve every startup validation error rather than bypassing it.
 

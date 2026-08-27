@@ -5,7 +5,7 @@
 ## 기술 스택
 
 - **언어**: Go 1.27
-- **웹 프레임워크**: [Fiber v2.52.x](https://github.com/gofiber/fiber)
+- **웹 프레임워크**: [Fiber v3.5.0](https://github.com/gofiber/fiber)
 - **템플릿 엔진**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
 - **세션 관리**: session-kit(Fiber 호환 스토어; 메모리·Redis)
 - **로깅**: [Zerolog](https://github.com/rs/zerolog)(logger-kit 경유)
@@ -328,7 +328,7 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
 ### Docker 배포
 
 - 이미지 크기 감소를 위한 다단계 빌드
-- 빌드 단계: `golang:1.27.0-alpine3.24`; 실행 단계: `alpine:3.24`(헬스 체크용 curl 포함)
+- 빌드 단계: `golang:1.27.0-alpine3.24`; 실행 단계: `alpine:3.24`(헬스 체크는 BusyBox wget 사용)
 - 템플릿 파일을 `src/internal/web/templates`에서 이미지 내 `/app/web/templates`로 복사
 - 바이너리 크기 감소를 위해 컴파일 시 `-ldflags "-s -w"` 사용
 - 애플리케이션은 자동으로 템플릿 경로를 찾습니다 (로컬 개발용 `./internal/web/templates`, 프로덕션용 `./web/templates` 지원)

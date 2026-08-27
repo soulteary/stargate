@@ -157,16 +157,16 @@ Stargate 使用环境变量进行配置。以下是最常用的配置项：
 ```bash
 # 简单密码认证
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # 使用 BCrypt 哈希
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # 跨域会话共享
 COOKIE_DOMAIN=.example.com
 
 # 自定义登录页面
-LOGIN_PAGE_TITLE=我的认证服务
+LOGIN_PAGE_TITLE='我的认证服务'
 LANGUAGE=zh  # 或 'en'
 ```
 

@@ -161,16 +161,16 @@ Stargate は環境変数を使用して設定します。以下は最も一般�
 ```bash
 # シンプルなパスワード認証
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # BCrypt ハッシュを使用
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # クロスドメインセッション共有
 COOKIE_DOMAIN=.example.com
 
 # ログインページをカスタマイズ
-LOGIN_PAGE_TITLE=私の認証サービス
+LOGIN_PAGE_TITLE='私の認証サービス'
 LANGUAGE=ja  # または 'en'
 ```
 

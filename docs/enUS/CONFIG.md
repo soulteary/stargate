@@ -21,7 +21,7 @@ Stargate is configured via environment variables. All configuration items are se
 
 ```bash
 export AUTH_HOST=auth.example.com
-export PASSWORDS=plaintext:yourpassword
+export PASSWORDS='plaintext:yourpassword'
 ```
 
 **Docker:**
@@ -50,6 +50,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `PASSWORDS` | See password config | — | Yes when Warden disabled |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | No |
 | `DEBUG` | true/false | false | No |
+| `LOG_LEVEL` | debug/info/warn/error | info | No |
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | No |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | No |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | No |
@@ -74,8 +75,6 @@ Below are all environment variables used in code. "Required" means the service w
 | `HEADER_AUTH_SHARED_SECRET` | Secret string | empty | Yes when header auth enabled |
 | `HEADER_AUTH_SECRET_HEADER` | HTTP header name | X-Stargate-Header-Auth | No |
 | `WARDEN_CACHE_TTL` | String | 300 | No |
-| `WARDEN_OTP_ENABLED` | true/false | false | No |
-| `WARDEN_OTP_SECRET_KEY` | String | empty | No |
 | `HERALD_ENABLED` | true/false | false | No |
 | `HERALD_URL` | String | empty | No |
 | `HERALD_API_KEY` | String | empty | No |
@@ -151,13 +150,13 @@ Password configuration, specifying the password encryption algorithm and passwor
 
 ```bash
 # Single plain text password
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # Multiple plain text passwords
-PASSWORDS=plaintext:test123|admin456|user789
+PASSWORDS='plaintext:test123|admin456|user789'
 
 # BCrypt hash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 ```
 
@@ -228,7 +227,7 @@ Login page title.
 **Example:**
 
 ```bash
-LOGIN_PAGE_TITLE=My Auth Service
+LOGIN_PAGE_TITLE='My Auth Service'
 ```
 
 ### `LOGIN_PAGE_FOOTER_TEXT`
@@ -249,7 +248,7 @@ Login page footer text.
 **Example:**
 
 ```bash
-LOGIN_PAGE_FOOTER_TEXT=© 2024 My Company
+LOGIN_PAGE_FOOTER_TEXT='© 2024 My Company'
 ```
 
 ### `USER_HEADER_NAME`
@@ -473,43 +472,7 @@ TTL (Time To Live) for Warden user information cache.
 WARDEN_CACHE_TTL=300
 ```
 
-#### `WARDEN_OTP_ENABLED`
-
-Enable Warden-built-in OTP verification (distinct from Herald OTP; legacy/built-in capability).
-
-| Attribute | Value |
-|-----------|-------|
-| **Type** | Boolean |
-| **Required** | No |
-| **Default** | `false` |
-| **Possible Values** | `true`, `false` |
-
-**Description:**
-
-- When `true`, uses Warden-side OTP verification (requires `WARDEN_OTP_SECRET_KEY`)
-- Independent from Herald verification code service (`HERALD_ENABLED`); use one or both as needed
-
-**Example:**
-
-```bash
-WARDEN_OTP_ENABLED=true
-```
-
-#### `WARDEN_OTP_SECRET_KEY`
-
-Secret key for Warden OTP verification (only when `WARDEN_OTP_ENABLED=true`).
-
-| Attribute | Value |
-|-----------|-------|
-| **Type** | String |
-| **Required** | No |
-| **Default** | Empty |
-
-**Example:**
-
-```bash
-WARDEN_OTP_SECRET_KEY=your-warden-otp-secret
-```
+The legacy Warden global OTP settings were removed. Use Herald-backed TOTP with `HERALD_TOTP_ENABLED`.
 
 ### Herald Integration (Optional)
 
@@ -877,7 +840,7 @@ Periodically refresh user/authorization info from Warden and update session duri
 |-----------|-------|
 | **Type** | Boolean |
 | **Required** | No |
-| **Default** | `false` |
+| **Default** | `true` |
 | **Possible Values** | `true`, `false` |
 
 #### `AUTH_REFRESH_INTERVAL`
@@ -909,7 +872,7 @@ Stargate supports plaintext (development only) and bcrypt password verification.
 **Example:**
 
 ```bash
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 ```
 
 #### `bcrypt` - BCrypt Hash
@@ -923,16 +886,14 @@ PASSWORDS=plaintext:test123|admin456
 **Generate BCrypt Hash:**
 
 ```bash
-# Using Go
-go run -c 'golang.org/x/crypto/bcrypt' <<< 'password'
-
-# Using online tools or other tools
+# `htpasswd` is provided by apache2-utils on Debian/Ubuntu and Alpine.
+htpasswd -bnBC 10 "" 'password' | tr -d ':\n'
 ```
 
 **Example:**
 
 ```bash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 ```
 
 MD5 and unsalted SHA-512 password hashes are rejected because they are fast, unsalted primitives and are not password hashing functions.
@@ -950,7 +911,7 @@ MD5 and unsalted SHA-512 password hashes are rejected because they are fast, uns
 ```bash
 # Required
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # Session storage in Redis (multi-instance or persistent sessions)
 SESSION_STORAGE_ENABLED=true
@@ -971,7 +932,7 @@ Use when you want password-only login but need sessions in Redis for multiple in
 ```bash
 # Required configuration
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # Optional configuration
 DEBUG=false
@@ -983,13 +944,13 @@ LANGUAGE=en
 ```bash
 # Required configuration
 AUTH_HOST=auth.example.com
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # Optional configuration
 DEBUG=false
 LANGUAGE=zh
-LOGIN_PAGE_TITLE=My Auth Service
-LOGIN_PAGE_FOOTER_TEXT=© 2024 My Company
+LOGIN_PAGE_TITLE='My Auth Service'
+LOGIN_PAGE_FOOTER_TEXT='© 2024 My Company'
 USER_HEADER_NAME=X-Forwarded-User
 COOKIE_DOMAIN=.example.com
 ```
@@ -1014,8 +975,8 @@ HERALD_HMAC_SECRET=your-herald-hmac-secret
 # Optional configuration
 DEBUG=false
 LANGUAGE=zh
-LOGIN_PAGE_TITLE=My Auth Service
-LOGIN_PAGE_FOOTER_TEXT=© 2024 My Company
+LOGIN_PAGE_TITLE='My Auth Service'
+LOGIN_PAGE_FOOTER_TEXT='© 2024 My Company'
 USER_HEADER_NAME=X-Forwarded-User
 COOKIE_DOMAIN=.example.com
 ```
@@ -1039,7 +1000,7 @@ services:
     environment:
       # Required configuration
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+      - PASSWORDS=bcrypt:$$2a$$10$$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
       
       # Optional configuration
       - DEBUG=false
@@ -1098,7 +1059,7 @@ services:
 ```bash
 # Required configuration
 AUTH_HOST=localhost
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # Optional configuration
 DEBUG=true
@@ -1135,7 +1096,6 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 - **Warden Integration**:
   - When `WARDEN_ENABLED=true`, must set `WARDEN_URL`
   - `WARDEN_API_KEY` is recommended (for service authentication)
-  - If `WARDEN_OTP_ENABLED=true`, set `WARDEN_OTP_SECRET_KEY`
 
 - **Herald Integration (OTP SMS/email)**:
   - When `HERALD_ENABLED=true`, must set `HERALD_URL`
@@ -1211,7 +1171,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 ```bash
 PASSWORD_HEADER_AUTH_ENABLED=true
-PASSWORDS=bcrypt:<hash>
+PASSWORDS='bcrypt:<hash>'
 ```
 
 Treat the header as a credential: require HTTPS, apply rate limits, and configure the reverse proxy to remove `Stargate-Password` before forwarding the request to the backend. Cookie sessions remain the recommended browser authentication method.

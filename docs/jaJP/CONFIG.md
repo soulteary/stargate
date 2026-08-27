@@ -20,7 +20,7 @@ Stargate は環境変数経由で設定されます。すべての設定項目�
 
 ```bash
 export AUTH_HOST=auth.example.com
-export PASSWORDS=plaintext:yourpassword
+export PASSWORDS='plaintext:yourpassword'
 ```
 
 **Docker:**
@@ -88,13 +88,13 @@ AUTH_HOST=auth.example.com
 
 ```bash
 # 単一のプレーンテキストパスワード
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # 複数のプレーンテキストパスワード
-PASSWORDS=plaintext:test123|admin456|user789
+PASSWORDS='plaintext:test123|admin456|user789'
 
 # BCrypt ハッシュ
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 ```
 
@@ -165,7 +165,7 @@ LANGUAGE=ja
 **例:**
 
 ```bash
-LOGIN_PAGE_TITLE=私の認証サービス
+LOGIN_PAGE_TITLE='私の認証サービス'
 ```
 
 ### `LOGIN_PAGE_FOOTER_TEXT`
@@ -186,7 +186,7 @@ LOGIN_PAGE_TITLE=私の認証サービス
 **例:**
 
 ```bash
-LOGIN_PAGE_FOOTER_TEXT=© 2024 私の会社
+LOGIN_PAGE_FOOTER_TEXT='© 2024 私の会社'
 ```
 
 ### `USER_HEADER_NAME`
@@ -281,6 +281,8 @@ PORT=8080
 | `COOKIE_SECURE` | true/false | true | セッション Cookie の Secure 属性 |
 | `CALLBACK_ALLOWED_HOSTS` | ホスト一覧 | 空 | 許可するリダイレクト先 |
 | `SESSION_EXCHANGE_SECRET` | 32 文字以上の秘密値 | 空 | 短命なクロスドメインチケットの署名 |
+| `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 信頼済みの旧パスワードヘッダーを有効化 |
+| `LOG_LEVEL` | debug/info/warn/error | info | 起動時のログレベル |
 | `HEADER_AUTH_ENABLED` | true/false | false | 信頼済みヘッダー認証 |
 | `HEADER_AUTH_SHARED_SECRET` | 秘密値 | 空 | ヘッダー認証の共有秘密 |
 | `HEADER_AUTH_SECRET_HEADER` | ヘッダー名 | `X-Stargate-Header-Auth` | 共有秘密を運ぶヘッダー |
@@ -294,8 +296,6 @@ PORT=8080
 | `WARDEN_TLS_CLIENT_KEY_FILE` | パス | 空 | mTLS クライアント鍵 |
 | `WARDEN_TLS_SERVER_NAME` | 文字列 | 空 | 期待する TLS サーバー名 |
 | `WARDEN_CACHE_TTL` | 秒 | 300 | Warden キャッシュ時間 |
-| `WARDEN_OTP_ENABLED` | true/false | false | 旧 OTP 連携 |
-| `WARDEN_OTP_SECRET_KEY` | 秘密値 | 空 | 旧 OTP 秘密 |
 | `HERALD_ENABLED` | true/false | false | Herald 連携 |
 | `HERALD_URL` | URL | 空 | Herald エンドポイント |
 | `HERALD_API_KEY` | 秘密値 | 空 | API キー認証 |
@@ -329,9 +329,9 @@ HMAC の Key ID と Secret は必ず同時に設定します。mTLS のクライ
 本番環境では `bcrypt`、ローカルテストでのみ `plaintext` を使用できます。MD5 とソルトなし SHA-512 は設定検証で拒否されます。パスワードは大文字と小文字を区別し、空白も保持します。
 
 ```bash
-PASSWORDS=bcrypt:<bcrypt-hash>
+PASSWORDS='bcrypt:<bcrypt-hash>'
 # ローカルテストのみ:
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 ```
 
 ## 設定例
@@ -341,7 +341,7 @@ PASSWORDS=plaintext:test123
 ```bash
 # 必須設定
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # オプション設定
 DEBUG=false
@@ -353,13 +353,13 @@ LANGUAGE=en
 ```bash
 # 必須設定
 AUTH_HOST=auth.example.com
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # オプション設定
 DEBUG=false
 LANGUAGE=ja
-LOGIN_PAGE_TITLE=私の認証サービス
-LOGIN_PAGE_FOOTER_TEXT=© 2024 私の会社
+LOGIN_PAGE_TITLE='私の認証サービス'
+LOGIN_PAGE_FOOTER_TEXT='© 2024 私の会社'
 USER_HEADER_NAME=X-Forwarded-User
 COOKIE_DOMAIN=.example.com
 ```
@@ -373,7 +373,7 @@ services:
     environment:
       # 必須設定
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+      - PASSWORDS=bcrypt:$$2a$$10$$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
       
       # オプション設定
       - DEBUG=false
@@ -388,7 +388,7 @@ services:
 ```bash
 # 必須設定
 AUTH_HOST=localhost
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # オプション設定
 DEBUG=true

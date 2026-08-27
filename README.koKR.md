@@ -161,16 +161,16 @@ Stargate는 환경 변수를 사용하여 구성을 수행합니다. 다음은 �
 ```bash
 # 간단한 비밀번호 인증
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # BCrypt 해시 사용
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # 크로스 도메인 세션 공유
 COOKIE_DOMAIN=.example.com
 
 # 로그인 페이지 사용자 정의
-LOGIN_PAGE_TITLE=내 인증 서비스
+LOGIN_PAGE_TITLE='내 인증 서비스'
 LANGUAGE=ko  # 또는 'en'
 ```
 

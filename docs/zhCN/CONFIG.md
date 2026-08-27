@@ -21,7 +21,7 @@ Stargate 通过环境变量进行配置。所有配置项都通过环境变量�
 
 ```bash
 export AUTH_HOST=auth.example.com
-export PASSWORDS=plaintext:yourpassword
+export PASSWORDS='plaintext:yourpassword'
 ```
 
 **Docker：**
@@ -50,6 +50,7 @@ services:
 | `PASSWORDS` | 见密码配置 | — | 未启用 Warden 时为是 |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 否 |
 | `DEBUG` | true/false | false | 否 |
+| `LOG_LEVEL` | debug/info/warn/error | info | 否 |
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | 否 |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | 否 |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | 否 |
@@ -74,8 +75,6 @@ services:
 | `HEADER_AUTH_SHARED_SECRET` | 密钥字符串 | 空 | 启用请求头认证时为是 |
 | `HEADER_AUTH_SECRET_HEADER` | HTTP 头名称 | X-Stargate-Header-Auth | 否 |
 | `WARDEN_CACHE_TTL` | String | 300 | 否 |
-| `WARDEN_OTP_ENABLED` | true/false | false | 否 |
-| `WARDEN_OTP_SECRET_KEY` | String | 空 | 否 |
 | `HERALD_ENABLED` | true/false | false | 否 |
 | `HERALD_URL` | String | 空 | 否 |
 | `HERALD_API_KEY` | String | 空 | 否 |
@@ -151,13 +150,13 @@ AUTH_HOST=auth.example.com
 
 ```bash
 # 单个明文密码
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # 多个明文密码
-PASSWORDS=plaintext:test123|admin456|user789
+PASSWORDS='plaintext:test123|admin456|user789'
 
 # BCrypt 哈希
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 ```
 
@@ -228,7 +227,7 @@ LANGUAGE=zh
 **示例：**
 
 ```bash
-LOGIN_PAGE_TITLE=我的认证服务
+LOGIN_PAGE_TITLE='我的认证服务'
 ```
 
 ### `LOGIN_PAGE_FOOTER_TEXT`
@@ -249,7 +248,7 @@ LOGIN_PAGE_TITLE=我的认证服务
 **示例：**
 
 ```bash
-LOGIN_PAGE_FOOTER_TEXT=© 2024 我的公司
+LOGIN_PAGE_FOOTER_TEXT='© 2024 我的公司'
 ```
 
 ### `USER_HEADER_NAME`
@@ -473,43 +472,7 @@ Warden 用户信息缓存的 TTL（生存时间）。
 WARDEN_CACHE_TTL=300
 ```
 
-#### `WARDEN_OTP_ENABLED`
-
-启用 Warden 内置 OTP 校验（与 Herald OTP 不同，为旧版/内置能力）。
-
-| 属性 | 值 |
-|------|-----|
-| **类型** | Boolean |
-| **必需** | 否 |
-| **默认值** | `false` |
-| **可选值** | `true`, `false` |
-
-**说明：**
-
-- 为 `true` 时使用 Warden 侧 OTP 校验（需配合 `WARDEN_OTP_SECRET_KEY`）
-- 与 Herald 验证码服务（`HERALD_ENABLED`）为两套独立能力，按需选用其一或组合
-
-**示例：**
-
-```bash
-WARDEN_OTP_ENABLED=true
-```
-
-#### `WARDEN_OTP_SECRET_KEY`
-
-Warden OTP 校验所用密钥（仅在 `WARDEN_OTP_ENABLED=true` 时使用）。
-
-| 属性 | 值 |
-|------|-----|
-| **类型** | String |
-| **必需** | 否 |
-| **默认值** | 空 |
-
-**示例：**
-
-```bash
-WARDEN_OTP_SECRET_KEY=your-warden-otp-secret
-```
+旧版 Warden 全局 OTP 配置已移除。请通过 `HERALD_TOTP_ENABLED` 使用 Herald 提供的 TOTP 能力。
 
 ### Herald 集成（可选）
 
@@ -891,7 +854,7 @@ OTLP 采集端地址（如 Jaeger/OTLP Collector）。
 |------|-----|
 | **类型** | Boolean |
 | **必需** | 否 |
-| **默认值** | `false` |
+| **默认值** | `true` |
 | **可选值** | `true`, `false` |
 
 #### `AUTH_REFRESH_INTERVAL`
@@ -923,7 +886,7 @@ Stargate 支持明文（仅开发环境）和 bcrypt 密码验证。配置格式
 **示例：**
 
 ```bash
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 ```
 
 #### `bcrypt` - BCrypt 哈希
@@ -937,16 +900,14 @@ PASSWORDS=plaintext:test123|admin456
 **生成 BCrypt 哈希：**
 
 ```bash
-# 使用 Go 生成
-go run -c 'golang.org/x/crypto/bcrypt' <<< 'password'
-
-# 使用在线工具或其他工具生成
+# Debian/Ubuntu 和 Alpine 可通过 apache2-utils 安装 `htpasswd`。
+htpasswd -bnBC 10 "" 'password' | tr -d ':\n'
 ```
 
 **示例：**
 
 ```bash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 ```
 
 MD5 和未加盐 SHA-512 都是快速、无盐的通用哈希，并非密码哈希函数，因此配置时会被拒绝。
@@ -964,7 +925,7 @@ MD5 和未加盐 SHA-512 都是快速、无盐的通用哈希，并非密码哈�
 ```bash
 # 必需配置
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # 会话存储到 Redis（多实例或持久化会话）
 SESSION_STORAGE_ENABLED=true
@@ -985,7 +946,7 @@ LANGUAGE=zh
 ```bash
 # 必需配置
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # 可选配置
 DEBUG=false
@@ -997,13 +958,13 @@ LANGUAGE=en
 ```bash
 # 必需配置
 AUTH_HOST=auth.example.com
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # 可选配置
 DEBUG=false
 LANGUAGE=zh
-LOGIN_PAGE_TITLE=我的认证服务
-LOGIN_PAGE_FOOTER_TEXT=© 2024 我的公司
+LOGIN_PAGE_TITLE='我的认证服务'
+LOGIN_PAGE_FOOTER_TEXT='© 2024 我的公司'
 USER_HEADER_NAME=X-Forwarded-User
 COOKIE_DOMAIN=.example.com
 ```
@@ -1028,8 +989,8 @@ HERALD_HMAC_SECRET=your-herald-hmac-secret
 # 可选配置
 DEBUG=false
 LANGUAGE=zh
-LOGIN_PAGE_TITLE=我的认证服务
-LOGIN_PAGE_FOOTER_TEXT=© 2024 我的公司
+LOGIN_PAGE_TITLE='我的认证服务'
+LOGIN_PAGE_FOOTER_TEXT='© 2024 我的公司'
 USER_HEADER_NAME=X-Forwarded-User
 COOKIE_DOMAIN=.example.com
 ```
@@ -1053,7 +1014,7 @@ services:
     environment:
       # 必需配置
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+      - PASSWORDS=bcrypt:$$2a$$10$$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
       
       # 可选配置
       - DEBUG=false
@@ -1112,7 +1073,7 @@ services:
 ```bash
 # 必需配置
 AUTH_HOST=localhost
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # 可选配置
 DEBUG=true
@@ -1149,7 +1110,6 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 - **Warden 集成**：
   - `WARDEN_ENABLED=true` 时，必须设置 `WARDEN_URL`
   - `WARDEN_API_KEY` 建议设置（用于服务认证）
-  - 若启用 `WARDEN_OTP_ENABLED=true`，需设置 `WARDEN_OTP_SECRET_KEY`
 
 - **Herald 集成（OTP 短信/邮件）**：
   - `HERALD_ENABLED=true` 时，必须设置 `HERALD_URL`
@@ -1225,7 +1185,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 ```bash
 PASSWORD_HEADER_AUTH_ENABLED=true
-PASSWORDS=bcrypt:<哈希>
+PASSWORDS='bcrypt:<哈希>'
 ```
 
 该请求头属于凭据：必须使用 HTTPS、配置限流，并让反向代理在转发到后端前删除 `Stargate-Password`。浏览器认证仍推荐使用 Cookie 会话。

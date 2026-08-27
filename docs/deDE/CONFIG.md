@@ -20,7 +20,7 @@ Stargate wird über Umgebungsvariablen konfiguriert. Alle Konfigurationselemente
 
 ```bash
 export AUTH_HOST=auth.example.com
-export PASSWORDS=plaintext:yourpassword
+export PASSWORDS='plaintext:yourpassword'
 ```
 
 **Docker:**
@@ -88,13 +88,13 @@ Passwort-Konfiguration, die den Verschlüsselungsalgorithmus und die Liste der P
 
 ```bash
 # Einzelnes Klartext-Passwort
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # Mehrere Klartext-Passwörter
-PASSWORDS=plaintext:test123|admin456|user789
+PASSWORDS='plaintext:test123|admin456|user789'
 
 # BCrypt-Hash
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 ```
 
@@ -165,7 +165,7 @@ Titel der Anmeldeseite.
 **Beispiel:**
 
 ```bash
-LOGIN_PAGE_TITLE=Mein Authentifizierungsdienst
+LOGIN_PAGE_TITLE='Mein Authentifizierungsdienst'
 ```
 
 ### `LOGIN_PAGE_FOOTER_TEXT`
@@ -186,7 +186,7 @@ Fußzeilentext der Anmeldeseite.
 **Beispiel:**
 
 ```bash
-LOGIN_PAGE_FOOTER_TEXT=© 2024 Meine Firma
+LOGIN_PAGE_FOOTER_TEXT='© 2024 Meine Firma'
 ```
 
 ### `USER_HEADER_NAME`
@@ -281,6 +281,8 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `COOKIE_SECURE` | true/false | true | Secure-Attribut der Sitzungs-Cookies |
 | `CALLBACK_ALLOWED_HOSTS` | Host-Liste | leer | Explizite Ziele für Rückleitungen |
 | `SESSION_EXCHANGE_SECRET` | Geheimnis, mind. 32 Zeichen | leer | Signiert kurzlebige domänenübergreifende Tickets |
+| `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Aktiviert den vertrauenswürdigen Legacy-Passwort-Header |
+| `LOG_LEVEL` | debug/info/warn/error | info | Start-Protokollstufe |
 | `HEADER_AUTH_ENABLED` | true/false | false | Vertrauenswürdige Header-Authentifizierung |
 | `HEADER_AUTH_SHARED_SECRET` | Geheimnis | leer | Gemeinsames Geheimnis für Header-Authentifizierung |
 | `HEADER_AUTH_SECRET_HEADER` | Headername | `X-Stargate-Header-Auth` | Transportiert das gemeinsame Geheimnis |
@@ -294,8 +296,6 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `WARDEN_TLS_CLIENT_KEY_FILE` | Pfad | leer | mTLS-Clientschlüssel |
 | `WARDEN_TLS_SERVER_NAME` | String | leer | Erwarteter TLS-Servername |
 | `WARDEN_CACHE_TTL` | Sekunden | 300 | Warden-Cache-Laufzeit |
-| `WARDEN_OTP_ENABLED` | true/false | false | Legacy-OTP-Integration |
-| `WARDEN_OTP_SECRET_KEY` | Geheimnis | leer | Legacy-OTP-Geheimnis |
 | `HERALD_ENABLED` | true/false | false | Herald-Integration |
 | `HERALD_URL` | URL | leer | Herald-Endpunkt |
 | `HERALD_API_KEY` | Geheimnis | leer | API-Key-Authentifizierung |
@@ -329,9 +329,9 @@ HMAC Key ID und Secret müssen gemeinsam gesetzt werden. mTLS-Clientzertifikat u
 Stargate akzeptiert `bcrypt` für Produktionsumgebungen und `plaintext` ausschließlich für lokale Tests. MD5 und ungesalzenes SHA-512 werden bei der Konfigurationsprüfung abgelehnt. Passwortwerte sind groß-/kleinschreibungssensitiv; Leerzeichen bleiben erhalten.
 
 ```bash
-PASSWORDS=bcrypt:<bcrypt-hash>
+PASSWORDS='bcrypt:<bcrypt-hash>'
 # Nur lokal:
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 ```
 
 ## Konfigurationsbeispiele
@@ -341,7 +341,7 @@ PASSWORDS=plaintext:test123
 ```bash
 # Erforderliche Konfiguration
 AUTH_HOST=auth.example.com
-PASSWORDS=plaintext:test123
+PASSWORDS='plaintext:test123'
 
 # Optionale Konfiguration
 DEBUG=false
@@ -353,13 +353,13 @@ LANGUAGE=en
 ```bash
 # Erforderliche Konfiguration
 AUTH_HOST=auth.example.com
-PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+PASSWORDS='bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy'
 
 # Optionale Konfiguration
 DEBUG=false
 LANGUAGE=de
-LOGIN_PAGE_TITLE=Mein Authentifizierungsdienst
-LOGIN_PAGE_FOOTER_TEXT=© 2024 Meine Firma
+LOGIN_PAGE_TITLE='Mein Authentifizierungsdienst'
+LOGIN_PAGE_FOOTER_TEXT='© 2024 Meine Firma'
 USER_HEADER_NAME=X-Forwarded-User
 COOKIE_DOMAIN=.example.com
 ```
@@ -373,7 +373,7 @@ services:
     environment:
       # Erforderliche Konfiguration
       - AUTH_HOST=auth.example.com
-      - PASSWORDS=bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
+      - PASSWORDS=bcrypt:$$2a$$10$$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy
       
       # Optionale Konfiguration
       - DEBUG=false
@@ -388,7 +388,7 @@ services:
 ```bash
 # Erforderliche Konfiguration
 AUTH_HOST=localhost
-PASSWORDS=plaintext:test123|admin456
+PASSWORDS='plaintext:test123|admin456'
 
 # Optionale Konfiguration
 DEBUG=true
