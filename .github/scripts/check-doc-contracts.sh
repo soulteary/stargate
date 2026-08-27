@@ -103,26 +103,80 @@ contract_violation_count() {
       }
     }
 
-    my @routes = (
-      "GET /", "GET /healthz", "GET /readyz", "GET /health",
-      "GET /_login", "POST /_login", "POST /_send_verify_code",
-      "GET /totp/enroll", "POST /totp/enroll",
-      "POST /totp/enroll/confirm", "GET /totp/revoke", "POST /totp/revoke",
-      "POST /_logout", "GET /_session_exchange", "GET /_auth",
-      "GET /_step_up", "POST /_step_up", "GET /metrics",
-      "GET /log/level", "PUT /log/level", "POST /log/level",
+    my $constants_path = "$root/src/cmd/stargate/constants.go";
+    open my $constants_fh, "<", $constants_path or die "open $constants_path: $!";
+    local $/;
+    my $constants_source = <$constants_fh>;
+    my %route_constants = $constants_source =~ /\b(Route[A-Za-z0-9_]+)\s*=\s*"([^"]+)"/g;
+
+    my $server_path = "$root/src/cmd/stargate/server.go";
+    open my $server_fh, "<", $server_path or die "open $server_path: $!";
+    local $/;
+    my $server_source = <$server_fh>;
+    $server_source =~ /(func setupRoutes\b.*?\n})\n\n\/\/ findAssetsPath/s
+      or die "cannot find setupRoutes in $server_path\n";
+    my $route_source = $1;
+    my %runtime_routes;
+    while ($route_source =~ /\bapp\.(Get|Post|Put|Patch|Delete)\(\s*(Route[A-Za-z0-9_]+|"[^"]+")/g) {
+      my ($method, $expression) = (uc($1), $2);
+      my $path;
+      if ($expression =~ /^"([^"]+)"$/) {
+        $path = $1;
+      } else {
+        $path = $route_constants{$expression}
+          // die "cannot resolve route constant $expression\n";
+      }
+      $runtime_routes{"$method $path"} = 1;
+    }
+    # logger-kit registers all three methods for this administrative endpoint.
+    $runtime_routes{"GET /log/level"} = 1;
+    $runtime_routes{"PUT /log/level"} = 1;
+    $runtime_routes{"POST /log/level"} = 1;
+
+    my %mention_only = map { $_ => 1 } (
+      "GET /health", # deprecated compatibility alias, intentionally not a primary heading
+      "PUT /log/level", "POST /log/level", # documented in the GET /log/level section
     );
     for my $file (glob "$root/docs/*/API.md") {
       open my $fh, "<", $file or die "open $file: $!";
       local $/;
       my $text = <$fh>;
-      for my $route (@routes) {
-        next if index($text, "`$route`") >= 0;
-        warn "Missing exact route contract $route in $file\n";
+      my %headings = map { $_ => 1 }
+        ($text =~ /^###\s+`((?:GET|POST|PUT|PATCH|DELETE) \/[^`]*)`\s*$/mg);
+      for my $route (sort keys %runtime_routes) {
+        if ($mention_only{$route}) {
+          next if index($text, "`$route`") >= 0;
+          warn "Missing compatibility route contract $route in $file\n";
+          $count++;
+          next;
+        }
+        next if $headings{$route};
+        warn "Missing route heading $route in $file\n";
         $count++;
       }
-      if (index($text, "`enroll_id`") < 0) {
-        warn "Missing TOTP enrollment identifier contract in $file\n";
+
+      my ($confirm_section) = $text =~ /^### `POST \/totp\/enroll\/confirm`\s*\n(.*?)(?=^### |\z)/ms;
+      if (!defined($confirm_section) ||
+          $confirm_section !~ /`enroll_id`/ ||
+          $confirm_section !~ /`code`/ ||
+          $confirm_section !~ /application\/x-www-form-urlencoded/) {
+        warn "Incomplete TOTP confirmation form contract in $file\n";
+        $count++;
+      }
+
+      my ($login_section) = $text =~ /^### `POST \/_login`\s*\n(.*?)(?=^### |\z)/ms;
+      if (!defined($login_section) ||
+          $login_section !~ /challenge_id=ch_xxx&verify_code=123456/) {
+        warn "Missing executable Warden verification login example in $file\n";
+        $count++;
+      }
+
+      my ($send_section) = $text =~ /^### `POST \/_send_verify_code`\s*\n(.*?)(?=^### |\z)/ms;
+      if (!defined($send_section) ||
+          $send_section !~ /`deliver_via`/ ||
+          $send_section !~ /`401 Unauthorized`/ ||
+          $send_section !~ /`503 Service Unavailable`/) {
+        warn "Incomplete verification-send form or status contract in $file\n";
         $count++;
       }
     }
@@ -199,6 +253,7 @@ current_violations=$(contract_violation_count "$repo_root" 2>/dev/null)
 if [[ -n "$base_sha" ]]; then
   temp_dir=$(mktemp -d)
   git archive "$base_sha" -- 'README*.md' docs src/internal/config/config.go \
+    src/cmd/stargate/constants.go src/cmd/stargate/server.go \
     | tar -x -C "$temp_dir"
   base_violations=$(contract_violation_count "$temp_dir" 2>/dev/null)
   echo "Documentation contract violations: base=$base_violations current=$current_violations"
