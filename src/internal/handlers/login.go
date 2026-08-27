@@ -744,17 +744,18 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 	otpEnabled := config.HeraldTOTPEnabled.ToBool()
 
 	return ctx.Render(templateName, fiber.Map{
-		"Callback":          callback,
-		"SessionID":         sess.ID(),
-		"Title":             config.LoginPageTitle.Value,
-		"FooterText":        config.LoginPageFooterText.Value,
-		"WardenEnabled":     config.WardenEnabled.ToBool(),
-		"HeraldEnabled":     heraldEnabled,
-		"OTPEnabled":        otpEnabled,
-		"HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool(),
-		"LoginSMSEnabled":   config.LoginSMSEnabled.ToBool(),
-		"LoginEmailEnabled": config.LoginEmailEnabled.ToBool(),
-		"Debug":             config.Debug.ToBool(),
+		"Callback":             callback,
+		"SessionID":            sess.ID(),
+		"Title":                config.LoginPageTitle.Value,
+		"FooterText":           config.LoginPageFooterText.Value,
+		"WardenEnabled":        config.WardenEnabled.ToBool(),
+		"PasswordLoginEnabled": config.Passwords.Value != "",
+		"HeraldEnabled":        heraldEnabled,
+		"OTPEnabled":           otpEnabled,
+		"HeraldTOTPEnabled":    config.HeraldTOTPEnabled.ToBool(),
+		"LoginSMSEnabled":      config.LoginSMSEnabled.ToBool(),
+		"LoginEmailEnabled":    config.LoginEmailEnabled.ToBool(),
+		"Debug":                config.Debug.ToBool(),
 	})
 }
 
