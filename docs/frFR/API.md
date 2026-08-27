@@ -2,6 +2,8 @@
 
 Ce document décrit en détail tous les points de terminaison API du service Stargate Forward Auth.
 
+Pour une mise à niveau depuis v0.12.0, consultez d'abord le [guide de migration v1.0.0](MIGRATION_V1.md).
+
 ## Table des Matières
 
 - [Point de Terminaison de Vérification d'Authentification](#point-de-terminaison-de-vérification-dauthentification)

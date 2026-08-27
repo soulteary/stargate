@@ -2,6 +2,8 @@
 
 Questo documento fornisce una guida dettagliata al deployment per il servizio Stargate Forward Auth.
 
+Per aggiornare da v0.12.0, leggere prima la [guida alla migrazione v1.0.0](MIGRATION_V1.md).
+
 ## Indice
 
 - [Metodi di Deployment](#metodi-di-deployment)
@@ -154,8 +156,6 @@ docker stop stargate
 # Rimuovere il container
 docker rm stargate
 
-# Arrestare e rimuovere
-docker rm -f stargate
 ```
 
 ## Deployment Docker Compose
@@ -204,23 +204,24 @@ networks:
 ### Avviare i Servizi
 
 ```bash
-docker-compose up -d
+docker network inspect traefik >/dev/null 2>&1 || docker network create traefik
+docker compose up -d
 ```
 
 ### Arrestare i Servizi
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### Visualizzare i Log
 
 ```bash
 # Visualizzare tutti i log dei servizi
-docker-compose logs -f
+docker compose logs -f
 
 # Visualizzare i log di un servizio specifico
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 ### Configurazione Personalizzata
@@ -460,7 +461,7 @@ Stargate espone le metriche Prometheus su `GET /metrics`. Configurare Prometheus
 docker logs -f stargate
 
 # Docker Compose
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 #### Livelli di Registrazione
@@ -629,12 +630,17 @@ Se si incontrano problemi:
 
 ### Passi di Aggiornamento
 
-1. **Backup Configurazione**: Eseguire backup della configurazione attuale delle variabili d'ambiente
+1. **Preparare un file di ambiente riutilizzabile**: salvare la configurazione in `stargate.env` e proteggere il file.
 
-2. **Arrestare il Servizio:**
+```bash
+chmod 600 stargate.env
+```
+
+2. **Conservare il container precedente per il rollback:**
 
 ```bash
 docker stop stargate
+docker rename stargate stargate-previous
 ```
 
 3. **Scaricare Nuova Immagine:**
@@ -648,14 +654,17 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  ...(utilizzare configurazione salvata)
+  --env-file ./stargate.env \
+  -p 8080:8080 \
+  --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 5. **Verificare il Servizio:**
 
 ```bash
-curl http://auth.example.com/healthz
+curl --fail http://127.0.0.1:8080/healthz
+curl --fail http://127.0.0.1:8080/readyz
 ```
 
 ### Rollback
@@ -663,12 +672,8 @@ curl http://auth.example.com/healthz
 Se si verificano problemi dopo l'aggiornamento:
 
 ```bash
-# Arrestare nuovo container
-docker stop stargate
-
-# Avviare con vecchia immagine
-docker run -d \
-  --name stargate \
-  ...(utilizzare configurazione salvata)
-  stargate:<old-version>
+# Rimuovere il nuovo container e ripristinare quello precedente invariato
+docker rm -f stargate
+docker rename stargate-previous stargate
+docker start stargate
 ```

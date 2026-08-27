@@ -2,6 +2,8 @@
 
 本文档提供 Stargate Forward Auth Service 的详细部署指南。
 
+从 v0.12.0 升级时，请先阅读 [v1.0.0 迁移指南](MIGRATION_V1.md)，再切换生产流量。
+
 ## 目录
 
 - [部署方式](#部署方式)
@@ -154,8 +156,6 @@ docker stop stargate
 # 删除容器
 docker rm stargate
 
-# 停止并删除
-docker rm -f stargate
 ```
 
 ## Docker Compose 部署
@@ -314,23 +314,24 @@ volumes:
 ### 启动服务
 
 ```bash
-docker-compose up -d
+docker network inspect traefik >/dev/null 2>&1 || docker network create traefik
+docker compose up -d
 ```
 
 ### 停止服务
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### 查看日志
 
 ```bash
 # 查看所有服务日志
-docker-compose logs -f
+docker compose logs -f
 
 # 查看特定服务日志
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 ### 自定义配置
@@ -570,7 +571,7 @@ Stargate 通过 `GET /metrics` 暴露 Prometheus 指标。在 Prometheus 服务�
 docker logs -f stargate
 
 # Docker Compose
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 #### 日志级别
@@ -814,12 +815,17 @@ curl -H "Cookie: stargate_session_id=<session_id>" http://auth.example.com/_auth
 
 ### 升级步骤
 
-1. **备份配置**：保存当前环境变量配置
+1. **准备可复用的环境变量文件**：将当前容器配置整理到 `stargate.env`，不要把密钥写入命令历史，并限制文件权限。
 
-2. **停止服务**：
+```bash
+chmod 600 stargate.env
+```
+
+2. **保留旧容器用于回滚**：
 
 ```bash
 docker stop stargate
+docker rename stargate stargate-previous
 ```
 
 3. **拉取新镜像**：
@@ -833,14 +839,17 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  ...（使用备份的配置）
+  --env-file ./stargate.env \
+  -p 8080:8080 \
+  --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 5. **验证服务**：
 
 ```bash
-curl http://auth.example.com/healthz
+curl --fail http://127.0.0.1:8080/healthz
+curl --fail http://127.0.0.1:8080/readyz
 ```
 
 ### 回滚
@@ -848,12 +857,8 @@ curl http://auth.example.com/healthz
 如果升级后出现问题：
 
 ```bash
-# 停止新容器
-docker stop stargate
-
-# 使用旧镜像启动
-docker run -d \
-  --name stargate \
-  ...（使用备份的配置）
-  stargate:<old-version>
+# 删除新容器并恢复未修改的旧容器
+docker rm -f stargate
+docker rename stargate-previous stargate
+docker start stargate
 ```

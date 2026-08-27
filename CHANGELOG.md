@@ -33,14 +33,15 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 - Added Linux, macOS, and Windows builds for amd64 and arm64.
 - Added a seven-language API and deployment contract checker.
-- Added English and Chinese v1.0.0 migration guides and corrected executable Docker, Compose, and Traefik examples.
+- Added v1.0.0 migration guides in all seven supported languages and corrected executable Docker, Compose, and Traefik examples.
 
 ### Release verification
 
-Before changing this entry from `Unreleased` to a date:
+Before publishing the first release candidate, replace `Unreleased` with the intended release date and freeze these notes:
 
-1. Run the Nightly compatibility workflow successfully.
-2. Publish `v1.0.0-rc.1` from the intended commit and verify binaries, checksums, SBOM, attestations, signatures, and the multi-architecture image.
-3. Publish `v1.0.0` from the same verified source commit.
+1. Finalize this dated changelog entry and its migration-guide links.
+2. Run the Nightly compatibility workflow successfully on the intended commit.
+3. Publish `v1.0.0-rc.1` from that commit and verify binaries, checksums, SBOM, attestations, signatures, and the multi-architecture image.
+4. Publish `v1.0.0` from the same verified source commit. If the source changes, publish and verify a new release candidate first.
 
 [1.0.0]: https://github.com/soulteary/stargate/compare/v0.12.0...v1.0.0

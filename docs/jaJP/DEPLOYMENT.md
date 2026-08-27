@@ -2,6 +2,8 @@
 
 このドキュメントは、Stargate Forward Auth サービスの詳細なデプロイメントガイドを提供します。
 
+v0.12.0 から更新する場合は、先に [v1.0.0 移行ガイド](MIGRATION_V1.md)を確認してください。
+
 ## 目次
 
 - [デプロイメント方法](#デプロイメント方法)
@@ -154,8 +156,6 @@ docker stop stargate
 # コンテナを削除
 docker rm stargate
 
-# 停止して削除
-docker rm -f stargate
 ```
 
 ## Docker Compose デプロイメント
@@ -204,23 +204,24 @@ networks:
 ### サービスの起動
 
 ```bash
-docker-compose up -d
+docker network inspect traefik >/dev/null 2>&1 || docker network create traefik
+docker compose up -d
 ```
 
 ### サービスの停止
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### ログの表示
 
 ```bash
 # すべてのサービスのログを表示
-docker-compose logs -f
+docker compose logs -f
 
 # 特定のサービスのログを表示
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 ### カスタム設定
@@ -460,7 +461,7 @@ Stargate は `GET /metrics` で Prometheus メトリクスを公開していま�
 docker logs -f stargate
 
 # Docker Compose
-docker-compose logs -f stargate
+docker compose logs -f stargate
 ```
 
 #### ログレベル
@@ -629,12 +630,17 @@ curl -H "Cookie: stargate_session_id=<session_id>" http://auth.example.com/_auth
 
 ### 更新手順
 
-1. **設定のバックアップ**: 現在の環境変数設定をバックアップ
+1. **再利用できる環境ファイルを準備**：現在の設定を `stargate.env` に保存し、ファイルを保護します。
 
-2. **サービスの停止:**
+```bash
+chmod 600 stargate.env
+```
+
+2. **ロールバック用に以前のコンテナを保持:**
 
 ```bash
 docker stop stargate
+docker rename stargate stargate-previous
 ```
 
 3. **新しいイメージのダウンロード:**
@@ -648,14 +654,17 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  ...(保存された設定を使用)
+  --env-file ./stargate.env \
+  -p 8080:8080 \
+  --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
 ```
 
 5. **サービスの確認:**
 
 ```bash
-curl http://auth.example.com/healthz
+curl --fail http://127.0.0.1:8080/healthz
+curl --fail http://127.0.0.1:8080/readyz
 ```
 
 ### ロールバック
@@ -663,12 +672,8 @@ curl http://auth.example.com/healthz
 更新後に問題が発生した場合：
 
 ```bash
-# 新しいコンテナを停止
-docker stop stargate
-
-# 古いイメージで起動
-docker run -d \
-  --name stargate \
-  ...(保存された設定を使用)
-  stargate:<old-version>
+# 新しいコンテナを削除し、変更していない以前のコンテナを復元
+docker rm -f stargate
+docker rename stargate-previous stargate
+docker start stargate
 ```
