@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: '手动发布/覆盖的已存在 v* tag（例如 v1.2.3）'
+        required: true
+        type: string
 
 concurrency:
   # Every release tag updates shared semver aliases. Serialize all tags so an
@@ -47,6 +53,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
       - name: Set up Go
         uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
@@ -73,11 +81,35 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
+
+      - name: Resolve release ref
+        id: release
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            TAG="${INPUT_RELEASE_TAG}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          if ! printf '%s' "${TAG}" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$'; then
+            echo "::error::release_tag 必须是形如 vX.Y.Z 的语义化 tag，实际为 '${TAG}'"
+            exit 1
+          fi
+          # 手动触发：校验 tag 存在，且当前 HEAD 就是该 tag 指向的提交
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            git rev-parse --verify "refs/tags/${TAG}^{commit}" >/dev/null
+            test "$(git rev-parse HEAD)" = "$(git rev-parse "refs/tags/${TAG}^{commit}")"
+          fi
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "manual=${{ github.event_name == 'workflow_dispatch' }}" >> "$GITHUB_OUTPUT"
 
       - name: Verify release commit belongs to main
         run: |
           git fetch origin main
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main
 
       - name: Check documentation contracts
         run: bash .github/scripts/check-doc-contracts.sh
@@ -140,12 +172,12 @@ jobs:
       - name: Extract version from tag
         id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          VERSION=${VERSION#v}
+          TAG="${{ steps.release.outputs.tag }}"
+          VERSION=${TAG#v}
           COMMIT=$(git rev-parse --short HEAD)
           BUILD_DATE=$(date -u +%FT%T%z)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "commit=$COMMIT" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
 
@@ -208,12 +240,13 @@ jobs:
         uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # 手动触发时 github.ref 为分支，semver/ref 无法解析 tag，
+          # 因此统一改用 Resolve release ref 得到的 tag/version 生成别名。
           tags: |
-            type=ref,event=tag
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+            type=semver,pattern={{version}},value=${{ steps.release.outputs.tag }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ steps.release.outputs.tag }}
+            type=semver,pattern={{major}},value=${{ steps.release.outputs.tag }}
+            type=raw,value=latest,enable=${{ !contains(steps.release.outputs.tag, '-') }}
 
       - name: Build amd64 image for security scan
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
@@ -304,14 +337,24 @@ jobs:
         run: cosign sign-blob --yes --bundle dist/checksums.txt.sigstore.json dist/checksums.txt
 
       - name: Prepare curated release notes
-        run: bash .github/scripts/extract-release-notes.sh "$GITHUB_REF_NAME" "$RUNNER_TEMP/release-notes.md"
+        run: bash .github/scripts/extract-release-notes.sh "${{ steps.release.outputs.tag }}" "$RUNNER_TEMP/release-notes.md"
+
+      - name: Delete existing release for overwrite
+        if: steps.release.outputs.manual == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          # 手动重发：删除同名 Release（保留 git tag），随后重新创建以覆盖。
+          gh release delete "$TAG" --yes --repo "$GITHUB_REPOSITORY" || true
 
       - name: Create Release
         uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
         with:
           files: |
             dist/*
+          tag_name: ${{ steps.release.outputs.tag }}
           name: Release ${{ steps.version.outputs.tag }}
           body_path: ${{ runner.temp }}/release-notes.md
           draft: false
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ contains(steps.release.outputs.tag, '-') }}
