@@ -218,6 +218,33 @@ func TestLoginAPI_ValidPassword(t *testing.T) {
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
 }
 
+func TestLoginAPI_LocalPasswordWhileWardenEnabled(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "false")
+	t.Setenv("WARDEN_ENABLED", "true")
+	t.Setenv("WARDEN_URL", "https://warden.example.com")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+
+	store := setupTestStore()
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type": "application/x-www-form-urlencoded",
+	}, "auth_method=password&password=test123")
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertNoError(t, LoginAPI(store)(ctx))
+	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
+}
+
+func TestWardenLoginTemplateExposesConfiguredLocalPassword(t *testing.T) {
+	template, err := os.ReadFile("../web/templates/login.warden.html")
+	testza.AssertNoError(t, err)
+	body := string(template)
+	testza.AssertContains(t, body, "{{if .PasswordLoginEnabled}}")
+	testza.AssertContains(t, body, `name="auth_method" value="password"`)
+	testza.AssertContains(t, body, `name="password"`)
+}
+
 func TestLoginAPI_InvalidPassword(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")

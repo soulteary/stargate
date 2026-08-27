@@ -134,6 +134,31 @@
           {{end}}
           <button type="submit" class="btn-verify">Verify Access</button>
         </form>
+        {{if .PasswordLoginEnabled}}
+        <div style="display: flex; align-items: center; gap: 12px; margin: 28px 0; color: #9ca3af; font-size: 0.8125rem;">
+          <span style="height: 1px; background: #e5e7eb; flex: 1;"></span>
+          <span>or use a local password</span>
+          <span style="height: 1px; background: #e5e7eb; flex: 1;"></span>
+        </div>
+        <form action="/_login" method="post" class="form" id="passwordLoginForm">
+          {{if .Callback}}
+          <input type="hidden" name="callback" value="{{.Callback}}">
+          {{end}}
+          <input type="hidden" name="auth_method" value="password">
+          <div class="form-group">
+            <label for="local_password" class="sr-only">Local password</label>
+            <input
+              type="password"
+              id="local_password"
+              name="password"
+              placeholder="Local password"
+              autocomplete="current-password"
+              required
+            >
+          </div>
+          <button type="submit" class="btn-verify">Sign in with password</button>
+        </form>
+        {{end}}
       </div>
     </main>
 
