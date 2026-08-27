@@ -15,13 +15,20 @@ import (
 
 func TestRedirectToStepUpPreservesOnlyLocalCallback(t *testing.T) {
 	setupStepUpTest(t)
-	ctx, app := createTestContext("GET", "/_auth", map[string]string{"X-Forwarded-Uri": "/admin/users?tab=roles"}, "")
+	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+	ctx, app := createTestContext("GET", "/_auth", map[string]string{
+		"Host":              "auth.example.com",
+		"X-Forwarded-Host":  "app.example.com",
+		"X-Forwarded-Proto": "https",
+		"X-Forwarded-Uri":   "/admin/users?tab=roles",
+	}, "")
 	defer app.ReleaseCtx(ctx)
 
 	err := redirectToStepUp(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
-	testza.AssertEqual(t, "/_step_up?callback=%2Fadmin%2Fusers%3Ftab%3Droles", string(ctx.Response().Header.Peek("Location")))
+	testza.AssertEqual(t, "https://auth.example.com/_step_up?callback=%2Fadmin%2Fusers%3Ftab%3Droles&callback_host=app.example.com&callback_proto=https", string(ctx.Response().Header.Peek("Location")))
 }
 
 func TestStepUpRouteRequiresAuthentication(t *testing.T) {
@@ -161,7 +168,9 @@ func TestStepUpAPIRecordsRecentVerification(t *testing.T) {
 	store := setupTestStore()
 	ctx, app := createTestContext("POST", "/_step_up", map[string]string{
 		"Content-Type": "application/x-www-form-urlencoded",
-	}, "password=test123&callback=/admin/users")
+	}, "password=test123&callback=/admin/users&callback_host=app.example.com&callback_proto=https")
+	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
 	defer app.ReleaseCtx(ctx)
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
@@ -171,12 +180,17 @@ func TestStepUpAPIRecordsRecentVerification(t *testing.T) {
 	err = StepUpAPI(store)(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
-	testza.AssertEqual(t, "/admin/users", string(ctx.Response().Header.Peek("Location")))
+	testza.AssertEqual(t, "https://app.example.com/admin/users", string(ctx.Response().Header.Peek("Location")))
 	verifiedSession, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	verified, ok := verifiedSession.Get("step_up_verified_at").(int64)
 	testza.AssertTrue(t, ok)
 	testza.AssertTrue(t, verified > 0)
+}
+
+func TestStepUpReturnURLRejectsUnapprovedHost(t *testing.T) {
+	setupStepUpTest(t)
+	testza.AssertEqual(t, "/admin", stepUpReturnURL("https", "evil.example.net", "/admin"))
 }
 
 func TestSafeStepUpCallbackRejectsExternalURLs(t *testing.T) {

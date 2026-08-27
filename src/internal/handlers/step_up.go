@@ -77,7 +77,36 @@ func hasDotPathSegment(path string) bool {
 func redirectToStepUp(ctx fiber.Ctx) error {
 	forwardedURI, _ := stepUpForwardedURI(ctx)
 	callback := safeStepUpCallback(forwardedURI)
-	return ctx.Redirect().Status(fiber.StatusFound).To("/_step_up?callback=" + url.QueryEscape(callback))
+	callbackHost, err := ValidateCallbackHost(GetForwardedHost(ctx))
+	if err != nil {
+		return SendErrorResponse(ctx, fiber.StatusForbidden, "step-up callback host is not allowed")
+	}
+	stepUpURL := url.URL{Scheme: GetForwardedProto(ctx), Host: config.AuthHost.String(), Path: "/_step_up"}
+	query := stepUpURL.Query()
+	query.Set("callback", callback)
+	query.Set("callback_host", callbackHost)
+	query.Set("callback_proto", GetForwardedProto(ctx))
+	stepUpURL.RawQuery = query.Encode()
+	return ctx.Redirect().Status(fiber.StatusFound).To(stepUpURL.String())
+}
+
+func stepUpReturnURL(rawProto, rawHost, rawCallback string) string {
+	callback := safeStepUpCallback(rawCallback)
+	host, err := ValidateCallbackHost(rawHost)
+	if err != nil {
+		return callback
+	}
+	proto := strings.ToLower(strings.TrimSpace(rawProto))
+	if proto != "http" && proto != "https" {
+		return callback
+	}
+	parsed, err := url.ParseRequestURI(callback)
+	if err != nil {
+		return "/"
+	}
+	parsed.Scheme = proto
+	parsed.Host = host
+	return parsed.String()
 }
 
 func StepUpRoute(store *session.Store) func(c fiber.Ctx) error {
@@ -91,7 +120,12 @@ func StepUpRoute(store *session.Store) func(c fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
 		}
 		callback := safeStepUpCallback(ctx.Query("callback"))
-		return ctx.Type("html").SendString(`<!doctype html><html><body><form method="post" action="/_step_up"><input type="password" name="password" autocomplete="current-password" required><input type="hidden" name="callback" value="` + html.EscapeString(callback) + `"><button type="submit">Verify</button></form></body></html>`)
+		callbackHost, _ := ValidateCallbackHost(ctx.Query("callback_host"))
+		callbackProto := strings.ToLower(strings.TrimSpace(ctx.Query("callback_proto")))
+		if callbackProto != "http" && callbackProto != "https" {
+			callbackProto = ""
+		}
+		return ctx.Type("html").SendString(`<!doctype html><html><body><form method="post" action="/_step_up"><input type="password" name="password" autocomplete="current-password" required><input type="hidden" name="callback" value="` + html.EscapeString(callback) + `"><input type="hidden" name="callback_host" value="` + html.EscapeString(callbackHost) + `"><input type="hidden" name="callback_proto" value="` + html.EscapeString(callbackProto) + `"><button type="submit">Verify</button></form></body></html>`)
 	}
 }
 
@@ -112,6 +146,6 @@ func StepUpAPI(store *session.Store) func(c fiber.Ctx) error {
 		if err := sess.Save(); err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to save additional authentication")
 		}
-		return ctx.Redirect().Status(fiber.StatusFound).To(safeStepUpCallback(ctx.FormValue("callback")))
+		return ctx.Redirect().Status(fiber.StatusFound).To(stepUpReturnURL(ctx.FormValue("callback_proto"), ctx.FormValue("callback_host"), ctx.FormValue("callback")))
 	}
 }
