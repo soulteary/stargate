@@ -366,6 +366,7 @@ func createApp() *fiber.App {
 
 	setupMiddleware(app)
 	store, redisClient := setupSessionStore()
+	handlers.SetChallengeContextStore(handlers.NewChallengeContextStore(redisClient))
 	healthAggregator := setupHealthChecker(redisClient)
 	replayStore := handlers.NewSessionExchangeReplayStore(redisClient)
 
