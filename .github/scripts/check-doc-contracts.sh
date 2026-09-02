@@ -1099,7 +1099,7 @@ contract_violation_count() {
 
     sub redirection_details {
       my ($token) = @_;
-      if ($token =~ /^((?:\d*(?:<<<|<<-|<<|<>|>>|<&|>&|>\||>|<)|&>>?))(.*)$/) {
+      if ($token =~ /^((?:(?:\d+|\{[A-Za-z_][A-Za-z0-9_]*\})?(?:<<<|<<-|<<|<>|>>|<&|>&|>\||>|<)|&>>?))(.*)$/) {
         return (1, length($2) > 0);
       }
       return (0, 0);
@@ -1297,7 +1297,7 @@ contract_violation_count() {
       return -1;
     }
 
-    sub env_split_string {
+    sub env_split_spec {
       my (@arguments) = @_;
       my $env_index = wrapper_index("env", @arguments);
       return unless $env_index >= 0;
@@ -1306,16 +1306,127 @@ contract_violation_count() {
         my $option = $arguments[$index];
         last if $option eq "--";
         next if $option eq "-";
-        return $arguments[$index + 1] // "" if
-          $option eq "-S" || $option eq "--split-string" ||
-          $option =~ /^-[^-]*S$/;
-        return $1 if $option =~ /^--split-string=(.*)$/s;
-        return $1 if $option =~ /^-[^-]*S(.+)$/s;
+        if ($option eq "-S" || $option eq "--split-string" ||
+            $option =~ /^-[^-]*S$/) {
+          return ($arguments[$index + 1] // "", $index + 2);
+        }
+        return ($1, $index + 1)
+          if $option =~ /^--split-string=(.*)$/s;
+        return ($1, $index + 1)
+          if $option =~ /^-[^-]*S(.+)$/s;
         last unless $option =~ /^-/ && $option ne "-";
         my $needs_operand = wrapper_option_needs_operand("env", $option);
         $index++ if $needs_operand && $index + 1 < @arguments;
       }
       return;
+    }
+
+    sub gnu_env_split_arguments {
+      my ($text) = @_;
+      my @arguments;
+      my $argument = "";
+      my $in_argument = 0;
+      my $single_quote = 0;
+      my $double_quote = 0;
+      my $offset = 0;
+
+      my $finish_argument = sub {
+        if ($in_argument) {
+          push @arguments, $argument;
+          $argument = "";
+          $in_argument = 0;
+        }
+      };
+
+      while ($offset < length($text)) {
+        my $char = substr($text, $offset, 1);
+        if ($char eq "\x27" && !$double_quote) {
+          $single_quote = !$single_quote;
+          $in_argument = 1;
+          $offset++;
+          next;
+        }
+        if ($char eq "\"" && !$single_quote) {
+          $double_quote = !$double_quote;
+          $in_argument = 1;
+          $offset++;
+          next;
+        }
+        if (!$single_quote && !$double_quote && $char =~ /[ \t\n\x0b\f\r]/) {
+          $finish_argument->();
+          $offset++;
+          next;
+        }
+        if (!$single_quote && !$double_quote &&
+            $char eq "#" && !$in_argument) {
+          last;
+        }
+        if ($char eq "\\") {
+          my $next = substr($text, $offset + 1, 1);
+          if ($single_quote && $next ne "\\" && $next ne "\x27") {
+            $argument .= "\\";
+            $in_argument = 1;
+            $offset++;
+            next;
+          }
+          return unless length($next);
+          if ($next =~ /^[\"#\x24\x27\\]$/) {
+            $argument .= $next;
+            $in_argument = 1;
+          } elsif ($next eq "_") {
+            if ($double_quote) {
+              $argument .= " ";
+              $in_argument = 1;
+            } else {
+              $finish_argument->();
+            }
+          } elsif ($next eq "c") {
+            return if $double_quote;
+            $finish_argument->();
+            return \@arguments;
+          } elsif ($next =~ /^[fnrtv]$/) {
+            my %escape = (
+              f => "\f", n => "\n", r => "\r", t => "\t", v => "\x0b",
+            );
+            $argument .= $escape{$next};
+            $in_argument = 1;
+          } else {
+            return;
+          }
+          $offset += 2;
+          next;
+        }
+        if ($char eq "\x24" && !$single_quote) {
+          my $remaining = substr($text, $offset);
+          return unless $remaining =~ /^\x24\{([A-Za-z_][A-Za-z0-9_]*)\}/;
+          my $expansion = $&;
+          if (exists $ENV{$1}) {
+            $argument .= $ENV{$1};
+            $in_argument = 1;
+          }
+          $offset += length($expansion);
+          next;
+        }
+        $argument .= $char;
+        $in_argument = 1;
+        $offset++;
+      }
+      return if $single_quote || $double_quote;
+      $finish_argument->();
+      return \@arguments;
+    }
+
+    sub env_split_command_arguments {
+      my (@arguments) = @_;
+      my ($split_string, $tail_index) = env_split_spec(@arguments);
+      return unless defined $split_string;
+      my $split_arguments = gnu_env_split_arguments($split_string);
+      return unless defined $split_arguments;
+
+      my @expanded = ("env", @$split_arguments);
+      push @expanded, @arguments[$tail_index .. $#arguments]
+        if $tail_index <= $#arguments;
+      return @expanded;
     }
 
     sub timeout_option_needs_operand {
@@ -1429,12 +1540,9 @@ contract_violation_count() {
       $unsafe += unsafe_htpasswd_count_in_context($evaluated_command)
         if defined $evaluated_command && length($evaluated_command);
 
-      my $split_string = env_split_string(@arguments);
-      if (defined $split_string && length($split_string)) {
-        my @split_arguments = shell_tokens($split_string);
-        $unsafe += unsafe_htpasswd_count_in_arguments(@split_arguments)
-          if @split_arguments;
-      }
+      my @split_arguments = env_split_command_arguments(@arguments);
+      $unsafe += unsafe_htpasswd_count_in_arguments(@split_arguments)
+        if @split_arguments;
 
       my @xargs_command = xargs_command_arguments(@arguments);
       $unsafe += unsafe_htpasswd_count_in_arguments(@xargs_command)
