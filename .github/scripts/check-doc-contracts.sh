@@ -196,12 +196,20 @@ contract_violation_count() {
       }
 
       my ($send_section) = $text =~ /^### `POST \/_send_verify_code`\s*\n(.*?)(?=^### |\z)/ms;
+      my @send_subsections = defined($send_section)
+        ? ($send_section =~ /^#### [^\n]+\n(.*?)(?=^#### |\z)/msg)
+        : ();
+      my ($send_request_section) = grep {
+        /application\/x-www-form-urlencoded/ && /multipart\/form-data/
+      } @send_subsections;
       if (!defined($send_section) ||
+          !defined($send_request_section) ||
           $send_section !~ /`deliver_via`/ ||
           $send_section !~ /`deliver_via=dingtalk`/ ||
           $send_section !~ /`phone` \+ `mail`/ ||
-          $send_section !~ /application\/x-www-form-urlencoded/ ||
-          $send_section !~ /multipart\/form-data/ ||
+          $send_request_section !~ /^\|\s*`application\/x-www-form-urlencoded`\s*\|\s*✅\s*\|/m ||
+          $send_request_section !~ /^\|\s*`multipart\/form-data`\s*\|\s*✅\s*\|/m ||
+          $send_request_section !~ /^\|\s*`application\/json`\s*\|\s*❌\s*\|/m ||
           $send_section !~ /`401 Unauthorized`/ ||
           $send_section !~ /`503 Service Unavailable`/) {
         warn "Incomplete verification-send form or status contract in $file\n";

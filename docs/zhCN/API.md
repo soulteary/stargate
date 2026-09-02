@@ -256,7 +256,13 @@ TOTP 分支直接提交 `use_otp=true` 和 `otp_code`，不需要预先调用 `P
 
 #### 请求体
 
-支持 `application/x-www-form-urlencoded` 或 `multipart/form-data` 表单数据，不支持 JSON 请求体：
+请求体媒体类型支持情况：
+
+| 请求体媒体类型 | 支持 |
+|---------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|

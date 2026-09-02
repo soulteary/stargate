@@ -238,7 +238,13 @@ curl -X POST \
 
 #### リクエストボディ
 
-`application/x-www-form-urlencoded` または `multipart/form-data` のフォームデータに対応します。JSON リクエストボディには対応しません：
+リクエストボディのメディアタイプ対応状況：
+
+| リクエストボディのメディアタイプ | 対応 |
+|----------------------------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|

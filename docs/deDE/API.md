@@ -238,7 +238,13 @@ Anfrage zum Senden eines Verifizierungscodes. Dieser Endpunkt wird im Warden + H
 
 #### Anfragekörper
 
-Formulardaten als `application/x-www-form-urlencoded` oder `multipart/form-data`; JSON-Anfragekörper werden nicht unterstützt:
+Unterstützte Medientypen für den Anfragekörper:
+
+| Medientyp des Anfragekörpers | Unterstützt |
+|------------------------------|-------------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | Feld | Typ | Erforderlich | Beschreibung |
 |------|-----|--------------|--------------|

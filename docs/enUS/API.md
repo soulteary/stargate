@@ -256,7 +256,13 @@ Send verification code request. This endpoint is used in the Warden + Herald OTP
 
 #### Request Body
 
-Form data using either `application/x-www-form-urlencoded` or `multipart/form-data`. JSON request bodies are not supported.
+Supported request-body media types:
+
+| Request media type | Supported |
+|--------------------|-----------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|

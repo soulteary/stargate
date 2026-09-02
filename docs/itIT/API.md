@@ -238,7 +238,13 @@ Richiesta di invio codice di verifica. Questo endpoint è utilizzato nel flusso 
 
 #### Corpo della Richiesta
 
-Dati del form `application/x-www-form-urlencoded` o `multipart/form-data`; i corpi JSON non sono supportati:
+Tipi di media supportati per il corpo della richiesta:
+
+| Tipo di media del corpo | Supportato |
+|-------------------------|------------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | Campo | Tipo | Richiesto | Descrizione |
 |-------|------|-----------|-------------|

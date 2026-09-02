@@ -119,11 +119,18 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/deDE/API.md
 
-# Explicitly naming an unsupported JSON request media type or a JSON response must not fail the form contract.
-perl -0pi -e 's/JSON request bodies are not supported/`application\/json` request bodies are not supported/g' "$temp_dir/docs/enUS/API.md"
+# A supported-JSON claim in the request-body matrix must fail the form contract.
+perl -0pi -e 's/(^### `POST \/_send_verify_code`.*?\| `application\/json` \|) ❌ \|/$1 ✅ |/ms' "$temp_dir/docs/koKR/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a supported application/json request contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/koKR/API.md
+
+# Explicitly naming an application/json response must not fail the request-body contract.
 perl -0pi -e 's/(^### `POST \/_send_verify_code`.*?\*\*Success Response \(200 OK\)\*\*)/$1\n\nResponse media type: `application\/json`./ms' "$temp_dir/docs/enUS/API.md"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
-  echo "Expected explicit unsupported application/json wording to remain valid" >&2
+  echo "Expected an application/json response mention to remain valid" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/API.md

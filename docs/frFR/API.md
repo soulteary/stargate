@@ -239,7 +239,13 @@ Requête d'envoi de code de vérification. Ce point de terminaison est utilisé 
 
 #### Corps de Requête
 
-Données de formulaire `application/x-www-form-urlencoded` ou `multipart/form-data` ; les corps JSON ne sont pas pris en charge :
+Types de média pris en charge pour le corps de requête :
+
+| Type de média du corps | Pris en charge |
+|------------------------|----------------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | Champ | Type | Requis | Description |
 |-------|------|--------|-------------|

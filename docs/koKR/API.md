@@ -238,7 +238,13 @@ curl -X POST \
 
 #### 요청 본문
 
-`application/x-www-form-urlencoded` 또는 `multipart/form-data` 폼 데이터를 지원하며 JSON 요청 본문은 지원하지 않습니다:
+요청 본문 미디어 타입 지원 여부:
+
+| 요청 본문 미디어 타입 | 지원 |
+|----------------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | 필드 | 유형 | 필수 | 설명 |
 |------|------|------|------|
