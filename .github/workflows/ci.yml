@@ -66,6 +66,9 @@ jobs:
       - name: Check release workflow contracts
         run: ci-recipes stargate check-release-workflow
 
+      - name: Check local launcher contract
+        run: bash .github/scripts/test-start-local.sh
+
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
         run: |
