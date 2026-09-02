@@ -201,6 +201,33 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Bash coproc is a reserved-word prefix for an asynchronously launched command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'coproc htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command launched through coproc failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# A named coprocess precedes a compound command; brace segmentation still
+# exposes the command executed inside that compound command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'coproc WORKER { htpasswd -bn "" password; }' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command inside a named coprocess failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Array-assignment elements are stored as data rather than executed as a
 # simple command, even when they look like an unsafe htpasswd argv.
 printf '%s\n' \
@@ -392,6 +419,19 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command string passed to eval failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Bash eval accepts `--` before its command-string arguments.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "eval -- 'htpasswd -bn \"\" password'" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after eval double dash failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
