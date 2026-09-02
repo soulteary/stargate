@@ -53,6 +53,9 @@ jobs:
           bash .github/scripts/test-release-notes.sh
           bash .github/scripts/test-release-workflow.sh
 
+      - name: Check local launcher
+        run: bash .github/scripts/test-start-local.sh
+
       - name: Set up Go
         if: steps.changes.outputs.code == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
