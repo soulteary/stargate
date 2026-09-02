@@ -68,6 +68,32 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Quoting an option does not change the argv value received by htpasswd.
+printf '\n```bash\nhtpasswd -C 10 "-bn" "" password\n```\n' >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a quoted unsafe htpasswd option contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# An option mentioned after a Markdown or shell command boundary does not
+# belong to the preceding safe htpasswd invocation and must not be a violation.
+printf '%s\n' \
+  '' \
+  'Run `htpasswd -nBC 10 stargate`; never add `-b` to that command.' \
+  '```bash' \
+  'htpasswd -nBC 10 stargate && printf "%s\\n" "-b"' \
+  'htpasswd -nBC 10 stargate | sed -n "-b"' \
+  'htpasswd -nBC 10 stargate; printf "%s\\n" "-b"' \
+  'htpasswd -nBC 10 stargate # never add -b' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected safe htpasswd command-boundary examples to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Both high-impact upgrade requirements must remain in the scoped v1 breaking list.
 perl -0pi -e 's/^- The official container now listens on port .*\n//m' "$temp_dir/CHANGELOG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
