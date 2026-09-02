@@ -376,6 +376,21 @@ printf '%s\n' \
   '   ```text' \
   'unindented root fence content' \
   '   ```' \
+  '<!--' \
+  '``` marker inside an HTML comment' \
+  '-->' \
+  '<script>' \
+  '~~~ marker inside a script block' \
+  '</script>' \
+  '- <!--' \
+  '  ``` marker inside a list HTML comment' \
+  '  -->' \
+  '<div>' \
+  '``` marker inside a type-6 HTML block' \
+  '' \
+  '<custom-element data-test="value">' \
+  '~~~ marker inside a type-7 HTML block' \
+  '' \
   > "$fence_fixture"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected valid CommonMark fence forms to pass" >&2
@@ -385,6 +400,41 @@ fi
 printf '%s\n' '   ```bash' 'echo unclosed' > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an indented unclosed fence failure" >&2
+  exit 1
+fi
+
+# Raw HTML blocks extend to their matching terminator (or EOF), so fence-like
+# text inside them must not create an unclosed fenced-code error.
+printf '%s\n' '<!--' '``` marker inside an unterminated HTML comment' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a raw HTML block ending at EOF to pass" >&2
+  exit 1
+fi
+
+# Fence parsing must resume immediately after a raw HTML block terminates.
+printf '%s\n' \
+  '<!--' \
+  '``` ignored inside HTML' \
+  '-->' \
+  '```text' \
+  'unclosed after HTML' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after raw HTML to fail" >&2
+  exit 1
+fi
+
+# A type-7 HTML tag cannot interrupt a paragraph; the following fence must
+# therefore be parsed normally rather than swallowed as HTML content.
+printf '%s\n' \
+  'paragraph before inline HTML' \
+  '<custom-element>' \
+  '```text' \
+  'unclosed after non-interrupting tag' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after paragraph HTML to fail" >&2
   exit 1
 fi
 
