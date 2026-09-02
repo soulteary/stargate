@@ -338,4 +338,617 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/DEPLOYMENT.md
 
+# CommonMark fenced blocks allow up to three leading spaces after list or
+# block-quote container prefixes, either marker character, and a closing
+# marker at least as long as the opening marker.
+fence_fixture="$temp_dir/fence-structure-test.md"
+printf '%s\n' \
+  '   ```bash' \
+  'echo valid' \
+  '   ```' \
+  '~~~text' \
+  'valid' \
+  '~~~~' \
+  'inline ``` markers are not fences' \
+  '    ```four-space-indented-code' \
+  '1. outer list' \
+  '   - nested item' \
+  '' \
+  '     ```json' \
+  '     {}' \
+  '     ```' \
+  '> ~~~text' \
+  '> quoted content' \
+  '> ~~~' \
+  '- > ```json' \
+  '  > {}' \
+  '  > ```' \
+  '> - ~~~text' \
+  '>   quoted list content' \
+  '>   ~~~' \
+  '-   paragraph in a wide list item' \
+  'lazy paragraph continuation' \
+  '    ```text' \
+  '    fenced content after lazy continuation' \
+  '    ```' \
+  'paragraph before a non-list marker' \
+  '2. this remains paragraph text' \
+  '   ```text' \
+  'unindented root fence content' \
+  '   ```' \
+  '<!--' \
+  '``` marker inside an HTML comment' \
+  '-->' \
+  '<script>' \
+  '~~~ marker inside a script block' \
+  '</script>' \
+  '- <!--' \
+  '  ``` marker inside a list HTML comment' \
+  '  -->' \
+  '<div>' \
+  '``` marker inside a type-6 HTML block' \
+  '' \
+  '<custom-element data-test="value">' \
+  '~~~ marker inside a type-7 HTML block' \
+  '' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected valid CommonMark fence forms to pass" >&2
+  exit 1
+fi
+
+printf '%s\n' '   ```bash' 'echo unclosed' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an indented unclosed fence failure" >&2
+  exit 1
+fi
+
+# A tab immediately after a block-quote marker expands to three spaces at
+# that column. One space belongs to the quote delimiter, leaving a valid
+# two-space-indented fence opener (CommonMark 0.31.2, example 6).
+printf '%b\n' '>\t```' '> ordinary quoted text' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed quoted fence after a tab failure" >&2
+  exit 1
+fi
+
+# Raw HTML blocks extend to their matching terminator (or EOF), so fence-like
+# text inside them must not create an unclosed fenced-code error.
+printf '%s\n' '<!--' '``` marker inside an unterminated HTML comment' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a raw HTML block ending at EOF to pass" >&2
+  exit 1
+fi
+
+# Type-4 declarations accept any ASCII letter after `<!`, not only uppercase
+# declarations. Fence-like lines remain literal until the first `>`.
+printf '%s\n' \
+  '<!doctype' \
+  '``` literal marker inside a lowercase declaration' \
+  '>' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a lowercase HTML declaration containing a fence to pass" >&2
+  exit 1
+fi
+
+# Type-1 raw HTML blocks end only at the exact closing-tag sequence. A tag
+# with whitespace before `>` remains literal HTML content through EOF.
+printf '%s\n' \
+  '<script>' \
+  '</script >' \
+  '``` literal marker in the still-open HTML block' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an inexact raw HTML closing tag to remain open" >&2
+  exit 1
+fi
+
+# Fence parsing must resume immediately after a raw HTML block terminates.
+printf '%s\n' \
+  '<!--' \
+  '``` ignored inside HTML' \
+  '-->' \
+  '```text' \
+  'unclosed after HTML' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after raw HTML to fail" >&2
+  exit 1
+fi
+
+# A type-7 HTML tag cannot interrupt a paragraph; the following fence must
+# therefore be parsed normally rather than swallowed as HTML content.
+printf '%s\n' \
+  'paragraph before inline HTML' \
+  '<custom-element>' \
+  '```text' \
+  'unclosed after non-interrupting tag' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after paragraph HTML to fail" >&2
+  exit 1
+fi
+
+# A block-level tag only starts a type-6 HTML block at the beginning of the
+# line (after up to three spaces), never when embedded later in paragraph text.
+printf '%s\n' \
+  'paragraph text before <div>' \
+  '```text' \
+  'unclosed after an embedded block tag' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an embedded block tag failure" >&2
+  exit 1
+fi
+
+printf '%s\n' '```text' 'wrong marker' '~~~' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a mismatched fence-marker failure" >&2
+  exit 1
+fi
+
+printf '%s\n' '````text' 'short close' '```' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a short closing-fence failure" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  '1. outer list' \
+  '   - nested item' \
+  '' \
+  '     ```json' \
+  '     {}' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed nested-list fence failure" >&2
+  exit 1
+fi
+
+# A later top-level delimiter must not close a fence whose list container has
+# already ended.
+printf '%s\n' \
+  '1. list item' \
+  '   ```text' \
+  '   missing close' \
+  'top-level paragraph ends the list' \
+  '   ```' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a fence container-exit failure" >&2
+  exit 1
+fi
+
+# Trailing spaces on a marker-only line do not establish wide item padding.
+# A four-space-indented fence on the next line belongs to the blank item.
+printf '%s\n' \
+  '-    ' \
+  '    ```text' \
+  '    unclosed fence in a blank list item' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence inside a blank list item failure" >&2
+  exit 1
+fi
+
+# Container markers can interleave. A quote opened after a list marker must be
+# part of the fence context rather than hiding an unclosed fence.
+printf '%s\n' \
+  '- > ```json' \
+  '  > {}' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed interleaved-container fence failure" >&2
+  exit 1
+fi
+
+# A lazy paragraph continuation retains its list container, including the
+# wider content column established by marker padding.
+printf '%s\n' \
+  '-   paragraph in a wide list item' \
+  'lazy paragraph continuation' \
+  '    ```text' \
+  '    missing close' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a lazy list continuation failure" >&2
+  exit 1
+fi
+
+# A backtick in a backtick-fence info string makes that line paragraph text.
+# It must not interrupt a lazy paragraph and discard the wide list container,
+# or the following indented real fence would be missed as root indented code.
+printf '%s\n' \
+  '-   paragraph in a wide list item' \
+  '```bad`info' \
+  '    ```text' \
+  '    unclosed real fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after invalid lazy opener text failure" >&2
+  exit 1
+fi
+
+# Indented code is a leaf block, not an active paragraph. A following ordered
+# list may therefore start at a number other than one, and its indented fence
+# must still be validated within the list container.
+printf '%s\n' \
+  '    indented code' \
+  '22. list item after code' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence in a non-one list after indented code failure" >&2
+  exit 1
+fi
+
+# A complete standalone link-reference definition is a leaf block. It must
+# not prevent a following non-one ordered list from opening.
+printf '%s\n' \
+  '[reference]: /target' \
+  '22. list item after a reference definition' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a link-reference definition failure" >&2
+  exit 1
+fi
+
+# CommonMark permits the destination and optional title on following lines;
+# the entire completed definition remains a non-paragraph leaf.
+printf '%s\n' \
+  '[reference]:' \
+  '  /target' \
+  '  "optional title"' \
+  '22. list item after a multiline reference' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a multiline reference failure" >&2
+  exit 1
+fi
+
+# The optional title may also move to the next line when the destination is
+# already present on the definition line. Both lines form the same leaf.
+printf '%s\n' \
+  '[reference]: /target' \
+  '  "optional title"' \
+  '22. list item after a continued title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a continued reference title failure" >&2
+  exit 1
+fi
+
+# A reference title may itself contain line endings, provided no blank line
+# interrupts it and its delimiter eventually closes.
+printf '%s\n' \
+  '[reference]: /target "multi' \
+  'line' \
+  'title"' \
+  '22. list item after a multiline title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a multiline reference title failure" >&2
+  exit 1
+fi
+
+# Backslash-escaped ASCII punctuation is valid inside each reference-title
+# delimiter form. It must not turn the definition into paragraph text.
+printf '%s\n' \
+  '[reference]: /target "escaped \"title\""' \
+  '22. list item after an escaped reference title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an escaped reference title failure" >&2
+  exit 1
+fi
+
+# The same escape rule applies when a title follows a next-line destination.
+printf '%s\n' \
+  '[reference]:' \
+  '  /target (escaped \(title\))' \
+  '22. list item after an escaped multiline title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an escaped multiline title failure" >&2
+  exit 1
+fi
+
+# A Setext underline closes its preceding paragraph as a heading, so a
+# non-one ordered list may likewise begin immediately afterward.
+printf '%s\n' \
+  'Setext heading' \
+  '==============' \
+  '22. list item after a heading' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a Setext heading failure" >&2
+  exit 1
+fi
+
+# A reference-shaped line cannot interrupt an existing paragraph.
+printf '%s\n' \
+  'paragraph before a reference-shaped line' \
+  '[reference]: /target' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a reference-shaped paragraph continuation to pass" >&2
+  exit 1
+fi
+
+# Unescaped brackets and whitespace-only labels are not reference labels. Each
+# line therefore remains paragraph text and a later indented marker is literal.
+printf '%s\n' \
+  '[a[b]: /target' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unescaped nested reference bracket to remain paragraph text" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  '[   ]: /target' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a whitespace-only reference label to remain paragraph text" >&2
+  exit 1
+fi
+
+# An escaped opening bracket is valid and preserves leaf-block semantics.
+printf '%s\n' \
+  '[a\[b]: /target' \
+  '22. list item after an escaped reference label' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an escaped reference label failure" >&2
+  exit 1
+fi
+
+# A backslash before a non-punctuation character stays literal in a valid
+# label instead of acting as an invalid escape.
+printf '%s\n' \
+  '[foo\bar]: /target' \
+  '22. list item after a literal-backslash label' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a literal-backslash label failure" >&2
+  exit 1
+fi
+
+# Reference titles use the same literal-backslash rule.
+printf '%s\n' \
+  '[reference]: /target "foo\bar"' \
+  '22. list item after a literal-backslash title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a literal-backslash title failure" >&2
+  exit 1
+fi
+
+# CommonMark limits labels by Unicode characters, not encoded UTF-8 bytes.
+perl -e '
+  binmode STDOUT, ":encoding(UTF-8)";
+  print "[", "\x{754c}" x 400, "]: /target\n";
+  print "22. list item after a multibyte label\n";
+  print "    ```text\n    unclosed list fence\n";
+' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a multibyte reference label failure" >&2
+  exit 1
+fi
+
+# Reference labels may contain internal line endings. The completed definition
+# remains a leaf before a non-one ordered list.
+printf '%s\n' \
+  '[foo' \
+  'bar]: /target' \
+  '22. list item after a multiline reference label' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a multiline reference label failure" >&2
+  exit 1
+fi
+
+# An unclosed multiline label remains ordinary paragraph text.
+printf '%s\n' \
+  '[incomplete' \
+  'label without a closing bracket' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an incomplete multiline reference label to remain paragraph text" >&2
+  exit 1
+fi
+
+# A fence interrupts the paragraph containing an incomplete multiline label;
+# the opener cannot be accumulated as label text and skipped with a later
+# apparent definition suffix.
+printf '%s\n' \
+  '[foo' \
+  '```text' \
+  'bar]: /target' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence interrupting a multiline label failure" >&2
+  exit 1
+fi
+
+# A physical line ending after a backslash is not a bracket escape. Preserve
+# the literal backslash and continue parsing the valid multiline label.
+printf '%s\n' \
+  '[foo\' \
+  'bar]: /target' \
+  '22. list item after a backslash-ended reference label' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a backslash-ended label failure" >&2
+  exit 1
+fi
+
+# Unicode whitespace does not satisfy CommonMark's requirement that a link
+# reference label contain a non-whitespace character. NBSP therefore leaves
+# this reference-shaped line as paragraph text.
+printf '[\302\240]: /target\n%s\n%s\n' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a Unicode-whitespace reference label to remain paragraph text" >&2
+  exit 1
+fi
+
+# Unicode whitespace also terminates a bare destination. It cannot appear
+# inside that destination and make an otherwise invalid definition into a leaf.
+printf '[reference]: /foo\302\240bar\n%s\n%s\n' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a bare destination containing Unicode whitespace to remain paragraph text" >&2
+  exit 1
+fi
+
+# A bare destination must balance every unescaped parenthesis. An invalid
+# definition stays paragraph text, so a non-one list marker cannot interrupt.
+printf '%s\n' \
+  '[reference]: /unbalanced(' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unbalanced reference destination to remain paragraph text" >&2
+  exit 1
+fi
+
+# A block opener likewise interrupts an unfinished reference title instead of
+# becoming title text which can hide the fence from structural validation.
+printf '%s\n' \
+  '[ref]: /target "foo' \
+  '```text' \
+  'bar"' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence interrupting a reference title failure" >&2
+  exit 1
+fi
+
+# A Setext underline transforms the preceding incomplete-label paragraph into
+# a heading. It is therefore a boundary for reference continuation lookahead.
+printf '%s\n' \
+  '[foo' \
+  '===' \
+  'bar]: /target' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a Setext underline to stop reference label lookahead" >&2
+  exit 1
+fi
+
+# Balanced and escaped parentheses are both valid bare destinations and retain
+# reference-definition leaf semantics for the following list.
+printf '%s\n' \
+  '[reference]: /balanced(one)/escaped\(two\)' \
+  '22. list item after a balanced destination' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a balanced reference destination failure" >&2
+  exit 1
+fi
+
+# An incomplete definition is paragraph text and still blocks a non-one list
+# from interrupting it.
+printf '%s\n' \
+  '[incomplete]:' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an incomplete reference definition to remain paragraph text" >&2
+  exit 1
+fi
+
+# A fenced block can interrupt the paragraph started by an incomplete
+# reference definition. Its opener must not be consumed as a bare next-line
+# destination, or an unclosed fence would be hidden from the validator.
+printf '%s\n' \
+  '[ref]:' \
+  '```text' \
+  'unclosed root fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an empty reference destination failure" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  '[ref]:' \
+  '~~~text' \
+  'unclosed root fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed tilde fence after an empty reference destination failure" >&2
+  exit 1
+fi
+
+# A list item whose first child would be indented code cannot interrupt a
+# paragraph. The later non-one marker and its indented fence therefore remain
+# literal paragraph text rather than opening nested block structure.
+printf '%s\n' \
+  'paragraph before an indented-code item' \
+  '-     code' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an indented-code item not to interrupt a paragraph" >&2
+  exit 1
+fi
+
+# Exercise the same five-space list-container indentation used by the existing
+# localized API response examples, so those real blocks cannot silently regress.
+perl -0pi -e 's/^     ```\r?\n//m' "$temp_dir/docs/enUS/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized nested-list fence failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/API.md
+rm -f "$fence_fixture"
+
 echo "Documentation contract self-tests passed."

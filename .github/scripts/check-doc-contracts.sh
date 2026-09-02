@@ -16,26 +16,672 @@ check_markdown_structure() {
   local root=$1
   local failed=false
 
-  while IFS= read -r -d '' file; do
-    local fences
-    fences=$(grep -c '^```' "$file" || true)
-    if (( fences % 2 != 0 )); then
-      echo "Unclosed fenced code block: ${file#"$root"/}" >&2
-      failed=true
-    fi
-  done < <(find "$root" -type f -name '*.md' -not -path '*/.git/*' -print0)
-
   if ! perl -MFile::Find -MFile::Basename -e '
     my $root = shift;
     my $failed = 0;
+
+    sub expand_tabs {
+      my ($line) = @_;
+      my $expanded = "";
+      my $column = 0;
+      for my $offset (0 .. length($line) - 1) {
+        my $char = substr($line, $offset, 1);
+        if ($char eq "\t") {
+          my $width = 4 - ($column % 4);
+          $expanded .= " " x $width;
+          $column += $width;
+        } else {
+          $expanded .= $char;
+          $column++;
+        }
+      }
+      return $expanded;
+    }
+
+    sub consume_container {
+      my ($line, $offset, $container) = @_;
+      my $remaining = substr($line, $offset);
+
+      if ($container->{type} eq "quote") {
+        return -1 unless $remaining =~ /^( {0,3})>/;
+        my $consumed = length($1) + 1;
+        $consumed++ if substr($remaining, $consumed, 1) eq " ";
+        return $offset + $consumed;
+      }
+
+      # Blank lines may remain in a list item without repeating its content
+      # indentation. A non-blank continuation must provide the full width.
+      return length($line) if $remaining =~ /^ *$/;
+      my $width = $container->{width};
+      return -1 if length($remaining) < $width;
+      return -1 unless substr($remaining, 0, $width) eq " " x $width;
+      return $offset + $width;
+    }
+
+    sub continue_containers {
+      my ($line, $containers) = @_;
+      my $offset = 0;
+      my $matched = 0;
+      for my $container (@$containers) {
+        my $next = consume_container($line, $offset, $container);
+        last if $next < 0;
+        $offset = $next;
+        $matched++;
+      }
+      return ($offset, $matched);
+    }
+
+    sub thematic_break {
+      my ($line) = @_;
+      return $line =~ /^ {0,3}(?:(?:\*[ ]*){3,}|(?:-[ ]*){3,}|(?:_[ ]*){3,})$/;
+    }
+
+    sub list_marker_details {
+      my ($remaining) = @_;
+      return unless
+        $remaining =~ /^( {0,3})([-+*]|\d{1,9}[.)])(?:([ ]+)|$)/;
+      my ($before, $marker, $spacing) = ($1, $2, $3);
+      my $space_count = defined $spacing ? length($spacing) : 1;
+      my $after_marker = substr(
+        $remaining, length($before) + length($marker));
+      my $has_content = $after_marker =~ /[^ ]/;
+      my $padding = $has_content && $space_count <= 4 ? $space_count : 1;
+      my $width = length($before) + length($marker) + $padding;
+      my $content = length($remaining) >= $width
+        ? substr($remaining, $width)
+        : "";
+      my $ordered = $marker =~ /^(\d{1,9})[.)]$/;
+      my $start = $ordered ? 0 + $1 : 0;
+      my $starts_with_indented_code = $content =~ /^ {4}/;
+      return (
+        $width, $ordered, $start, $has_content,
+        $starts_with_indented_code,
+      );
+    }
+
+    sub fence_opener_details {
+      my ($content) = @_;
+      return unless $content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/;
+      my ($marker, $info) = ($1, $2);
+      my $char = substr($marker, 0, 1);
+      # A backtick sequence whose info string contains a backtick is paragraph
+      # text, not a fenced-code opener. Tilde info strings have no such rule.
+      return if $char eq "`" && index($info, "`") >= 0;
+      return ($char, length($marker));
+    }
+
+    sub setext_underline {
+      my ($content) = @_;
+      return $content =~ /^ {0,3}(?:=+|-+)[ \t]*$/;
+    }
+
+    sub reference_continuation_boundary {
+      my ($content) = @_;
+      return setext_underline($content) || interrupts_paragraph($content);
+    }
+
+    sub reference_title {
+      my ($content) = @_;
+      # CommonMark backslash escapes may protect ASCII punctuation, including
+      # the delimiter used by any title form. Before other characters, a
+      # backslash remains literal rather than making the title invalid.
+      return $content =~ m{^(?:
+        "(?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|\\(?=[^\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e])|[^"\\])*" |
+        \x27(?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|\\(?=[^\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e])|[^\x27\\])*\x27 |
+        \((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|\\(?=[^\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e])|[^()\\])*\)
+      )[ \t]*$}x;
+    }
+
+    sub valid_reference_label {
+      my ($label) = @_;
+      return 0 if length($label) > 999;
+      return $label =~ /\S/;
+    }
+
+    sub reference_destination_prefix {
+      my ($content) = @_;
+      return unless length($content);
+
+      if (substr($content, 0, 1) eq "<") {
+        my $offset = 1;
+        while ($offset < length($content)) {
+          my $char = substr($content, $offset, 1);
+          if ($char eq "\\" && $offset + 1 < length($content) &&
+              substr($content, $offset + 1, 1) =~
+                /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/) {
+            $offset += 2;
+            next;
+          }
+          return (1, substr($content, $offset + 1)) if $char eq ">";
+          return if $char eq "<" || $char eq "\r" || $char eq "\n";
+          $offset++;
+        }
+        return;
+      }
+
+      my $offset = 0;
+      my $parentheses = 0;
+      while ($offset < length($content)) {
+        my $char = substr($content, $offset, 1);
+        last if $char =~ /\s/;
+        return if ord($char) < 0x20 || ord($char) == 0x7f;
+        if ($char eq "\\" && $offset + 1 < length($content) &&
+            substr($content, $offset + 1, 1) =~
+              /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/) {
+          $offset += 2;
+          next;
+        }
+        if ($char eq "(") {
+          $parentheses++;
+        } elsif ($char eq ")") {
+          return if $parentheses == 0;
+          $parentheses--;
+        }
+        $offset++;
+      }
+      return if $offset == 0 || $parentheses != 0;
+      return (1, substr($content, $offset));
+    }
+
+    sub link_reference_definition {
+      my ($content) = @_;
+      return unless $content =~ m{^[ ]{0,3}
+        \[((?:\\[^\r\n]|[^\[\]\\])+)
+        \]:[ \t]*(.*)$
+      }x;
+      my ($label, $destination_text) = ($1, $2);
+      return unless valid_reference_label($label);
+      my @destination = reference_destination_prefix($destination_text);
+      return unless @destination;
+      my (undef, $remainder) = @destination;
+      return (1, undef) if $remainder =~ /^[ \t]*$/;
+      return unless $remainder =~ s/^[ \t]+//;
+      return unless $remainder =~ /^(?:"|\x27|\()/;
+      return (1, $remainder);
+    }
+
+    sub reference_destination_details {
+      my ($content) = @_;
+      return unless $content =~ /^ {0,3}(.*)$/;
+      my @destination = reference_destination_prefix($1);
+      return unless @destination;
+      my (undef, $remainder) = @destination;
+      return (1, undef) if $remainder =~ /^[ \t]*$/;
+      return unless $remainder =~ s/^[ \t]+//;
+      return unless $remainder =~ /^(?:"|\x27|\()/;
+      return (1, $remainder);
+    }
+
+    sub reference_title_continuation_lines {
+      my ($title, $containers, $line_index, $lines) = @_;
+      return 0 if reference_title($title);
+
+      my $continuation_lines = 0;
+      for (my $next_index = $line_index + 1;
+           $next_index < @$lines;
+           $next_index++) {
+        my $line = $lines->[$next_index];
+        $line =~ s/\r$//;
+        $line = expand_tabs($line);
+        my ($offset, $matched) = continue_containers($line, $containers);
+        return if $matched < @$containers;
+        my $content = substr($line, $offset);
+        return if $content =~ /^ *$/;
+        return if reference_continuation_boundary($content);
+        $title .= "\n$content";
+        $continuation_lines++;
+        return $continuation_lines if reference_title($title);
+      }
+      return;
+    }
+
+    sub following_reference_title_lines {
+      my ($containers, $line_index, $lines) = @_;
+      return if $line_index + 1 >= @$lines;
+
+      my $title_line = $lines->[$line_index + 1];
+      $title_line =~ s/\r$//;
+      $title_line = expand_tabs($title_line);
+      my ($offset, $matched) = continue_containers($title_line, $containers);
+      return if $matched < @$containers;
+      my $content = substr($title_line, $offset);
+      return unless $content =~ /^ {0,3}((?:"|\x27|\().*)$/;
+      my $continued = reference_title_continuation_lines(
+        $1, $containers, $line_index + 1, $lines);
+      return unless defined $continued;
+      return 1 + $continued;
+    }
+
+    sub multiline_reference_lines {
+      my ($content, $containers, $line_index, $lines) = @_;
+      return 0 unless $content =~ m{^[ ]{0,3}
+        \[((?:\\[^\r\n]|[^\[\]\\])+)
+        \]:[ \t]*$
+      }x;
+      return 0 unless valid_reference_label($1);
+      return 0 if $line_index + 1 >= @$lines;
+
+      my $destination_line = $lines->[$line_index + 1];
+      $destination_line =~ s/\r$//;
+      $destination_line = expand_tabs($destination_line);
+      my ($offset, $matched) =
+        continue_containers($destination_line, $containers);
+      return 0 if $matched < @$containers;
+      my $destination_content = substr($destination_line, $offset);
+      # A next-line destination remains part of the interrupted paragraph.
+      # Block constructs which can interrupt that paragraph take precedence
+      # over interpreting their marker text as a bare destination.
+      return 0 if reference_continuation_boundary($destination_content);
+      my @destination =
+        reference_destination_details($destination_content);
+      return 0 unless @destination;
+
+      my (undef, $title) = @destination;
+      if (defined $title) {
+        my $continued = reference_title_continuation_lines(
+          $title, $containers, $line_index + 1, $lines);
+        return 0 unless defined $continued;
+        return 1 + $continued;
+      }
+
+      my $following = following_reference_title_lines(
+        $containers, $line_index + 1, $lines);
+      return defined $following ? 1 + $following : 1;
+    }
+
+    sub multiline_reference_label_lines {
+      my ($content, $containers, $line_index, $lines) = @_;
+      return 0 unless $content =~ /^ {0,3}\[(.*)$/;
+
+      my $label = "";
+      my $fragment = $1;
+      my $current_index = $line_index;
+      while (1) {
+        my $offset = 0;
+        while ($offset < length($fragment)) {
+          my $char = substr($fragment, $offset, 1);
+          if ($char eq "\\") {
+            if ($offset + 1 >= length($fragment)) {
+              # A terminal backslash does not escape through a physical line
+              # ending; both it and the newline remain label characters.
+              $label .= "\\";
+              $offset++;
+              next;
+            }
+            my $escaped = substr($fragment, $offset + 1, 1);
+            $label .= "\\$escaped";
+            $offset += 2;
+            next;
+          }
+          return 0 if $char eq "[";
+          if ($char eq "]") {
+            return 0 unless substr($fragment, $offset + 1, 1) eq ":";
+            return 0 unless valid_reference_label($label);
+
+            my $definition_tail = substr($fragment, $offset + 2);
+            my $label_lines = $current_index - $line_index;
+            if ($definition_tail =~ /^[ \t]*$/) {
+              my $destination_lines = multiline_reference_lines(
+                "[reference]:", $containers, $current_index, $lines);
+              return $destination_lines > 0
+                ? $label_lines + $destination_lines
+                : 0;
+            }
+
+            my @reference = link_reference_definition(
+              "[reference]:$definition_tail");
+            return 0 unless @reference;
+            my (undef, $title) = @reference;
+            if (defined $title) {
+              my $continued = reference_title_continuation_lines(
+                $title, $containers, $current_index, $lines);
+              return defined $continued
+                ? $label_lines + $continued
+                : 0;
+            }
+            my $following = following_reference_title_lines(
+              $containers, $current_index, $lines);
+            return $label_lines + (defined $following ? $following : 0);
+          }
+          $label .= $char;
+          $offset++;
+        }
+
+        return 0 if $current_index + 1 >= @$lines;
+        my $next_line = $lines->[$current_index + 1];
+        $next_line =~ s/\r$//;
+        $next_line = expand_tabs($next_line);
+        my ($container_offset, $matched) =
+          continue_containers($next_line, $containers);
+        return 0 if $matched < @$containers;
+        $fragment = substr($next_line, $container_offset);
+        return 0 if $fragment =~ /^ *$/;
+        return 0 if reference_continuation_boundary($fragment);
+        $label .= "\n";
+        $current_index++;
+      }
+    }
+
+    sub interrupts_paragraph {
+      my ($remaining) = @_;
+      return 1 if $remaining =~ /^ *$/;
+      return 1 if $remaining =~ /^ {0,3}>/;
+      my @fence = fence_opener_details($remaining);
+      return 1 if @fence;
+      return 1 if $remaining =~ /^ {0,3}#{1,6}(?:[ ]|$)/;
+      return 1 if thematic_break($remaining);
+      my ($starts_html, undef, undef, $html_interrupts) =
+        html_block_start($remaining);
+      return 1 if $starts_html && $html_interrupts;
+
+      my @marker = list_marker_details($remaining);
+      if (@marker) {
+        my (undef, $ordered, $start, $has_content,
+            $starts_with_indented_code) = @marker;
+        return 1 if $has_content && !$starts_with_indented_code &&
+          (!$ordered || $start == 1);
+      }
+      return 0;
+    }
+
+    sub paragraph_content {
+      my ($remaining) = @_;
+      return 0 if $remaining =~ /^ *$/;
+      return 0 if $remaining =~ /^ {0,3}#{1,6}(?:[ ]|$)/;
+      return 0 if thematic_break($remaining);
+      return 1;
+    }
+
+    sub html_block_start {
+      my ($content) = @_;
+      return (1, qr/-->/, 0, 1) if $content =~ /^ {0,3}<!--/;
+      return (1, qr/\?>/, 0, 1) if $content =~ /^ {0,3}<\?/;
+      return (1, qr/\]\]>/, 0, 1) if $content =~ /^ {0,3}<!\[CDATA\[/;
+      return (1, qr/>/, 0, 1) if $content =~ /^ {0,3}<![A-Za-z]/;
+
+      if ($content =~ /^ {0,3}<(script|pre|style|textarea)(?:[ \t]|>|$)/i) {
+        my $tag = $1;
+        return (1, qr{</\Q$tag\E>}i, 0, 1);
+      }
+
+      if ($content =~ m{^[ ]{0,3}</?(?:
+          address|article|aside|base|basefont|blockquote|body|caption|center|col|
+          colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|
+          footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|
+          li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|
+          search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul
+        )(?:[ \t]|/?>|$)}ix) {
+        return (1, undef, 1, 1);
+      }
+
+      # A complete open or closing tag for any other element starts a type-7
+      # HTML block only where it does not interrupt an existing paragraph.
+      if ($content =~ m{^ {0,3}</[A-Za-z][A-Za-z0-9-]*[ \t]*>[ \t]*$} ||
+          $content =~ m{^ {0,3}<[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*(?:[ \t]*=[ \t]*(?:[^\x00-\x20"\x27=<>`]+|"[^"]*"|\x27[^\x27]*\x27))?)*[ \t]*/?>[ \t]*$}) {
+        return (1, undef, 1, 0);
+      }
+      return (0, undef, 0, 0);
+    }
+
+    sub html_block_finished {
+      my ($content, $end_pattern, $until_blank) = @_;
+      return $content =~ /^ *$/ if $until_blank;
+      return $content =~ /$end_pattern/;
+    }
+
+    sub open_containers {
+      my ($line, $offset, $containers, $paragraph_active) = @_;
+      my $opened = 0;
+      while ($offset <= length($line)) {
+        my $remaining = substr($line, $offset);
+
+        # Thematic breaks take precedence over interpreting their first marker
+        # as a list item.
+        last if thematic_break($remaining);
+
+        if ($remaining =~ /^( {0,3})>/) {
+          my $consumed = length($1) + 1;
+          $consumed++ if substr($remaining, $consumed, 1) eq " ";
+          push @$containers, { type => "quote" };
+          $offset += $consumed;
+          $paragraph_active = 0;
+          $opened++;
+          next;
+        }
+
+        my @marker = list_marker_details($remaining);
+        if (@marker) {
+          my ($width, $ordered, $start, $has_content,
+              $starts_with_indented_code) = @marker;
+          # An ordered list can interrupt a paragraph only when it starts at
+          # one. Empty items and items whose first block is indented code also
+          # cannot interrupt a paragraph.
+          last if $paragraph_active &&
+            (!$has_content || $starts_with_indented_code ||
+             ($ordered && $start != 1));
+          push @$containers, { type => "list", width => $width };
+          $offset += $width;
+          $offset = length($line) if $offset > length($line);
+          $paragraph_active = 0;
+          $opened++;
+          next;
+        }
+
+        last;
+      }
+      return ($offset, $opened);
+    }
+
     find({
       no_chdir => 1,
       wanted => sub {
         return unless /\.md$/;
         my $file = $File::Find::name;
-        open my $fh, "<", $file or die "open $file: $!";
+        open my $fh, "<:encoding(UTF-8)", $file or die "open $file: $!";
         local $/;
         my $text = <$fh>;
+
+        my ($fence_char, $fence_length, $fence_line);
+        my @containers;
+        my @fence_containers;
+        my $html_active = 0;
+        my $html_end_pattern;
+        my $html_until_blank = 0;
+        my @html_containers;
+        my $paragraph_active = 0;
+        my $paragraph_depth = 0;
+        my $line_number = 0;
+        my $reference_lines_to_skip = 0;
+        my @lines = split /\n/, $text, -1;
+        LINE: for (my $line_index = 0;
+                   $line_index < @lines;
+                   $line_index++) {
+          my $line = $lines[$line_index];
+          $line_number = $line_index + 1;
+          $line =~ s/\r$//;
+          $line = expand_tabs($line);
+          if ($reference_lines_to_skip > 0) {
+            $reference_lines_to_skip--;
+            next LINE;
+          }
+
+          # A container can end before its fenced block is explicitly closed.
+          # Report that opening fence immediately, then parse the current line
+          # again at the surviving outer container level.
+          REPROCESS: while (1) {
+            if (defined $fence_char) {
+              my ($offset, $matched) =
+                continue_containers($line, \@fence_containers);
+              if ($matched < @fence_containers) {
+                (my $relative = $file) =~ s{^\Q$root\E/?}{};
+                warn "Unclosed fenced code block in $relative:$fence_line " .
+                  "before container ended at line $line_number\n";
+                $failed = 1;
+                splice @containers, $matched;
+                undef $fence_char;
+                undef $fence_length;
+                undef $fence_line;
+                @fence_containers = ();
+                $paragraph_active = 0;
+                next REPROCESS;
+              }
+
+              my $candidate = substr($line, $offset);
+              if ($candidate =~ /^ {0,3}(\Q$fence_char\E+)[ ]*$/ && length($1) >= $fence_length) {
+                undef $fence_char;
+                undef $fence_length;
+                undef $fence_line;
+                @fence_containers = ();
+                $paragraph_active = 0;
+              }
+              next LINE;
+            }
+
+            if ($html_active) {
+              my ($offset, $matched) =
+                continue_containers($line, \@html_containers);
+              if ($matched < @html_containers) {
+                # Unlike a fenced block, a raw HTML block simply ends when
+                # its list or block-quote container ends. Reprocess the line
+                # at the surviving outer container level.
+                splice @containers, $matched;
+                $html_active = 0;
+                undef $html_end_pattern;
+                $html_until_blank = 0;
+                @html_containers = ();
+                $paragraph_active = 0;
+                next REPROCESS;
+              }
+
+              my $html_content = substr($line, $offset);
+              if (html_block_finished(
+                  $html_content, $html_end_pattern, $html_until_blank)) {
+                $html_active = 0;
+                undef $html_end_pattern;
+                $html_until_blank = 0;
+                @html_containers = ();
+              }
+              next LINE;
+            }
+
+            my ($offset, $matched) = continue_containers($line, \@containers);
+            if ($matched < @containers) {
+              my $remaining = substr($line, $offset);
+              if ($paragraph_active && $paragraph_depth == @containers &&
+                  !interrupts_paragraph($remaining)) {
+                # CommonMark permits paragraph text to lazily continue without
+                # repeating one or more list container prefixes. Preserve the
+                # stack so a following indented fence remains in that item.
+                next LINE;
+              }
+              splice @containers, $matched;
+              $paragraph_active = 0 if $paragraph_depth > $matched;
+            }
+
+            my $paragraph_here =
+              $paragraph_active && $paragraph_depth == @containers;
+            my $opened;
+            ($offset, $opened) =
+              open_containers($line, $offset, \@containers, $paragraph_here);
+            if ($opened) {
+              $paragraph_active = 0;
+              $paragraph_here = 0;
+            }
+            my $content = substr($line, $offset);
+
+            # Four spaces at the current container content column start an
+            # indented code leaf when there is no paragraph to continue. It
+            # must not create paragraph state that prevents a later non-one
+            # ordered list from opening.
+            if (!$paragraph_here && $content =~ /^ {4}/) {
+              $paragraph_active = 0;
+              next LINE;
+            }
+
+            if ($paragraph_here && setext_underline($content)) {
+              $paragraph_active = 0;
+              next LINE;
+            }
+            if (!$paragraph_here) {
+              my @reference = link_reference_definition($content);
+              if (@reference) {
+                my (undef, $title) = @reference;
+                if (defined $title) {
+                  my $continued = reference_title_continuation_lines(
+                    $title, \@containers, $line_index, \@lines);
+                  if (defined $continued) {
+                    $reference_lines_to_skip = $continued;
+                    $paragraph_active = 0;
+                    next LINE;
+                  }
+                } else {
+                  my $following = following_reference_title_lines(
+                    \@containers, $line_index, \@lines);
+                  $reference_lines_to_skip = $following
+                    if defined $following;
+                  $paragraph_active = 0;
+                  next LINE;
+                }
+              }
+            }
+            if (!$paragraph_here) {
+              my $continuation_lines = multiline_reference_lines(
+                $content, \@containers, $line_index, \@lines);
+              if ($continuation_lines > 0) {
+                $reference_lines_to_skip = $continuation_lines;
+                $paragraph_active = 0;
+                next LINE;
+              }
+            }
+            if (!$paragraph_here) {
+              my $continuation_lines = multiline_reference_label_lines(
+                $content, \@containers, $line_index, \@lines);
+              if ($continuation_lines > 0) {
+                $reference_lines_to_skip = $continuation_lines;
+                $paragraph_active = 0;
+                next LINE;
+              }
+            }
+
+            my ($starts_html, $html_end, $until_blank, $html_interrupts) =
+              html_block_start($content);
+            if ($starts_html && (!$paragraph_here || $html_interrupts)) {
+              $paragraph_active = 0;
+              unless (html_block_finished($content, $html_end, $until_blank)) {
+                $html_active = 1;
+                $html_end_pattern = $html_end;
+                $html_until_blank = $until_blank;
+                @html_containers = map { { %$_ } } @containers;
+              }
+              next LINE;
+            }
+
+            my ($opening_char, $opening_length) =
+              fence_opener_details($content);
+            if (defined $opening_char) {
+              $fence_char = $opening_char;
+              $fence_length = $opening_length;
+              $fence_line = $line_number;
+              @fence_containers = map { { %$_ } } @containers;
+              $paragraph_active = 0;
+              next LINE;
+            }
+
+            if (paragraph_content($content)) {
+              $paragraph_active = 1;
+              $paragraph_depth = scalar @containers;
+            } else {
+              $paragraph_active = 0;
+            }
+            next LINE;
+          }
+        }
+        if (defined $fence_char) {
+          (my $relative = $file) =~ s{^\Q$root\E/?}{};
+          warn "Unclosed fenced code block in $relative:$fence_line\n";
+          $failed = 1;
+        }
+
         while ($text =~ /\[[^\]]*\]\(([^)]+)\)/g) {
           my $target = $1;
           $target =~ s/^<|>$//g;
