@@ -130,7 +130,7 @@ check_markdown_structure() {
     sub valid_reference_label {
       my ($label) = @_;
       return 0 if length($label) > 999;
-      return $label =~ /[^ \t\r\n]/;
+      return $label =~ /\S/;
     }
 
     sub reference_destination_prefix {
