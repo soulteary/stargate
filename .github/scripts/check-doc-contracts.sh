@@ -116,7 +116,8 @@ contract_violation_count() {
       # with known shell prefixes/delegators are executable contexts; their
       # actual command words are validated later by the shell parser.
       return $line if $line =~ m{^(?:\S*/)?htpasswd[ \t]+-};
-      return $line if $line =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
+      my @arguments = shell_tokens($line);
+      return $line if @arguments && shell_assignment_word($arguments[0]);
       return $line if $line =~ m{^(?:(?:\S*/)?(?:
           sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
           find|eval|stdbuf|setsid|taskset|chroot|bash|dash|ksh|mksh|pdksh|sh|zsh
@@ -586,6 +587,13 @@ contract_violation_count() {
       return 0;
     }
 
+    sub shell_assignment_word {
+      my ($argument) = @_;
+      return 1 if $argument =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
+      return 0 unless $argument =~ /^[A-Za-z_][A-Za-z0-9_]*\[/;
+      return array_assignment_subscript_at($argument, index($argument, "["));
+    }
+
     sub ansi_c_escape_at {
       my ($text, $offset) = @_;
       my $remaining = substr($text, $offset);
@@ -843,6 +851,13 @@ contract_violation_count() {
               $delimiter .= $part;
               $delimiter_escaped = 0;
             } elsif ($part eq "\\") {
+              my $newline_length =
+                substr($line, $cursor + 1, 1) eq "\n" ? 1 :
+                substr($line, $cursor + 1, 2) eq "\r\n" ? 2 : 0;
+              if ($newline_length) {
+                $cursor += $newline_length + 1;
+                next;
+              }
               $delimiter_escaped = 1;
             } elsif ($part eq "\"") {
               $delimiter_quote = "";
@@ -853,6 +868,13 @@ contract_violation_count() {
             next;
           }
           if ($part eq "\\") {
+            my $newline_length =
+              substr($line, $cursor + 1, 1) eq "\n" ? 1 :
+              substr($line, $cursor + 1, 2) eq "\r\n" ? 2 : 0;
+            if ($newline_length) {
+              $cursor += $newline_length + 1;
+              next;
+            }
             $delimiter_quoted = 1;
             $cursor++;
             if ($cursor < length($line)) {
@@ -907,6 +929,20 @@ contract_violation_count() {
       return @specs;
     }
 
+    sub heredoc_declaration_continues {
+      my ($declaration) = @_;
+      return 0 unless $declaration =~ /\\+$/;
+
+      # Reuse the quote- and comment-aware command scanner to distinguish a
+      # real continuation from a trailing backslash in a shell comment. The
+      # unique probe remains in the preceding segment only when the physical
+      # newline does not end that command word.
+      my $probe = "__stargate_heredoc_continuation_probe__";
+      my @segments = shell_command_segments("$declaration\n$probe");
+      return 0 unless @segments && $segments[-1] ne $probe;
+      return index($segments[-1], $probe) >= 0;
+    }
+
     sub heredoc_filtered_contexts {
       my ($text) = @_;
       my @command_lines;
@@ -925,7 +961,11 @@ contract_violation_count() {
       );
       my %shell = (quote => "", escaped => 0);
 
-      for my $line (split /\n/, $text, -1) {
+      my @lines = split /\n/, $text, -1;
+      for (my $line_index = 0;
+           $line_index < @lines;
+           $line_index++) {
+        my $line = $lines[$line_index];
         $line =~ s/\r$//;
         if (@pending) {
           my $candidate = $line;
@@ -940,10 +980,18 @@ contract_violation_count() {
           next;
         }
 
-        push @command_lines, $line;
+        my $declaration = $line;
+        while ($line_index + 1 < @lines &&
+               heredoc_declaration_continues($declaration)) {
+          my $continuation = $lines[++$line_index];
+          $continuation =~ s/\r$//;
+          $declaration .= "\n$continuation";
+        }
+
+        push @command_lines, $declaration;
         push @pending,
           heredoc_specs_in_line(
-            $line, \%arithmetic, \%parameter, \%shell);
+            $declaration, \%arithmetic, \%parameter, \%shell);
       }
       for my $unfinished (@pending) {
         push @expanding_bodies, $unfinished->{body}
@@ -1296,7 +1344,7 @@ contract_violation_count() {
           $index++;
           next;
         }
-        if ($argument =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/) {
+        if (shell_assignment_word($argument)) {
           $index++;
           next;
         }
@@ -1411,7 +1459,7 @@ contract_violation_count() {
       while ($index < @arguments) {
         my $argument = $arguments[$index];
         if ($argument eq "\x24" || $prefix{$argument} ||
-            $argument =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/) {
+            shell_assignment_word($argument)) {
           $index++;
           next;
         }
@@ -1440,6 +1488,8 @@ contract_violation_count() {
           last unless $option =~ /^-/ && $option ne "-";
           return -1 if $wrapper eq "command" &&
             $option =~ /^-[^-]*[vV]/;
+          return -1 if $wrapper eq "sudo" &&
+            sudo_query_option($option);
           my $needs_operand = wrapper_option_needs_operand($wrapper, $option);
           $index++;
           $index++ if $needs_operand && $index < @arguments;
