@@ -201,6 +201,34 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Array-assignment elements are stored as data rather than executed as a
+# simple command, even when they look like an unsafe htpasswd argv.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'args=(htpasswd -C 10 -bn "" password)' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a Bash array literal containing htpasswd text to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# A command substitution inside an array element still executes and remains
+# subject to the batch-password contract.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'args=("$(htpasswd -bn "" password)")' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd substitution inside an array failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # The shell `time` keyword accepts options before the pipeline command.
 printf '%s\n' \
   '' \
@@ -351,6 +379,32 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd shell command-string failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# eval joins its argv and executes the result as shell input.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "eval 'htpasswd -bn \"\" password'" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command string passed to eval failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# timeout consumes its own options and duration before delegating a command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'timeout --signal TERM 5 htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command delegated through timeout failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
