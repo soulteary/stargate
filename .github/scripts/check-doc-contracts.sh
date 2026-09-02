@@ -20,76 +20,84 @@ check_markdown_structure() {
     my $root = shift;
     my $failed = 0;
 
-    sub expand_leading_indent {
+    sub expand_tabs {
       my ($line) = @_;
       my $expanded = "";
       my $column = 0;
-      my $offset = 0;
-      while ($offset < length($line)) {
+      for my $offset (0 .. length($line) - 1) {
         my $char = substr($line, $offset, 1);
-        if ($char eq " ") {
-          $expanded .= " ";
-          $column++;
-        } elsif ($char eq "\t") {
+        if ($char eq "\t") {
           my $width = 4 - ($column % 4);
           $expanded .= " " x $width;
           $column += $width;
         } else {
-          last;
+          $expanded .= $char;
+          $column++;
         }
-        $offset++;
       }
-      return $expanded . substr($line, $offset);
+      return $expanded;
     }
 
-    sub strip_block_quote_prefixes {
-      my ($line) = @_;
-      my $depth = 0;
-      while ($line =~ s/^ {0,3}>[ \t]?//) {
-        $depth++;
+    sub consume_container {
+      my ($line, $offset, $container) = @_;
+      my $remaining = substr($line, $offset);
+
+      if ($container->{type} eq "quote") {
+        return -1 unless $remaining =~ /^( {0,3})>/;
+        my $consumed = length($1) + 1;
+        $consumed++ if substr($remaining, $consumed, 1) eq " ";
+        return $offset + $consumed;
       }
-      return ($line, $depth);
+
+      # Blank lines may remain in a list item without repeating its content
+      # indentation. A non-blank continuation must provide the full width.
+      return length($line) if $remaining =~ /^ *$/;
+      my $width = $container->{width};
+      return -1 if length($remaining) < $width;
+      return -1 unless substr($remaining, 0, $width) eq " " x $width;
+      return $offset + $width;
     }
 
-    sub markdown_container_content {
-      my ($line, $list_indents) = @_;
-      $line = expand_leading_indent($line);
-      my ($leading) = $line =~ /^( *)/;
-      my $indent = length($leading);
-
-      # Blank lines do not end a list container. Keep the current content
-      # column so a fenced block after a blank line is still interpreted in
-      # the surrounding list item.
-      if ($line =~ /^ *$/) {
-        my $blank_base = @$list_indents ? $list_indents->[-1] : 0;
-        return ("", $blank_base);
+    sub continue_containers {
+      my ($line, $containers) = @_;
+      my $offset = 0;
+      my $matched = 0;
+      for my $container (@$containers) {
+        my $next = consume_container($line, $offset, $container);
+        last if $next < 0;
+        $offset = $next;
+        $matched++;
       }
+      return ($offset, $matched);
+    }
 
-      # Continuation content is measured from the active list item content
-      # column. Pop containers when the line returns to an outer indentation.
-      while (@$list_indents && $indent < $list_indents->[-1]) {
-        pop @$list_indents;
+    sub open_containers {
+      my ($line, $offset, $containers) = @_;
+      while ($offset <= length($line)) {
+        my $remaining = substr($line, $offset);
+
+        if ($remaining =~ /^( {0,3})>/) {
+          my $consumed = length($1) + 1;
+          $consumed++ if substr($remaining, $consumed, 1) eq " ";
+          push @$containers, { type => "quote" };
+          $offset += $consumed;
+          next;
+        }
+
+        if ($remaining =~ /^( {0,3})([-+*]|\d{1,9}[.)])(?:([ ]+)|$)/) {
+          my ($before, $marker, $spacing) = ($1, $2, $3);
+          my $space_count = defined $spacing ? length($spacing) : 1;
+          my $padding = $space_count <= 4 ? $space_count : 1;
+          my $width = length($before) + length($marker) + $padding;
+          push @$containers, { type => "list", width => $width };
+          $offset += $width;
+          $offset = length($line) if $offset > length($line);
+          next;
+        }
+
+        last;
       }
-      my $base_indent = @$list_indents ? $list_indents->[-1] : 0;
-      my $content = substr($line, $base_indent);
-
-      # A child list marker may itself introduce a fence (for example
-      # "- ```"). CommonMark permits up to three spaces before the marker and
-      # uses one to four following spaces to determine its content column.
-      if ($content =~ /^( {0,3})([-+*]|\d{1,9}[.)])(?:([ ]+)|$)/) {
-        my ($before, $marker, $spacing) = ($1, $2, $3);
-        my $space_count = defined $spacing ? length($spacing) : 1;
-        my $padding = $space_count <= 4 ? $space_count : 1;
-        my $content_indent =
-          $base_indent + length($before) + length($marker) + $padding;
-        push @$list_indents, $content_indent;
-        my $nested = length($line) >= $content_indent
-          ? substr($line, $content_indent)
-          : "";
-        return ($nested, $content_indent);
-      }
-
-      return ($content, $base_indent);
+      return $offset;
     }
 
     find({
@@ -102,50 +110,60 @@ check_markdown_structure() {
         my $text = <$fh>;
 
         my ($fence_char, $fence_length, $fence_line);
-        my ($fence_quote_depth, $fence_base_indent);
-        my $active_quote_depth = 0;
-        my @list_indents;
+        my @containers;
+        my @fence_containers;
         my $line_number = 0;
-        for my $line (split /\n/, $text, -1) {
+        LINE: for my $line (split /\n/, $text, -1) {
           $line_number++;
           $line =~ s/\r$//;
-          if (defined $fence_char) {
-            my ($container_line, $quote_depth) = strip_block_quote_prefixes($line);
-            $container_line = expand_leading_indent($container_line);
-            my ($leading) = $container_line =~ /^( *)/;
-            my $indent = length($leading);
-            my $candidate = $quote_depth == $fence_quote_depth
-              && $indent >= $fence_base_indent
-              ? substr($container_line, $fence_base_indent)
-              : "";
-            if ($candidate =~ /^ {0,3}(\Q$fence_char\E+)[ \t]*$/ && length($1) >= $fence_length) {
-              undef $fence_char;
-              undef $fence_length;
-              undef $fence_line;
-              undef $fence_quote_depth;
-              undef $fence_base_indent;
-            }
-            next;
-          }
+          $line = expand_tabs($line);
 
-          my ($container_line, $quote_depth) = strip_block_quote_prefixes($line);
-          if ($quote_depth != $active_quote_depth) {
-            @list_indents = ();
-            $active_quote_depth = $quote_depth;
+          # A container can end before its fenced block is explicitly closed.
+          # Report that opening fence immediately, then parse the current line
+          # again at the surviving outer container level.
+          REPROCESS: while (1) {
+            if (defined $fence_char) {
+              my ($offset, $matched) =
+                continue_containers($line, \@fence_containers);
+              if ($matched < @fence_containers) {
+                (my $relative = $file) =~ s{^\Q$root\E/?}{};
+                warn "Unclosed fenced code block in $relative:$fence_line " .
+                  "before container ended at line $line_number\n";
+                $failed = 1;
+                splice @containers, $matched;
+                undef $fence_char;
+                undef $fence_length;
+                undef $fence_line;
+                @fence_containers = ();
+                next REPROCESS;
+              }
+
+              my $candidate = substr($line, $offset);
+              if ($candidate =~ /^ {0,3}(\Q$fence_char\E+)[ ]*$/ && length($1) >= $fence_length) {
+                undef $fence_char;
+                undef $fence_length;
+                undef $fence_line;
+                @fence_containers = ();
+              }
+              next LINE;
+            }
+
+            my ($offset, $matched) = continue_containers($line, \@containers);
+            splice @containers, $matched if $matched < @containers;
+            $offset = open_containers($line, $offset, \@containers);
+            my $content = substr($line, $offset);
+            next LINE unless $content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/;
+            my ($marker, $info) = ($1, $2);
+            my $char = substr($marker, 0, 1);
+            # CommonMark does not treat a backtick sequence as an opening fence
+            # when its info string itself contains a backtick.
+            next LINE if $char eq "`" && index($info, "`") >= 0;
+            $fence_char = $char;
+            $fence_length = length($marker);
+            $fence_line = $line_number;
+            @fence_containers = map { { %$_ } } @containers;
+            next LINE;
           }
-          my ($content, $base_indent) =
-            markdown_container_content($container_line, \@list_indents);
-          next unless $content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/;
-          my ($marker, $info) = ($1, $2);
-          my $char = substr($marker, 0, 1);
-          # CommonMark does not treat a backtick sequence as an opening fence
-          # when its info string itself contains a backtick.
-          next if $char eq "`" && index($info, "`") >= 0;
-          $fence_char = $char;
-          $fence_length = length($marker);
-          $fence_line = $line_number;
-          $fence_quote_depth = $quote_depth;
-          $fence_base_indent = $base_indent;
         }
         if (defined $fence_char) {
           (my $relative = $file) =~ s{^\Q$root\E/?}{};
