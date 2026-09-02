@@ -93,11 +93,23 @@ check_markdown_structure() {
       return ($width, $ordered, $start, $has_content);
     }
 
+    sub fence_opener_details {
+      my ($content) = @_;
+      return unless $content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/;
+      my ($marker, $info) = ($1, $2);
+      my $char = substr($marker, 0, 1);
+      # A backtick sequence whose info string contains a backtick is paragraph
+      # text, not a fenced-code opener. Tilde info strings have no such rule.
+      return if $char eq "`" && index($info, "`") >= 0;
+      return ($char, length($marker));
+    }
+
     sub interrupts_paragraph {
       my ($remaining) = @_;
       return 1 if $remaining =~ /^ *$/;
       return 1 if $remaining =~ /^ {0,3}>/;
-      return 1 if $remaining =~ /^ {0,3}(?:`{3,}|~{3,})/;
+      my @fence = fence_opener_details($remaining);
+      return 1 if @fence;
       return 1 if $remaining =~ /^ {0,3}#{1,6}(?:[ ]|$)/;
       return 1 if thematic_break($remaining);
       my ($starts_html, undef, undef, $html_interrupts) =
@@ -315,19 +327,15 @@ check_markdown_structure() {
               next LINE;
             }
 
-            if ($content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/) {
-              my ($marker, $info) = ($1, $2);
-              my $char = substr($marker, 0, 1);
-              # CommonMark does not treat a backtick sequence as an opening
-              # fence when its info string itself contains a backtick.
-              if ($char ne "`" || index($info, "`") < 0) {
-                $fence_char = $char;
-                $fence_length = length($marker);
-                $fence_line = $line_number;
-                @fence_containers = map { { %$_ } } @containers;
-                $paragraph_active = 0;
-                next LINE;
-              }
+            my ($opening_char, $opening_length) =
+              fence_opener_details($content);
+            if (defined $opening_char) {
+              $fence_char = $opening_char;
+              $fence_length = $opening_length;
+              $fence_line = $line_number;
+              @fence_containers = map { { %$_ } } @containers;
+              $paragraph_active = 0;
+              next LINE;
             }
 
             if (paragraph_content($content)) {
