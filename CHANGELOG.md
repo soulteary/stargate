@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Replaced repository-local CI and release Bash programs with the pinned,
+  tested `soulteary/ci-recipes` Go tool.
 - Preserve authenticated Warden sessions when an authorization refresh is
   canceled or reaches the request deadline; the current request still fails
   closed without turning a transient provider timeout into a logout.

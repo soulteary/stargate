@@ -22,6 +22,7 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  CI_RECIPES_VERSION: 2efeb2b9125e4902548665a8d3453d6bb8cdb7d6
 
 jobs:
   compatibility:
@@ -87,15 +88,18 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
 
-      # workflow_dispatch may republish a tag created before these scripts
-      # existed. Load automation from the exact commit that supplied this
-      # workflow while keeping the release source pinned to the requested tag.
-      - name: Checkout release automation
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          ref: ${{ github.workflow_sha }}
-          path: _release-automation
-          sparse-checkout: .github/scripts
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Install CI recipes
+        env:
+          GOBIN: ${{ runner.temp }}/ci-recipes-bin
+        run: |
+          go install "github.com/soulteary/ci-recipes/cmd/ci-recipes@${CI_RECIPES_VERSION}"
+          echo "$GOBIN" >> "$GITHUB_PATH"
 
       - name: Resolve release ref
         id: release
@@ -128,16 +132,10 @@ jobs:
         env:
           ALLOW_EXISTING_RELEASE_NOTES: ${{ github.event_name == 'workflow_dispatch' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash _release-automation/.github/scripts/prepare-release-notes.sh "${{ steps.release.outputs.tag }}" "$RUNNER_TEMP/release-notes.md"
+        run: ci-recipes stargate prepare-release-notes "${{ steps.release.outputs.tag }}" "$RUNNER_TEMP/release-notes.md"
 
       - name: Check documentation contracts
-        run: bash .github/scripts/check-doc-contracts.sh
-
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          go-version-file: 'go.mod'
-          cache: true
+        run: ci-recipes stargate check-doc-contracts
 
       - name: Download dependencies
         run: go mod download
@@ -412,7 +410,7 @@ jobs:
       - name: Create or repair GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash _release-automation/.github/scripts/publish-github-release.sh "${{ steps.release.outputs.tag }}" "$RUNNER_TEMP/release-notes.md" dist
+        run: ci-recipes stargate publish-github-release "${{ steps.release.outputs.tag }}" "$RUNNER_TEMP/release-notes.md" dist
 
   reconcile-aliases:
     name: Reconcile mutable release aliases
@@ -429,12 +427,18 @@ jobs:
       cancel-in-progress: false
       queue: max
     steps:
-      - name: Checkout release automation
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          ref: ${{ github.workflow_sha }}
-          path: _release-automation
-          sparse-checkout: .github/scripts
+          go-version: 1.27.x
+          cache: false
+
+      - name: Install CI recipes
+        env:
+          GOBIN: ${{ runner.temp }}/ci-recipes-bin
+        run: |
+          go install "github.com/soulteary/ci-recipes/cmd/ci-recipes@${CI_RECIPES_VERSION}"
+          echo "$GOBIN" >> "$GITHUB_PATH"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
@@ -449,4 +453,4 @@ jobs:
       - name: Reconcile latest, major, and minor aliases
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bash _release-automation/.github/scripts/reconcile-release-aliases.sh "${{ needs.release.outputs.tag }}" "${REGISTRY}/${IMAGE_NAME}"
+        run: ci-recipes stargate reconcile-release-aliases "${{ needs.release.outputs.tag }}" "${REGISTRY}/${IMAGE_NAME}"
