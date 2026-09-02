@@ -109,33 +109,46 @@ check_markdown_structure() {
       return $content =~ /^ {0,3}(?:=+|-+)[ \t]*$/;
     }
 
+    sub reference_title {
+      my ($content) = @_;
+      # CommonMark backslash escapes may protect ASCII punctuation, including
+      # the delimiter used by any of the three reference-title forms.
+      return $content =~ m{^(?:
+        "(?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^"\\])*" |
+        \x27(?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^\x27\\])*\x27 |
+        \((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^()\\])*\)
+      )[ \t]*$}x;
+    }
+
     sub link_reference_definition {
       my ($content) = @_;
       return unless $content =~ m{^ {0,3}
         \[(?:\\.|[^\]\\])+\]:[ \t]*
-        (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)
-        (?:[ \t]+("[^"]*"|\x27[^\x27]*\x27|\([^()]*\)))?
-        [ \t]*$
+        (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)(.*)$
       }x;
-      return (1, defined($1));
+      my $remainder = $1;
+      return (1, 0) if $remainder =~ /^[ \t]*$/;
+      return unless $remainder =~ s/^[ \t]+//;
+      return unless reference_title($remainder);
+      return (1, 1);
     }
 
     sub reference_destination_details {
       my ($content) = @_;
       return unless $content =~ m{^ {0,3}
-        (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)
-        (?:([ \t]+(?:"[^"]*"|\x27[^\x27]*\x27|\([^()]*\))))?
-        [ \t]*$
+        (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)(.*)$
       }x;
-      return (1, defined($1));
+      my $remainder = $1;
+      return (1, 0) if $remainder =~ /^[ \t]*$/;
+      return unless $remainder =~ s/^[ \t]+//;
+      return unless reference_title($remainder);
+      return (1, 1);
     }
 
     sub reference_title_line {
       my ($content) = @_;
-      return $content =~ m{^ {0,3}
-        (?:"[^"]*"|\x27[^\x27]*\x27|\([^()]*\))
-        [ \t]*$
-      }x;
+      return 0 unless $content =~ /^ {0,3}(.*)$/;
+      return reference_title($1);
     }
 
     sub following_reference_title_line {
@@ -215,7 +228,7 @@ check_markdown_structure() {
 
       if ($content =~ /^ {0,3}<(script|pre|style|textarea)(?:[ \t]|>|$)/i) {
         my $tag = $1;
-        return (1, qr{</\Q$tag\E[ \t]*>}i, 0, 1);
+        return (1, qr{</\Q$tag\E>}i, 0, 1);
       }
 
       if ($content =~ m{^ {0,3}</?(?:
