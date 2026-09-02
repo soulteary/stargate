@@ -138,6 +138,33 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Unfenced commands may be the content of Markdown list items. Nested ordered,
+# unordered, and task-list markers are presentation syntax, not shell argv.
+printf '%s\n' \
+  '' \
+  '- htpasswd -C 10 -bn "" password' \
+  '1. htpasswd -bn "" password' \
+  '- [ ] 1. htpasswd -bn "" password' \
+  '> - htpasswd -bn "" password' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command in a Markdown list failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# A prose list item beginning with the program name remains non-executable
+# when no option follows the command word.
+printf '%s\n' \
+  '' \
+  '- htpasswd supports interactive password entry.' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a prose list item mentioning htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Assignment data may mention htpasswd without executing it.
 printf '%s\n' \
   '' \
@@ -297,6 +324,21 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command after path-qualified env failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# For GNU env a standalone dash is the short spelling of ignore-environment;
+# it is an option, not the delegated command word.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'env - htpasswd -C 10 -bn "" password' \
+  '/usr/bin/env - htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after env standalone dash failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
