@@ -75,11 +75,18 @@ contract_violation_count() {
       return (0, "");
     }
 
+    sub shell_line_continues {
+      my ($line) = @_;
+      return 0 unless $line =~ /(\\+)$/;
+      return length($1) % 2;
+    }
+
     sub markdown_command_contexts {
       my ($text) = @_;
       my @contexts;
       my ($fence_char, $fence_length, $capture_fence, $console_fence,
-          $console_prompt_seen, $fence_content, $console_commands);
+          $console_prompt_seen, $console_command_continuing,
+          $fence_content, $console_commands);
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -96,6 +103,7 @@ contract_violation_count() {
             undef $capture_fence;
             $fence_content = "";
             $console_commands = "";
+            $console_command_continuing = 0;
             next;
           }
           if ($capture_fence) {
@@ -103,6 +111,10 @@ contract_violation_count() {
             if ($console_fence && $has_prompt) {
               $console_prompt_seen = 1;
               $console_commands .= "$command\n";
+              $console_command_continuing = shell_line_continues($command);
+            } elsif ($console_fence && $console_command_continuing) {
+              $console_commands .= "$line\n";
+              $console_command_continuing = shell_line_continues($line);
             } else {
               # Keep plain console blocks usable as command-only blocks. Once
               # any prompt is present, this buffer is transcript output and
@@ -121,6 +133,7 @@ contract_violation_count() {
             $info =~ /^(?:bash|sh|shell|zsh|console|terminal)$/i;
           $console_fence = $info =~ /^(?:console|terminal)$/i;
           $console_prompt_seen = 0;
+          $console_command_continuing = 0;
           $fence_content = "";
           $console_commands = "";
           next;
@@ -990,6 +1003,35 @@ contract_violation_count() {
       return $index < @arguments ? @arguments[$index .. $#arguments] : ();
     }
 
+    sub nice_option_needs_operand {
+      my ($option) = @_;
+      return 0 if $option =~ /^--[^=]+=/;
+      return 1 if $option eq "--adjustment";
+      return 1 if $option =~ /^-[^-]*n$/;
+      return 0;
+    }
+
+    sub nice_command_arguments {
+      my (@arguments) = @_;
+      my $command_index = command_word_index(@arguments);
+      return unless $command_index >= 0;
+      return unless $arguments[$command_index] =~ m{(?:^|/)nice$};
+
+      my $index = $command_index + 1;
+      while ($index < @arguments) {
+        my $option = $arguments[$index];
+        if ($option eq "--") {
+          $index++;
+          last;
+        }
+        last unless $option =~ /^-/ && $option ne "-";
+        my $needs_operand = nice_option_needs_operand($option);
+        $index++;
+        $index++ if $needs_operand && $index < @arguments;
+      }
+      return $index < @arguments ? @arguments[$index .. $#arguments] : ();
+    }
+
     sub eval_command {
       my (@arguments) = @_;
       my $command_index = command_word_index(@arguments);
@@ -1029,6 +1071,10 @@ contract_violation_count() {
       my @timeout_command = timeout_command_arguments(@arguments);
       $unsafe += unsafe_htpasswd_count_in_arguments(@timeout_command)
         if @timeout_command;
+
+      my @nice_command = nice_command_arguments(@arguments);
+      $unsafe += unsafe_htpasswd_count_in_arguments(@nice_command)
+        if @nice_command;
 
       my $command_index = htpasswd_command_index(@arguments);
       return $unsafe if $command_index < 0;
