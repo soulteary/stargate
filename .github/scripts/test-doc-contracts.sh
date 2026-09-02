@@ -240,6 +240,34 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Bash permits `{varname}` in place of a numeric file descriptor and allocates
+# the descriptor before invoking the command. Attached and separate targets
+# must both be skipped while locating the command word.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '{fd}>/tmp/htpasswd.log htpasswd -bn "" password' \
+  '{capture}> /tmp/htpasswd.log htpasswd -C 10 -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command after an allocated descriptor redirection failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '{htpasswd}>/tmp/output printf "%s\\n" "-b"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an allocated descriptor named htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Shell grammar prefixes and leading redirections do not change the command
 # word; each form must still expose htpasswd options to the contract check.
 printf '%s\n' \
@@ -793,6 +821,35 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command in a wrapped env split string failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# GNU env uses its own split-string grammar. Outside double quotes, `\_` is an
+# argument boundary; quoted empty arguments and the original argv tail remain
+# part of the command env eventually executes.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "env -S 'htpasswd -bn\\_\"\"\\_password'" \
+  "env -S 'htpasswd -C' 10 -bn \"\" password" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe escaped env split-string command failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "env -S 'printf\\_\"%s\\\\n\"\\_\"htpasswd -b\"'" \
+  "env -S 'printf\\_\"htpasswd\\_-b\"'" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected env split-string data mentioning htpasswd to pass" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
