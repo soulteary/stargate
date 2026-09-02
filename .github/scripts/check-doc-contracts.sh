@@ -379,9 +379,13 @@ contract_violation_count() {
             $arithmetic->{escaped} = 1;
           } elsif ($char eq "\x27" || $char eq "\"") {
             $arithmetic->{quote} = $char;
-          } elsif ($char eq "(") {
+          } elsif ($arithmetic->{delimiter} eq ")" && $char eq "(") {
             $arithmetic->{depth}++;
-          } elsif ($char eq ")") {
+          } elsif ($arithmetic->{delimiter} eq ")" && $char eq ")") {
+            $arithmetic->{depth}--;
+          } elsif ($arithmetic->{delimiter} eq "]" && $char eq "[") {
+            $arithmetic->{depth}++;
+          } elsif ($arithmetic->{delimiter} eq "]" && $char eq "]") {
             $arithmetic->{depth}--;
           }
           $offset++;
@@ -429,9 +433,13 @@ contract_violation_count() {
         # documentation lines as a fictitious heredoc body.
         my $arithmetic_prefix =
           substr($line, $offset, 3) eq "\x24((" ? 3 :
-          substr($line, $offset, 2) eq "((" ? 2 : 0;
+          substr($line, $offset, 2) eq "((" ? 2 :
+          substr($line, $offset, 2) eq "\x24[" ? 2 : 0;
         if ($arithmetic_prefix) {
-          $arithmetic->{depth} = 2;
+          my $legacy_brackets =
+            substr($line, $offset, 2) eq "\x24[";
+          $arithmetic->{depth} = $legacy_brackets ? 1 : 2;
+          $arithmetic->{delimiter} = $legacy_brackets ? "]" : ")";
           $arithmetic->{quote} = "";
           $arithmetic->{escaped} = 0;
           $offset += $arithmetic_prefix;
@@ -516,7 +524,8 @@ contract_violation_count() {
       my @command_lines;
       my @expanding_bodies;
       my @pending;
-      my %arithmetic = (depth => 0, quote => "", escaped => 0);
+      my %arithmetic =
+        (depth => 0, delimiter => "", quote => "", escaped => 0);
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -887,6 +896,68 @@ contract_violation_count() {
       return $index < @arguments ? @arguments[$index .. $#arguments] : ();
     }
 
+    sub wrapper_index {
+      my ($target, @arguments) = @_;
+      my %prefix = map { $_ => 1 }
+        qw(if then elif else while until do coproc !);
+      my %wrapper = map { $_ => 1 }
+        qw(command exec builtin nohup env sudo time);
+      my $index = 0;
+
+      while ($index < @arguments) {
+        my $argument = $arguments[$index];
+        if ($argument eq "\x24" || $prefix{$argument} ||
+            $argument =~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+          $index++;
+          next;
+        }
+
+        my ($redirection, $has_target) = redirection_details($argument);
+        if ($redirection) {
+          $index += $has_target ? 1 : 2;
+          next;
+        }
+
+        return -1 unless $wrapper{$argument};
+        my $wrapper = $argument;
+        my $wrapper_index = $index;
+        $index++;
+        while ($index < @arguments) {
+          my $option = $arguments[$index];
+          if ($option eq "--") {
+            $index++;
+            last;
+          }
+          last unless $option =~ /^-/ && $option ne "-";
+          my $needs_operand = wrapper_option_needs_operand($wrapper, $option);
+          $index++;
+          $index++ if $needs_operand && $index < @arguments;
+        }
+        return $wrapper_index if $wrapper eq $target;
+      }
+      return -1;
+    }
+
+    sub env_split_string {
+      my (@arguments) = @_;
+      my $env_index = wrapper_index("env", @arguments);
+      return unless $env_index >= 0;
+
+      for (my $index = $env_index + 1; $index < @arguments; $index++) {
+        my $option = $arguments[$index];
+        last if $option eq "--";
+        return $arguments[$index + 1] // "" if
+          $option eq "-S" || $option eq "--split-string" ||
+          $option =~ /^-[^-]*S$/;
+        return $1 if $option =~ /^--split-string=(.*)$/s;
+        return $1 if $option =~ /^-[^-]*S(.+)$/s;
+        last unless $option =~ /^-/ && $option ne "-";
+        my $needs_operand = wrapper_option_needs_operand("env", $option);
+        $index++ if $needs_operand && $index + 1 < @arguments;
+      }
+      return;
+    }
+
     sub timeout_option_needs_operand {
       my ($option) = @_;
       return 0 if $option =~ /^--[^=]+=/;
@@ -943,6 +1014,13 @@ contract_violation_count() {
       my $evaluated_command = eval_command(@arguments);
       $unsafe += unsafe_htpasswd_count_in_context($evaluated_command)
         if defined $evaluated_command && length($evaluated_command);
+
+      my $split_string = env_split_string(@arguments);
+      if (defined $split_string && length($split_string)) {
+        my @split_arguments = shell_tokens($split_string);
+        $unsafe += unsafe_htpasswd_count_in_arguments(@split_arguments)
+          if @split_arguments;
+      }
 
       my @xargs_command = xargs_command_arguments(@arguments);
       $unsafe += unsafe_htpasswd_count_in_arguments(@xargs_command)
