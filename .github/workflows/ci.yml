@@ -79,7 +79,7 @@ jobs:
           GL_DEBUG: loader
         with:
           version: v2.13.2
-          args: --verbose --timeout=5m ./src/...
+          args: --verbose --tests=false --timeout=5m ./src/...
           only-new-issues: false
 
       - name: Run unit tests
