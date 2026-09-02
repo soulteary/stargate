@@ -311,8 +311,20 @@ check_markdown_structure() {
             my $opened;
             ($offset, $opened) =
               open_containers($line, $offset, \@containers, $paragraph_here);
-            $paragraph_active = 0 if $opened;
+            if ($opened) {
+              $paragraph_active = 0;
+              $paragraph_here = 0;
+            }
             my $content = substr($line, $offset);
+
+            # Four spaces at the current container content column start an
+            # indented code leaf when there is no paragraph to continue. It
+            # must not create paragraph state that prevents a later non-one
+            # ordered list from opening.
+            if (!$paragraph_here && $content =~ /^ {4}/) {
+              $paragraph_active = 0;
+              next LINE;
+            }
 
             my ($starts_html, $html_end, $until_blank, $html_interrupts) =
               html_block_start($content);
