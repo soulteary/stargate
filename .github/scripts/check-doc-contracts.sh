@@ -135,7 +135,14 @@ contract_violation_count() {
             $token .= $char;
             $escaped = 0;
           } elsif ($char eq "\\") {
-            $escaped = 1;
+            my $next = $offset + 1 < length($text)
+              ? substr($text, $offset + 1, 1)
+              : "";
+            if ($next =~ /^[\$`"\\]$/) {
+              $escaped = 1;
+            } else {
+              $token .= $char;
+            }
           } elsif ($char eq "\"") {
             $quote = "";
           } else {
@@ -202,8 +209,11 @@ contract_violation_count() {
               next;
             }
             if ($char eq "\\") {
+              my $next = $cursor + 1 < length($text)
+                ? substr($text, $cursor + 1, 1)
+                : "";
               $segment .= $char;
-              $escaped = 1;
+              $escaped = 1 if $next =~ /^[\$`"\\]$/;
               $cursor++;
               next;
             }
