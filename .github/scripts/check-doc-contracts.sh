@@ -277,6 +277,86 @@ contract_violation_count() {
       }
     }, "$root/docs", glob("$root/README*.md"));
 
+    my $compose_path = "$root/docker-compose.yml";
+    open my $compose_fh, "<", $compose_path or die "open $compose_path: $!";
+    local $/;
+    my $compose = <$compose_fh>;
+    my ($compose_network_key, $compose_network_name) =
+      $compose =~ /^networks:\s*\n\s{2}([^:\s]+):\s*\n\s{4}name:\s*([^\s#]+)/m;
+    if (!defined($compose_network_key) || !defined($compose_network_name)) {
+      warn "Cannot resolve the Compose-managed Traefik network in $compose_path\n";
+      $count++;
+    } elsif ($compose_network_key ne "traefik" ||
+             $compose_network_name ne "stargate-traefik") {
+      warn "Bundled Compose must preserve logical key traefik and actual name stargate-traefik in $compose_path\n";
+      $count++;
+    } else {
+      my $attached_services = () = $compose =~ /^\s{6}-\s+\Q$compose_network_key\E\s*$/mg;
+      if ($attached_services < 3) {
+        warn "Not every bundled service uses logical network key $compose_network_key in $compose_path\n";
+        $count++;
+      }
+      my @label_networks = $compose =~ /traefik\.docker\.network=([^\s"]+)/g;
+      if (!@label_networks) {
+        warn "Missing Traefik Docker network labels in $compose_path\n";
+        $count++;
+      }
+      for my $label_network (@label_networks) {
+        next if $label_network eq $compose_network_name;
+        warn "Traefik label network $label_network does not match $compose_network_name in $compose_path\n";
+        $count++;
+      }
+    }
+
+    my ($compose_subnet) = $compose =~ /^\s*-\s+subnet:\s*([^\s#]+)/m;
+    my ($trusted_proxies) = $compose =~ /^\s*-\s+TRUSTED_PROXIES=([^\s#]+)/m;
+    if (!defined($compose_subnet) || !defined($trusted_proxies) ||
+        $compose_subnet ne $trusted_proxies) {
+      warn "Compose subnet and TRUSTED_PROXIES differ in $compose_path\n";
+      $count++;
+    }
+
+    my @deployment_files = glob "$root/docs/*/DEPLOYMENT.md";
+    if (!@deployment_files) {
+      warn "No localized deployment guides found\n";
+      $count++;
+    }
+    my $external_name = q!${TRAEFIK_NETWORK_NAME:-traefik}!;
+    my $external_label = "traefik.docker.network=$external_name";
+    for my $file (@deployment_files) {
+      open my $fh, "<", $file or die "open $file: $!";
+      local $/;
+      my $text = <$fh>;
+      my @requirements = (
+        ["bundled network name", "stargate-traefik"],
+        ["bundled Compose validation", "docker compose config"],
+        ["external network name export", qq{export TRAEFIK_NETWORK_NAME="$external_name"}],
+        ["existing network inspection", qq{docker network inspect "\$TRAEFIK_NETWORK_NAME"}],
+        ["explicit external subnet creation", "--subnet 172.30.0.0/24"],
+        ["created subnet export", "export TRAEFIK_NETWORK_CIDR=172.30.0.0/24"],
+        ["inspected trusted-proxy CIDR", q!TRUSTED_PROXIES=${TRAEFIK_NETWORK_CIDR:?set TRAEFIK_NETWORK_CIDR from docker network inspect}!],
+        ["external Compose network name", "name: $external_name"],
+        ["external network declaration", "external: true"],
+        ["external Traefik label", $external_label],
+      );
+      for my $requirement (@requirements) {
+        my ($label, $needle) = @$requirement;
+        next if index($text, $needle) >= 0;
+        warn "Missing $label contract in $file\n";
+        $count++;
+      }
+      if ($text =~ /TRUSTED_PROXIES=172\.30\.0\.0\/24/ ||
+          $text =~ /traefik\.docker\.network=traefik/ ||
+          $text =~ /docker network create traefik/) {
+        warn "Hard-coded external Traefik network contract in $file\n";
+        $count++;
+      }
+      while ($text =~ /traefik\.docker\.network=([^\s"]+)/g) {
+        next if $1 eq $external_name;
+        warn "External Traefik label does not use the configured network name in $file\n";
+        $count++;
+      }
+    }
     print "$count\n";
   ' "$root"
 }
@@ -286,7 +366,7 @@ current_violations=$(contract_violation_count "$repo_root" 2>/dev/null)
 
 if [[ -n "$base_sha" ]]; then
   temp_dir=$(mktemp -d)
-  git archive "$base_sha" -- 'README*.md' CHANGELOG.md docs src/internal/config/config.go \
+  git archive "$base_sha" -- 'README*.md' CHANGELOG.md docker-compose.yml docs src/internal/config/config.go \
     src/cmd/stargate/constants.go src/cmd/stargate/server.go \
     | tar -x -C "$temp_dir"
   base_violations=$(contract_violation_count "$temp_dir" 2>/dev/null)

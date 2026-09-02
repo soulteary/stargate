@@ -45,6 +45,9 @@ jobs:
           bash .github/scripts/test-doc-contracts.sh
           bash .github/scripts/test-go-version-contract.sh
 
+      - name: Validate Docker Compose configuration
+        run: docker compose config >/dev/null
+
       - name: Check release-note extraction
         run: |
           bash .github/scripts/test-release-notes.sh

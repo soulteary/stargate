@@ -162,7 +162,16 @@ docker rm stargate
 
 ### Configuration de Base
 
-Le projet fournit un fichier d'exemple `docker-compose.yml` :
+Le fichier `docker-compose.yml` à la racine du dépôt constitue la pile intégrée : il démarre Traefik, Stargate et le service de démonstration protégé sur le réseau `stargate-traefik` géré par Compose (`172.30.0.0/24`). Aucun réseau externe préexistant n'est nécessaire.
+
+```bash
+docker compose config
+docker compose up -d
+```
+
+### Utiliser un réseau Traefik externe existant
+
+Utilisez l'exemple distinct ci-dessous uniquement si Traefik fonctionne déjà sur un réseau Docker externe partagé. Le nom réel du réseau et le CIDR obtenu par inspection alimentent le réseau Compose, chaque label `traefik.docker.network` et `TRUSTED_PROXIES`.
 
 ```yaml
 services:
@@ -173,13 +182,13 @@ services:
       - PASSWORDS=plaintext:test1234|test1337
       - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
-      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
+      - TRUSTED_PROXIES=${TRAEFIK_NETWORK_CIDR:?set TRAEFIK_NETWORK_CIDR from docker network inspect}
       - COOKIE_SECURE=false # Local HTTP only; omit for HTTPS.
     networks:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=traefik
+      - traefik.docker.network=${TRAEFIK_NETWORK_NAME:-traefik}
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`)
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
@@ -191,20 +200,43 @@ services:
       - traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=traefik
+      - traefik.docker.network=${TRAEFIK_NETWORK_NAME:-traefik}
       - traefik.http.routers.whoami.entrypoints=http
       - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
       - "traefik.http.routers.whoami.middlewares=stargate"
 
 networks:
   traefik:
+    name: ${TRAEFIK_NETWORK_NAME:-traefik}
     external: true
 ```
 
-### Démarrer les Services
+### Inspecter ou créer le réseau externe
+
+Si le réseau existe, les commandes l'inspectent et réutilisent tous ses CIDR attribués ; ne supprimez ni ne recréez un réseau de production existant. S'il n'existe pas, elles le créent avec le sous-réseau documenté.
 
 ```bash
-docker network inspect traefik >/dev/null 2>&1 || docker network create traefik
+export TRAEFIK_NETWORK_NAME="${TRAEFIK_NETWORK_NAME:-traefik}"
+
+if docker network inspect "$TRAEFIK_NETWORK_NAME" >/dev/null 2>&1; then
+  export TRAEFIK_NETWORK_CIDR="$(
+    docker network inspect "$TRAEFIK_NETWORK_NAME" \
+      --format '{{range .IPAM.Config}}{{println .Subnet}}{{end}}' |
+      awk 'NF { cidr = cidr separator $0; separator = "," } END { print cidr }'
+  )"
+  if [ -z "$TRAEFIK_NETWORK_CIDR" ]; then
+    echo "No subnet found for Docker network $TRAEFIK_NETWORK_NAME" >&2
+    exit 1
+  fi
+else
+  docker network create \
+    --driver bridge \
+    --subnet 172.30.0.0/24 \
+    "$TRAEFIK_NETWORK_NAME"
+  export TRAEFIK_NETWORK_CIDR=172.30.0.0/24
+fi
+
+docker compose config
 docker compose up -d
 ```
 
@@ -235,7 +267,7 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
-      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
+      - TRUSTED_PROXIES=${TRAEFIK_NETWORK_CIDR:?set TRAEFIK_NETWORK_CIDR from docker network inspect}
       - DEBUG=false
       - LANGUAGE=fr
       - COOKIE_DOMAIN=.example.com
@@ -259,12 +291,12 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
-      - TRUSTED_PROXIES=172.30.0.0/24 # Replace with the actual Traefik network CIDR.
+      - TRUSTED_PROXIES=${TRAEFIK_NETWORK_CIDR:?set TRAEFIK_NETWORK_CIDR from docker network inspect}
     networks:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
+      - "traefik.docker.network=${TRAEFIK_NETWORK_NAME:-traefik}"
       - "traefik.http.routers.auth.entrypoints=http,https"
       - "traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)"
       - "traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth"
@@ -283,7 +315,7 @@ services:
       - traefik
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=traefik"
+      - "traefik.docker.network=${TRAEFIK_NETWORK_NAME:-traefik}"
       - "traefik.http.routers.your-app.entrypoints=http,https"
       - "traefik.http.routers.your-app.rule=Host(`app.example.com`)"
       - "traefik.http.routers.your-app.middlewares=stargate"  # Appliquer le middleware d'authentification
