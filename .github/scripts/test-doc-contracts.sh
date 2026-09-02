@@ -521,6 +521,18 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# Trailing spaces on a marker-only line do not establish wide item padding.
+# A four-space-indented fence on the next line belongs to the blank item.
+printf '%s\n' \
+  '-    ' \
+  '    ```text' \
+  '    unclosed fence in a blank list item' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence inside a blank list item failure" >&2
+  exit 1
+fi
+
 # Container markers can interleave. A quote opened after a list marker must be
 # part of the fence context rather than hiding an unclosed fence.
 printf '%s\n' \
@@ -713,6 +725,31 @@ printf '%s\n' \
   > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unclosed fence after an escaped reference label failure" >&2
+  exit 1
+fi
+
+# A backslash before a non-punctuation character stays literal in a valid
+# label instead of acting as an invalid escape.
+printf '%s\n' \
+  '[foo\bar]: /target' \
+  '22. list item after a literal-backslash label' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a literal-backslash label failure" >&2
+  exit 1
+fi
+
+# Reference titles use the same literal-backslash rule.
+printf '%s\n' \
+  '[reference]: /target "foo\bar"' \
+  '22. list item after a literal-backslash title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a literal-backslash title failure" >&2
   exit 1
 fi
 
