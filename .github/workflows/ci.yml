@@ -75,11 +75,9 @@ jobs:
       - name: Run golangci-lint
         if: steps.changes.outputs.code == 'true'
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
-        env:
-          GL_DEBUG: loader
         with:
           version: v2.13.2
-          args: --verbose --tests=false --timeout=5m ./src/...
+          args: --tests=false --timeout=5m ./src/...
           only-new-issues: false
 
       - name: Run unit tests

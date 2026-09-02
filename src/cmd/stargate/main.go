@@ -99,6 +99,7 @@ func runApplication() error {
 
 // runApplicationWithApp allows injecting a custom app for testing.
 // This is useful for testing the application flow without actually starting a server.
+//nolint:unused // Test helper; test packages are compiled and run separately.
 func runApplicationWithApp(app *fiber.App) error {
 	// Display startup banner
 	showBanner()
