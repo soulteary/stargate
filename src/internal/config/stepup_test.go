@@ -72,6 +72,8 @@ func TestValidStepUpPathPattern(t *testing.T) {
 		{name: "embedded NUL", pattern: "/ad\x00min", valid: false},
 		{name: "embedded control", pattern: "/ad\x1fmin", valid: false},
 		{name: "Unicode control", pattern: "/ad\u0085min", valid: false},
+		{name: "encoded UTF-8 control", pattern: "/admin/%C2%85", valid: false},
+		{name: "encoded non-UTF-8 C1 byte", pattern: "/admin/%85", valid: false},
 		{name: "encoded NUL", pattern: "/admin/%00", valid: false},
 		{name: "encoded LF uppercase", pattern: "/admin/%0A", valid: false},
 		{name: "encoded LF lowercase", pattern: "/admin/%0a", valid: false},

@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 // StepUpMatcher handles step-up authentication path matching
@@ -20,7 +21,7 @@ var stepUpMatcher *StepUpMatcher
 // backslashes.
 func ValidStepUpPathPattern(raw string) bool {
 	decoded, err := url.PathUnescape(raw)
-	if err != nil || strings.IndexFunc(decoded, unicode.IsControl) >= 0 {
+	if err != nil || !utf8.ValidString(decoded) || strings.IndexFunc(decoded, unicode.IsControl) >= 0 {
 		return false
 	}
 
