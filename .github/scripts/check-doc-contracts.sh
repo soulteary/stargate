@@ -841,7 +841,7 @@ contract_violation_count() {
     sub xargs_option_needs_operand {
       my ($option) = @_;
       return 0 if $option =~ /^--[^=]+=/;
-      return 1 if $option =~ /^--(?:arg-file|delimiter|eof|replace|max-lines|max-args|max-procs|max-chars|process-slot-var)$/;
+      return 1 if $option =~ /^--(?:arg-file|delimiter|max-lines|max-args|max-procs|max-chars|process-slot-var)$/;
       return 1 if $option =~ /^-[^-]*[adEILnPs]$/;
       return 0;
     }
