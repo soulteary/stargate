@@ -289,6 +289,59 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Indexed and associative array-element assignments are still assignment words;
+# Bash proceeds to execute the command which follows them.
+for array_assignment_command in \
+  'slot[0]=x htpasswd -bn "" password' \
+  'labels[key]=x sudo -u root htpasswd -bn "" password'
+do
+  printf '%s\n' \
+    '' \
+    '```bash' \
+    "$array_assignment_command" \
+    '```' \
+    >> "$temp_dir/docs/enUS/CONFIG.md"
+  if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+    echo "Expected an unsafe command after an array-element assignment failure" >&2
+    exit 1
+  fi
+  git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+done
+
+printf '%s\n' \
+  '' \
+  'slot[0]=x htpasswd -bn "" password' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe standalone command after an array-element assignment failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# The dedicated wrapper search used by env -S must skip the same assignment
+# forms as ordinary command-word selection.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "slot[0]=x env -S 'htpasswd -bn \"\" password'" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe env split command after an array assignment failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  'slot[0]="do not use htpasswd -bn"' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected array-element assignment data mentioning htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # File-descriptor and combined-output redirections stay inside the command;
 # neither form may hide a batch-password option which follows it.
 printf '%s\n' \
@@ -1181,6 +1234,59 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe modern htpasswd command substitution failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Backslash-newline removal applies while Bash constructs a heredoc delimiter.
+# The complete logical declaration must be parsed before body filtering begins.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'cat <<EO\' \
+  'F' \
+  'literal payload' \
+  'EOF' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command after a continued heredoc delimiter failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Double quotes also remove a backslash-newline pair while leaving the completed
+# delimiter literal, so this spelling must terminate at the same EOF line.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'cat <<"EO\' \
+  'F"' \
+  'literal payload' \
+  'EOF' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command after a quoted continued delimiter failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# A trailing backslash inside a shell comment does not continue the line. The
+# following heredoc must therefore retain and filter its payload normally.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '# comment ending in a backslash \' \
+  'cat <<EOF' \
+  'htpasswd -bn "" password' \
+  'EOF' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a heredoc after a comment backslash to remain filtered" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
