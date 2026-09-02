@@ -55,9 +55,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Download dependencies
+      - name: Export GOPATH
         if: steps.changes.outputs.code == 'true'
-        run: go mod download
+        run: echo "GOPATH=$(go env GOPATH)" >> "$GITHUB_ENV"
 
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
