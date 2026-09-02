@@ -68,6 +68,49 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Unfenced and indented shell examples can use physical continuations just
+# like fenced commands. The later option remains part of the first command.
+printf '%s\n' \
+  '' \
+  '    htpasswd -C 10 \' \
+  '      -bn "" password' \
+  '> htpasswd -C 10 \' \
+  '>   -bn "" password' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe continued standalone command failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Backslash-newline removal does not insert a separator. It can join an option
+# across physical lines, while the same text inside quotes remains data.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'htpasswd -C 10 -\' \
+  'bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe option joined across a continued newline failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'printf "%s\\n" "htpasswd -\' \
+  'b"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected quoted data joined across a continued newline to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Quoting an option does not change the argv value received by htpasswd.
 printf '\n```bash\nhtpasswd -C 10 "-bn" "" password\n```\n' >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
@@ -268,6 +311,33 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Bash brace expansion can synthesize a batch option before quote removal.
+# Fully quoted brace syntax remains one literal, non-expanded argv word.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'htpasswd -{b,n} "" password' \
+  'htpasswd -{a..c} "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe brace-expanded htpasswd option failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "htpasswd '-{b,n}' \"\" password" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected quoted brace syntax passed to htpasswd to remain literal" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Shell grammar prefixes and leading redirections do not change the command
 # word; each form must still expose htpasswd options to the contract check.
 printf '%s\n' \
@@ -459,6 +529,34 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected setsid command data mentioning htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# taskset launch mode consumes one affinity operand before executing a command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'taskset -c 0 htpasswd -bn "" password' \
+  '/usr/bin/taskset 03 htpasswd -C 10 -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command delegated through taskset failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# PID mode changes an existing process and never executes trailing argv as a
+# command; a later htpasswd-shaped phrase must therefore remain non-executable.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'taskset -pc 0 123 htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected taskset PID-mode data mentioning htpasswd to pass" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
