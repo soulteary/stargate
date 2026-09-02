@@ -92,7 +92,11 @@ check_markdown_structure() {
         : "";
       my $ordered = $marker =~ /^(\d{1,9})[.)]$/;
       my $start = $ordered ? 0 + $1 : 0;
-      return ($width, $ordered, $start, $has_content);
+      my $starts_with_indented_code = $content =~ /^ {4}/;
+      return (
+        $width, $ordered, $start, $has_content,
+        $starts_with_indented_code,
+      );
     }
 
     sub fence_opener_details {
@@ -354,8 +358,10 @@ check_markdown_structure() {
 
       my @marker = list_marker_details($remaining);
       if (@marker) {
-        my (undef, $ordered, $start, $has_content) = @marker;
-        return 1 if $has_content && (!$ordered || $start == 1);
+        my (undef, $ordered, $start, $has_content,
+            $starts_with_indented_code) = @marker;
+        return 1 if $has_content && !$starts_with_indented_code &&
+          (!$ordered || $start == 1);
       }
       return 0;
     }
@@ -427,11 +433,14 @@ check_markdown_structure() {
 
         my @marker = list_marker_details($remaining);
         if (@marker) {
-          my ($width, $ordered, $start, $has_content) = @marker;
+          my ($width, $ordered, $start, $has_content,
+              $starts_with_indented_code) = @marker;
           # An ordered list can interrupt a paragraph only when it starts at
-          # one, and an empty item cannot interrupt a paragraph at all.
+          # one. Empty items and items whose first block is indented code also
+          # cannot interrupt a paragraph.
           last if $paragraph_active &&
-            (!$has_content || ($ordered && $start != 1));
+            (!$has_content || $starts_with_indented_code ||
+             ($ordered && $start != 1));
           push @$containers, { type => "list", width => $width };
           $offset += $width;
           $offset = length($line) if $offset > length($line);
