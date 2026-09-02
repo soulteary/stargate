@@ -124,6 +124,44 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Shell grammar prefixes and leading redirections do not change the command
+# word; each form must still expose htpasswd options to the contract check.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'if htpasswd -bn "" password; then echo ok; fi' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd option after if failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '! htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd option after negation failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '2>/dev/null htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd option after leading redirection failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # An option mentioned after a Markdown or shell command boundary does not
 # belong to the preceding safe htpasswd invocation and must not be a violation.
 printf '%s\n' \
@@ -135,8 +173,10 @@ printf '%s\n' \
   'htpasswd -nBC 10 stargate; printf "%s\\n" "-b"' \
   'htpasswd -nBC 10 stargate & printf "%s\\n" "-b"' \
   'htpasswd -nBC 10 stargate # never add -b' \
+  'htpasswd -nBC 10 stargate > -b' \
   '# Do not invoke htpasswd with -b because that exposes the password.' \
   'printf "%s\\n" "htpasswd -b is unsafe"' \
+  'if printf "%s\\n" "htpasswd -b"; then echo ok; fi' \
   '```' \
   'Do not invoke htpasswd with -b because that exposes the password.' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
