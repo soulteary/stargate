@@ -34,6 +34,7 @@ func challengeContextTTL(expiresIn int) time.Duration {
 type memoryChallengeContextEntry struct {
 	value     challengeContext
 	expiresAt time.Time
+	timer     *time.Timer
 }
 
 type memoryChallengeContextStore struct {
@@ -50,17 +51,20 @@ func (s *memoryChallengeContextStore) PutIfAbsent(_ context.Context, value chall
 	if entry, ok := s.entries[value.ChallengeID]; ok && time.Now().Before(entry.expiresAt) {
 		s.mu.Unlock()
 		return false, nil
+	} else if ok && entry.timer != nil {
+		entry.timer.Stop()
 	}
 	expiresAt := time.Now().Add(ttl)
-	s.entries[value.ChallengeID] = memoryChallengeContextEntry{value: value, expiresAt: expiresAt}
-	s.mu.Unlock()
-	time.AfterFunc(ttl, func() {
+	challengeID := value.ChallengeID
+	timer := time.AfterFunc(ttl, func() {
 		s.mu.Lock()
 		defer s.mu.Unlock()
-		if entry, ok := s.entries[value.ChallengeID]; ok && entry.expiresAt.Equal(expiresAt) {
-			delete(s.entries, value.ChallengeID)
+		if entry, ok := s.entries[challengeID]; ok && entry.expiresAt.Equal(expiresAt) {
+			delete(s.entries, challengeID)
 		}
 	})
+	s.entries[challengeID] = memoryChallengeContextEntry{value: value, expiresAt: expiresAt, timer: timer}
+	s.mu.Unlock()
 	return true, nil
 }
 
@@ -72,6 +76,9 @@ func (s *memoryChallengeContextStore) Get(_ context.Context, challengeID string)
 		return challengeContext{}, false, nil
 	}
 	if !time.Now().Before(entry.expiresAt) {
+		if entry.timer != nil {
+			entry.timer.Stop()
+		}
 		delete(s.entries, challengeID)
 		return challengeContext{}, false, nil
 	}
@@ -81,6 +88,9 @@ func (s *memoryChallengeContextStore) Get(_ context.Context, challengeID string)
 func (s *memoryChallengeContextStore) Delete(_ context.Context, challengeID string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if entry, ok := s.entries[challengeID]; ok && entry.timer != nil {
+		entry.timer.Stop()
+	}
 	delete(s.entries, challengeID)
 	return nil
 }

@@ -50,7 +50,12 @@ func TestChallengeContextSuccessfulConsumption(t *testing.T) {
 	want := testChallengeContext()
 	_, err := store.PutIfAbsent(ctx, want, time.Minute)
 	testza.AssertNoError(t, err)
+	store.mu.Lock()
+	timer := store.entries[want.ChallengeID].timer
+	store.mu.Unlock()
 	testza.AssertNoError(t, store.Delete(ctx, want.ChallengeID))
+	// Delete already stopped the cleanup timer; a second stop returns false.
+	testza.AssertFalse(t, timer.Stop())
 	_, found, err := store.Get(ctx, want.ChallengeID)
 	testza.AssertNoError(t, err)
 	testza.AssertFalse(t, found)
