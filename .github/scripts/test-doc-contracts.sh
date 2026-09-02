@@ -830,6 +830,17 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
   exit 1
 fi
 
+# Unicode whitespace also terminates a bare destination. It cannot appear
+# inside that destination and make an otherwise invalid definition into a leaf.
+printf '[reference]: /foo\302\240bar\n%s\n%s\n' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a bare destination containing Unicode whitespace to remain paragraph text" >&2
+  exit 1
+fi
+
 # A bare destination must balance every unescaped parenthesis. An invalid
 # definition stays paragraph text, so a non-one list marker cannot interrupt.
 printf '%s\n' \
@@ -851,6 +862,20 @@ printf '%s\n' \
   > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unclosed fence interrupting a reference title failure" >&2
+  exit 1
+fi
+
+# A Setext underline transforms the preceding incomplete-label paragraph into
+# a heading. It is therefore a boundary for reference continuation lookahead.
+printf '%s\n' \
+  '[foo' \
+  '===' \
+  'bar]: /target' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a Setext underline to stop reference label lookahead" >&2
   exit 1
 fi
 
