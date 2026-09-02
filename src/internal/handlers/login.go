@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"html"
 	"net/http"
@@ -141,12 +140,9 @@ func (a *AuthAuthenticator) Authenticate(sess *session.Session) error {
 
 // loginAPIHandler is the internal handler that can be tested with mocked dependencies.
 func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator Authenticator) error {
-	// Get trace context from middleware
-	traceCtx := ctx.Locals("trace_context")
-	if traceCtx == nil {
-		traceCtx = ctx.Context()
-	}
-	spanCtx := traceCtx.(context.Context)
+	// Tracing publishes its span through Fiber's standard Context/SetContext
+	// API; when tracing is disabled this still carries the request deadline.
+	spanCtx := ctx.Context()
 
 	// Start span for login
 	loginCtx, loginSpan := tracing.StartSpan(spanCtx, "auth.login")

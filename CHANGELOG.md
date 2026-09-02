@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Added a 10-second, strictly validated request-context deadline before tracing
+  so Warden and Herald calls receive a real `Done` signal and are canceled on
+  timeout or handler completion. Fiber/fasthttp client-disconnect limitations
+  are now documented explicitly.
 - Made tag releases independently queueable and immutable, with fail-fast
   release-note validation and SemVer high-water reconciliation for mutable
   container aliases.

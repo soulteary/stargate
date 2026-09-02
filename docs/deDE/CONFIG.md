@@ -321,6 +321,7 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `OTLP_ENDPOINT` | URL | leer | OTLP-Endpunkt |
 | `AUTH_REFRESH_ENABLED` | true/false | true | Regelmäßige Autorisierungsaktualisierung |
 | `AUTH_REFRESH_INTERVAL` | Dauer | `5m` | Aktualisierungsintervall |
+| `REQUEST_CONTEXT_TIMEOUT` | Dauer | `10s` | Request-Deadline für Upstream-Aufrufe; keine Garantie für Abbruch bei Client-Trennung |
 
 HMAC Key ID und Secret müssen gemeinsam gesetzt werden. mTLS-Clientzertifikat und -schlüssel müssen ebenfalls gemeinsam gesetzt werden; unvollständige Paare führen zum Startfehler.
 

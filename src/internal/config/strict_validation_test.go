@@ -10,7 +10,7 @@ func setValidStrictTestValues(t *testing.T) {
 	t.Helper()
 	variables := []*EnvVariable{
 		&AuthHost, &CookieDomain, &CallbackAllowedHosts, &SessionExchangeSecret, &Port,
-		&WardenCacheTTL, &AuthRefreshInterval, &SessionStorageRedisDB,
+		&WardenCacheTTL, &AuthRefreshInterval, &RequestContextTimeout, &SessionStorageRedisDB,
 		&SessionStorageEnabled, &SessionStorageRedisAddr, &WardenURL, &HeraldURL,
 		&UserHeaderName, &ProxyHeader, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader,
 	}
@@ -31,6 +31,7 @@ func setValidStrictTestValues(t *testing.T) {
 	Port.Value = ""
 	WardenCacheTTL.Value = "300"
 	AuthRefreshInterval.Value = "5m"
+	RequestContextTimeout.Value = "10s"
 	SessionStorageRedisDB.Value = "0"
 	SessionStorageEnabled.Value = "false"
 	SessionStorageRedisAddr.Value = "localhost:6379"
@@ -68,6 +69,7 @@ func TestValidateStrictSettingsRejectsInvalidNumbers(t *testing.T) {
 		{"cache ttl", func() { WardenCacheTTL.Value = "0" }, WardenCacheTTL.Name},
 		{"redis db", func() { SessionStorageRedisDB.Value = "-1" }, SessionStorageRedisDB.Name},
 		{"refresh duration", func() { AuthRefreshInterval.Value = "soon" }, AuthRefreshInterval.Name},
+		{"request context duration", func() { RequestContextTimeout.Value = "0s" }, RequestContextTimeout.Name},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

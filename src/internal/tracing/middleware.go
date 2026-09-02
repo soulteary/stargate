@@ -60,7 +60,11 @@ func TracingMiddleware(serviceName string) fiber.Handler {
 		}
 		defer span.End()
 
-		// Store context in Fiber context
+		// Publish the traced standard context through Fiber's Context/SetContext
+		// API. Handlers using c.Context() now retain the request deadline,
+		// cancellation signal, context values, and active span. Locals are kept for
+		// compatibility with libraries that still read the historical key.
+		c.SetContext(ctx)
 		c.Locals("trace_context", ctx)
 		c.Locals("trace_span", span)
 

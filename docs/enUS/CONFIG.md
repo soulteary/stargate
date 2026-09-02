@@ -100,6 +100,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `OTLP_ENDPOINT` | String | empty | No |
 | `AUTH_REFRESH_ENABLED` | true/false | true | No |
 | `AUTH_REFRESH_INTERVAL` | duration | 5m | No |
+| `REQUEST_CONTEXT_TIMEOUT` | duration | 10s | No |
 
 ## Required Configuration
 
@@ -856,6 +857,26 @@ Refresh interval (Go duration, e.g. `5m`, `1h`).
 | **Default** | `5m` |
 
 **Example:** `AUTH_REFRESH_INTERVAL=10m`
+
+#### `REQUEST_CONTEXT_TIMEOUT`
+
+Maximum lifetime of the standard Go context propagated through tracing to
+Warden, Herald, and other request-scoped work. The value must be a positive Go
+duration. The default is `10s`, matching the existing Herald client timeout and
+remaining below Stargate's 15-second response write timeout.
+
+Fiber/fasthttp does not provide per-request cancellation when an ordinary HTTP
+client disconnects. This setting therefore supplies the reliable deadline;
+Stargate also cancels the context when the handler returns. It does not add or
+promise immediate client-disconnect cancellation.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String (duration) |
+| **Required** | No |
+| **Default** | `10s` |
+
+**Example:** `REQUEST_CONTEXT_TIMEOUT=10s`
 
 ## Password Configuration
 

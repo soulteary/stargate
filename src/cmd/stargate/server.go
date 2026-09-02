@@ -27,6 +27,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/handlers"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
+	"github.com/soulteary/stargate/src/internal/requestcontext"
 	internal_tls "github.com/soulteary/stargate/src/internal/tlsconfig"
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
 )
@@ -289,19 +290,28 @@ func setupMiddleware(app *fiber.App) {
 	app.Use(middlewarekit.SecurityHeaders(middlewarekit.DefaultSecurityHeadersConfig()))
 	log.Debug().Msg("Security headers middleware enabled")
 
-	// 3. OpenTelemetry tracing middleware (if enabled)
+	// 3. Install a standard Go context with a real Done channel and deadline.
+	// Fiber/fasthttp does not cancel individual request contexts when a client
+	// disconnects, so the configured deadline and handler cleanup are the
+	// cancellation boundaries available to Warden, Herald, and other callers.
+	app.Use(requestcontext.Middleware(config.RequestContextTimeout.ToDuration()))
+	log.Debug().Dur("timeout", config.RequestContextTimeout.ToDuration()).Msg("Request context middleware enabled")
+
+	// 4. OpenTelemetry tracing middleware (if enabled). It derives its span from
+	// the standard request context above so deadline, cancellation, and values
+	// survive tracing.
 	if config.OTLPEnabled.ToBool() {
 		app.Use(internal_tracing.TracingMiddleware("stargate"))
 		log.Info().Msg("OpenTelemetry tracing middleware enabled")
 	}
 
-	// 4. i18n middleware (language detection from Query > Cookie > Header > Accept-Language)
+	// 5. i18n middleware (language detection from Query > Cookie > Header > Accept-Language)
 	app.Use(i18nkit.FiberMiddleware(i18nkit.MiddlewareConfig{
 		Bundle: i18n.GetBundle(),
 	}))
 	log.Debug().Msg("i18n middleware enabled")
 
-	// 5. Request logging with logger-kit
+	// 6. Request logging with logger-kit
 	app.Use(logger.FiberMiddleware(logger.MiddlewareConfig{
 		Logger:           log,
 		SkipPaths:        []string{RouteHealthz, RouteReadyz, RouteHealth, "/metrics"},
@@ -310,7 +320,7 @@ func setupMiddleware(app *fiber.App) {
 	}))
 	log.Debug().Msg("Request logging middleware enabled")
 
-	// 6. Rate limiting (optional - uncomment to enable for production)
+	// 7. Rate limiting (optional - uncomment to enable for production)
 	// To enable rate limiting, uncomment the following code:
 	//
 	// zerologLogger := log.Zerolog()
@@ -331,7 +341,7 @@ func setupMiddleware(app *fiber.App) {
 	// }))
 	// log.Info().Msg("Rate limiting middleware enabled")
 
-	// 7. Favicon middleware
+	// 8. Favicon middleware
 	log.Debug().Msg("Adding favicon middleware")
 	faviconPath := findFaviconPath()
 	// Only add favicon middleware if the file exists
