@@ -149,6 +149,30 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Bash append assignments have the same command-prefix semantics as ordinary
+# assignments and must not become the selected command word.
+printf '%s\n' \
+  '' \
+  'FOO+=bar htpasswd -bn "" password' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe append-assignment-prefixed standalone command failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'FOO+=bar sudo -u root htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe wrapped command after append assignment failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # File-descriptor and combined-output redirections stay inside the command;
 # neither form may hide a batch-password option which follows it.
 printf '%s\n' \
