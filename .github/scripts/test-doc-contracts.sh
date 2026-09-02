@@ -76,6 +76,21 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Bash ANSI-C quotes remove their `$'...'` wrapper and decode escapes before
+# argv is built; both literal and encoded lowercase b enable batch mode.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "htpasswd \$'-bn' \"\" password" \
+  "htpasswd \$'-\\x62n' \"\" password" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe ANSI-C-quoted htpasswd option failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Backslashes are literal inside single quotes, including immediately before
 # the closing quote; a later parse failure must not hide an earlier -b option.
 printf '%s\n' \
@@ -625,6 +640,23 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# ANSI-C quoting applies quote removal and escape decoding to a heredoc
+# delimiter. The real terminator must expose the command which follows it.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "cat <<\$'\\x45OF'" \
+  'literal payload' \
+  'EOF' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command after an ANSI-C-quoted heredoc failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Heredocs inside command substitutions must be filtered after extracting the
 # substitution body. Literal payload text is data, not another command.
 printf '%s\n' \
@@ -800,6 +832,19 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command at a console root prompt failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Percent is the conventional prompt marker in zsh transcripts.
+printf '%s\n' \
+  '' \
+  '```console' \
+  '% htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command at a zsh prompt failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
