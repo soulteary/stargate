@@ -55,9 +55,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Export GOPATH
+      - name: Verify Go packages
         if: steps.changes.outputs.code == 'true'
-        run: echo "GOPATH=$(go env GOPATH)" >> "$GITHUB_ENV"
+        run: go list ./src/...
 
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
@@ -74,7 +74,7 @@ jobs:
         uses: golangci/golangci-lint-action@db9de0fc1a667e1a49d2291a1a042dff081d78f6 # v9
         with:
           version: v2.13.1
-          args: --timeout=5m ./...
+          args: --timeout=5m ./src/...
           only-new-issues: false
 
       - name: Run unit tests
