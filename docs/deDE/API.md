@@ -123,16 +123,38 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 ### `POST /_login`
 
-Verarbeitet Anmeldeanfragen, überprüft das Passwort und erstellt eine Sitzung.
+Verarbeitet Anmeldeanfragen und unterstützt zwei Authentifizierungsmodi:
+
+1. **Passwort-Authentifizierung**: Prüft das Passwort und erstellt eine Sitzung
+2. **Warden-Authentifizierung**: Prüft entweder einen Herald-Challenge-Code oder einen bereits eingerichteten TOTP-Code und erstellt eine Sitzung
 
 #### Anfrage-Text
 
 Formulardaten (`application/x-www-form-urlencoded`):
 
+**Passwort-Authentifizierung:**
+
 | Feld | Typ | Erforderlich | Beschreibung |
 |------|-----|--------------|--------------|
+| `auth_method` | String | Nein | Authentifizierungsmethode; `password` ist der Standardwert |
 | `password` | String | Ja | Benutzerpasswort |
 | `callback` | String | Nein | Callback-URL nach erfolgreicher Anmeldung |
+
+**Warden-Authentifizierung:**
+
+| Feld | Typ | Erforderlich | Beschreibung |
+|------|-----|--------------|--------------|
+| `auth_method` | String | Ja | Authentifizierungsmethode; Wert `warden` |
+| `phone` | String | Nein | Telefonnummer des Benutzers; mindestens eines von `phone` oder `mail` ist erforderlich |
+| `mail` | String | Nein | E-Mail-Adresse des Benutzers; mindestens eines von `mail` oder `phone` ist erforderlich |
+| `challenge_id` | String | Bedingt | Mit `verify_code` erforderlich; bei `use_otp=true` optional |
+| `verify_code` | String | Bedingt | Für die Herald-Challenge erforderlich, wenn `use_otp` fehlt oder `false` ist |
+| `use_otp` | Boolean | Nein | Auf `true` setzen, um einen eingerichteten TOTP-Authentifikator statt einer Herald-Challenge zu verwenden |
+| `otp_code` | String | Bedingt | Erforderlich, wenn `use_otp=true` |
+| `callback` | String | Nein | Callback-URL nach erfolgreicher Anmeldung |
+
+Der Handler akzeptiert in derselben Warden-Anfrage auch `phone` + `mail`.
+Die TOTP-Variante setzt `HERALD_TOTP_ENABLED=true` und einen bereits eingerichteten Benutzer voraus. Andernfalls ist die Variante `challenge_id` + `verify_code` zu verwenden.
 
 #### Callback-Abrufpriorität
 
@@ -167,7 +189,10 @@ Die Antwort variiert je nachdem, ob ein Callback vorhanden ist und welcher Anfra
 
 | Statuscode | Beschreibung | Antwort-Text |
 |------------|--------------|--------------|
-| `401 Unauthorized` | Falsches Passwort | Fehlermeldung im JSON/XML/Text-Format je nach Accept-Header |
+| `400 Bad Request` | Ungültige oder fehlende Warden- beziehungsweise Verifizierungsfelder oder nicht eingerichtetes TOTP | Fehlermeldung im JSON/XML/Text-Format je nach Accept-Header |
+| `401 Unauthorized` | Falsches Passwort, inaktiver/fehlender Warden-Benutzer oder fehlgeschlagene Challenge-/TOTP-Prüfung | Fehlermeldung im JSON/XML/Text-Format je nach Accept-Header |
+| `502 Bad Gateway` | Abfrage des Herald-TOTP-Status fehlgeschlagen | Fehlermeldung |
+| `503 Service Unavailable` | Herald-Verifizierungsdienst ist nicht verfügbar | Fehlermeldung |
 | `500 Internal Server Error` | Server-Fehler | Fehlermeldung |
 
 #### Beispiele
@@ -175,13 +200,13 @@ Die Antwort variiert je nachdem, ob ein Callback vorhanden ist und welcher Anfra
 ```bash
 # Anmeldeformular absenden (mit Callback)
 curl -X POST \
-     -d "password=yourpassword&callback=app.example.com" \
+     -d "auth_method=password&password=yourpassword&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 
 # Anmeldeformular absenden (ohne Callback, wird automatisch inferiert)
 curl -X POST \
-     -d "password=yourpassword" \
+     -d "auth_method=password&password=yourpassword" \
      -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
@@ -189,6 +214,12 @@ curl -X POST \
 # Warden + Herald: mit dem von /_send_verify_code zurückgegebenen Challenge-Wert anmelden
 curl -X POST \
      -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+
+# Warden + TOTP: mit einem bereits eingerichteten Authentifikator anmelden
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&use_otp=true&otp_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -205,15 +236,24 @@ Anfrage zum Senden eines Verifizierungscodes. Dieser Endpunkt wird im Warden + H
 |--------|--------------|
 | `Idempotency-Key` | Optional. Wenn gesetzt, leitet Stargate den Wert an Herald weiter; Herald liefert innerhalb der TTL für Duplikatanfragen mit gleichem Key dieselbe Challenge-Antwort. |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### Anfragekörper
 
-Nur Formulardaten (`application/x-www-form-urlencoded`):
+Unterstützte Medientypen für den Anfragekörper:
+
+| Medientyp des Anfragekörpers | Unterstützt |
+|------------------------------|-------------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | Feld | Typ | Erforderlich | Beschreibung |
 |------|-----|--------------|--------------|
-| `phone` | String | Nein | Benutzertelefonnummer (eines von `phone` oder `mail`) |
-| `mail` | String | Nein | Benutzer-E-Mail (eines von `phone` oder `mail`) |
-| `deliver_via` | String | Nein | Bevorzugter Kanal: `sms`, `email` oder `dingtalk`; ohne Angabe wird ein aktivierter Kanal aus dem Warden-Datensatz gewählt. |
+| `phone` | String | Nein | Benutzertelefonnummer; mindestens eines von `phone` oder `mail` ist erforderlich |
+| `mail` | String | Nein | Benutzer-E-Mail; mindestens eines von `mail` oder `phone` ist erforderlich |
+| `deliver_via` | String | Nein | Bevorzugter Kanal: `sms`, `email` oder `dingtalk`. Ohne Angabe versucht Stargate zuerst ein aktiviertes SMS-Ziel und danach E-Mail. DingTalk wird nie automatisch gewählt; Aufrufer müssen `deliver_via=dingtalk` senden. |
+
+Der Handler akzeptiert in derselben Verifizierungscode-Anfrage auch `phone` + `mail`.
 
 #### Verarbeitungsablauf
 
@@ -223,9 +263,9 @@ Nur Formulardaten (`application/x-www-form-urlencoded`):
    - E-Mail und Telefon des Benutzers abrufen
 
 2. **Stargate → Herald** : Challenge erstellen und Verifizierungscode senden
-   - E-Mail/Telefon von Warden als Ziel verwenden
+   - Von Warden zurückgegebene E-Mail, Telefonnummer oder DingTalk-Kennung als Ziel verwenden
    - Herald-API aufrufen, um Challenge zu erstellen
-   - Herald sendet Verifizierungscode (SMS oder E-Mail)
+   - Herald sendet den Verifizierungscode über den ausgewählten SMS-, E-Mail- oder DingTalk-Kanal
 
 3. **Ergebnis zurückgeben** : challenge_id und zugehörige Informationen zurückgeben
 
@@ -365,27 +405,42 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## TOTP-Endpunkte
 
-Diese Endpunkte sind verfügbar, wenn Herald und Herald-TOTP aktiviert sind. Die Registrierung muss innerhalb von 10 Minuten nach der Anmeldung gestartet und abgeschlossen werden.
+Diese Endpunkte sind verfügbar, wenn Herald und Herald-TOTP aktiviert sind. Alle erfordern eine authentifizierte Sitzung. Die Registrierung muss innerhalb von 10 Minuten nach der Anmeldung, die die Sitzung erstellt hat, gestartet und abgeschlossen werden.
 
 ### `GET /totp/enroll`
 
-Zeigt eine Bestätigungsseite an, ohne Registrierungsstatus zu erzeugen. Erfordert eine innerhalb der letzten 10 Minuten erstellte authentifizierte Sitzung.
+Zeigt eine Bestätigungsseite an, ohne Registrierungsstatus zu erzeugen. Erfordert eine durch eine erfolgreiche Anmeldung innerhalb der letzten 10 Minuten erstellte Sitzung. Nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet; eine ältere Sitzung erhält `401 Unauthorized`.
 
 ### `POST /totp/enroll`
 
-Startet die Registrierung und zeigt die TOTP-Bindungsseite an. Erfordert eine innerhalb der letzten 10 Minuten erstellte Sitzung.
+Startet die Registrierung und zeigt die TOTP-Bindungsseite an. Erfordert eine durch eine erfolgreiche Anmeldung innerhalb der letzten 10 Minuten erstellte Sitzung. Nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet; eine ältere Sitzung erhält `401 Unauthorized`.
 
 ### `POST /totp/enroll/confirm`
 
-Bestätigt die Registrierung mit Formulardaten (`application/x-www-form-urlencoded`). Sowohl `enroll_id` als auch der sechsstellige TOTP-`code` sind erforderlich. Die Antwort ist JSON und enthält bei Erfolg auch die einmalig ausgegebenen Backup-Codes.
+Bestätigt die Registrierung. Eine authentifizierte Sitzung aus den letzten 10 Minuten ist erforderlich.
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### Anfragekörper
+
+| Medientyp des Anfragekörpers | Unterstützt |
+|------------------------------|-------------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+Das Formular muss `enroll_id` und den sechsstelligen TOTP-`code` enthalten.
+
+#### Antwort
+
+Fehlende oder nicht aktuelle Authentifizierung gibt `401 Unauthorized` zurück; bei Erfolg enthält die JSON-Antwort die einmalig ausgegebenen Backup-Codes.
 
 ### `GET /totp/revoke`
 
-Zeigt die Bestätigungsseite zum Entfernen der TOTP-Bindung an.
+Zeigt die Bestätigungsseite zum Entfernen der TOTP-Bindung an. Eine authentifizierte Sitzung ist erforderlich; nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet. Für diese Seite gilt keine 10-Minuten-Grenze.
 
 ### `POST /totp/revoke`
 
-Entfernt die TOTP-Bindung nach Bestätigung mit `password` oder einem aktuellen `code`.
+Entfernt die TOTP-Bindung. Eine authentifizierte Sitzung ist erforderlich, und der Aufrufer muss sich erneut mit `password` oder einem gültigen aktuellen TOTP-`code` bestätigen. Fehlende oder fehlgeschlagene erneute Authentifizierung gibt `401 Unauthorized` zurück.
 
 ## Gesundheitsprüfungs-Endpunkte
 

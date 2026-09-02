@@ -130,7 +130,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 处理登录请求，支持两种认证模式：
 
 1. **密码认证模式**：验证密码并创建会话
-2. **Warden + Herald OTP 认证模式**：验证验证码并创建会话
+2. **Warden 认证模式**：验证 Herald challenge 验证码或已绑定的 TOTP 验证码并创建会话
 
 #### 请求体
 
@@ -144,16 +144,21 @@ curl http://auth.example.com/_login?callback=app.example.com
 | `password` | String | 是 | 用户密码 |
 | `callback` | String | 否 | 登录成功后的回调 URL |
 
-**Warden + Herald OTP 认证模式：**
+**Warden 认证模式：**
 
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
 | `auth_method` | String | 是 | 认证方式，值为 `warden` |
-| `phone` | String | 否 | 用户手机号（与 `mail` 二选一） |
-| `mail` | String | 否 | 用户邮箱（与 `phone` 二选一） |
-| `challenge_id` | String | 是 | Herald 返回的 challenge_id |
-| `verify_code` | String | 是 | 用户输入的验证码 |
+| `phone` | String | 否 | 用户手机号；`phone` 与 `mail` 至少提供一项 |
+| `mail` | String | 否 | 用户邮箱；`mail` 与 `phone` 至少提供一项 |
+| `challenge_id` | String | 条件必需 | 使用 `verify_code` 时必需；`use_otp=true` 时可选 |
+| `verify_code` | String | 条件必需 | `use_otp` 未提供或为 `false` 时，用于 Herald challenge 验证且必须提供 |
+| `use_otp` | Boolean | 否 | 设为 `true` 时使用已绑定的 TOTP 认证器，而不是 Herald challenge 验证码 |
+| `otp_code` | String | 条件必需 | `use_otp=true` 时必须提供 |
 | `callback` | String | 否 | 登录成功后的回调 URL |
+
+Warden 请求也允许同时提交 `phone` + `mail`。
+TOTP 分支要求 `HERALD_TOTP_ENABLED=true` 且用户已经完成绑定；否则应使用 `challenge_id` + `verify_code` 分支。
 
 #### Callback 获取优先级
 
@@ -188,7 +193,10 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
-| `401 Unauthorized` | 密码错误 | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
+| `400 Bad Request` | Warden 标识或所选验证分支字段无效/缺失，或者用户尚未绑定 TOTP | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
+| `401 Unauthorized` | 密码错误、Warden 用户不存在/未激活，或 challenge/TOTP 验证失败 | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
+| `502 Bad Gateway` | Herald TOTP 状态查询失败 | 错误消息 |
+| `503 Service Unavailable` | Herald 验证服务不可用 | 错误消息 |
 | `500 Internal Server Error` | 服务器错误 | 错误消息 |
 
 #### 示例
@@ -203,12 +211,22 @@ curl -X POST \
      http://auth.example.com/_login
 ```
 
-**Warden + Herald OTP 认证：**
+**Warden + Herald challenge 认证：**
 
 ```bash
 # 提交登录表单（使用验证码）
 curl -X POST \
      -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+```
+
+**Warden + TOTP 认证器认证：**
+
+```bash
+# 使用已绑定认证器生成的 TOTP 验证码登录
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&use_otp=true&otp_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -222,6 +240,8 @@ curl -X POST \
 5. Stargate 调用 Herald 验证验证码
 6. 验证成功后，Stargate 创建 session 并返回
 
+TOTP 分支直接提交 `use_otp=true` 和 `otp_code`，不需要预先调用 `POST /_send_verify_code`。
+
 ## 发送验证码端点
 
 ### `POST /_send_verify_code`
@@ -234,15 +254,24 @@ curl -X POST \
 |--------|------|
 | `Idempotency-Key` | 可选。若提供，Stargate 会将其透传给 Herald；Herald 在 TTL 内对相同 key 的重复请求返回同一 challenge 响应。 |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### 请求体
 
-仅支持表单数据（`application/x-www-form-urlencoded`）：
+请求体媒体类型支持情况：
+
+| 请求体媒体类型 | 支持 |
+|---------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
-| `phone` | String | 否 | 用户手机号（与 `mail` 二选一） |
-| `mail` | String | 否 | 用户邮箱（与 `phone` 二选一） |
-| `deliver_via` | String | 否 | 首选通道：`sms`、`email` 或 `dingtalk`。省略时，从 Warden 用户记录中选择已启用的可用通道。 |
+| `phone` | String | 否 | 用户手机号；`phone` 与 `mail` 至少提供一项 |
+| `mail` | String | 否 | 用户邮箱；`mail` 与 `phone` 至少提供一项 |
+| `deliver_via` | String | 否 | 首选通道：`sms`、`email` 或 `dingtalk`。省略时先尝试已启用的短信目标，再尝试邮件；不会自动选择钉钉，调用方必须显式发送 `deliver_via=dingtalk`。 |
+
+验证码请求也允许同时提交 `phone` + `mail`。
 
 #### 处理流程
 
@@ -252,9 +281,9 @@ curl -X POST \
    - 获取用户的 email 和 phone
 
 2. **Stargate → Herald**：创建 challenge 并发送验证码
-   - 使用 Warden 返回的 email/phone 作为 destination
+   - 使用 Warden 返回的 email、phone 或钉钉标识作为 destination
    - 调用 Herald API 创建 challenge
-   - Herald 发送验证码（SMS 或 Email）
+   - Herald 通过选定的短信、邮件或钉钉通道发送验证码
 
 3. **返回结果**：返回 challenge_id 和相关信息
 
@@ -398,37 +427,50 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ### `GET /totp/enroll`
 
-显示绑定确认页，但不创建绑定状态。要求最近认证的会话；未认证用户重定向到 `/_login`，超过 10 分钟的会话返回 `401 Unauthorized`。
+显示绑定确认页，但不创建绑定状态。要求最近认证的会话；未认证用户以 `302 Found` 重定向到 `/_login`，超过 10 分钟的会话返回 `401 Unauthorized`。
 
 ### `POST /totp/enroll`
 
 启动绑定并展示 TOTP 页面。使用 POST 可避免跨站导航创建绑定状态。
 
-- **认证**：要求会话由最近 10 分钟内成功登录创建。未认证用户重定向到 `/_login`，过期会话返回 `401 Unauthorized`。
-- **响应**：200 OK 返回绑定页 HTML；未认证时 302 到 `/_login`；配置或 Herald 错误时 400/503。
+- **认证**：要求会话由最近 10 分钟内成功登录创建。未认证用户以 `302 Found` 重定向到 `/_login`，过期会话返回 `401 Unauthorized`。
+- **响应**：200 OK 返回绑定页 HTML；未认证时以 `302 Found` 跳转到 `/_login`；配置或 Herald 错误时 400/503。
 
 ### `POST /totp/enroll/confirm`
 
 使用认证器应用生成的 6 位码确认 TOTP 绑定。
 
 - **认证**：要求会话由最近 10 分钟内成功登录创建。
-- **请求体**：表单数据（`application/x-www-form-urlencoded`），同时包含绑定页返回的 `enroll_id` 和 6 位 TOTP `code`。
-- **响应**：JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`；绑定状态无效或过期返回 `400`，缺少最近认证返回 `401`。
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### 请求体
+
+| 请求体媒体类型 | 支持 |
+|---------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+表单必须同时包含绑定页返回的 `enroll_id` 和 6 位 TOTP `code`。
+
+#### 响应
+
+JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`；绑定状态无效或过期返回 `400 Bad Request`，缺少最近认证返回 `401 Unauthorized`。
 
 ### `GET /totp/revoke`
 
 展示 TOTP 解绑确认页。
 
-- **认证**：需要（会话 Cookie）。未认证用户会重定向到 `/_login`。
-- **响应**：200 OK 返回解绑确认页；未认证时 302 到 `/_login`。
+- **认证**：需要（会话 Cookie）。未认证用户会以 `302 Found` 重定向到 `/_login`。
+- **响应**：200 OK 返回解绑确认页；未认证时以 `302 Found` 跳转到 `/_login`。
 
 ### `POST /totp/revoke`
 
 确认 TOTP 解绑（从账号移除 TOTP）。
 
 - **认证**：需要（会话 Cookie）。
-- **请求体**：必须提供密码或当前有效的 TOTP `code`，用于最近认证确认。
-- **响应**：JSON。成功返回 `{"ok":true,"subject":"..."}`；重新认证失败返回 `401`，上游解绑失败返回 `502`。
+- **请求体**：必须提供 `password` 或当前有效的 TOTP `code`，用于重新认证确认。
+- **响应**：JSON。成功返回 `{"ok":true,"subject":"..."}`；重新认证失败返回 `401 Unauthorized`，上游解绑失败返回 `502 Bad Gateway`。
 
 **说明**：TOTP 的创建与校验由 Herald（可能代理到 herald-totp）完成。Stargate 仅负责页面与会话编排，不实现 OTP 算法。
 

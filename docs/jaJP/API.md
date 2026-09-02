@@ -123,16 +123,38 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 ### `POST /_login`
 
-ログインリクエストを処理し、パスワードを検証してセッションを作成します。
+ログインリクエストを処理し、次の 2 つの認証モードをサポートします：
+
+1. **パスワード認証**：パスワードを検証してセッションを作成
+2. **Warden 認証**：Herald challenge コードまたは登録済み TOTP コードを検証してセッションを作成
 
 #### リクエスト本文
 
 フォームデータ（`application/x-www-form-urlencoded`）：
 
+**パスワード認証：**
+
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
+| `auth_method` | String | いいえ | 認証方式。既定値は `password` |
 | `password` | String | はい | ユーザーパスワード |
 | `callback` | String | いいえ | ログイン成功後のコールバック URL |
+
+**Warden 認証：**
+
+| フィールド | 型 | 必須 | 説明 |
+|-----------|-----|------|------|
+| `auth_method` | String | はい | 認証方式。値は `warden` |
+| `phone` | String | いいえ | ユーザーの電話番号。`phone` または `mail` の少なくとも一方が必要 |
+| `mail` | String | いいえ | ユーザーのメールアドレス。`mail` または `phone` の少なくとも一方が必要 |
+| `challenge_id` | String | 条件付き | `verify_code` とともに使用する場合は必須。`use_otp=true` の場合は任意 |
+| `verify_code` | String | 条件付き | `use_otp` が未指定または `false` の場合、Herald challenge の検証に必須 |
+| `use_otp` | Boolean | いいえ | Herald challenge の代わりに登録済み TOTP 認証器を使う場合は `true` |
+| `otp_code` | String | 条件付き | `use_otp=true` の場合は必須 |
+| `callback` | String | いいえ | ログイン成功後のコールバック URL |
+
+ハンドラーは同じ Warden リクエストで `phone` + `mail` を同時に送ることも許可します。
+TOTP 方式には `HERALD_TOTP_ENABLED=true` と登録済みユーザーが必要です。それ以外では `challenge_id` + `verify_code` 方式を使用します。
 
 #### コールバック取得の優先順位
 
@@ -167,7 +189,10 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 | ステータスコード | 説明 | レスポンス本文 |
 |----------------|------|----------------|
-| `401 Unauthorized` | パスワードが間違っている | Accept ヘッダーに応じて JSON/XML/テキスト形式のエラーメッセージ |
+| `400 Bad Request` | Warden 識別子または選択した検証方式のフィールドが不正/不足、あるいは TOTP 未登録 | Accept ヘッダーに応じて JSON/XML/テキスト形式のエラーメッセージ |
+| `401 Unauthorized` | パスワード誤り、Warden ユーザーの不在/無効、または challenge/TOTP 検証失敗 | Accept ヘッダーに応じて JSON/XML/テキスト形式のエラーメッセージ |
+| `502 Bad Gateway` | Herald の TOTP 状態取得に失敗 | エラーメッセージ |
+| `503 Service Unavailable` | Herald 検証サービスが利用不可 | エラーメッセージ |
 | `500 Internal Server Error` | サーバーエラー | エラーメッセージ |
 
 #### 例
@@ -175,13 +200,13 @@ curl http://auth.example.com/_login?callback=app.example.com
 ```bash
 # ログインフォームを送信（コールバックあり）
 curl -X POST \
-     -d "password=yourpassword&callback=app.example.com" \
+     -d "auth_method=password&password=yourpassword&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 
 # ログインフォームを送信（コールバックなし、自動推論）
 curl -X POST \
-     -d "password=yourpassword" \
+     -d "auth_method=password&password=yourpassword" \
      -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
@@ -189,6 +214,12 @@ curl -X POST \
 # Warden + Herald：/_send_verify_code が返した challenge でログイン
 curl -X POST \
      -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+
+# Warden + TOTP：登録済み認証器でログイン
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&use_otp=true&otp_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -205,15 +236,24 @@ curl -X POST \
 |----------|------|
 | `Idempotency-Key` | 任意。指定した場合、Stargate が Herald に転送する。Herald は TTL 内で同じ key の重複リクエストに同じ challenge 応答を返す。 |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### リクエストボディ
 
-フォームデータ（`application/x-www-form-urlencoded`）のみ：
+リクエストボディのメディアタイプ対応状況：
+
+| リクエストボディのメディアタイプ | 対応 |
+|----------------------------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
 
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
-| `phone` | String | いいえ | ユーザーの電話番号 (`phone` または `mail` のいずれか) |
-| `mail` | String | いいえ | ユーザーのメール (`phone` または `mail` のいずれか) |
-| `deliver_via` | String | いいえ | 希望するチャネル：`sms`、`email`、`dingtalk`。省略時は Warden レコードから有効なチャネルを選択します。 |
+| `phone` | String | いいえ | ユーザーの電話番号。`phone` または `mail` の少なくとも一方が必要 |
+| `mail` | String | いいえ | ユーザーのメール。`mail` または `phone` の少なくとも一方が必要 |
+| `deliver_via` | String | いいえ | 希望するチャネル：`sms`、`email`、`dingtalk`。省略時は有効な SMS 宛先、次にメールを試します。DingTalk は暗黙に選択されないため、呼び出し側は `deliver_via=dingtalk` を明示する必要があります。 |
+
+ハンドラーは同じ検証コード送信リクエストで `phone` + `mail` を同時に送ることも許可します。
 
 #### 処理フロー
 
@@ -223,9 +263,9 @@ curl -X POST \
    - ユーザーのメールと電話を取得
 
 2. **Stargate → Herald** : チャレンジを作成し、検証コードを送信
-   - Wardenから返されたメール/電話を宛先として使用
+   - Warden から返されたメール、電話番号、または DingTalk 識別子を宛先として使用
    - Herald APIを呼び出してチャレンジを作成
-   - Heraldが検証コードを送信（SMSまたはメール）
+   - Herald が選択された SMS、メール、または DingTalk チャネルで検証コードを送信
 
 3. **結果を返す** : challenge_idと関連情報を返す
 
@@ -365,27 +405,42 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## TOTP エンドポイント
 
-Herald と Herald TOTP が有効な場合に利用できます。登録は、セッションを作成したログインから 10 分以内に開始して完了する必要があります。
+Herald と Herald TOTP が有効な場合に利用できます。すべてのエンドポイントで認証済みセッションが必要です。登録は、そのセッションを作成したログインから 10 分以内に開始して完了する必要があります。
 
 ### `GET /totp/enroll`
 
-登録状態を作成せずに確認ページを表示します。直近 10 分以内のログインで作成されたセッションが必要です。
+登録状態を作成せずに確認ページを表示します。直近 10 分以内のログインで作成されたセッションが必要です。未認証の場合は `302 Found` で `/_login` にリダイレクトされ、古いセッションには `401 Unauthorized` が返されます。
 
 ### `POST /totp/enroll`
 
-登録を開始し、TOTP の関連付けページを表示します。直近 10 分以内に作成されたセッションが必要です。
+登録を開始し、TOTP の関連付けページを表示します。直近 10 分以内のログインで作成されたセッションが必要です。未認証の場合は `302 Found` で `/_login` にリダイレクトされ、古いセッションには `401 Unauthorized` が返されます。
 
 ### `POST /totp/enroll/confirm`
 
-フォームデータ（`application/x-www-form-urlencoded`）で登録を確定します。`enroll_id` と 6 桁の TOTP `code` の両方が必要です。レスポンスは JSON で、成功時には一度だけ表示されるバックアップコードを含みます。
+登録を確定します。直近 10 分以内のログインで作成された認証済みセッションが必要です。
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### リクエストボディ
+
+| リクエストボディのメディアタイプ | 対応 |
+|----------------------------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+フォームには `enroll_id` と 6 桁の TOTP `code` が必要です。
+
+#### レスポンス
+
+認証がないか古い場合は `401 Unauthorized` を返し、成功時の JSON には一度だけ表示されるバックアップコードが含まれます。
 
 ### `GET /totp/revoke`
 
-TOTP の関連付けを解除する確認ページを表示します。
+TOTP の関連付けを解除する確認ページを表示します。認証済みセッションが必要で、未認証の場合は `302 Found` で `/_login` にリダイレクトされます。このページに 10 分制限はありません。
 
 ### `POST /totp/revoke`
 
-`password` または現在の `code` で確認した後、TOTP の関連付けを解除します。
+TOTP の関連付けを解除します。認証済みセッションに加え、`password` または有効な現在の TOTP `code` による再認証が必要です。再認証がない、または失敗した場合は `401 Unauthorized` を返します。
 
 ## ヘルスチェックエンドポイント
 
