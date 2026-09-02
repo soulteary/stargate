@@ -711,6 +711,13 @@ contract_violation_count() {
             $cursor += 2;
             next;
           }
+          if ($part eq "\x24" &&
+              substr($line, $cursor + 1, 1) eq "\"") {
+            $delimiter_quoted = 1;
+            $delimiter_quote = "\"";
+            $cursor += 2;
+            next;
+          }
           if ($part eq "\x27" || $part eq "\"") {
             $delimiter_quoted = 1;
             $delimiter_quote = $part;
@@ -787,6 +794,7 @@ contract_violation_count() {
       my $escaped = 0;
       my $ansi_open = 0;
       my $ansi_skip = 0;
+      my $locale_open = 0;
 
       for my $offset (0 .. length($text) - 1) {
         my $char = substr($text, $offset, 1);
@@ -818,7 +826,9 @@ contract_violation_count() {
           next;
         }
         if ($quote eq "\"") {
-          if ($escaped) {
+          if ($locale_open) {
+            $locale_open = 0;
+          } elsif ($escaped) {
             $token .= $char;
             $escaped = 0;
           } elsif ($char eq "\\") {
@@ -851,6 +861,13 @@ contract_violation_count() {
             substr($text, $offset + 1, 1) eq "\x27") {
           $quote = "ansi";
           $ansi_open = 1;
+          $in_token = 1;
+          next;
+        }
+        if ($char eq "\x24" &&
+            substr($text, $offset + 1, 1) eq "\"") {
+          $quote = "\"";
+          $locale_open = 1;
           $in_token = 1;
           next;
         }
@@ -1036,7 +1053,7 @@ contract_violation_count() {
         return 1 if $option =~ /^--(?:chdir|split-string|unset)$/;
         return 1 if $option =~ /^-[^-]*[CSu]$/;
       } elsif ($wrapper eq "exec") {
-        return 1 if $option eq "-a";
+        return 1 if $option =~ /^-[^-]*a$/;
       } elsif ($wrapper eq "stdbuf") {
         return 1 if $option =~ /^--(?:input|output|error)$/;
         return 1 if $option =~ /^-[ioe]$/;
