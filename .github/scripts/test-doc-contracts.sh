@@ -370,6 +370,20 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# A literal batch flag remains effective when parameter expansion contributes
+# the rest of the option word.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'mode=n; htpasswd -b${mode} "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe literal batch flag before parameter expansion failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Brace expansion applies to command words and wrappers as well as options.
 # The empty alternatives disappear during Bash word generation.
 for brace_command in \
@@ -399,14 +413,46 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Sudo list, validation, and version modes inspect policy or credentials
+# without launching the command operand.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'sudo -l htpasswd -bn "" password' \
+  'sudo --validate htpasswd -bn "" password' \
+  'sudo -V htpasswd -bn "" password' \
+  'sudo -lu root htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected sudo query-mode operands mentioning htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# In `-ul`, the `l` is the attached operand of `-u`, not list mode; sudo still
+# executes the following command as user `l`.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'sudo -ul htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after an attached sudo user failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 printf '%s\n' \
   '' \
   '```bash' \
   "'{htpasswd,}' -bn \"\" password" \
+  "{command,} '' htpasswd -bn \"\" password" \
   '```' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
-  echo "Expected a quoted brace command word to remain literal" >&2
+  echo "Expected quoted brace and empty command words to remain literal" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
@@ -1079,6 +1125,28 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Command substitutions execute while declaration builtins expand their
+# assignments, even in an unfenced standalone example.
+printf '%s\n' \
+  '' \
+  'export HASH=$(htpasswd -bn "" password)' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe standalone declaration substitution failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  "export HASH='\$(htpasswd -bn \"\" password)'" \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a single-quoted standalone substitution to remain literal" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Backtick substitutions execute in both unquoted and double-quoted contexts.
 printf '%s\n' \
   '' \
@@ -1409,6 +1477,55 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected non-command htpasswd wrapper, quoting, and comment forms to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Raw HTML comments are not rendered command examples, even when their payload
+# resembles fenced or inline shell code.
+printf '%s\n' \
+  '' \
+  '<!--' \
+  '```bash' \
+  'htpasswd -bn "" password' \
+  '```' \
+  '`htpasswd -bn "" password`' \
+  '-->' \
+  '<!-- `htpasswd -bn "" password` -->' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected htpasswd examples inside HTML comments to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# HTML-looking text inside a code span is literal, and closing an actual HTML
+# comment on the same line must expose any executable inline example after it.
+for visible_html_example in \
+  '`printf "%s\\n" "<!--"` and `htpasswd -bn "" password`' \
+  '<!-- hidden --> `htpasswd -bn "" password`'
+do
+  printf '%s\n' \
+    '' \
+    "$visible_html_example" \
+    >> "$temp_dir/docs/enUS/CONFIG.md"
+  if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+    echo "Expected a visible unsafe command around HTML-comment syntax failure" >&2
+    exit 1
+  fi
+  git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+done
+
+# HTML delimiters inside a shell fence are shell data, not Markdown comments.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'printf "%s\\n" "<!--"' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command after HTML-like shell data failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
