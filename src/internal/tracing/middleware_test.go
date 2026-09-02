@@ -1,12 +1,17 @@
 package tracing
 
 import (
+	"context"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/soulteary/stargate/src/internal/requestcontext"
 	common_tracing "github.com/soulteary/tracing-kit"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func TestTracingMiddleware(t *testing.T) {
@@ -66,6 +71,42 @@ func TestTracingMiddleware(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, 200, resp.StatusCode)
 	})
+}
+
+type tracingContextKey struct{}
+
+func TestTracingMiddlewarePreservesDeadlineCancellationAndValues(t *testing.T) {
+	defer common_tracing.TeardownTestTracer()
+	_, _ = common_tracing.SetupTestTracer(t)
+
+	var captured context.Context
+	app := fiber.New()
+	app.Use(func(c fiber.Ctx) error {
+		c.SetContext(context.WithValue(c.Context(), tracingContextKey{}, "preserved"))
+		return c.Next()
+	})
+	app.Use(requestcontext.Middleware(time.Second))
+	app.Use(TracingMiddleware("test-service"))
+	app.Get("/context", func(c fiber.Ctx) error {
+		captured = c.Context()
+		deadline, ok := captured.Deadline()
+		require.True(t, ok)
+		assert.WithinDuration(t, time.Now().Add(time.Second), deadline, 200*time.Millisecond)
+		assert.Equal(t, "preserved", captured.Value(tracingContextKey{}))
+		assert.True(t, trace.SpanFromContext(captured).SpanContext().IsValid())
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/context", nil))
+	require.NoError(t, err)
+	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+	require.NotNil(t, captured)
+	select {
+	case <-captured.Done():
+		assert.ErrorIs(t, captured.Err(), context.Canceled)
+	case <-time.After(time.Second):
+		t.Fatal("traced request context was not canceled after handler return")
+	}
 }
 
 // TestHeaderCarrier_Keys covers headerCarrier.Keys() (OpenTelemetry TextMapCarrier) for coverage.

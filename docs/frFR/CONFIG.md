@@ -321,6 +321,7 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `OTLP_ENDPOINT` | URL | vide | Point de terminaison OTLP |
 | `AUTH_REFRESH_ENABLED` | true/false | true | Actualisation périodique des autorisations |
 | `AUTH_REFRESH_INTERVAL` | durée | `5m` | Intervalle d'actualisation |
+| `REQUEST_CONTEXT_TIMEOUT` | durée | `10s` | Échéance des appels amont ; aucune garantie d'annulation à la déconnexion du client |
 
 L'identifiant et le secret HMAC doivent être définis ensemble. Le certificat et la clé client mTLS doivent également former une paire complète, sinon le démarrage échoue.
 

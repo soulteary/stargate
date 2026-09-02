@@ -321,6 +321,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `OTLP_ENDPOINT` | URL | vuoto | Endpoint OTLP |
 | `AUTH_REFRESH_ENABLED` | true/false | true | Aggiornamento periodico autorizzazioni |
 | `AUTH_REFRESH_INTERVAL` | durata | `5m` | Intervallo aggiornamento |
+| `REQUEST_CONTEXT_TIMEOUT` | durata | `10s` | Scadenza delle chiamate upstream; nessuna garanzia di annullamento alla disconnessione del client |
 
 Key ID e secret HMAC devono essere impostati insieme. Anche certificato e chiave client mTLS devono essere configurati come coppia completa; in caso contrario l'avvio fallisce.
 

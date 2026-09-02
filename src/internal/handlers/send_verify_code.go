@@ -112,12 +112,9 @@ func selectVerificationDestination(userInfo *warden.AllowListUser, deliverVia st
 // SendVerifyCodeAPI handles POST requests to /_send_verify_code for sending verification codes via Herald
 func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 	return func(ctx fiber.Ctx) error {
-		// Get trace context from middleware
-		traceCtx := ctx.Locals("trace_context")
-		if traceCtx == nil {
-			traceCtx = ctx.Context()
-		}
-		spanCtx := traceCtx.(context.Context)
+		// Tracing publishes its span through Fiber's standard Context/SetContext
+		// API; when tracing is disabled this still carries the request deadline.
+		spanCtx := ctx.Context()
 
 		// Start span for send verify code
 		sendCodeCtx, sendCodeSpan := tracing.StartSpan(spanCtx, "auth.send_verify_code")

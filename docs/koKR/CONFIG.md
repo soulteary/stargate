@@ -321,6 +321,7 @@ PORT=8080
 | `OTLP_ENDPOINT` | URL | 비어 있음 | OTLP 엔드포인트 |
 | `AUTH_REFRESH_ENABLED` | true/false | true | 권한 정보 주기적 갱신 |
 | `AUTH_REFRESH_INTERVAL` | 기간 | `5m` | 갱신 간격 |
+| `REQUEST_CONTEXT_TIMEOUT` | 기간 | `10s` | 업스트림 호출 기한. 클라이언트 연결 종료 시 즉시 취소는 보장하지 않음 |
 
 HMAC Key ID와 Secret은 함께 설정해야 합니다. mTLS 클라이언트 인증서와 키도 완전한 쌍이어야 하며, 불완전한 설정은 시작 실패로 처리됩니다.
 

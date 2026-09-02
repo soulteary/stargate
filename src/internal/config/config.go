@@ -408,6 +408,18 @@ var (
 		Validator:      ValidateAny,
 	}
 
+	// RequestContextTimeout bounds request-scoped work, including Warden and
+	// Herald calls. Fiber/fasthttp does not provide per-request cancellation on
+	// ordinary client disconnects, so this deadline is the reliable cancellation
+	// boundary propagated to upstream providers.
+	RequestContextTimeout = EnvVariable{
+		Name:           "REQUEST_CONTEXT_TIMEOUT",
+		Required:       false,
+		DefaultValue:   "10s",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
 	// Login channel toggles: when false, SMS or email verification code login is disabled
 	LoginSMSEnabled = EnvVariable{
 		Name:           "LOGIN_SMS_ENABLED",
@@ -458,7 +470,7 @@ func Initialize(l *logger.Logger) error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &LoginSMSEnabled, &LoginEmailEnabled}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &LoginSMSEnabled, &LoginEmailEnabled}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()

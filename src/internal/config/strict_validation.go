@@ -200,6 +200,9 @@ func validateStrictSettings() error {
 	if _, err := time.ParseDuration(AuthRefreshInterval.Value); err != nil || AuthRefreshInterval.ToDuration() <= 0 {
 		return strictValidationError(&AuthRefreshInterval, "must be a positive Go duration")
 	}
+	if _, err := time.ParseDuration(RequestContextTimeout.Value); err != nil || RequestContextTimeout.ToDuration() <= 0 {
+		return strictValidationError(&RequestContextTimeout, "must be a positive Go duration")
+	}
 	redisDBValue := SessionStorageRedisDB.Value
 	redisDB, err := strconv.Atoi(redisDBValue)
 	if err != nil || redisDB < 0 || strings.TrimSpace(redisDBValue) != redisDBValue {

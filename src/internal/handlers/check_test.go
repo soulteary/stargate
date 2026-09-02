@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -10,29 +11,40 @@ import (
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
+	forwardauth "github.com/soulteary/forwardauth-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/requestcontext"
 	"github.com/soulteary/warden/pkg/warden"
 )
 
-func TestTrustedHeaderAuthResultPropagatesCancellation(t *testing.T) {
+func TestTrustedHeaderAuthResultUsesRequestDeadline(t *testing.T) {
 	originalLookup := lookupTrustedHeaderUser
 	t.Cleanup(func() { lookupTrustedHeaderUser = originalLookup })
 
-	requestCtx, cancel := context.WithCancel(context.Background())
-	cancel()
+	var providerContext context.Context
 	lookupTrustedHeaderUser = func(ctx context.Context, phone, mail string) *warden.AllowListUser {
-		select {
-		case <-ctx.Done():
-		default:
-			t.Fatal("Warden lookup did not receive the canceled request context")
-		}
-		return &warden.AllowListUser{UserID: "user1", Phone: phone, Mail: mail}
+		providerContext = ctx
+		<-ctx.Done()
+		return nil
 	}
 
-	result, err := trustedHeaderAuthResult(requestCtx, "13800138000", "")
+	app := fiber.New()
+	app.Use(requestcontext.Middleware(25 * time.Millisecond))
+	app.Get("/lookup", func(c fiber.Ctx) error {
+		result, err := trustedHeaderAuthResult(c.Context(), "13800138000", "")
+		testza.AssertNil(t, result)
+		testza.AssertEqual(t, forwardauth.ErrUserNotFound, err)
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	resp, err := app.Test(httptest.NewRequest("GET", "/lookup", nil))
 	testza.AssertNoError(t, err)
-	testza.AssertEqual(t, "user1", result.UserID)
+	testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
+	deadline, ok := providerContext.Deadline()
+	testza.AssertTrue(t, ok)
+	testza.AssertTrue(t, !deadline.IsZero())
+	testza.AssertEqual(t, context.DeadlineExceeded, providerContext.Err())
 }
 
 // TestCheckRoute_HandlerNil verifies that when GetForwardAuthHandler returns nil,

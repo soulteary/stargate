@@ -100,6 +100,7 @@ services:
 | `OTLP_ENDPOINT` | String | 空 | 否 |
 | `AUTH_REFRESH_ENABLED` | true/false | true | 否 |
 | `AUTH_REFRESH_INTERVAL` | duration | 5m | 否 |
+| `REQUEST_CONTEXT_TIMEOUT` | duration | 10s | 否 |
 
 ## 必需配置
 
@@ -870,6 +871,24 @@ OTLP 采集端地址（如 Jaeger/OTLP Collector）。
 | **默认值** | `5m` |
 
 **示例：** `AUTH_REFRESH_INTERVAL=10m`
+
+#### `REQUEST_CONTEXT_TIMEOUT`
+
+限制通过 tracing 传递给 Warden、Herald 和其他请求内工作的标准 Go
+context 的最长生命周期。该值必须是正数 Go duration。默认值为 `10s`，
+与现有 Herald 客户端超时时间一致，并低于 Stargate 的 15 秒响应写超时。
+
+Fiber/fasthttp 在普通 HTTP 客户端断开时不会提供逐请求取消信号。因此，
+此配置提供可靠的 deadline；handler 返回时 Stargate 也会主动取消 context。
+该能力不表示、也不承诺客户端断开后会立即取消请求。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String（duration） |
+| **必需** | 否 |
+| **默认值** | `10s` |
+
+**示例：** `REQUEST_CONTEXT_TIMEOUT=10s`
 
 ## 密码配置
 

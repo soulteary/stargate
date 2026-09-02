@@ -94,12 +94,9 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 
 	return func(ctx fiber.Ctx) error {
 		trustedIdentity := sanitizeTrustedIdentityHeaders(ctx)
-		// Get trace context from middleware
-		traceCtx := ctx.Locals("trace_context")
-		if traceCtx == nil {
-			traceCtx = ctx.Context()
-		}
-		spanCtx := traceCtx.(context.Context)
+		// Tracing publishes its span through Fiber's standard Context/SetContext
+		// API; when tracing is disabled this still carries the request deadline.
+		spanCtx := ctx.Context()
 
 		// Start span for forward auth check
 		_, forwardAuthSpan := tracing.StartSpan(spanCtx, "auth.forward_auth")
