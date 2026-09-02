@@ -403,6 +403,15 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# A tab immediately after a block-quote marker expands to three spaces at
+# that column. One space belongs to the quote delimiter, leaving a valid
+# two-space-indented fence opener (CommonMark 0.31.2, example 6).
+printf '%b\n' '>\t```' '> ordinary quoted text' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed quoted fence after a tab failure" >&2
+  exit 1
+fi
+
 # Raw HTML blocks extend to their matching terminator (or EOF), so fence-like
 # text inside them must not create an unclosed fenced-code error.
 printf '%s\n' '<!--' '``` marker inside an unterminated HTML comment' \
@@ -553,6 +562,20 @@ printf '%s\n' \
   > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unclosed fence after a multiline reference failure" >&2
+  exit 1
+fi
+
+# The optional title may also move to the next line when the destination is
+# already present on the definition line. Both lines form the same leaf.
+printf '%s\n' \
+  '[reference]: /target' \
+  '  "optional title"' \
+  '22. list item after a continued title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a continued reference title failure" >&2
   exit 1
 fi
 
