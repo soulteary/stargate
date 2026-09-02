@@ -684,25 +684,43 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
-# External GNU time consumes format and output operands before the command it
-# executes. Those option values cannot be mistaken for the delegated command.
-printf '%s\n' \
-  '' \
-  '```bash' \
-  "/usr/bin/time -f 'elapsed: %e' htpasswd -bn \"\" password" \
-  'env time --output time.log htpasswd -C 10 -bn "" password' \
-  '```' \
-  >> "$temp_dir/docs/enUS/CONFIG.md"
-if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
-  echo "Expected an unsafe htpasswd command delegated through GNU time failure" >&2
-  exit 1
-fi
-git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+# External GNU time consumes separate format/output operands before the command
+# it executes. Check every spelling independently so one detection cannot mask
+# a different option-parsing failure. Attached operands stay in the same argv
+# word and must not consume the command that follows.
+for gnu_time_command in \
+  '/usr/bin/time -f "elapsed: %e" htpasswd -bn "" password' \
+  '/usr/bin/time --format "elapsed: %e" htpasswd -bn "" password' \
+  '/usr/bin/time -o timing.txt htpasswd -bn "" password' \
+  '/usr/bin/time --output timing.txt htpasswd -bn "" password' \
+  '/usr/bin/time -vf "elapsed: %e" htpasswd -bn "" password' \
+  '/usr/bin/time -vo timing.txt htpasswd -bn "" password' \
+  '/usr/bin/time -f"elapsed: %e" htpasswd -bn "" password' \
+  '/usr/bin/time -f%f htpasswd -bn "" password' \
+  '/usr/bin/time -ooutput htpasswd -bn "" password' \
+  '/usr/bin/time -ofileo htpasswd -bn "" password' \
+  '/usr/bin/time --format="elapsed: %e" htpasswd -bn "" password' \
+  '/usr/bin/time --output=timing.txt htpasswd -bn "" password' \
+  'env time --output time.log htpasswd -C 10 -bn "" password'
+do
+  printf '%s\n' \
+    '' \
+    '```bash' \
+    "$gnu_time_command" \
+    '```' \
+    >> "$temp_dir/docs/enUS/CONFIG.md"
+  if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+    echo "Expected an unsafe htpasswd command delegated through GNU time failure: $gnu_time_command" >&2
+    exit 1
+  fi
+  git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+done
 
 printf '%s\n' \
   '' \
   '```bash' \
   '/usr/bin/time -f htpasswd printf "%s\\n" "-b"' \
+  '/usr/bin/time -o htpasswd printf "%s\\n" "-b"' \
   '/usr/bin/time --output=htpasswd printf "%s\\n" "-b"' \
   '```' \
   >> "$temp_dir/docs/enUS/CONFIG.md"

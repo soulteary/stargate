@@ -1122,7 +1122,10 @@ contract_violation_count() {
         return 1 if $option =~ /^-[ioe]$/;
       } elsif ($wrapper eq "time") {
         return 1 if $option =~ /^--(?:format|output)$/;
-        return 1 if $option =~ /^-[^-]*[fo]$/;
+        # GNU time accepts no-operand short options before -f/-o. Only consume
+        # the following argv word when the operand-taking option ends the
+        # bundle; forms such as -fFORMAT and -oFILE carry their operand inline.
+        return 1 if $option =~ /^-[apqv]*[fo]$/;
       }
       return 0;
     }
