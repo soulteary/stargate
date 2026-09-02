@@ -67,26 +67,36 @@ contract_violation_count() {
       my ($text) = @_;
       my @contexts;
       my ($fence_char, $fence_length, $capture_fence, $console_fence,
-          $fence_content);
+          $console_prompt_seen, $fence_content, $console_commands);
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
         if (defined $fence_char) {
           if ($line =~ /^\s*(\Q$fence_char\E+)\s*$/ && length($1) >= $fence_length) {
-            push @contexts, $fence_content if $capture_fence;
+            if ($capture_fence) {
+              my $context = $console_fence && $console_prompt_seen
+                ? $console_commands
+                : $fence_content;
+              push @contexts, $context;
+            }
             undef $fence_char;
             undef $fence_length;
             undef $capture_fence;
             $fence_content = "";
+            $console_commands = "";
             next;
           }
           if ($capture_fence) {
-            my $command_line = $line;
-            # A leading hash in console/terminal output conventionally denotes
-            # a root-shell prompt, not a comment. Untyped and shell fences keep
-            # normal shell-comment semantics.
-            $command_line =~ s/^[ \t]*[#\$>][ \t]+// if $console_fence;
-            $fence_content .= "$command_line\n";
+            if ($console_fence &&
+                $line =~ /^[ \t]*[#\$>][ \t]+(.*)$/) {
+              $console_prompt_seen = 1;
+              $console_commands .= "$1\n";
+            } else {
+              # Keep plain console blocks usable as command-only blocks. Once
+              # any prompt is present, this buffer is transcript output and
+              # only explicitly prompted lines are inspected.
+              $fence_content .= "$line\n";
+            }
           }
           next;
         }
@@ -98,7 +108,9 @@ contract_violation_count() {
           $capture_fence = $info eq "" ||
             $info =~ /^(?:bash|sh|shell|zsh|console|terminal)$/i;
           $console_fence = $info =~ /^(?:console|terminal)$/i;
+          $console_prompt_seen = 0;
           $fence_content = "";
+          $console_commands = "";
           next;
         }
 
@@ -116,20 +128,31 @@ contract_violation_count() {
           push @contexts, $line;
         }
       }
-      push @contexts, $fence_content
-        if defined $fence_char && $capture_fence;
+      if (defined $fence_char && $capture_fence) {
+        my $context = $console_fence && $console_prompt_seen
+          ? $console_commands
+          : $fence_content;
+        push @contexts, $context;
+      }
       return @contexts;
     }
 
-    sub backtick_command_contexts {
-      my ($text) = @_;
-      my @contexts = ($text);
+    sub dollar_paren_body {
+      my ($text, $start) = @_;
+      my $body_start = $start + 2;
+      my $offset = $body_start;
+      my $depth = 1;
       my $quote = "";
       my $escaped = 0;
-      my $offset = 0;
+      my $comment = 0;
 
       while ($offset < length($text)) {
         my $char = substr($text, $offset, 1);
+        if ($comment) {
+          $comment = 0 if $char eq "\n" || $char eq "\r";
+          $offset++;
+          next;
+        }
         if ($quote eq "\x27") {
           $quote = "" if $char eq "\x27";
           $offset++;
@@ -145,8 +168,51 @@ contract_violation_count() {
           $offset++;
           next;
         }
-        if ($char eq "\x27") {
-          $quote = "\x27" unless $quote eq "\"";
+
+        my $previous = $offset > $body_start
+          ? substr($text, $offset - 1, 1)
+          : "";
+        if ($quote eq "" && $char eq "#" &&
+            ($offset == $body_start || $previous =~ /[ \t\r\n;|&()]/)) {
+          $comment = 1;
+          $offset++;
+          next;
+        }
+
+        # Nested modern substitutions have their own quoting context. Skip
+        # them atomically so their parentheses cannot close the outer body.
+        if ($char eq "\x24" && substr($text, $offset + 1, 1) eq "(" &&
+            substr($text, $offset + 2, 1) ne "(" &&
+            $quote ne "\x27") {
+          my (undef, $end, $closed) = dollar_paren_body($text, $offset);
+          if ($closed) {
+            $offset = $end;
+            next;
+          }
+        }
+
+        # Parentheses in legacy command substitutions belong to that nested
+        # shell context, not to the surrounding modern substitution.
+        if ($char eq "`" && $quote ne "\x27") {
+          $offset++;
+          my $backtick_escaped = 0;
+          while ($offset < length($text)) {
+            my $nested = substr($text, $offset, 1);
+            if ($backtick_escaped) {
+              $backtick_escaped = 0;
+            } elsif ($nested eq "\\") {
+              $backtick_escaped = 1;
+            } elsif ($nested eq "`") {
+              $offset++;
+              last;
+            }
+            $offset++;
+          }
+          next;
+        }
+
+        if ($char eq "\x27" && $quote eq "") {
+          $quote = "\x27";
           $offset++;
           next;
         }
@@ -155,33 +221,122 @@ contract_violation_count() {
           $offset++;
           next;
         }
-        if ($char ne "`") {
-          $offset++;
-          next;
-        }
-
-        $offset++;
-        my $body = "";
-        my $body_escaped = 0;
-        my $closed = 0;
-        while ($offset < length($text)) {
-          my $nested = substr($text, $offset, 1);
-          if ($body_escaped) {
-            $body .= $nested;
-            $body_escaped = 0;
-          } elsif ($nested eq "\\") {
-            $body .= $nested;
-            $body_escaped = 1;
-          } elsif ($nested eq "`") {
-            $closed = 1;
-            $offset++;
-            last;
-          } else {
-            $body .= $nested;
+        if ($quote eq "") {
+          if ($char eq "(") {
+            $depth++;
+          } elsif ($char eq ")") {
+            $depth--;
+            if ($depth == 0) {
+              return (
+                substr($text, $body_start, $offset - $body_start),
+                $offset + 1,
+                1,
+              );
+            }
           }
-          $offset++;
         }
-        push @contexts, $body if $closed && $body =~ /\S/;
+        $offset++;
+      }
+      return ("", length($text), 0);
+    }
+
+    sub command_substitution_contexts {
+      my ($text) = @_;
+      my @contexts = ($text);
+
+      # Scan newly extracted bodies as well, allowing nested substitutions to
+      # contribute their own independently executable command contexts.
+      for (my $context_index = 0;
+           $context_index < @contexts;
+           $context_index++) {
+        my $source = $contexts[$context_index];
+        my $quote = "";
+        my $escaped = 0;
+        my $comment = 0;
+        my $offset = 0;
+
+        while ($offset < length($source)) {
+          my $char = substr($source, $offset, 1);
+          if ($comment) {
+            $comment = 0 if $char eq "\n" || $char eq "\r";
+            $offset++;
+            next;
+          }
+          if ($quote eq "\x27") {
+            $quote = "" if $char eq "\x27";
+            $offset++;
+            next;
+          }
+          if ($escaped) {
+            $escaped = 0;
+            $offset++;
+            next;
+          }
+          if ($char eq "\\") {
+            $escaped = 1;
+            $offset++;
+            next;
+          }
+          if ($char eq "\x27") {
+            $quote = "\x27" unless $quote eq "\"";
+            $offset++;
+            next;
+          }
+          if ($char eq "\"") {
+            $quote = $quote eq "\"" ? "" : "\"";
+            $offset++;
+            next;
+          }
+
+          my $previous = $offset > 0
+            ? substr($source, $offset - 1, 1)
+            : "";
+          if ($quote eq "" && $char eq "#" &&
+              ($offset == 0 || $previous =~ /[ \t\r\n;|&()]/)) {
+            $comment = 1;
+            $offset++;
+            next;
+          }
+
+          if ($char eq "\x24" && substr($source, $offset + 1, 1) eq "(" &&
+              substr($source, $offset + 2, 1) ne "(") {
+            my ($body, $end, $closed) =
+              dollar_paren_body($source, $offset);
+            if ($closed) {
+              push @contexts, $body if $body =~ /\S/;
+              $offset = $end;
+              next;
+            }
+          }
+
+          if ($char ne "`") {
+            $offset++;
+            next;
+          }
+
+          $offset++;
+          my $body = "";
+          my $body_escaped = 0;
+          my $closed = 0;
+          while ($offset < length($source)) {
+            my $nested = substr($source, $offset, 1);
+            if ($body_escaped) {
+              $body .= $nested;
+              $body_escaped = 0;
+            } elsif ($nested eq "\\") {
+              $body .= $nested;
+              $body_escaped = 1;
+            } elsif ($nested eq "`") {
+              $closed = 1;
+              $offset++;
+              last;
+            } else {
+              $body .= $nested;
+            }
+            $offset++;
+          }
+          push @contexts, $body if $closed && $body =~ /\S/;
+        }
       }
       return @contexts;
     }
@@ -441,7 +596,7 @@ contract_violation_count() {
     sub unsafe_htpasswd_count_in_context {
       my ($text) = @_;
       my $unsafe = 0;
-      for my $execution_context (backtick_command_contexts($text)) {
+      for my $execution_context (command_substitution_contexts($text)) {
         for my $segment (shell_command_segments($execution_context)) {
           my @arguments = shell_tokens($segment);
           my $command_index = htpasswd_command_index(@arguments);
