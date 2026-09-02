@@ -840,6 +840,29 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
   exit 1
 fi
 
+# A fenced block can interrupt the paragraph started by an incomplete
+# reference definition. Its opener must not be consumed as a bare next-line
+# destination, or an unclosed fence would be hidden from the validator.
+printf '%s\n' \
+  '[ref]:' \
+  '```text' \
+  'unclosed root fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an empty reference destination failure" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  '[ref]:' \
+  '~~~text' \
+  'unclosed root fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed tilde fence after an empty reference destination failure" >&2
+  exit 1
+fi
+
 # A list item whose first child would be indented code cannot interrupt a
 # paragraph. The later non-one marker and its indented fence therefore remain
 # literal paragraph text rather than opening nested block structure.
