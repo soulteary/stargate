@@ -103,7 +103,7 @@ contract_violation_count() {
       # with known shell prefixes/delegators are executable contexts; their
       # actual command words are validated later by the shell parser.
       return $line if $line =~ m{^(?:\S*/)?htpasswd[ \t]+-};
-      return $line if $line =~ /^[A-Za-z_][A-Za-z0-9_]*=/;
+      return $line if $line =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
       return $line if $line =~ m{^(?:(?:\S*/)?(?:
           sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
           find|eval|stdbuf|bash|dash|ksh|mksh|pdksh|sh|zsh
@@ -1051,7 +1051,7 @@ contract_violation_count() {
           $index++;
           next;
         }
-        if ($argument =~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+        if ($argument =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/) {
           $index++;
           next;
         }
@@ -1158,7 +1158,7 @@ contract_violation_count() {
       while ($index < @arguments) {
         my $argument = $arguments[$index];
         if ($argument eq "\x24" || $prefix{$argument} ||
-            $argument =~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+            $argument =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/) {
           $index++;
           next;
         }
