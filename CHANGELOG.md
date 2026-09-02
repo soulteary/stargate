@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Made tag releases independently queueable and immutable, with fail-fast
+  release-note validation and SemVer high-water reconciliation for mutable
+  container aliases.
 - Bound verification audit events to server-side challenge context. The context
   uses process memory for standalone deployments and the configured session
   Redis for multi-instance deployments. Idempotent retries preserve the original

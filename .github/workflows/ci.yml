@@ -46,7 +46,9 @@ jobs:
           bash .github/scripts/test-go-version-contract.sh
 
       - name: Check release-note extraction
-        run: bash .github/scripts/test-release-notes.sh
+        run: |
+          bash .github/scripts/test-release-notes.sh
+          bash .github/scripts/test-release-workflow.sh
 
       - name: Set up Go
         if: steps.changes.outputs.code == 'true'
