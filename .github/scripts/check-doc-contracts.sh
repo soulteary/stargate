@@ -71,33 +71,90 @@ check_markdown_structure() {
       return ($offset, $matched);
     }
 
+    sub thematic_break {
+      my ($line) = @_;
+      return $line =~ /^ {0,3}(?:(?:\*[ ]*){3,}|(?:-[ ]*){3,}|(?:_[ ]*){3,})$/;
+    }
+
+    sub list_marker_details {
+      my ($remaining) = @_;
+      return unless
+        $remaining =~ /^( {0,3})([-+*]|\d{1,9}[.)])(?:([ ]+)|$)/;
+      my ($before, $marker, $spacing) = ($1, $2, $3);
+      my $space_count = defined $spacing ? length($spacing) : 1;
+      my $padding = $space_count <= 4 ? $space_count : 1;
+      my $width = length($before) + length($marker) + $padding;
+      my $content = length($remaining) >= $width
+        ? substr($remaining, $width)
+        : "";
+      my $ordered = $marker =~ /^(\d{1,9})[.)]$/;
+      my $start = $ordered ? 0 + $1 : 0;
+      my $has_content = $content =~ /[^ ]/;
+      return ($width, $ordered, $start, $has_content);
+    }
+
+    sub interrupts_paragraph {
+      my ($remaining) = @_;
+      return 1 if $remaining =~ /^ *$/;
+      return 1 if $remaining =~ /^ {0,3}>/;
+      return 1 if $remaining =~ /^ {0,3}(?:`{3,}|~{3,})/;
+      return 1 if $remaining =~ /^ {0,3}#{1,6}(?:[ ]|$)/;
+      return 1 if thematic_break($remaining);
+
+      my @marker = list_marker_details($remaining);
+      if (@marker) {
+        my (undef, $ordered, $start, $has_content) = @marker;
+        return 1 if $has_content && (!$ordered || $start == 1);
+      }
+      return 0;
+    }
+
+    sub paragraph_content {
+      my ($remaining) = @_;
+      return 0 if $remaining =~ /^ *$/;
+      return 0 if $remaining =~ /^ {0,3}#{1,6}(?:[ ]|$)/;
+      return 0 if thematic_break($remaining);
+      return 1;
+    }
+
     sub open_containers {
-      my ($line, $offset, $containers) = @_;
+      my ($line, $offset, $containers, $paragraph_active) = @_;
+      my $opened = 0;
       while ($offset <= length($line)) {
         my $remaining = substr($line, $offset);
+
+        # Thematic breaks take precedence over interpreting their first marker
+        # as a list item.
+        last if thematic_break($remaining);
 
         if ($remaining =~ /^( {0,3})>/) {
           my $consumed = length($1) + 1;
           $consumed++ if substr($remaining, $consumed, 1) eq " ";
           push @$containers, { type => "quote" };
           $offset += $consumed;
+          $paragraph_active = 0;
+          $opened++;
           next;
         }
 
-        if ($remaining =~ /^( {0,3})([-+*]|\d{1,9}[.)])(?:([ ]+)|$)/) {
-          my ($before, $marker, $spacing) = ($1, $2, $3);
-          my $space_count = defined $spacing ? length($spacing) : 1;
-          my $padding = $space_count <= 4 ? $space_count : 1;
-          my $width = length($before) + length($marker) + $padding;
+        my @marker = list_marker_details($remaining);
+        if (@marker) {
+          my ($width, $ordered, $start, $has_content) = @marker;
+          # An ordered list can interrupt a paragraph only when it starts at
+          # one, and an empty item cannot interrupt a paragraph at all.
+          last if $paragraph_active &&
+            (!$has_content || ($ordered && $start != 1));
           push @$containers, { type => "list", width => $width };
           $offset += $width;
           $offset = length($line) if $offset > length($line);
+          $paragraph_active = 0;
+          $opened++;
           next;
         }
 
         last;
       }
-      return $offset;
+      return ($offset, $opened);
     }
 
     find({
@@ -112,6 +169,8 @@ check_markdown_structure() {
         my ($fence_char, $fence_length, $fence_line);
         my @containers;
         my @fence_containers;
+        my $paragraph_active = 0;
+        my $paragraph_depth = 0;
         my $line_number = 0;
         LINE: for my $line (split /\n/, $text, -1) {
           $line_number++;
@@ -135,6 +194,7 @@ check_markdown_structure() {
                 undef $fence_length;
                 undef $fence_line;
                 @fence_containers = ();
+                $paragraph_active = 0;
                 next REPROCESS;
               }
 
@@ -144,24 +204,53 @@ check_markdown_structure() {
                 undef $fence_length;
                 undef $fence_line;
                 @fence_containers = ();
+                $paragraph_active = 0;
               }
               next LINE;
             }
 
             my ($offset, $matched) = continue_containers($line, \@containers);
-            splice @containers, $matched if $matched < @containers;
-            $offset = open_containers($line, $offset, \@containers);
+            if ($matched < @containers) {
+              my $remaining = substr($line, $offset);
+              if ($paragraph_active && $paragraph_depth == @containers &&
+                  !interrupts_paragraph($remaining)) {
+                # CommonMark permits paragraph text to lazily continue without
+                # repeating one or more list container prefixes. Preserve the
+                # stack so a following indented fence remains in that item.
+                next LINE;
+              }
+              splice @containers, $matched;
+              $paragraph_active = 0 if $paragraph_depth > $matched;
+            }
+
+            my $paragraph_here =
+              $paragraph_active && $paragraph_depth == @containers;
+            my $opened;
+            ($offset, $opened) =
+              open_containers($line, $offset, \@containers, $paragraph_here);
+            $paragraph_active = 0 if $opened;
             my $content = substr($line, $offset);
-            next LINE unless $content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/;
-            my ($marker, $info) = ($1, $2);
-            my $char = substr($marker, 0, 1);
-            # CommonMark does not treat a backtick sequence as an opening fence
-            # when its info string itself contains a backtick.
-            next LINE if $char eq "`" && index($info, "`") >= 0;
-            $fence_char = $char;
-            $fence_length = length($marker);
-            $fence_line = $line_number;
-            @fence_containers = map { { %$_ } } @containers;
+            if ($content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/) {
+              my ($marker, $info) = ($1, $2);
+              my $char = substr($marker, 0, 1);
+              # CommonMark does not treat a backtick sequence as an opening
+              # fence when its info string itself contains a backtick.
+              if ($char ne "`" || index($info, "`") < 0) {
+                $fence_char = $char;
+                $fence_length = length($marker);
+                $fence_line = $line_number;
+                @fence_containers = map { { %$_ } } @containers;
+                $paragraph_active = 0;
+                next LINE;
+              }
+            }
+
+            if (paragraph_content($content)) {
+              $paragraph_active = 1;
+              $paragraph_depth = scalar @containers;
+            } else {
+              $paragraph_active = 0;
+            }
             next LINE;
           }
         }
