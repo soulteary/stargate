@@ -681,7 +681,7 @@ test ! -e "$v1_env"
 chmod 600 "$old_env"
 umask 077
 (set -C; cat "$old_env" > "$rollback_env")
-(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/' "$old_env" > "$v1_env")
+(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/' "$old_env" > "$v1_env")
 ```
 
 Herald-basiertes TOTP erfordert, dass Stargate authentifizierte Benutzer über Warden auflöst. Daher auch `WARDEN_ENABLED=true` und `WARDEN_URL` setzen.

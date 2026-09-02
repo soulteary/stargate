@@ -868,7 +868,7 @@ test ! -e "$v1_env"
 chmod 600 "$old_env"
 umask 077
 (set -C; cat "$old_env" > "$rollback_env")
-(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/' "$old_env" > "$v1_env")
+(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/' "$old_env" > "$v1_env")
 ```
 
 Herald TOTP 要求 Stargate 通过 Warden 解析已认证用户，因此还必须配置 `WARDEN_ENABLED=true` 和 `WARDEN_URL`。

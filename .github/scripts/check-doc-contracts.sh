@@ -281,7 +281,7 @@ contract_violation_count() {
         "--env-file ./stargate-v1.env",
         q{chmod 600 "$old_env"},
         q{set -C; cat "$old_env" > "$rollback_env"},
-        qq{awk \x27!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/\x27 "\$old_env" > "\$v1_env"},
+        qq{awk \x27!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|\$)/\x27 "\$old_env" > "\$v1_env"},
       ) {
         next if index($text, $term) >= 0;
         warn "Missing safe v1 environment migration contract $term in $file\n";
@@ -309,7 +309,7 @@ contract_violation_count() {
         "--env-file ./stargate-v1.env",
         q{chmod 600 "$old_env"},
         q{set -C; cat "$old_env" > "$rollback_env"},
-        qq{awk \x27!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/\x27 "\$old_env" > "\$v1_env"},
+        qq{awk \x27!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|\$)/\x27 "\$old_env" > "\$v1_env"},
       ) {
         next if index($text, $term) >= 0;
         warn "Missing v1 migration environment contract $term in $file\n";

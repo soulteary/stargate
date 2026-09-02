@@ -129,6 +129,8 @@ if [[ -z "$migration_script" ]]; then
 fi
 printf '%s\n' \
   'KEEP_SETTING=kept' \
+  'WARDEN_OTP_ENABLED' \
+  'WARDEN_OTP_SECRET_KEY' \
   'WARDEN_OTP_ENABLED=false' \
   'WARDEN_OTP_SECRET_KEY=retired-secret' \
   > "$env_test_dir/stargate.env"
@@ -136,7 +138,7 @@ chmod 644 "$env_test_dir/stargate.env"
 (cd "$env_test_dir" && sh -c "$migration_script")
 cmp "$env_test_dir/stargate.env" "$env_test_dir/stargate-v0.12.0.env"
 grep -q '^KEEP_SETTING=kept$' "$env_test_dir/stargate-v1.env"
-if grep -q '^WARDEN_OTP_\(ENABLED\|SECRET_KEY\)=' "$env_test_dir/stargate-v1.env"; then
+if grep -q '^WARDEN_OTP_\(ENABLED\|SECRET_KEY\)\($\|=\)' "$env_test_dir/stargate-v1.env"; then
   echo "Documented v1 environment retained a retired Warden OTP setting" >&2
   exit 1
 fi
