@@ -233,6 +233,7 @@ services:
       - LANGUAGE=zh
       - COOKIE_DOMAIN=.example.com
       - SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
+      - TRUSTED_PROXIES=${TRAEFIK_NETWORK_CIDR:?set TRAEFIK_NETWORK_CIDR from docker network inspect}
     networks:
       - traefik
       - internal
