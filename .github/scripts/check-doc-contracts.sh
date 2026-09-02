@@ -354,7 +354,7 @@ contract_violation_count() {
     }
 
     sub heredoc_specs_in_line {
-      my ($line) = @_;
+      my ($line, $arithmetic) = @_;
       my @specs;
       my $quote = "";
       my $escaped = 0;
@@ -362,6 +362,31 @@ contract_violation_count() {
 
       while ($offset < length($line)) {
         my $char = substr($line, $offset, 1);
+        if ($arithmetic->{depth} > 0) {
+          if ($arithmetic->{quote} eq "\x27") {
+            $arithmetic->{quote} = "" if $char eq "\x27";
+          } elsif ($arithmetic->{quote} eq "\"") {
+            if ($arithmetic->{escaped}) {
+              $arithmetic->{escaped} = 0;
+            } elsif ($char eq "\\") {
+              $arithmetic->{escaped} = 1;
+            } elsif ($char eq "\"") {
+              $arithmetic->{quote} = "";
+            }
+          } elsif ($arithmetic->{escaped}) {
+            $arithmetic->{escaped} = 0;
+          } elsif ($char eq "\\") {
+            $arithmetic->{escaped} = 1;
+          } elsif ($char eq "\x27" || $char eq "\"") {
+            $arithmetic->{quote} = $char;
+          } elsif ($char eq "(") {
+            $arithmetic->{depth}++;
+          } elsif ($char eq ")") {
+            $arithmetic->{depth}--;
+          }
+          $offset++;
+          next;
+        }
         if ($quote eq "\x27") {
           $quote = "" if $char eq "\x27";
           $offset++;
@@ -397,6 +422,21 @@ contract_violation_count() {
         my $previous = $offset > 0 ? substr($line, $offset - 1, 1) : "";
         last if $char eq "#" &&
           ($offset == 0 || $previous =~ /[ \t;|&()]/);
+
+        # `<<` is an arithmetic left shift inside `$((...))` and `((...))`,
+        # not a heredoc operator. Skip the complete balanced arithmetic region
+        # before looking for redirections so a shift cannot consume all later
+        # documentation lines as a fictitious heredoc body.
+        my $arithmetic_prefix =
+          substr($line, $offset, 3) eq "\x24((" ? 3 :
+          substr($line, $offset, 2) eq "((" ? 2 : 0;
+        if ($arithmetic_prefix) {
+          $arithmetic->{depth} = 2;
+          $arithmetic->{quote} = "";
+          $arithmetic->{escaped} = 0;
+          $offset += $arithmetic_prefix;
+          next;
+        }
 
         if ($char ne "<" || substr($line, $offset + 1, 1) ne "<" ||
             substr($line, $offset + 2, 1) eq "<") {
@@ -476,6 +516,7 @@ contract_violation_count() {
       my @command_lines;
       my @expanding_bodies;
       my @pending;
+      my %arithmetic = (depth => 0, quote => "", escaped => 0);
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -493,7 +534,7 @@ contract_violation_count() {
         }
 
         push @command_lines, $line;
-        push @pending, heredoc_specs_in_line($line);
+        push @pending, heredoc_specs_in_line($line, \%arithmetic);
       }
       for my $unfinished (@pending) {
         push @expanding_bodies, $unfinished->{body}
@@ -797,6 +838,66 @@ contract_violation_count() {
       return;
     }
 
+    sub xargs_option_needs_operand {
+      my ($option) = @_;
+      return 0 if $option =~ /^--[^=]+=/;
+      return 1 if $option =~ /^--(?:arg-file|delimiter|eof|replace|max-lines|max-args|max-procs|max-chars|process-slot-var)$/;
+      return 1 if $option =~ /^-[^-]*[adEILnPs]$/;
+      return 0;
+    }
+
+    sub xargs_command_arguments {
+      my (@arguments) = @_;
+      my $command_index = command_word_index(@arguments);
+      return unless $command_index >= 0;
+      return unless $arguments[$command_index] =~ m{(?:^|/)xargs$};
+
+      my $index = $command_index + 1;
+      while ($index < @arguments) {
+        my $option = $arguments[$index];
+        if ($option eq "--") {
+          $index++;
+          last;
+        }
+        last unless $option =~ /^-/ && $option ne "-";
+        my $needs_operand = xargs_option_needs_operand($option);
+        $index++;
+        $index++ if $needs_operand && $index < @arguments;
+      }
+      return $index < @arguments ? @arguments[$index .. $#arguments] : ();
+    }
+
+    sub unsafe_htpasswd_count_in_arguments {
+      my (@arguments) = @_;
+      my $unsafe = 0;
+
+      my $shell_command = shell_c_command(@arguments);
+      $unsafe += unsafe_htpasswd_count_in_context($shell_command)
+        if defined $shell_command && length($shell_command);
+
+      my @xargs_command = xargs_command_arguments(@arguments);
+      $unsafe += unsafe_htpasswd_count_in_arguments(@xargs_command)
+        if @xargs_command;
+
+      my $command_index = htpasswd_command_index(@arguments);
+      return $unsafe if $command_index < 0;
+
+      for (my $index = $command_index + 1; $index < @arguments; $index++) {
+        my $argument = $arguments[$index];
+        last if $argument eq "--";
+        my ($redirection, $has_target) = redirection_details($argument);
+        if ($redirection) {
+          $index++ unless $has_target;
+          next;
+        }
+        if ($argument =~ /^-[A-Za-z]*b[A-Za-z]*$/) {
+          $unsafe++;
+          last;
+        }
+      }
+      return $unsafe;
+    }
+
     sub unsafe_htpasswd_count_in_context {
       my ($text) = @_;
       my $unsafe = 0;
@@ -811,26 +912,7 @@ contract_violation_count() {
       for my $execution_context (@execution_contexts) {
         for my $segment (shell_command_segments($execution_context)) {
           my @arguments = shell_tokens($segment);
-          my $shell_command = shell_c_command(@arguments);
-          $unsafe += unsafe_htpasswd_count_in_context($shell_command)
-            if defined $shell_command && length($shell_command);
-
-          my $command_index = htpasswd_command_index(@arguments);
-          next if $command_index < 0;
-
-          for (my $index = $command_index + 1; $index < @arguments; $index++) {
-            my $argument = $arguments[$index];
-            last if $argument eq "--";
-            my ($redirection, $has_target) = redirection_details($argument);
-            if ($redirection) {
-              $index++ unless $has_target;
-              next;
-            }
-            if ($argument =~ /^-[A-Za-z]*b[A-Za-z]*$/) {
-              $unsafe++;
-              last;
-            }
-          }
+          $unsafe += unsafe_htpasswd_count_in_arguments(@arguments);
         }
       }
       return $unsafe;
