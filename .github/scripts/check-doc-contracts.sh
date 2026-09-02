@@ -121,7 +121,58 @@ contract_violation_count() {
           sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
           find|eval|stdbuf|setsid|taskset|chroot|bash|dash|ksh|mksh|pdksh|sh|zsh
         )|if|then|elif|else|while|until|do|coproc|!)(?:[ \t]|$)}x;
+
+      # Shell performs command substitutions while expanding any simple
+      # command, including declaration builtins such as `export`. Let the
+      # quote-aware substitution parser decide whether htpasswd is executable
+      # instead of requiring every possible outer command in the prefix list.
+      my (undef, @substitutions) = command_substitution_contexts($line);
+      return $line if grep { /\bhtpasswd\b/ } @substitutions;
       return;
+    }
+
+    sub markdown_without_html_comments {
+      my ($line, $comment_ref, $code_span_ref) = @_;
+      my $visible = "";
+      my $offset = 0;
+
+      while ($offset < length($line)) {
+        if ($$comment_ref) {
+          my $closing = index($line, "-->", $offset);
+          return $visible if $closing < 0;
+          $$comment_ref = 0;
+          $offset = $closing + 3;
+          next;
+        }
+
+        my $char = substr($line, $offset, 1);
+        if ($char eq "`") {
+          my $run_end = $offset + 1;
+          $run_end++ while $run_end < length($line) &&
+            substr($line, $run_end, 1) eq "`";
+          my $run_length = $run_end - $offset;
+          my $at_fence_start = !$$code_span_ref && $run_length >= 3 &&
+            $visible =~ /^[ \t]*$/;
+          $visible .= substr($line, $offset, $run_length);
+          if ($$code_span_ref) {
+            $$code_span_ref = 0 if $run_length == $$code_span_ref;
+          } elsif (!$at_fence_start) {
+            $$code_span_ref = $run_length;
+          }
+          $offset = $run_end;
+          next;
+        }
+
+        if (!$$code_span_ref && substr($line, $offset, 4) eq "<!--") {
+          $$comment_ref = 1;
+          $offset += 4;
+          next;
+        }
+
+        $visible .= $char;
+        $offset++;
+      }
+      return $visible;
     }
 
     sub markdown_command_contexts {
@@ -133,6 +184,8 @@ contract_violation_count() {
       my $inline_chunk = "";
       my $standalone_command = "";
       my $standalone_continuing = 0;
+      my $html_comment = 0;
+      my $inline_code_ticks = 0;
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -170,6 +223,15 @@ contract_violation_count() {
           }
           next;
         }
+
+        # Raw HTML comments are not rendered command examples. Remove them
+        # before recognizing fences, standalone commands, or inline code, but
+        # preserve comment markers inside Markdown code spans.
+        $line = markdown_without_html_comments(
+          $line,
+          \$html_comment,
+          \$inline_code_ticks,
+        );
 
         if ($line =~ /^\s*(`{3,}|~{3,})[ \t]*([A-Za-z0-9_-]*)/) {
           push @contexts, inline_code_contexts($inline_chunk);
@@ -1205,6 +1267,21 @@ contract_violation_count() {
       return $command;
     }
 
+    sub sudo_query_option {
+      my ($option) = @_;
+      return 1 if $option =~ /^--(?:help|list|validate|version)(?:=.*)?$/;
+      return 0 unless $option =~ /^-([^-].*)$/;
+
+      # Short sudo flags may be bundled. Once an operand-taking option is
+      # reached, the rest of that argv word is its attached operand rather
+      # than more flags (for example, `-ul` means user `l`).
+      for my $flag (split //, $1) {
+        return 1 if $flag =~ /^[lvV]$/;
+        return 0 if $flag =~ /^[CDghpRTuU]$/;
+      }
+      return 0;
+    }
+
     sub command_word_index {
       my (@arguments) = @_;
       my %prefix = map { $_ => 1 }
@@ -1247,6 +1324,8 @@ contract_violation_count() {
             last unless $option =~ /^-/ && $option ne "-";
             return -1 if $wrapper eq "command" &&
               $option =~ /^-[^-]*[vV]/;
+            return -1 if $wrapper eq "sudo" &&
+              sudo_query_option($option);
             my $needs_operand =
               wrapper_option_needs_operand($wrapper, $option);
             $index++;
@@ -1677,12 +1756,18 @@ contract_violation_count() {
 
       for my $argument (@arguments) {
         my @words = bash_brace_expansions($argument);
-        $expanded = 1
-          if @words != 1 || $words[0] ne $argument;
+        my $argument_expanded =
+          @words != 1 || $words[0] ne $argument;
+        $expanded = 1 if $argument_expanded;
         # An entirely empty result from an unquoted brace alternative does
-        # not survive Bash word generation. Quoted brace syntax is protected
-        # by shell_tokens() and never reaches this expansion path.
-        push @expanded_arguments, grep { length($_) } @words;
+        # not survive Bash word generation. Preserve an original empty argv
+        # word, however: shell_tokens() only emits that for explicit quotes,
+        # and a wrapper can treat it as the command name or option operand.
+        if ($argument_expanded) {
+          push @expanded_arguments, grep { length($_) } @words;
+        } else {
+          push @expanded_arguments, @words;
+        }
       }
       return ($expanded, \@expanded_arguments);
     }
@@ -1786,7 +1871,9 @@ contract_violation_count() {
           $index++ unless $has_target;
           next;
         }
-        if ($argument =~ /^-[A-Za-z0-9]*b[A-Za-z0-9]*$/) {
+        # A literal b in the leading short-option bundle enables batch mode
+        # even when a later suffix is supplied by parameter expansion.
+        if ($argument =~ /^-[A-Za-z0-9]*b/) {
           $unsafe++;
           last;
         }
