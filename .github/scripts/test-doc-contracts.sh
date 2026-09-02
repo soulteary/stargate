@@ -98,6 +98,42 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Shell redirections do not require surrounding whitespace. Split operators
+# attached to commands, wrappers, and preceding arguments before argv analysis.
+for attached_redirection_command in \
+  'htpasswd>/dev/null -bn "" password' \
+  'sudo>/dev/null htpasswd -bn "" password' \
+  'htpasswd -C 10>/dev/null -bn "" password'
+do
+  printf '%s\n' \
+    '' \
+    '```bash' \
+    "$attached_redirection_command" \
+    '```' \
+    >> "$temp_dir/docs/enUS/CONFIG.md"
+  if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+    echo "Expected an unsafe command around an attached redirection failure" >&2
+    exit 1
+  fi
+  git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+done
+
+# Quoted operators remain command data, while an attached redirection target or
+# wrapper-option operand named htpasswd is not itself the executed command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '"htpasswd>/dev/null" -bn "" password' \
+  'printf "%s\\n" safe >htpasswd -bn' \
+  'sudo -u htpasswd>/dev/null printf "%s\\n" "-b"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected quoted and non-command attached redirections to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 printf '%s\n' \
   '' \
   '```bash' \
@@ -558,6 +594,39 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command after a sudo user option failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# SELinux-enabled sudo builds accept lowercase role/type options with either
+# separate or attached operands before the command they execute.
+for sudo_selinux_command in \
+  'sudo -r staff_r htpasswd -bn "" password' \
+  'sudo -t staff_t htpasswd -bn "" password' \
+  'sudo -nr staff_r htpasswd -bn "" password'
+do
+  printf '%s\n' \
+    '' \
+    '```bash' \
+    "$sudo_selinux_command" \
+    '```' \
+    >> "$temp_dir/docs/enUS/CONFIG.md"
+  if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+    echo "Expected an unsafe command after a sudo SELinux option failure" >&2
+    exit 1
+  fi
+  git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+done
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'sudo -r htpasswd printf "%s\\n" "-b"' \
+  'sudo -t htpasswd printf "%s\\n" "-b"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected sudo SELinux option operands named htpasswd to pass" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
