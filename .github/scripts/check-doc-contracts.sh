@@ -104,9 +104,31 @@ contract_violation_count() {
           }
 
           # Stop at Markdown code-span boundaries and unquoted shell control
-          # operators. Text after these characters belongs to prose or to a
-          # different command and must not be attributed to htpasswd.
-          last if $char =~ /[\r\n`;|&()]/;
+          # operators. Redirection operators such as 2>&1, <&0, &>file, and
+          # >|file remain part of the current command and must not hide an
+          # option which follows them.
+          last if $char =~ /[\r\n`;()]/;
+          if ($char eq "&") {
+            my $previous = length($segment) ? substr($segment, -1, 1) : "";
+            my $next = $cursor + 1 < length($text)
+              ? substr($text, $cursor + 1, 1)
+              : "";
+            if ($previous eq ">" || $previous eq "<" || $next eq ">") {
+              $segment .= $char;
+              $cursor++;
+              next;
+            }
+            last;
+          }
+          if ($char eq "|") {
+            my $previous = length($segment) ? substr($segment, -1, 1) : "";
+            if ($previous eq ">") {
+              $segment .= $char;
+              $cursor++;
+              next;
+            }
+            last;
+          }
           my $previous = length($segment) ? substr($segment, -1, 1) : "";
           last if $char eq "#" && ($segment eq "" || $previous =~ /[ \t]/);
           $segment .= $char;
