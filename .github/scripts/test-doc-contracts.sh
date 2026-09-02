@@ -370,6 +370,47 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Brace expansion applies to command words and wrappers as well as options.
+# The empty alternatives disappear during Bash word generation.
+for brace_command in \
+  '{htpasswd,} -bn "" password' \
+  '{command,} htpasswd -bn "" password'
+do
+  printf '%s\n' \
+    '' \
+    '```bash' \
+    "$brace_command" \
+    '```' \
+    >> "$temp_dir/docs/enUS/CONFIG.md"
+  if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+    echo "Expected an unsafe brace-expanded command word failure: $brace_command" >&2
+    exit 1
+  fi
+  git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+done
+
+printf '%s\n' \
+  '' \
+  '    {htpasswd,} -bn "" password' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe unfenced brace-expanded command word failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "'{htpasswd,}' -bn \"\" password" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a quoted brace command word to remain literal" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Shell grammar prefixes and leading redirections do not change the command
 # word; each form must still expose htpasswd options to the contract check.
 printf '%s\n' \
