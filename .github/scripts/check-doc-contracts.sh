@@ -105,7 +105,7 @@ contract_violation_count() {
       return $line if $line =~ m{^(?:\S*/)?htpasswd[ \t]+-};
       return $line if $line =~ m{^(?:(?:\S*/)?(?:
           sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
-          find|eval|bash|dash|ksh|mksh|pdksh|sh|zsh
+          find|eval|stdbuf|bash|dash|ksh|mksh|pdksh|sh|zsh
         )|if|then|elif|else|while|until|do|coproc|!)(?:[ \t]|$)}x;
       return;
     }
@@ -865,6 +865,9 @@ contract_violation_count() {
         return 1 if $option =~ /^-[^-]*[CSu]$/;
       } elsif ($wrapper eq "exec") {
         return 1 if $option eq "-a";
+      } elsif ($wrapper eq "stdbuf") {
+        return 1 if $option =~ /^--(?:input|output|error)$/;
+        return 1 if $option =~ /^-[ioe]$/;
       }
       return 0;
     }
@@ -880,7 +883,7 @@ contract_violation_count() {
       my %prefix = map { $_ => 1 }
         qw(if then elif else while until do coproc !);
       my %wrapper = map { $_ => 1 }
-        qw(command exec builtin nohup env sudo time);
+        qw(command exec builtin nohup env sudo time stdbuf);
       my $index = 0;
 
       while ($index < @arguments) {
@@ -990,7 +993,7 @@ contract_violation_count() {
       my %prefix = map { $_ => 1 }
         qw(if then elif else while until do coproc !);
       my %wrapper = map { $_ => 1 }
-        qw(command exec builtin nohup env sudo time);
+        qw(command exec builtin nohup env sudo time stdbuf);
       my $index = 0;
 
       while ($index < @arguments) {
