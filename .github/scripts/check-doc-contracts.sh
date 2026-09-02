@@ -81,12 +81,42 @@ contract_violation_count() {
       return length($1) % 2;
     }
 
+    sub inline_code_contexts {
+      my ($text) = @_;
+      my @contexts;
+      while ($text =~ /(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)/gs) {
+        my $code = $2;
+        # CommonMark normalizes line endings inside code spans to spaces.
+        $code =~ s/\r?\n/ /g;
+        push @contexts, $code if $code =~ /\bhtpasswd\b/;
+      }
+      return @contexts;
+    }
+
+    sub standalone_command_context {
+      my ($line) = @_;
+      $line =~ s/^[ \t]*(?:[\$>][ \t]+)?//;
+      return unless $line =~ /\bhtpasswd\b/;
+
+      # A direct invocation remains deliberately strict so a prose sentence
+      # beginning with "htpasswd" is not interpreted as shell. Lines beginning
+      # with known shell prefixes/delegators are executable contexts; their
+      # actual command words are validated later by the shell parser.
+      return $line if $line =~ m{^(?:\S*/)?htpasswd[ \t]+-};
+      return $line if $line =~ m{^(?:(?:\S*/)?(?:
+          sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
+          find|eval|bash|dash|ksh|mksh|pdksh|sh|zsh
+        )|if|then|elif|else|while|until|do|coproc|!)(?:[ \t]|$)}x;
+      return;
+    }
+
     sub markdown_command_contexts {
       my ($text) = @_;
       my @contexts;
       my ($fence_char, $fence_length, $capture_fence, $console_fence,
           $console_prompt_seen, $console_command_continuing,
           $fence_content, $console_commands);
+      my $inline_chunk = "";
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -126,6 +156,8 @@ contract_violation_count() {
         }
 
         if ($line =~ /^\s*(`{3,}|~{3,})[ \t]*([A-Za-z0-9_-]*)/) {
+          push @contexts, inline_code_contexts($inline_chunk);
+          $inline_chunk = "";
           my ($marker, $info) = ($1, $2);
           $fence_char = substr($marker, 0, 1);
           $fence_length = length($marker);
@@ -139,19 +171,18 @@ contract_violation_count() {
           next;
         }
 
-        # Inline code is an explicit command context. Different code spans on
-        # the same prose line remain isolated from one another.
-        while ($line =~ /(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)/g) {
-          my $code = $2;
-          push @contexts, $code if $code =~ /\bhtpasswd\b/;
+        # Inline spans may cross physical lines, but never a blank-line block
+        # boundary or a fenced block. Keep each prose block isolated.
+        if ($line =~ /^[ \t]*$/) {
+          push @contexts, inline_code_contexts($inline_chunk);
+          $inline_chunk = "";
+        } else {
+          $inline_chunk .= "$line\n";
         }
 
         # Also protect an unfenced command which is written as a complete line.
-        # Requiring an option immediately after the command avoids treating a
-        # prose sentence beginning with the program name as executable shell.
-        if ($line =~ /^[ \t]*(?:[$>][ \t]+)?(?:(?:sudo|command|env)[ \t]+)*(?:\S*\/)?htpasswd[ \t]+-/) {
-          push @contexts, $line;
-        }
+        my $standalone = standalone_command_context($line);
+        push @contexts, $standalone if defined $standalone;
       }
       if (defined $fence_char && $capture_fence) {
         my $context = $console_fence && $console_prompt_seen
@@ -159,6 +190,7 @@ contract_violation_count() {
           : $fence_content;
         push @contexts, $context;
       }
+      push @contexts, inline_code_contexts($inline_chunk);
       return @contexts;
     }
 
@@ -837,6 +869,12 @@ contract_violation_count() {
       return 0;
     }
 
+    sub command_basename {
+      my ($command) = @_;
+      $command =~ s{.*/}{};
+      return $command;
+    }
+
     sub command_word_index {
       my (@arguments) = @_;
       my %prefix = map { $_ => 1 }
@@ -862,8 +900,9 @@ contract_violation_count() {
           next;
         }
 
-        if ($wrapper{$argument}) {
-          my $wrapper = $argument;
+        my $command_name = command_basename($argument);
+        if ($wrapper{$command_name}) {
+          my $wrapper = $command_name;
           $index++;
           while ($index < @arguments) {
             my $option = $arguments[$index];
@@ -968,8 +1007,9 @@ contract_violation_count() {
           next;
         }
 
-        return -1 unless $wrapper{$argument};
-        my $wrapper = $argument;
+        my $command_name = command_basename($argument);
+        return -1 unless $wrapper{$command_name};
+        my $wrapper = $command_name;
         my $wrapper_index = $index;
         $index++;
         while ($index < @arguments) {
