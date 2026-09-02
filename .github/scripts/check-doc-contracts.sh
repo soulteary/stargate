@@ -367,7 +367,7 @@ contract_violation_count() {
     }
 
     sub heredoc_specs_in_line {
-      my ($line, $arithmetic) = @_;
+      my ($line, $arithmetic, $parameter) = @_;
       my @specs;
       my $quote = "";
       my $escaped = 0;
@@ -375,6 +375,33 @@ contract_violation_count() {
 
       while ($offset < length($line)) {
         my $char = substr($line, $offset, 1);
+        if ($parameter->{depth} > 0) {
+          if ($parameter->{quote} eq "\x27") {
+            $parameter->{quote} = "" if $char eq "\x27";
+          } elsif ($parameter->{quote} eq "\"") {
+            if ($parameter->{escaped}) {
+              $parameter->{escaped} = 0;
+            } elsif ($char eq "\\") {
+              $parameter->{escaped} = 1;
+            } elsif ($char eq "\"") {
+              $parameter->{quote} = "";
+            }
+          } elsif ($parameter->{escaped}) {
+            $parameter->{escaped} = 0;
+          } elsif ($char eq "\\") {
+            $parameter->{escaped} = 1;
+          } elsif ($char eq "\x27" || $char eq "\"") {
+            $parameter->{quote} = $char;
+          } elsif ($char eq "\x24" &&
+                   substr($line, $offset + 1, 1) eq "{") {
+            $parameter->{depth}++;
+            $offset++;
+          } elsif ($char eq "}") {
+            $parameter->{depth}--;
+          }
+          $offset++;
+          next;
+        }
         if ($arithmetic->{depth} > 0) {
           if ($arithmetic->{quote} eq "\x27") {
             $arithmetic->{quote} = "" if $char eq "\x27";
@@ -439,6 +466,14 @@ contract_violation_count() {
         my $previous = $offset > 0 ? substr($line, $offset - 1, 1) : "";
         last if $char eq "#" &&
           ($offset == 0 || $previous =~ /[ \t;|&()]/);
+
+        if ($char eq "\x24" && substr($line, $offset + 1, 1) eq "{") {
+          $parameter->{depth} = 1;
+          $parameter->{quote} = "";
+          $parameter->{escaped} = 0;
+          $offset += 2;
+          next;
+        }
 
         # `<<` is an arithmetic left shift inside `$((...))` and `((...))`,
         # not a heredoc operator. Skip the complete balanced arithmetic region
@@ -539,6 +574,7 @@ contract_violation_count() {
       my @pending;
       my %arithmetic =
         (depth => 0, delimiter => "", quote => "", escaped => 0);
+      my %parameter = (depth => 0, quote => "", escaped => 0);
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -556,7 +592,8 @@ contract_violation_count() {
         }
 
         push @command_lines, $line;
-        push @pending, heredoc_specs_in_line($line, \%arithmetic);
+        push @pending,
+          heredoc_specs_in_line($line, \%arithmetic, \%parameter);
       }
       for my $unfinished (@pending) {
         push @expanding_bodies, $unfinished->{body}
@@ -1032,6 +1069,31 @@ contract_violation_count() {
       return $index < @arguments ? @arguments[$index .. $#arguments] : ();
     }
 
+    sub find_exec_commands {
+      my (@arguments) = @_;
+      my $command_index = command_word_index(@arguments);
+      return unless $command_index >= 0;
+      return unless $arguments[$command_index] =~ m{(?:^|/)find$};
+
+      my @commands;
+      for (my $index = $command_index + 1;
+           $index < @arguments;
+           $index++) {
+        next unless $arguments[$index] =~
+          /^-(?:exec|execdir|ok|okdir)$/;
+        my @command;
+        $index++;
+        while ($index < @arguments &&
+               $arguments[$index] ne ";" &&
+               $arguments[$index] ne "+") {
+          push @command, $arguments[$index];
+          $index++;
+        }
+        push @commands, \@command if @command;
+      }
+      return @commands;
+    }
+
     sub eval_command {
       my (@arguments) = @_;
       my $command_index = command_word_index(@arguments);
@@ -1075,6 +1137,10 @@ contract_violation_count() {
       my @nice_command = nice_command_arguments(@arguments);
       $unsafe += unsafe_htpasswd_count_in_arguments(@nice_command)
         if @nice_command;
+
+      for my $find_command (find_exec_commands(@arguments)) {
+        $unsafe += unsafe_htpasswd_count_in_arguments(@$find_command);
+      }
 
       my $command_index = htpasswd_command_index(@arguments);
       return $unsafe if $command_index < 0;
