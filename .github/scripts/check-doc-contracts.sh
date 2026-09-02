@@ -59,18 +59,128 @@ check_markdown_structure() {
 
 contract_violation_count() {
   local root=$1
-  perl -MFile::Find -MText::ParseWords=shellwords -e '
+  perl -MFile::Find -e '
     my $root = shift;
     my $count = 0;
 
-    sub unsafe_htpasswd_command_count {
+    sub markdown_command_contexts {
+      my ($text) = @_;
+      my @contexts;
+      my ($fence_char, $fence_length, $capture_fence, $fence_content);
+
+      for my $line (split /\n/, $text, -1) {
+        $line =~ s/\r$//;
+        if (defined $fence_char) {
+          if ($line =~ /^\s*(\Q$fence_char\E+)\s*$/ && length($1) >= $fence_length) {
+            push @contexts, $fence_content if $capture_fence;
+            undef $fence_char;
+            undef $fence_length;
+            undef $capture_fence;
+            $fence_content = "";
+            next;
+          }
+          $fence_content .= "$line\n" if $capture_fence;
+          next;
+        }
+
+        if ($line =~ /^\s*(`{3,}|~{3,})[ \t]*([A-Za-z0-9_-]*)/) {
+          my ($marker, $info) = ($1, $2);
+          $fence_char = substr($marker, 0, 1);
+          $fence_length = length($marker);
+          $capture_fence = $info eq "" ||
+            $info =~ /^(?:bash|sh|shell|zsh|console|terminal)$/i;
+          $fence_content = "";
+          next;
+        }
+
+        # Inline code is an explicit command context. Different code spans on
+        # the same prose line remain isolated from one another.
+        while ($line =~ /(?<!`)(`+)(?!`)(.*?)(?<!`)\1(?!`)/g) {
+          my $code = $2;
+          push @contexts, $code if $code =~ /\bhtpasswd\b/;
+        }
+
+        # Also protect an unfenced command which is written as a complete line.
+        # Requiring an option immediately after the command avoids treating a
+        # prose sentence beginning with the program name as executable shell.
+        if ($line =~ /^[ \t]*(?:[$>][ \t]+)?(?:(?:sudo|command|env)[ \t]+)*(?:\S*\/)?htpasswd[ \t]+-/) {
+          push @contexts, $line;
+        }
+      }
+      push @contexts, $fence_content
+        if defined $fence_char && $capture_fence;
+      return @contexts;
+    }
+
+    sub shell_tokens {
+      my ($text) = @_;
+      my @tokens;
+      my $token = "";
+      my $in_token = 0;
+      my $quote = "";
+      my $escaped = 0;
+
+      for my $offset (0 .. length($text) - 1) {
+        my $char = substr($text, $offset, 1);
+        if ($quote eq "\x27") {
+          if ($char eq "\x27") {
+            $quote = "";
+          } else {
+            $token .= $char;
+          }
+          next;
+        }
+        if ($quote eq "\"") {
+          if ($escaped) {
+            $token .= $char;
+            $escaped = 0;
+          } elsif ($char eq "\\") {
+            $escaped = 1;
+          } elsif ($char eq "\"") {
+            $quote = "";
+          } else {
+            $token .= $char;
+          }
+          next;
+        }
+        if ($escaped) {
+          $token .= $char;
+          $escaped = 0;
+          next;
+        }
+        if ($char eq "\\") {
+          $escaped = 1;
+          $in_token = 1;
+          next;
+        }
+        if ($char eq "\x27" || $char eq "\"") {
+          $quote = $char;
+          $in_token = 1;
+          next;
+        }
+        if ($char =~ /[ \t]/) {
+          if ($in_token) {
+            push @tokens, $token;
+            $token = "";
+            $in_token = 0;
+          }
+          next;
+        }
+        $token .= $char;
+        $in_token = 1;
+      }
+      push @tokens, $token if $in_token;
+      return @tokens;
+    }
+
+    sub unsafe_htpasswd_count_in_context {
       my ($text) = @_;
       my $unsafe = 0;
 
       # A backslash-newline is part of the same shell command. Preserve other
       # newlines because they terminate the invocation being inspected.
       $text =~ s/\\\r?\n[ \t]*/ /g;
-      while ($text =~ /\bhtpasswd\b/g) {
+      while ($text =~ /(?:^|[\r\n;|&()])[ \t]*(?:[$>][ \t]+)?(?:(?:[A-Za-z_][A-Za-z0-9_]*=\S+|sudo|command|env)[ \t]+)*(?:\S*\/)?htpasswd\b/gm) {
         my $cursor = pos($text);
         my $segment = "";
         my $quote = "";
@@ -78,6 +188,30 @@ contract_violation_count() {
 
         while ($cursor < length($text)) {
           my $char = substr($text, $cursor, 1);
+          if ($quote eq "\x27") {
+            $segment .= $char;
+            $quote = "" if $char eq "\x27";
+            $cursor++;
+            next;
+          }
+          if ($quote eq "\"") {
+            if ($escaped) {
+              $segment .= $char;
+              $escaped = 0;
+              $cursor++;
+              next;
+            }
+            if ($char eq "\\") {
+              $segment .= $char;
+              $escaped = 1;
+              $cursor++;
+              next;
+            }
+            $segment .= $char;
+            $quote = "" if $char eq "\"";
+            $cursor++;
+            next;
+          }
           if ($escaped) {
             $segment .= $char;
             $escaped = 0;
@@ -87,12 +221,6 @@ contract_violation_count() {
           if ($char eq "\\") {
             $segment .= $char;
             $escaped = 1;
-            $cursor++;
-            next;
-          }
-          if ($quote ne "") {
-            $segment .= $char;
-            $quote = "" if $char eq $quote;
             $cursor++;
             next;
           }
@@ -135,12 +263,7 @@ contract_violation_count() {
           $cursor++;
         }
 
-        my @arguments;
-        my $parsed = eval {
-          @arguments = shellwords($segment);
-          1;
-        };
-        next unless $parsed;
+        my @arguments = shell_tokens($segment);
         for my $argument (@arguments) {
           last if $argument eq "--";
           if ($argument =~ /^-[A-Za-z]*b[A-Za-z]*$/) {
@@ -148,6 +271,15 @@ contract_violation_count() {
             last;
           }
         }
+      }
+      return $unsafe;
+    }
+
+    sub unsafe_htpasswd_command_count {
+      my ($text) = @_;
+      my $unsafe = 0;
+      for my $context (markdown_command_contexts($text)) {
+        $unsafe += unsafe_htpasswd_count_in_context($context);
       }
       return $unsafe;
     }
