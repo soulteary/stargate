@@ -791,6 +791,18 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
   exit 1
 fi
 
+# Unicode whitespace does not satisfy CommonMark's requirement that a link
+# reference label contain a non-whitespace character. NBSP therefore leaves
+# this reference-shaped line as paragraph text.
+printf '[\302\240]: /target\n%s\n%s\n' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a Unicode-whitespace reference label to remain paragraph text" >&2
+  exit 1
+fi
+
 # A bare destination must balance every unescaped parenthesis. An invalid
 # definition stays paragraph text, so a non-one list marker cannot interrupt.
 printf '%s\n' \
