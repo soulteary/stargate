@@ -500,6 +500,20 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# A backtick in a backtick-fence info string makes that line paragraph text.
+# It must not interrupt a lazy paragraph and discard the wide list container,
+# or the following indented real fence would be missed as root indented code.
+printf '%s\n' \
+  '-   paragraph in a wide list item' \
+  '```bad`info' \
+  '    ```text' \
+  '    unclosed real fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after invalid lazy opener text failure" >&2
+  exit 1
+fi
+
 # Exercise the same five-space list-container indentation used by the existing
 # localized API response examples, so those real blocks cannot silently regress.
 perl -0pi -e 's/^     ```\r?\n//m' "$temp_dir/docs/enUS/API.md"
