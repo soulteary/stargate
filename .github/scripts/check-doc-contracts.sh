@@ -63,6 +63,18 @@ contract_violation_count() {
     my $root = shift;
     my $count = 0;
 
+    sub console_prompt_command {
+      my ($line) = @_;
+      if ($line =~ m{^[ \t]*(?:
+          [#\$>]|
+          [A-Za-z0-9_.-]+\@[A-Za-z0-9_.-]+(?::[^#\$\r\n]*)?[#\$]|
+          \[[^\]\r\n]+\][#\$]
+        )[ \t]+(.*)$}x) {
+        return (1, $1);
+      }
+      return (0, "");
+    }
+
     sub markdown_command_contexts {
       my ($text) = @_;
       my @contexts;
@@ -87,10 +99,10 @@ contract_violation_count() {
             next;
           }
           if ($capture_fence) {
-            if ($console_fence &&
-                $line =~ /^[ \t]*[#\$>][ \t]+(.*)$/) {
+            my ($has_prompt, $command) = console_prompt_command($line);
+            if ($console_fence && $has_prompt) {
               $console_prompt_seen = 1;
-              $console_commands .= "$1\n";
+              $console_commands .= "$command\n";
             } else {
               # Keep plain console blocks usable as command-only blocks. Once
               # any prompt is present, this buffer is transcript output and
@@ -705,12 +717,12 @@ contract_violation_count() {
       return 0;
     }
 
-    sub htpasswd_command_index {
+    sub command_word_index {
       my (@arguments) = @_;
       my %prefix = map { $_ => 1 }
-        qw(if then elif else while until do ! time);
+        qw(if then elif else while until do !);
       my %wrapper = map { $_ => 1 }
-        qw(command exec builtin nohup env sudo);
+        qw(command exec builtin nohup env sudo time);
       my $index = 0;
 
       while ($index < @arguments) {
@@ -747,10 +759,42 @@ contract_violation_count() {
           }
           next;
         }
-        return $index if $argument =~ m{(?:^|/)htpasswd$};
-        return -1;
+        return $index;
       }
       return -1;
+    }
+
+    sub htpasswd_command_index {
+      my (@arguments) = @_;
+      my $index = command_word_index(@arguments);
+      return -1 if $index < 0;
+      return $arguments[$index] =~ m{(?:^|/)htpasswd$} ? $index : -1;
+    }
+
+    sub shell_c_command {
+      my (@arguments) = @_;
+      my $command_index = command_word_index(@arguments);
+      return unless $command_index >= 0;
+      return unless $arguments[$command_index] =~
+        m{(?:^|/)(?:ba|da|k|mk|pdk|z)?sh$};
+
+      for (my $index = $command_index + 1;
+           $index < @arguments;
+           $index++) {
+        my $argument = $arguments[$index];
+        last if $argument eq "--";
+        if ($argument =~ /^-[^-]*c/) {
+          return $index + 1 < @arguments
+            ? $arguments[$index + 1]
+            : "";
+        }
+        if ($argument =~ /^(?:[-+]O|-o|--init-file|--rcfile)$/) {
+          $index++;
+          next;
+        }
+        last unless $argument =~ /^[-+]/;
+      }
+      return;
     }
 
     sub unsafe_htpasswd_count_in_context {
@@ -767,6 +811,10 @@ contract_violation_count() {
       for my $execution_context (@execution_contexts) {
         for my $segment (shell_command_segments($execution_context)) {
           my @arguments = shell_tokens($segment);
+          my $shell_command = shell_c_command(@arguments);
+          $unsafe += unsafe_htpasswd_count_in_context($shell_command)
+            if defined $shell_command && length($shell_command);
+
           my $command_index = htpasswd_command_index(@arguments);
           next if $command_index < 0;
 
