@@ -299,20 +299,14 @@ contract_violation_count() {
 
     sub command_substitution_contexts {
       my ($text) = @_;
-      my @contexts = ($text);
+      my @contexts;
+      my $source = $text;
+      my $quote = "";
+      my $escaped = 0;
+      my $comment = 0;
+      my $offset = 0;
 
-      # Scan newly extracted bodies as well, allowing nested substitutions to
-      # contribute their own independently executable command contexts.
-      for (my $context_index = 0;
-           $context_index < @contexts;
-           $context_index++) {
-        my $source = $contexts[$context_index];
-        my $quote = "";
-        my $escaped = 0;
-        my $comment = 0;
-        my $offset = 0;
-
-        while ($offset < length($source)) {
+      while ($offset < length($source)) {
           my $char = substr($source, $offset, 1);
           if ($comment) {
             $comment = 0 if $char eq "\n" || $char eq "\r";
@@ -393,7 +387,6 @@ contract_violation_count() {
             $offset++;
           }
           push @contexts, $body if $closed && $body =~ /\S/;
-        }
       }
       return @contexts;
     }
@@ -507,17 +500,21 @@ contract_violation_count() {
           next;
         }
 
-        # `<<` is an arithmetic left shift inside `$((...))` and `((...))`,
-        # not a heredoc operator. Skip the complete balanced arithmetic region
-        # before looking for redirections so a shift cannot consume all later
-        # documentation lines as a fictitious heredoc body.
+        # `<<` is an arithmetic left shift inside arithmetic expansions,
+        # commands, and indexed-array subscripts, not a heredoc operator. Skip
+        # the complete balanced region before looking for redirections so a
+        # shift cannot consume later documentation as a fictitious body.
+        my $before = substr($line, 0, $offset);
+        my $array_subscript = $char eq "[" &&
+          $before =~ /(?:^|[ \t;|&()])(?:[A-Za-z_][A-Za-z0-9_]*)$/;
         my $arithmetic_prefix =
           substr($line, $offset, 3) eq "\x24((" ? 3 :
           substr($line, $offset, 2) eq "((" ? 2 :
-          substr($line, $offset, 2) eq "\x24[" ? 2 : 0;
+          substr($line, $offset, 2) eq "\x24[" ? 2 :
+          $array_subscript ? 1 : 0;
         if ($arithmetic_prefix) {
           my $legacy_brackets =
-            substr($line, $offset, 2) eq "\x24[";
+            substr($line, $offset, 2) eq "\x24[" || $array_subscript;
           $arithmetic->{depth} = $legacy_brackets ? 1 : 2;
           $arithmetic->{delimiter} = $legacy_brackets ? "]" : ")";
           $arithmetic->{quote} = "";
@@ -1207,16 +1204,22 @@ contract_violation_count() {
     sub unsafe_htpasswd_count_in_context {
       my ($text) = @_;
       my $unsafe = 0;
-      my ($commands, @heredoc_bodies) = heredoc_filtered_contexts($text);
-      my @execution_contexts = command_substitution_contexts($commands);
-      for my $body (@heredoc_bodies) {
-        my @nested = command_substitution_contexts($body);
-        shift @nested;
-        push @execution_contexts, @nested;
-      }
+      my @pending = ($text);
 
-      for my $execution_context (@execution_contexts) {
-        for my $segment (shell_command_segments($execution_context)) {
+      # Heredoc recognition and command-substitution extraction must be
+      # interleaved at every nesting level. A heredoc inside `$(...)` is not
+      # visible while its outer quotes are still present, and its payload is
+      # data except for substitutions in an expanding heredoc.
+      while (@pending) {
+        my $execution_context = shift @pending;
+        my ($commands, @heredoc_bodies) =
+          heredoc_filtered_contexts($execution_context);
+        push @pending, command_substitution_contexts($commands);
+        for my $body (@heredoc_bodies) {
+          push @pending, command_substitution_contexts($body);
+        }
+
+        for my $segment (shell_command_segments($commands)) {
           my @arguments = shell_tokens($segment);
           $unsafe += unsafe_htpasswd_count_in_arguments(@arguments);
         }
