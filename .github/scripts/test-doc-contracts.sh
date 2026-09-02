@@ -615,6 +615,21 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# A reference title may itself contain line endings, provided no blank line
+# interrupts it and its delimiter eventually closes.
+printf '%s\n' \
+  '[reference]: /target "multi' \
+  'line' \
+  'title"' \
+  '22. list item after a multiline title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a multiline reference title failure" >&2
+  exit 1
+fi
+
 # Backslash-escaped ASCII punctuation is valid inside each reference-title
 # delimiter form. It must not turn the definition into paragraph text.
 printf '%s\n' \
@@ -698,6 +713,18 @@ printf '%s\n' \
   > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unclosed fence after an escaped reference label failure" >&2
+  exit 1
+fi
+
+# CommonMark limits labels by Unicode characters, not encoded UTF-8 bytes.
+perl -e '
+  binmode STDOUT, ":encoding(UTF-8)";
+  print "[", "\x{754c}" x 400, "]: /target\n";
+  print "22. list item after a multibyte label\n";
+  print "    ```text\n    unclosed list fence\n";
+' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a multibyte reference label failure" >&2
   exit 1
 fi
 
