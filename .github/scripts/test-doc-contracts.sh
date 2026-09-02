@@ -541,6 +541,21 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# CommonMark permits the destination and optional title on following lines;
+# the entire completed definition remains a non-paragraph leaf.
+printf '%s\n' \
+  '[reference]:' \
+  '  /target' \
+  '  "optional title"' \
+  '22. list item after a multiline reference' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a multiline reference failure" >&2
+  exit 1
+fi
+
 # A Setext underline closes its preceding paragraph as a heading, so a
 # non-one ordered list may likewise begin immediately afterward.
 printf '%s\n' \
@@ -564,6 +579,18 @@ printf '%s\n' \
   > "$fence_fixture"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected a reference-shaped paragraph continuation to pass" >&2
+  exit 1
+fi
+
+# An incomplete definition is paragraph text and still blocks a non-one list
+# from interrupting it.
+printf '%s\n' \
+  '[incomplete]:' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an incomplete reference definition to remain paragraph text" >&2
   exit 1
 fi
 
