@@ -111,12 +111,13 @@ check_markdown_structure() {
 
     sub link_reference_definition {
       my ($content) = @_;
-      return $content =~ m{^ {0,3}
+      return unless $content =~ m{^ {0,3}
         \[(?:\\.|[^\]\\])+\]:[ \t]*
         (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)
-        (?:[ \t]+(?:"[^"]*"|\x27[^\x27]*\x27|\([^()]*\)))?
+        (?:[ \t]+("[^"]*"|\x27[^\x27]*\x27|\([^()]*\)))?
         [ \t]*$
       }x;
+      return (1, defined($1));
     }
 
     sub reference_destination_details {
@@ -135,6 +136,18 @@ check_markdown_structure() {
         (?:"[^"]*"|\x27[^\x27]*\x27|\([^()]*\))
         [ \t]*$
       }x;
+    }
+
+    sub following_reference_title_line {
+      my ($containers, $line_index, $lines) = @_;
+      return 0 if $line_index + 1 >= @$lines;
+
+      my $title_line = $lines->[$line_index + 1];
+      $title_line =~ s/\r$//;
+      $title_line = expand_tabs($title_line);
+      my ($offset, $matched) = continue_containers($title_line, $containers);
+      return 0 if $matched < @$containers;
+      return reference_title_line(substr($title_line, $offset));
     }
 
     sub multiline_reference_lines {
@@ -400,9 +413,17 @@ check_markdown_structure() {
               $paragraph_active = 0;
               next LINE;
             }
-            if (!$paragraph_here && link_reference_definition($content)) {
-              $paragraph_active = 0;
-              next LINE;
+            if (!$paragraph_here) {
+              my @reference = link_reference_definition($content);
+              if (@reference) {
+                my (undef, $has_title) = @reference;
+                if (!$has_title && following_reference_title_line(
+                    \@containers, $line_index, \@lines)) {
+                  $reference_lines_to_skip = 1;
+                }
+                $paragraph_active = 0;
+                next LINE;
+              }
             }
             if (!$paragraph_here) {
               my $continuation_lines = multiline_reference_lines(
