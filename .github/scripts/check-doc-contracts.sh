@@ -66,9 +66,9 @@ contract_violation_count() {
     sub console_prompt_command {
       my ($line) = @_;
       if ($line =~ m{^[ \t]*(?:
-          [#\$>]|
-          [A-Za-z0-9_.-]+\@[A-Za-z0-9_.-]+(?::[^#\$\r\n]*)?[#\$]|
-          \[[^\]\r\n]+\][#\$]
+          [#\$>%]|
+          [A-Za-z0-9_.-]+\@[A-Za-z0-9_.-]+(?::[^#\$%\r\n]*)?[#\$%]|
+          \[[^\]\r\n]+\][#\$%]
         )[ \t]+(.*)$}x) {
         return (1, $1);
       }
@@ -95,7 +95,7 @@ contract_violation_count() {
 
     sub standalone_command_context {
       my ($line) = @_;
-      $line =~ s/^[ \t]*(?:[\$>][ \t]+)?//;
+      $line =~ s/^[ \t]*(?:[\$>%][ \t]+)?//;
       return unless $line =~ /\bhtpasswd\b/;
 
       # A direct invocation remains deliberately strict so a prose sentence
@@ -469,6 +469,31 @@ contract_violation_count() {
       return 0;
     }
 
+    sub ansi_c_escape_at {
+      my ($text, $offset) = @_;
+      my $remaining = substr($text, $offset);
+      return (chr(hex($1)), 2 + length($1))
+        if $remaining =~ /^\\x([0-9A-Fa-f]{1,2})/;
+      return (chr(hex($1)), 2 + length($1))
+        if $remaining =~ /^\\u([0-9A-Fa-f]{1,4})/;
+      return (chr(hex($1)), 2 + length($1))
+        if $remaining =~ /^\\U([0-9A-Fa-f]{1,8})/;
+      return (chr(oct($1)), 1 + length($1))
+        if $remaining =~ /^\\([0-7]{1,3})/;
+      if ($remaining =~ /^\\c(.)/s) {
+        return (chr(ord(uc($1)) & 0x1f), 3);
+      }
+      if ($remaining =~ /^\\([abefnrtv\\\x27"?])/) {
+        my %escape = (
+          a => "\a", b => "\b", e => "\e", f => "\f", n => "\n",
+          r => "\r", t => "\t", v => "\x0b", "\\" => "\\",
+          "\x27" => "\x27", "\"" => "\"", "?" => "?",
+        );
+        return ($escape{$1}, 2);
+      }
+      return ("\\", 1);
+    }
+
     sub heredoc_specs_in_line {
       my ($line, $arithmetic, $parameter, $shell) = @_;
       my @specs;
@@ -619,6 +644,21 @@ contract_violation_count() {
         my $delimiter_escaped = 0;
         while ($cursor < length($line)) {
           my $part = substr($line, $cursor, 1);
+          if ($delimiter_quote eq "ansi") {
+            if ($part eq "\x27") {
+              $delimiter_quote = "";
+              $cursor++;
+            } elsif ($part eq "\\") {
+              my ($decoded, $consumed) =
+                ansi_c_escape_at($line, $cursor);
+              $delimiter .= $decoded;
+              $cursor += $consumed;
+            } else {
+              $delimiter .= $part;
+              $cursor++;
+            }
+            next;
+          }
           if ($delimiter_quote eq "\x27") {
             if ($part eq "\x27") {
               $delimiter_quote = "";
@@ -649,6 +689,13 @@ contract_violation_count() {
               $delimiter .= substr($line, $cursor, 1);
               $cursor++;
             }
+            next;
+          }
+          if ($part eq "\x24" &&
+              substr($line, $cursor + 1, 1) eq "\x27") {
+            $delimiter_quoted = 1;
+            $delimiter_quote = "ansi";
+            $cursor += 2;
             next;
           }
           if ($part eq "\x27" || $part eq "\"") {
@@ -725,9 +772,30 @@ contract_violation_count() {
       my $in_token = 0;
       my $quote = "";
       my $escaped = 0;
+      my $ansi_open = 0;
+      my $ansi_skip = 0;
 
       for my $offset (0 .. length($text) - 1) {
         my $char = substr($text, $offset, 1);
+        if ($ansi_skip > 0) {
+          $ansi_skip--;
+          next;
+        }
+        if ($quote eq "ansi") {
+          if ($ansi_open) {
+            $ansi_open = 0;
+          } elsif ($char eq "\x27") {
+            $quote = "";
+          } elsif ($char eq "\\") {
+            my ($decoded, $consumed) =
+              ansi_c_escape_at($text, $offset);
+            $token .= $decoded;
+            $ansi_skip = $consumed - 1;
+          } else {
+            $token .= $char;
+          }
+          next;
+        }
         if ($quote eq "\x27") {
           if ($char eq "\x27") {
             $quote = "";
@@ -763,6 +831,13 @@ contract_violation_count() {
         }
         if ($char eq "\\") {
           $escaped = 1;
+          $in_token = 1;
+          next;
+        }
+        if ($char eq "\x24" &&
+            substr($text, $offset + 1, 1) eq "\x27") {
+          $quote = "ansi";
+          $ansi_open = 1;
           $in_token = 1;
           next;
         }
