@@ -188,6 +188,19 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Brace-group delimiters establish a new simple-command position.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '{ htpasswd -bn "" password; }' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command inside a brace group failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Backtick substitutions execute in both unquoted and double-quoted contexts.
 printf '%s\n' \
   '' \
@@ -222,6 +235,21 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe modern htpasswd command substitution failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# An unquoted heredoc body is data, but its command substitutions still run.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'cat <<DOC' \
+  '$(htpasswd -bn "" password)' \
+  'DOC' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd substitution in an expanding heredoc failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
@@ -298,6 +326,27 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected console output and literal command substitutions to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Heredoc payload is not a sequence of shell commands. A quoted delimiter also
+# disables substitutions, while direct text remains data with either form.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "cat <<'LITERAL'" \
+  'htpasswd -bn "" password' \
+  '$(htpasswd -bn "" password)' \
+  'LITERAL' \
+  'cat <<PLAIN' \
+  'htpasswd -bn "" password' \
+  'PLAIN' \
+  'printf "%s\n" {htpasswd,-bn}' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected literal heredoc and brace-expansion text to pass" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
