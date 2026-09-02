@@ -514,6 +514,20 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# Indented code is a leaf block, not an active paragraph. A following ordered
+# list may therefore start at a number other than one, and its indented fence
+# must still be validated within the list container.
+printf '%s\n' \
+  '    indented code' \
+  '22. list item after code' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence in a non-one list after indented code failure" >&2
+  exit 1
+fi
+
 # Exercise the same five-space list-container indentation used by the existing
 # localized API response examples, so those real blocks cannot silently regress.
 perl -0pi -e 's/^     ```\r?\n//m' "$temp_dir/docs/enUS/API.md"
