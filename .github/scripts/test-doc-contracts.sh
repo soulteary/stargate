@@ -701,6 +701,31 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# A bare destination must balance every unescaped parenthesis. An invalid
+# definition stays paragraph text, so a non-one list marker cannot interrupt.
+printf '%s\n' \
+  '[reference]: /unbalanced(' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unbalanced reference destination to remain paragraph text" >&2
+  exit 1
+fi
+
+# Balanced and escaped parentheses are both valid bare destinations and retain
+# reference-definition leaf semantics for the following list.
+printf '%s\n' \
+  '[reference]: /balanced(one)/escaped\(two\)' \
+  '22. list item after a balanced destination' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a balanced reference destination failure" >&2
+  exit 1
+fi
+
 # An incomplete definition is paragraph text and still blocks a non-one list
 # from interrupting it.
 printf '%s\n' \
