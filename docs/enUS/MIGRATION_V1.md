@@ -7,7 +7,32 @@ Stargate v1.0.0 establishes the first stable deployment and HTTP contracts. It a
 1. Record the current image, environment variables, proxy routes, callback hosts, and health probes.
 2. Back up the deployment configuration and keep the v0.12.0 image available for rollback.
 3. Identify every caller of `/_logout`, `/totp/enroll`, and the cross-domain session exchange route.
-4. If more than one Stargate replica is running, prepare Redis-backed session storage before upgrading.
+4. Prepare Redis before upgrading if multiple processes will serve traffic, the rollout overlaps old and new processes, or session and consumed-ticket state must survive a restart. A single live process may use in-memory storage even for cross-domain callbacks, but all state is process-local and is lost on restart.
+
+## Preserve rollback configuration and build the v1 environment
+
+Do not start v1 with the old environment file. Keep `stargate.env` unchanged and keep the v0.12.0 container. The following commands create a protected rollback copy and a separate v1 file, refuse to overwrite either output, and remove the retired settings only from the v1 file:
+
+```bash
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+
+test -f "$old_env"
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+chmod 600 "$old_env"
+umask 077
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/' "$old_env" > "$v1_env")
+```
+
+Herald-backed TOTP requires Stargate to resolve authenticated users through Warden, so also set `WARDEN_ENABLED=true` and `WARDEN_URL`.
+
+v1 rejects `WARDEN_OTP_ENABLED` and `WARDEN_OTP_SECRET_KEY` whenever either variable is present, including empty or `false` values. Do not add them to `stargate-v1.env`. For TOTP, configure Stargate with `HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`, `HERALD_URL`, and one supported Herald service-auth method. Configure Herald to proxy TOTP to herald-totp, and configure herald-totp with its own `HERALD_TOTP_ENCRYPTION_KEY`; do not automatically reuse the retired Warden secret. See [Configuration](CONFIG.md).
+
+Validate and deploy v1 with `--env-file ./stargate-v1.env`. Keep `stargate-v0.12.0.env`, the unchanged original file, and the old container until the rollback window closes.
 
 ## Required deployment changes
 

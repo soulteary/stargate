@@ -12,7 +12,9 @@ git -C "$repo_root" archive HEAD | tar -x -C "$temp_dir"
 cp "$repo_root/.github/scripts/check-doc-contracts.sh" "$temp_dir/.github/scripts/check-doc-contracts.sh"
 cp "$repo_root/CHANGELOG.md" "$temp_dir/CHANGELOG.md"
 cp "$repo_root/docker-compose.yml" "$temp_dir/docker-compose.yml"
-for file in "$repo_root"/docs/*/API.md "$repo_root"/docs/*/CONFIG.md "$repo_root"/docs/*/SECURITY.md "$repo_root"/docs/*/DEPLOYMENT.md; do
+for file in "$repo_root"/docs/*/API.md "$repo_root"/docs/*/CONFIG.md \
+  "$repo_root"/docs/*/DEPLOYMENT.md "$repo_root"/docs/*/MIGRATION_V1.md \
+  "$repo_root"/docs/*/SECURITY.md; do
   relative=${file#"$repo_root"/}
   cp "$file" "$temp_dir/$relative"
 done
@@ -57,6 +59,101 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- CHANGELOG.md
+
+# Cross-domain support in one process must not regress to a blanket Redis requirement.
+perl -0pi -e 's/SESSION_STORAGE_ENABLED=false/SESSION_STORAGE_IN_MEMORY=unknown/' "$temp_dir/docs/enUS/DEPLOYMENT.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a process-local session storage scope failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/DEPLOYMENT.md
+
+# The v1 environment must be separate and must omit both retired Warden OTP names.
+perl -0pi -e 's/--env-file \.\/stargate-v1\.env/--env-file .\/stargate.env/' "$temp_dir/docs/enUS/DEPLOYMENT.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a separate v1 environment-file contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/DEPLOYMENT.md
+
+perl -0pi -e 's/`WARDEN_OTP_SECRET_KEY`/`WARDEN_OTP_KEY`/' "$temp_dir/docs/enUS/MIGRATION_V1.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a retired Warden OTP removal contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/MIGRATION_V1.md
+
+# Herald-backed TOTP also requires Warden user resolution.
+perl -0pi -e 's/`WARDEN_URL`/`WARDEN_ENDPOINT`/' "$temp_dir/docs/enUS/MIGRATION_V1.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a Herald TOTP Warden prerequisite contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/MIGRATION_V1.md
+
+# Migration guidance may name retired variables, but must never make them active again.
+printf '\n```bash\nWARDEN_OTP_ENABLED=true\nWARDEN_OTP_SECRET_KEY=unsafe\n```\n' \
+  >> "$temp_dir/docs/enUS/DEPLOYMENT.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an active retired Warden OTP assignment failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/DEPLOYMENT.md
+
+# Compose mapping syntax is also an active environment assignment.
+printf '\n```yaml\nenvironment:\n  WARDEN_OTP_ENABLED: "true"\n  WARDEN_OTP_SECRET_KEY: "unsafe"\n```\n' \
+  >> "$temp_dir/docs/enUS/MIGRATION_V1.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a retired Warden OTP mapping assignment failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/MIGRATION_V1.md
+
+# A valueless export can forward a retired value inherited from the parent shell.
+printf '\n```bash\nexport WARDEN_OTP_ENABLED\n```\n' \
+  >> "$temp_dir/docs/enUS/MIGRATION_V1.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a valueless retired Warden OTP export failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/MIGRATION_V1.md
+
+# Execute the documented transformation and verify both filtering and no-clobber behavior.
+env_test_dir="$temp_dir/env-migration-test"
+mkdir "$env_test_dir"
+migration_script=$(perl -0ne 'print $1 if /```bash\n(set -eu\nold_env=\.\/stargate\.env.*?\n)```/s' \
+  "$temp_dir/docs/enUS/MIGRATION_V1.md")
+if [[ -z "$migration_script" ]]; then
+  echo "Could not extract the documented environment migration commands" >&2
+  exit 1
+fi
+printf '%s\n' \
+  'KEEP_SETTING=kept' \
+  'WARDEN_OTP_ENABLED=false' \
+  'WARDEN_OTP_SECRET_KEY=retired-secret' \
+  > "$env_test_dir/stargate.env"
+chmod 644 "$env_test_dir/stargate.env"
+(cd "$env_test_dir" && sh -c "$migration_script")
+cmp "$env_test_dir/stargate.env" "$env_test_dir/stargate-v0.12.0.env"
+grep -q '^KEEP_SETTING=kept$' "$env_test_dir/stargate-v1.env"
+if grep -q '^WARDEN_OTP_\(ENABLED\|SECRET_KEY\)=' "$env_test_dir/stargate-v1.env"; then
+  echo "Documented v1 environment retained a retired Warden OTP setting" >&2
+  exit 1
+fi
+for file in stargate.env stargate-v0.12.0.env stargate-v1.env; do
+  if [[ "$(stat -c '%a' "$env_test_dir/$file")" != "600" ]]; then
+    echo "Documented environment migration left $file with non-private permissions" >&2
+    exit 1
+  fi
+done
+rollback_checksum=$(cksum "$env_test_dir/stargate-v0.12.0.env")
+v1_checksum=$(cksum "$env_test_dir/stargate-v1.env")
+if (cd "$env_test_dir" && sh -c "$migration_script" >/dev/null 2>&1); then
+  echo "Documented environment migration unexpectedly overwrote existing files" >&2
+  exit 1
+fi
+[[ "$rollback_checksum" == "$(cksum "$env_test_dir/stargate-v0.12.0.env")" ]]
+[[ "$v1_checksum" == "$(cksum "$env_test_dir/stargate-v1.env")" ]]
 
 perl -0pi -e 's/^- `Stargate-Password` request-header authentication .*\n//m' "$temp_dir/CHANGELOG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then

@@ -437,7 +437,12 @@ services:
       replicas: 3
 ```
 
-**必須:** マルチインスタンス、ローリングアップグレード、クロスドメイン構成では Redis セッションストレージ（`SESSION_STORAGE_ENABLED=true` と `SESSION_STORAGE_REDIS_*`）を有効にしてください。Redis はセッションと使い捨てチケットのリプレイ防止状態を全レプリカで共有します。Sticky Session だけの構成はサポートされず、追加のルーティング最適化としてのみ利用できます。
+**セッションストレージの適用範囲:**
+
+- **1 プロセス / 1 レプリカ（クロスドメイン Callback を含む）:** Ticket の発行、交換、その後の Session 利用が同じ稼働中の Stargate プロセスに到達する場合、インメモリストレージ（`SESSION_STORAGE_ENABLED=false`）を利用できます。Session と消費済み Ticket のハッシュはそのプロセス内だけに存在します。再起動すると両方が失われ、稼働中の Session は無効になり、Ticket の一回限りの状態も引き継がれません。
+- **複数プロセスまたはレプリカ:** Session や交換 Ticket が異なるプロセスで処理される可能性がある場合は Redis が必須です。全レプリカで `SESSION_STORAGE_ENABLED=true`、同じ `SESSION_STORAGE_REDIS_*` 名前空間、同じ `SESSION_EXCHANGE_SECRET` を使用します。Sticky Session はルーティング最適化にすぎず、共有状態やプロセス間リプレイ防止の代替にはなりません。
+- **ローリングアップグレード:** 新旧プロセスが重なるため、無停止の入れ替えには Redis が必須です。Redis を使わない場合は停止後に起動し、Session の無効化と再ログインを受け入れてください。v0.12.0 と v1.0.0 を同じ Serving Pool に混在させないでください。
+- **再起動をまたぐ状態保持:** Session または消費済み Ticket のリプレイ状態をプロセス交換・再起動後も保持する必要がある場合は Redis が必須です。
 
 #### 2. ロードバランシング
 
@@ -662,13 +667,28 @@ curl -H "Cookie: stargate_session_id=<session_id>" http://auth.example.com/_auth
 
 ### 更新手順
 
-1. **再利用できる環境ファイルを準備**：現在の設定を `stargate.env` に保存し、ファイルを保護します。
+1. **Rollback 用と v1 用の環境ファイルを別々に作成**：既存の `stargate.env` は変更しません。次のコマンドは既存の出力ファイルを上書きせず、廃止された Warden OTP 設定を新しい v1 ファイルからだけ除去します。
 
 ```bash
-chmod 600 stargate.env
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+
+test -f "$old_env"
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+chmod 600 "$old_env"
+umask 077
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/' "$old_env" > "$v1_env")
 ```
 
-2. **ロールバック用に以前のコンテナを保持:**
+Herald ベースの TOTP では、Stargate が Warden 経由で認証済みユーザーを解決する必要があるため、`WARDEN_ENABLED=true` と `WARDEN_URL` も設定してください。
+
+v1 は `WARDEN_OTP_ENABLED` または `WARDEN_OTP_SECRET_KEY` が存在するだけで、空や `false` でも起動を拒否します。追加し直さないでください。TOTP が必要な場合は `stargate-v1.env` に `HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`、`HERALD_URL` と対応する Herald Service Auth を設定します。さらに Herald の TOTP Proxy と herald-totp 独自の `HERALD_TOTP_ENCRYPTION_KEY` を設定し、旧 Warden Secret を自動的に再利用しないでください。[設定](CONFIG.md)を参照してください。
+
+2. **以前のコンテナと元の環境をロールバック用に保持:**
 
 ```bash
 docker stop stargate
@@ -686,7 +706,7 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  --env-file ./stargate.env \
+  --env-file ./stargate-v1.env \
   -p 8080:8080 \
   --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
@@ -704,7 +724,8 @@ curl --fail http://127.0.0.1:8080/readyz
 更新後に問題が発生した場合：
 
 ```bash
-# 新しいコンテナを削除し、変更していない以前のコンテナを復元
+# 新しいコンテナを削除し、変更していない以前のコンテナを復元。
+# stargate-v0.12.0.env をロールバック設定の記録として保持する。
 docker rm -f stargate
 docker rename stargate-previous stargate
 docker start stargate

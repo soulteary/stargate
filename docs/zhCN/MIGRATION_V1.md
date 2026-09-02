@@ -7,7 +7,32 @@ Stargate v1.0.0 确立了首个稳定的部署与 HTTP 契约，同时调整了�
 1. 记录当前镜像、环境变量、反向代理路由、回调域名和健康检查配置。
 2. 备份部署配置，并保留 v0.12.0 镜像以便回滚。
 3. 找出所有调用 `/_logout`、`/totp/enroll` 和跨域会话交换路由的客户端。
-4. 如果运行多个 Stargate 副本，请在升级前准备 Redis 会话存储。
+4. 如果将由多个进程提供流量、发布期间新旧进程会重叠，或 Session 与已消费 Ticket 状态必须跨重启保留，请在升级前准备 Redis。即使存在跨域回调，单个存活进程也可以使用进程内存储，但所有状态仅属于该进程，并会在重启后丢失。
+
+## 保留回滚配置并生成 v1 环境文件
+
+不要让 v1 直接复用旧环境文件。保持 `stargate.env` 不变并保留 v0.12.0 容器。下面的命令会生成受保护的回滚副本和独立的 v1 文件，在目标文件已存在时拒绝覆盖，并且只从 v1 文件中删除废弃配置：
+
+```bash
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+
+test -f "$old_env"
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+chmod 600 "$old_env"
+umask 077
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/' "$old_env" > "$v1_env")
+```
+
+Herald TOTP 要求 Stargate 通过 Warden 解析已认证用户，因此还必须配置 `WARDEN_ENABLED=true` 和 `WARDEN_URL`。
+
+只要 `WARDEN_OTP_ENABLED` 或 `WARDEN_OTP_SECRET_KEY` 存在（即使为空或为 `false`），v1 就会拒绝启动。不要把它们加入 `stargate-v1.env`。需要 TOTP 时，为 Stargate 配置 `HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`、`HERALD_URL` 及一种受支持的 Herald 服务鉴权方式；同时让 Herald 将 TOTP 代理到 herald-totp，并为 herald-totp 单独配置 `HERALD_TOTP_ENCRYPTION_KEY`，不要自动复用旧 Warden 密钥。参见[配置说明](CONFIG.md)。
+
+使用 `--env-file ./stargate-v1.env` 验证和部署 v1。在回滚窗口关闭前，保留 `stargate-v0.12.0.env`、未修改的原文件和旧容器。
 
 ## 必须调整的部署配置
 

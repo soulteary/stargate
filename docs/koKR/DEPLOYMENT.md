@@ -437,7 +437,12 @@ services:
       replicas: 3
 ```
 
-**필수:** 다중 인스턴스, 롤링 업그레이드 및 교차 도메인 배포에서는 Redis 세션 저장소(`SESSION_STORAGE_ENABLED=true` 및 `SESSION_STORAGE_REDIS_*`)를 활성화해야 합니다. Redis는 세션과 일회용 티켓의 재사용 방지 상태를 모든 복제본에서 공유합니다. Sticky Session만 사용하는 구성은 지원되지 않으며 추가 라우팅 최적화로만 사용할 수 있습니다.
+**세션 스토리지 적용 범위:**
+
+- **단일 프로세스 / 단일 복제본(교차 도메인 Callback 포함):** Ticket 발급, 교환 및 이후 Session 사용이 모두 같은 실행 중인 Stargate 프로세스에 도달하면 인메모리 스토리지(`SESSION_STORAGE_ENABLED=false`)를 사용할 수 있습니다. Session과 소비된 Ticket 해시는 해당 프로세스에만 존재합니다. 재시작하면 두 상태가 사라지고 활성 Session이 무효화되며 Ticket의 일회성 상태도 유지되지 않습니다.
+- **여러 프로세스 또는 복제본:** Session이나 교환 Ticket이 서로 다른 프로세스에서 처리될 수 있으면 Redis가 필수입니다. 모든 복제본에서 `SESSION_STORAGE_ENABLED=true`, 동일한 `SESSION_STORAGE_REDIS_*` 네임스페이스와 동일한 `SESSION_EXCHANGE_SECRET`을 사용합니다. Sticky Session은 라우팅 최적화일 뿐 공유 상태나 프로세스 간 재사용 방지를 대신하지 않습니다.
+- **롤링 업그레이드:** 이전 프로세스와 새 프로세스가 겹치므로 무중단 교체에는 Redis가 필수입니다. Redis가 없으면 중지 후 시작하고 Session 무효화와 재로그인을 허용해야 합니다. v0.12.0과 v1.0.0을 같은 Serving Pool에 혼합하지 마십시오.
+- **재시작 후 상태 유지:** Session 또는 소비된 Ticket의 재사용 방지 상태가 프로세스 교체나 재시작 후에도 유지되어야 하면 Redis가 필수입니다.
 
 #### 2. 로드 밸런싱
 
@@ -662,13 +667,28 @@ curl -H "Cookie: stargate_session_id=<session_id>" http://auth.example.com/_auth
 
 ### 업데이트 절차
 
-1. **재사용 가능한 환경 파일 준비**: 현재 구성을 `stargate.env`에 저장하고 파일 권한을 제한합니다.
+1. **롤백용과 v1용 환경 파일을 별도로 생성**: 기존 `stargate.env`는 변경하지 않습니다. 다음 명령은 기존 대상 파일을 덮어쓰지 않으며 폐기된 Warden OTP 설정을 새 v1 파일에서만 제거합니다.
 
 ```bash
-chmod 600 stargate.env
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+
+test -f "$old_env"
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+chmod 600 "$old_env"
+umask 077
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/' "$old_env" > "$v1_env")
 ```
 
-2. **롤백을 위해 이전 컨테이너 보존:**
+Herald 기반 TOTP에서는 Stargate가 Warden을 통해 인증된 사용자를 확인해야 하므로 `WARDEN_ENABLED=true`와 `WARDEN_URL`도 설정하십시오.
+
+v1은 `WARDEN_OTP_ENABLED` 또는 `WARDEN_OTP_SECRET_KEY`가 존재하기만 해도 빈 값이나 `false` 여부와 관계없이 시작을 거부합니다. 다시 추가하지 마십시오. TOTP가 필요하면 `stargate-v1.env`에 `HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`, `HERALD_URL`과 지원되는 Herald Service Auth 방식 하나를 설정합니다. Herald의 TOTP Proxy와 herald-totp의 독립적인 `HERALD_TOTP_ENCRYPTION_KEY`도 설정하고 이전 Warden Secret을 자동 재사용하지 마십시오. [설정](CONFIG.md)을 참조하십시오.
+
+2. **이전 컨테이너와 원래 환경을 롤백용으로 보존:**
 
 ```bash
 docker stop stargate
@@ -686,7 +706,7 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  --env-file ./stargate.env \
+  --env-file ./stargate-v1.env \
   -p 8080:8080 \
   --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
@@ -704,7 +724,8 @@ curl --fail http://127.0.0.1:8080/readyz
 업데이트 후 문제가 발생한 경우:
 
 ```bash
-# 새 컨테이너를 제거하고 변경되지 않은 이전 컨테이너 복원
+# 새 컨테이너를 제거하고 변경되지 않은 이전 컨테이너 복원.
+# stargate-v0.12.0.env를 롤백 설정 기록으로 보존.
 docker rm -f stargate
 docker rename stargate-previous stargate
 docker start stargate

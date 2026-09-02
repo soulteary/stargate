@@ -437,7 +437,12 @@ services:
       replicas: 3
 ```
 
-**Obbligatorio:** I deployment multi-istanza, gli aggiornamenti progressivi e gli scenari cross-domain devono abilitare Redis (`SESSION_STORAGE_ENABLED=true` e `SESSION_STORAGE_REDIS_*`). Redis condivide tra le repliche sia le sessioni sia lo stato anti-replay dei ticket monouso. Le Sticky Session da sole non sono supportate e possono essere usate solo come ottimizzazione aggiuntiva del routing.
+**Ambito dello storage delle sessioni:**
+
+- **Un processo / una replica, inclusi callback cross-domain:** lo storage in memoria (`SESSION_STORAGE_ENABLED=false`) è supportato quando emissione e riscatto del ticket e il successivo uso della sessione raggiungono lo stesso processo Stargate attivo. Sessioni e hash dei ticket consumati esistono solo in quel processo. Un riavvio perde entrambi gli stati, invalida le sessioni attive e non conserva lo stato monouso dei ticket.
+- **Più processi o repliche:** Redis è obbligatorio quando una sessione o un ticket può essere gestito da processi diversi. Usare `SESSION_STORAGE_ENABLED=true`, lo stesso namespace `SESSION_STORAGE_REDIS_*` e lo stesso `SESSION_EXCHANGE_SECRET` su tutte le repliche. Le Sticky Session sono solo un'ottimizzazione del routing e non sostituiscono lo stato condiviso o la protezione anti-replay tra processi.
+- **Aggiornamento progressivo:** Redis è obbligatorio per la sostituzione senza interruzioni perché vecchi e nuovi processi si sovrappongono. Senza Redis, arrestare e poi avviare il servizio, accettando invalidazione delle sessioni e nuovo login. Non mescolare v0.12.0 e v1.0.0 nello stesso pool.
+- **Stato oltre il riavvio:** Redis è obbligatorio se sessioni o stato anti-replay dei ticket consumati devono sopravvivere alla sostituzione o al riavvio del processo.
 
 #### 2. Bilanciamento Carico
 
@@ -662,13 +667,28 @@ Se si incontrano problemi:
 
 ### Passi di Aggiornamento
 
-1. **Preparare un file di ambiente riutilizzabile**: salvare la configurazione in `stargate.env` e proteggere il file.
+1. **Creare file di ambiente separati per rollback e v1**: lasciare invariato `stargate.env`. I comandi seguenti rifiutano di sovrascrivere i file di destinazione e rimuovono le impostazioni Warden OTP ritirate solo dal nuovo file v1.
 
 ```bash
-chmod 600 stargate.env
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+
+test -f "$old_env"
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+chmod 600 "$old_env"
+umask 077
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*=/' "$old_env" > "$v1_env")
 ```
 
-2. **Conservare il container precedente per il rollback:**
+Il TOTP tramite Herald richiede che Stargate risolva gli utenti autenticati tramite Warden; impostare quindi anche `WARDEN_ENABLED=true` e `WARDEN_URL`.
+
+v1 rifiuta `WARDEN_OTP_ENABLED` e `WARDEN_OTP_SECRET_KEY` se uno dei nomi è presente, anche vuoto o `false`. Non reinserirli. Per TOTP configurare in `stargate-v1.env` `HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`, `HERALD_URL` e un metodo di autenticazione del servizio Herald supportato. Configurare anche il proxy TOTP di Herald e un `HERALD_TOTP_ENCRYPTION_KEY` indipendente in herald-totp; non riutilizzare automaticamente il vecchio secret Warden. Vedere [Configurazione](CONFIG.md).
+
+2. **Conservare il container precedente e il suo ambiente originale per il rollback:**
 
 ```bash
 docker stop stargate
@@ -686,7 +706,7 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  --env-file ./stargate.env \
+  --env-file ./stargate-v1.env \
   -p 8080:8080 \
   --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
@@ -704,7 +724,8 @@ curl --fail http://127.0.0.1:8080/readyz
 Se si verificano problemi dopo l'aggiornamento:
 
 ```bash
-# Rimuovere il nuovo container e ripristinare quello precedente invariato
+# Rimuovere il nuovo container e ripristinare quello precedente invariato.
+# Conservare stargate-v0.12.0.env come riferimento di configurazione per il rollback.
 docker rm -f stargate
 docker rename stargate-previous stargate
 docker start stargate
