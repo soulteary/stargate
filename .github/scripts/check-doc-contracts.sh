@@ -365,7 +365,6 @@ contract_violation_count() {
       ["container health check omits port 8080", qr{http://localhost/healthz}],
       ["metrics incorrectly described as new in v1", qr/(?:No metrics endpoint|无指标端点|Added Prometheus metrics)/],
       ["stale Go 1.26 requirement", qr/\bGo(?:\s+(?:Version|版本))?\s*[:：]?\s*1\.26(?:\.\d+)?\+?\b/i],
-      ["unsafe htpasswd batch-password option", qr/\bhtpasswd\s+-[A-Za-z]*b[A-Za-z]*\b/],
     );
 
     find({
@@ -376,6 +375,16 @@ contract_violation_count() {
         open my $fh, "<", $file or die "open $file: $!";
         local $/;
         my $text = <$fh>;
+
+        # Inspect the complete logical htpasswd command, not only the first
+        # option token. The batch-password flag may follow options with their
+        # own arguments, for example: htpasswd -C 10 -bn "" password.
+        my $command_text = $text;
+        $command_text =~ s/\\\r?\n[ \t]*/ /g;
+        while ($command_text =~ /\bhtpasswd\b[^\r\n]*?[ \t]+-[A-Za-z]*b[A-Za-z]*(?=[ \t]|$)/mg) {
+          warn "unsafe htpasswd batch-password option in $file\n";
+          $count++;
+        }
 
         my $retired_text = $text;
         if ($file =~ m{/(?:DEPLOYMENT|MIGRATION_V1)\.md$}) {
