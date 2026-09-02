@@ -115,6 +115,11 @@ check_markdown_structure() {
       return $content =~ /^ {0,3}(?:=+|-+)[ \t]*$/;
     }
 
+    sub reference_continuation_boundary {
+      my ($content) = @_;
+      return setext_underline($content) || interrupts_paragraph($content);
+    }
+
     sub reference_title {
       my ($content) = @_;
       # CommonMark backslash escapes may protect ASCII punctuation, including
@@ -158,7 +163,7 @@ check_markdown_structure() {
       my $parentheses = 0;
       while ($offset < length($content)) {
         my $char = substr($content, $offset, 1);
-        last if $char eq " " || $char eq "\t";
+        last if $char =~ /\s/;
         return if ord($char) < 0x20 || ord($char) == 0x7f;
         if ($char eq "\\" && $offset + 1 < length($content) &&
             substr($content, $offset + 1, 1) =~
@@ -222,7 +227,7 @@ check_markdown_structure() {
         return if $matched < @$containers;
         my $content = substr($line, $offset);
         return if $content =~ /^ *$/;
-        return if interrupts_paragraph($content);
+        return if reference_continuation_boundary($content);
         $title .= "\n$content";
         $continuation_lines++;
         return $continuation_lines if reference_title($title);
@@ -266,7 +271,7 @@ check_markdown_structure() {
       # A next-line destination remains part of the interrupted paragraph.
       # Block constructs which can interrupt that paragraph take precedence
       # over interpreting their marker text as a bare destination.
-      return 0 if interrupts_paragraph($destination_content);
+      return 0 if reference_continuation_boundary($destination_content);
       my @destination =
         reference_destination_details($destination_content);
       return 0 unless @destination;
@@ -351,7 +356,7 @@ check_markdown_structure() {
         return 0 if $matched < @$containers;
         $fragment = substr($next_line, $container_offset);
         return 0 if $fragment =~ /^ *$/;
-        return 0 if interrupts_paragraph($fragment);
+        return 0 if reference_continuation_boundary($fragment);
         $label .= "\n";
         $current_index++;
       }
