@@ -360,6 +360,12 @@ printf '%s\n' \
   '> ~~~text' \
   '> quoted content' \
   '> ~~~' \
+  '- > ```json' \
+  '  > {}' \
+  '  > ```' \
+  '> - ~~~text' \
+  '>   quoted list content' \
+  '>   ~~~' \
   > "$fence_fixture"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected valid CommonMark fence forms to pass" >&2
@@ -393,6 +399,31 @@ printf '%s\n' \
   > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unclosed nested-list fence failure" >&2
+  exit 1
+fi
+
+# A later top-level delimiter must not close a fence whose list container has
+# already ended.
+printf '%s\n' \
+  '1. list item' \
+  '   ```text' \
+  '   missing close' \
+  'top-level paragraph ends the list' \
+  '   ```' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a fence container-exit failure" >&2
+  exit 1
+fi
+
+# Container markers can interleave. A quote opened after a list marker must be
+# part of the fence context rather than hiding an unclosed fence.
+printf '%s\n' \
+  '- > ```json' \
+  '  > {}' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed interleaved-container fence failure" >&2
   exit 1
 fi
 
