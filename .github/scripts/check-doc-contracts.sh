@@ -182,10 +182,10 @@ check_markdown_structure() {
       my @destination = reference_destination_prefix($destination_text);
       return unless @destination;
       my (undef, $remainder) = @destination;
-      return (1, 0) if $remainder =~ /^[ \t]*$/;
+      return (1, undef) if $remainder =~ /^[ \t]*$/;
       return unless $remainder =~ s/^[ \t]+//;
-      return unless reference_title($remainder);
-      return (1, 1);
+      return unless $remainder =~ /^(?:"|\x27|\()/;
+      return (1, $remainder);
     }
 
     sub reference_destination_details {
@@ -194,28 +194,49 @@ check_markdown_structure() {
       my @destination = reference_destination_prefix($1);
       return unless @destination;
       my (undef, $remainder) = @destination;
-      return (1, 0) if $remainder =~ /^[ \t]*$/;
+      return (1, undef) if $remainder =~ /^[ \t]*$/;
       return unless $remainder =~ s/^[ \t]+//;
-      return unless reference_title($remainder);
-      return (1, 1);
+      return unless $remainder =~ /^(?:"|\x27|\()/;
+      return (1, $remainder);
     }
 
-    sub reference_title_line {
-      my ($content) = @_;
-      return 0 unless $content =~ /^ {0,3}(.*)$/;
-      return reference_title($1);
+    sub reference_title_continuation_lines {
+      my ($title, $containers, $line_index, $lines) = @_;
+      return 0 if reference_title($title);
+
+      my $continuation_lines = 0;
+      for (my $next_index = $line_index + 1;
+           $next_index < @$lines;
+           $next_index++) {
+        my $line = $lines->[$next_index];
+        $line =~ s/\r$//;
+        $line = expand_tabs($line);
+        my ($offset, $matched) = continue_containers($line, $containers);
+        return if $matched < @$containers;
+        my $content = substr($line, $offset);
+        return if $content =~ /^ *$/;
+        $title .= "\n$content";
+        $continuation_lines++;
+        return $continuation_lines if reference_title($title);
+      }
+      return;
     }
 
-    sub following_reference_title_line {
+    sub following_reference_title_lines {
       my ($containers, $line_index, $lines) = @_;
-      return 0 if $line_index + 1 >= @$lines;
+      return if $line_index + 1 >= @$lines;
 
       my $title_line = $lines->[$line_index + 1];
       $title_line =~ s/\r$//;
       $title_line = expand_tabs($title_line);
       my ($offset, $matched) = continue_containers($title_line, $containers);
-      return 0 if $matched < @$containers;
-      return reference_title_line(substr($title_line, $offset));
+      return if $matched < @$containers;
+      my $content = substr($title_line, $offset);
+      return unless $content =~ /^ {0,3}((?:"|\x27|\().*)$/;
+      my $continued = reference_title_continuation_lines(
+        $1, $containers, $line_index + 1, $lines);
+      return unless defined $continued;
+      return 1 + $continued;
     }
 
     sub multiline_reference_lines {
@@ -237,15 +258,17 @@ check_markdown_structure() {
         reference_destination_details(substr($destination_line, $offset));
       return 0 unless @destination;
 
-      my (undef, $has_title) = @destination;
-      return 1 if $has_title || $line_index + 2 >= @$lines;
+      my (undef, $title) = @destination;
+      if (defined $title) {
+        my $continued = reference_title_continuation_lines(
+          $title, $containers, $line_index + 1, $lines);
+        return 0 unless defined $continued;
+        return 1 + $continued;
+      }
 
-      my $title_line = $lines->[$line_index + 2];
-      $title_line =~ s/\r$//;
-      $title_line = expand_tabs($title_line);
-      ($offset, $matched) = continue_containers($title_line, $containers);
-      return 1 if $matched < @$containers;
-      return reference_title_line(substr($title_line, $offset)) ? 2 : 1;
+      my $following = following_reference_title_lines(
+        $containers, $line_index + 1, $lines);
+      return defined $following ? 1 + $following : 1;
     }
 
     sub interrupts_paragraph {
@@ -358,7 +381,7 @@ check_markdown_structure() {
       wanted => sub {
         return unless /\.md$/;
         my $file = $File::Find::name;
-        open my $fh, "<", $file or die "open $file: $!";
+        open my $fh, "<:encoding(UTF-8)", $file or die "open $file: $!";
         local $/;
         my $text = <$fh>;
 
@@ -486,13 +509,23 @@ check_markdown_structure() {
             if (!$paragraph_here) {
               my @reference = link_reference_definition($content);
               if (@reference) {
-                my (undef, $has_title) = @reference;
-                if (!$has_title && following_reference_title_line(
-                    \@containers, $line_index, \@lines)) {
-                  $reference_lines_to_skip = 1;
+                my (undef, $title) = @reference;
+                if (defined $title) {
+                  my $continued = reference_title_continuation_lines(
+                    $title, \@containers, $line_index, \@lines);
+                  if (defined $continued) {
+                    $reference_lines_to_skip = $continued;
+                    $paragraph_active = 0;
+                    next LINE;
+                  }
+                } else {
+                  my $following = following_reference_title_lines(
+                    \@containers, $line_index, \@lines);
+                  $reference_lines_to_skip = $following
+                    if defined $following;
+                  $paragraph_active = 0;
+                  next LINE;
                 }
-                $paragraph_active = 0;
-                next LINE;
               }
             }
             if (!$paragraph_here) {
