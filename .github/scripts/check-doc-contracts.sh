@@ -119,7 +119,7 @@ contract_violation_count() {
       return $line if $line =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
       return $line if $line =~ m{^(?:(?:\S*/)?(?:
           sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
-          find|eval|stdbuf|setsid|taskset|bash|dash|ksh|mksh|pdksh|sh|zsh
+          find|eval|stdbuf|setsid|taskset|chroot|bash|dash|ksh|mksh|pdksh|sh|zsh
         )|if|then|elif|else|while|until|do|coproc|!)(?:[ \t]|$)}x;
       return;
     }
@@ -1236,6 +1236,8 @@ contract_violation_count() {
               next;
             }
             last unless $option =~ /^-/ && $option ne "-";
+            return -1 if $wrapper eq "command" &&
+              $option =~ /^-[^-]*[vV]/;
             my $needs_operand =
               wrapper_option_needs_operand($wrapper, $option);
             $index++;
@@ -1348,6 +1350,8 @@ contract_violation_count() {
             next;
           }
           last unless $option =~ /^-/ && $option ne "-";
+          return -1 if $wrapper eq "command" &&
+            $option =~ /^-[^-]*[vV]/;
           my $needs_operand = wrapper_option_needs_operand($wrapper, $option);
           $index++;
           $index++ if $needs_operand && $index < @arguments;
@@ -1579,6 +1583,37 @@ contract_violation_count() {
       return $index < @arguments ? @arguments[$index .. $#arguments] : ();
     }
 
+    sub chroot_option_needs_operand {
+      my ($option) = @_;
+      return 0 if $option =~ /^--[^=]+=/;
+      return 1 if $option =~ /^--(?:groups|userspec)$/;
+      return 0;
+    }
+
+    sub chroot_command_arguments {
+      my (@arguments) = @_;
+      my $command_index = command_word_index(@arguments);
+      return unless $command_index >= 0;
+      return unless $arguments[$command_index] =~ m{(?:^|/)chroot$};
+
+      my $index = $command_index + 1;
+      while ($index < @arguments) {
+        my $option = $arguments[$index];
+        if ($option eq "--") {
+          $index++;
+          last;
+        }
+        last unless $option =~ /^-/ && $option ne "-";
+        my $needs_operand = chroot_option_needs_operand($option);
+        $index++;
+        $index++ if $needs_operand && $index < @arguments;
+      }
+
+      # GNU chroot consumes NEWROOT before the optional delegated command.
+      $index++ if $index < @arguments;
+      return $index < @arguments ? @arguments[$index .. $#arguments] : ();
+    }
+
     sub bash_brace_expansions {
       my ($word, $depth) = @_;
       $depth //= 0;
@@ -1700,6 +1735,10 @@ contract_violation_count() {
       my @taskset_command = taskset_command_arguments(@arguments);
       $unsafe += unsafe_htpasswd_count_in_arguments(@taskset_command)
         if @taskset_command;
+
+      my @chroot_command = chroot_command_arguments(@arguments);
+      $unsafe += unsafe_htpasswd_count_in_arguments(@chroot_command)
+        if @chroot_command;
 
       for my $find_command (find_exec_commands(@arguments)) {
         $unsafe += unsafe_htpasswd_count_in_arguments(@$find_command);
