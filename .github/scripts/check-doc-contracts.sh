@@ -119,7 +119,7 @@ contract_violation_count() {
       return $line if $line =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
       return $line if $line =~ m{^(?:(?:\S*/)?(?:
           sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
-          find|eval|stdbuf|setsid|bash|dash|ksh|mksh|pdksh|sh|zsh
+          find|eval|stdbuf|setsid|taskset|bash|dash|ksh|mksh|pdksh|sh|zsh
         )|if|then|elif|else|while|until|do|coproc|!)(?:[ \t]|$)}x;
       return;
     }
@@ -131,6 +131,8 @@ contract_violation_count() {
           $console_prompt_seen, $console_command_continuing,
           $fence_content, $console_commands);
       my $inline_chunk = "";
+      my $standalone_command = "";
+      my $standalone_continuing = 0;
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -172,6 +174,11 @@ contract_violation_count() {
         if ($line =~ /^\s*(`{3,}|~{3,})[ \t]*([A-Za-z0-9_-]*)/) {
           push @contexts, inline_code_contexts($inline_chunk);
           $inline_chunk = "";
+          if ($standalone_continuing) {
+            push @contexts, $standalone_command;
+            $standalone_command = "";
+            $standalone_continuing = 0;
+          }
           my ($marker, $info) = ($1, $2);
           $fence_char = substr($marker, 0, 1);
           $fence_length = length($marker);
@@ -190,13 +197,38 @@ contract_violation_count() {
         if ($line =~ /^[ \t]*$/) {
           push @contexts, inline_code_contexts($inline_chunk);
           $inline_chunk = "";
+          if ($standalone_continuing) {
+            push @contexts, $standalone_command;
+            $standalone_command = "";
+            $standalone_continuing = 0;
+          }
         } else {
           $inline_chunk .= "$line\n";
         }
 
-        # Also protect an unfenced command which is written as a complete line.
+        # Also protect unfenced and indented commands. Once a recognized
+        # command ends in an unescaped backslash, retain subsequent physical
+        # lines until the copied shell command is complete.
+        if ($standalone_continuing) {
+          my $continuation = $line;
+          while ($continuation =~ s/^[ \t]*>[ \t]?//) {}
+          $standalone_command .= "$continuation\n";
+          $standalone_continuing = shell_line_continues($continuation);
+          if (!$standalone_continuing) {
+            push @contexts, $standalone_command;
+            $standalone_command = "";
+          }
+          next;
+        }
         my $standalone = standalone_command_context($line);
-        push @contexts, $standalone if defined $standalone;
+        if (defined $standalone) {
+          if (shell_line_continues($standalone)) {
+            $standalone_command = "$standalone\n";
+            $standalone_continuing = 1;
+          } else {
+            push @contexts, $standalone;
+          }
+        }
       }
       if (defined $fence_char && $capture_fence) {
         my $context = $console_fence && $console_prompt_seen
@@ -204,6 +236,7 @@ contract_violation_count() {
           : $fence_content;
         push @contexts, $context;
       }
+      push @contexts, $standalone_command if $standalone_continuing;
       push @contexts, inline_code_contexts($inline_chunk);
       return @contexts;
     }
@@ -848,6 +881,22 @@ contract_violation_count() {
       return (join("\n", @command_lines), @expanding_bodies);
     }
 
+    sub protect_shell_brace_syntax {
+      my ($text) = @_;
+      $text =~ s/\{/\x1c/g;
+      $text =~ s/\}/\x1d/g;
+      $text =~ s/,/\x1e/g;
+      return $text;
+    }
+
+    sub restore_shell_brace_syntax {
+      my ($text) = @_;
+      $text =~ s/\x1c/\{/g;
+      $text =~ s/\x1d/\}/g;
+      $text =~ s/\x1e/,/g;
+      return $text;
+    }
+
     sub shell_tokens {
       my ($text) = @_;
       my @tokens;
@@ -873,10 +922,10 @@ contract_violation_count() {
           } elsif ($char eq "\\") {
             my ($decoded, $consumed) =
               ansi_c_escape_at($text, $offset);
-            $token .= $decoded;
+            $token .= protect_shell_brace_syntax($decoded);
             $ansi_skip = $consumed - 1;
           } else {
-            $token .= $char;
+            $token .= protect_shell_brace_syntax($char);
           }
           next;
         }
@@ -884,7 +933,7 @@ contract_violation_count() {
           if ($char eq "\x27") {
             $quote = "";
           } else {
-            $token .= $char;
+            $token .= protect_shell_brace_syntax($char);
           }
           next;
         }
@@ -892,7 +941,7 @@ contract_violation_count() {
           if ($locale_open) {
             $locale_open = 0;
           } elsif ($escaped) {
-            $token .= $char;
+            $token .= protect_shell_brace_syntax($char);
             $escaped = 0;
           } elsif ($char eq "\\") {
             my $next = $offset + 1 < length($text)
@@ -906,12 +955,12 @@ contract_violation_count() {
           } elsif ($char eq "\"") {
             $quote = "";
           } else {
-            $token .= $char;
+            $token .= protect_shell_brace_syntax($char);
           }
           next;
         }
         if ($escaped) {
-          $token .= $char;
+          $token .= protect_shell_brace_syntax($char);
           $escaped = 0;
           next;
         }
@@ -971,7 +1020,7 @@ contract_violation_count() {
       my $offset = 0;
 
       # A backslash-newline is part of the same logical shell command.
-      $text =~ s/\\\r?\n[ \t]*/ /g;
+      $text =~ s/\\\r?\n//g;
       while ($offset < length($text)) {
         my $char = substr($text, $offset, 1);
         if ($comment) {
@@ -1209,7 +1258,7 @@ contract_violation_count() {
         last if $argument eq "--";
         if ($argument =~ /^-[^-]*c/) {
           return $index + 1 < @arguments
-            ? $arguments[$index + 1]
+            ? restore_shell_brace_syntax($arguments[$index + 1])
             : "";
         }
         if ($argument =~ /^(?:[-+]O|-o|--init-file|--rcfile)$/) {
@@ -1308,11 +1357,14 @@ contract_violation_count() {
         next if $option eq "-";
         if ($option eq "-S" || $option eq "--split-string" ||
             $option =~ /^-[^-]*S$/) {
-          return ($arguments[$index + 1] // "", $index + 2);
+          return (
+            restore_shell_brace_syntax($arguments[$index + 1] // ""),
+            $index + 2,
+          );
         }
-        return ($1, $index + 1)
+        return (restore_shell_brace_syntax($1), $index + 1)
           if $option =~ /^--split-string=(.*)$/s;
-        return ($1, $index + 1)
+        return (restore_shell_brace_syntax($1), $index + 1)
           if $option =~ /^-[^-]*S(.+)$/s;
         last unless $option =~ /^-/ && $option ne "-";
         my $needs_operand = wrapper_option_needs_operand("env", $option);
@@ -1490,6 +1542,79 @@ contract_violation_count() {
       return $index < @arguments ? @arguments[$index .. $#arguments] : ();
     }
 
+    sub taskset_command_arguments {
+      my (@arguments) = @_;
+      my $command_index = command_word_index(@arguments);
+      return unless $command_index >= 0;
+      return unless $arguments[$command_index] =~ m{(?:^|/)taskset$};
+
+      my $index = $command_index + 1;
+      my $pid_mode = 0;
+      while ($index < @arguments) {
+        my $option = $arguments[$index];
+        if ($option eq "--") {
+          $index++;
+          last;
+        }
+        last unless $option =~ /^-/ && $option ne "-";
+        $pid_mode = 1
+          if $option eq "--pid" || $option =~ /^-[^-]*p/;
+        $index++;
+      }
+      return if $pid_mode;
+
+      # Launch mode has one affinity mask/list operand before the command.
+      $index++ if $index < @arguments;
+      return $index < @arguments ? @arguments[$index .. $#arguments] : ();
+    }
+
+    sub bash_brace_expansions {
+      my ($word, $depth) = @_;
+      $depth //= 0;
+      return ($word) if $depth >= 8;
+
+      while ($word =~ /\{([^{}]*)\}/g) {
+        my ($opening, $length, $body) = ($-[0], $+[0] - $-[0], $1);
+        my @alternatives;
+        my $expandable = 0;
+        if (index($body, ",") >= 0) {
+          @alternatives = split /,/, $body, -1;
+          $expandable = 1;
+        } elsif ($body =~ /^([A-Za-z])\.\.([A-Za-z])(?:\.\.(-?\d+))?$/) {
+          my ($start, $end, $step) = (ord($1), ord($2), $3);
+          $step = $start <= $end ? 1 : -1 unless defined $step;
+          next if $step == 0 || ($end - $start) * $step < 0;
+          for (my $value = $start;
+               $step > 0 ? $value <= $end : $value >= $end;
+               $value += $step) {
+            push @alternatives, chr($value);
+          }
+          $expandable = 1;
+        } elsif ($body =~ /^(-?\d+)\.\.(-?\d+)(?:\.\.(-?\d+))?$/) {
+          # Numeric fields cannot introduce the option letter b. One valid
+          # representative is sufficient while recursively expanding the
+          # surrounding prefix, suffix, and any other brace expressions.
+          @alternatives = ($1);
+          $expandable = 1;
+        }
+        next unless $expandable;
+
+        my $prefix = substr($word, 0, $opening);
+        my $suffix = substr($word, $opening + $length);
+        my @expanded;
+        for my $alternative (@alternatives) {
+          push @expanded,
+            bash_brace_expansions(
+              $prefix . $alternative . $suffix,
+              $depth + 1,
+            );
+          last if @expanded >= 256;
+        }
+        return @expanded;
+      }
+      return ($word);
+    }
+
     sub find_exec_commands {
       my (@arguments) = @_;
       my $command_index = command_word_index(@arguments);
@@ -1523,8 +1648,13 @@ contract_violation_count() {
       my $first_argument = $command_index + 1;
       $first_argument++ if $first_argument < @arguments &&
         $arguments[$first_argument] eq "--";
-      return join(" ", @arguments[$first_argument .. $#arguments])
-        if $first_argument < @arguments;
+      if ($first_argument < @arguments) {
+        return join(
+          " ",
+          map { restore_shell_brace_syntax($_) }
+            @arguments[$first_argument .. $#arguments],
+        );
+      }
       return "";
     }
 
@@ -1556,6 +1686,10 @@ contract_violation_count() {
       $unsafe += unsafe_htpasswd_count_in_arguments(@nice_command)
         if @nice_command;
 
+      my @taskset_command = taskset_command_arguments(@arguments);
+      $unsafe += unsafe_htpasswd_count_in_arguments(@taskset_command)
+        if @taskset_command;
+
       for my $find_command (find_exec_commands(@arguments)) {
         $unsafe += unsafe_htpasswd_count_in_arguments(@$find_command);
       }
@@ -1571,7 +1705,14 @@ contract_violation_count() {
           $index++ unless $has_target;
           next;
         }
-        if ($argument =~ /^-[A-Za-z]*b[A-Za-z]*$/) {
+        my $batch_option = 0;
+        for my $expanded (bash_brace_expansions($argument)) {
+          if ($expanded =~ /^-[A-Za-z0-9]*b[A-Za-z0-9]*$/) {
+            $batch_option = 1;
+            last;
+          }
+        }
+        if ($batch_option) {
           $unsafe++;
           last;
         }
