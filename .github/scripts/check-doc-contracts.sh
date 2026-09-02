@@ -120,13 +120,21 @@ check_markdown_structure() {
       )[ \t]*$}x;
     }
 
+    sub valid_reference_label {
+      my ($label) = @_;
+      return 0 if length($label) > 999;
+      return $label =~ /[^ \t]/;
+    }
+
     sub link_reference_definition {
       my ($content) = @_;
-      return unless $content =~ m{^ {0,3}
-        \[(?:\\.|[^\]\\])+\]:[ \t]*
+      return unless $content =~ m{^[ ]{0,3}
+        \[((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^\[\]\\])+)
+        \]:[ \t]*
         (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)(.*)$
       }x;
-      my $remainder = $1;
+      my ($label, $remainder) = ($1, $2);
+      return unless valid_reference_label($label);
       return (1, 0) if $remainder =~ /^[ \t]*$/;
       return unless $remainder =~ s/^[ \t]+//;
       return unless reference_title($remainder);
@@ -135,7 +143,7 @@ check_markdown_structure() {
 
     sub reference_destination_details {
       my ($content) = @_;
-      return unless $content =~ m{^ {0,3}
+      return unless $content =~ m{^[ ]{0,3}
         (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)(.*)$
       }x;
       my $remainder = $1;
@@ -165,9 +173,11 @@ check_markdown_structure() {
 
     sub multiline_reference_lines {
       my ($content, $containers, $line_index, $lines) = @_;
-      return 0 unless $content =~ m{^ {0,3}
-        \[(?:\\.|[^\]\\])+\]:[ \t]*$
+      return 0 unless $content =~ m{^[ ]{0,3}
+        \[((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^\[\]\\])+)
+        \]:[ \t]*$
       }x;
+      return 0 unless valid_reference_label($1);
       return 0 if $line_index + 1 >= @$lines;
 
       my $destination_line = $lines->[$line_index + 1];
@@ -224,14 +234,14 @@ check_markdown_structure() {
       return (1, qr/-->/, 0, 1) if $content =~ /^ {0,3}<!--/;
       return (1, qr/\?>/, 0, 1) if $content =~ /^ {0,3}<\?/;
       return (1, qr/\]\]>/, 0, 1) if $content =~ /^ {0,3}<!\[CDATA\[/;
-      return (1, qr/>/, 0, 1) if $content =~ /^ {0,3}<![A-Z]/;
+      return (1, qr/>/, 0, 1) if $content =~ /^ {0,3}<![A-Za-z]/;
 
       if ($content =~ /^ {0,3}<(script|pre|style|textarea)(?:[ \t]|>|$)/i) {
         my $tag = $1;
         return (1, qr{</\Q$tag\E>}i, 0, 1);
       }
 
-      if ($content =~ m{^ {0,3}</?(?:
+      if ($content =~ m{^[ ]{0,3}</?(?:
           address|article|aside|base|basefont|blockquote|body|caption|center|col|
           colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|
           footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|
