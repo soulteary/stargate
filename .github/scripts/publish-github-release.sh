@@ -26,9 +26,23 @@ else
 fi
 
 if gh release view "$tag" --repo "$repo" >/dev/null 2>&1; then
+  declare -A wanted_assets=()
+  for asset in "${assets[@]}"; do
+    wanted_assets["$(basename "$asset")"]=1
+  done
+  existing_assets_text=$(
+    gh release view "$tag" --repo "$repo" --json assets --jq '.assets[].name'
+  )
+  mapfile -t existing_assets <<< "$existing_assets_text"
+
   # Keep the existing Release visible while clobbering its assets. In
   # particular, never delete a good Release before its replacement is ready.
   gh release upload "$tag" "${assets[@]}" --repo "$repo" --clobber
+  for asset_name in "${existing_assets[@]}"; do
+    if [[ -n "$asset_name" && ! -v "wanted_assets[$asset_name]" ]]; then
+      gh release delete-asset "$tag" "$asset_name" --repo "$repo" --yes
+    fi
+  done
   gh release edit "$tag" "${metadata[@]}" "${prerelease[@]}" --draft=false
 else
   gh release create "$tag" "${assets[@]}" "${metadata[@]}" "${prerelease[@]}" --verify-tag

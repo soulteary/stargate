@@ -125,7 +125,10 @@ jobs:
           git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/main
 
       - name: Prepare and validate curated release notes
-        run: bash _release-automation/.github/scripts/extract-release-notes.sh "${{ steps.release.outputs.tag }}" "$RUNNER_TEMP/release-notes.md"
+        env:
+          ALLOW_EXISTING_RELEASE_NOTES: ${{ github.event_name == 'workflow_dispatch' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash _release-automation/.github/scripts/prepare-release-notes.sh "${{ steps.release.outputs.tag }}" "$RUNNER_TEMP/release-notes.md"
 
       - name: Check documentation contracts
         run: bash .github/scripts/check-doc-contracts.sh
