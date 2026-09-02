@@ -421,6 +421,18 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
   exit 1
 fi
 
+# Type-4 declarations accept any ASCII letter after `<!`, not only uppercase
+# declarations. Fence-like lines remain literal until the first `>`.
+printf '%s\n' \
+  '<!doctype' \
+  '``` literal marker inside a lowercase declaration' \
+  '>' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a lowercase HTML declaration containing a fence to pass" >&2
+  exit 1
+fi
+
 # Type-1 raw HTML blocks end only at the exact closing-tag sequence. A tag
 # with whitespace before `>` remains literal HTML content through EOF.
 printf '%s\n' \
@@ -456,6 +468,18 @@ printf '%s\n' \
   > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unclosed fence after paragraph HTML to fail" >&2
+  exit 1
+fi
+
+# A block-level tag only starts a type-6 HTML block at the beginning of the
+# line (after up to three spaces), never when embedded later in paragraph text.
+printf '%s\n' \
+  'paragraph text before <div>' \
+  '```text' \
+  'unclosed after an embedded block tag' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an embedded block tag failure" >&2
   exit 1
 fi
 
@@ -640,6 +664,40 @@ printf '%s\n' \
   > "$fence_fixture"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected a reference-shaped paragraph continuation to pass" >&2
+  exit 1
+fi
+
+# Unescaped brackets and whitespace-only labels are not reference labels. Each
+# line therefore remains paragraph text and a later indented marker is literal.
+printf '%s\n' \
+  '[a[b]: /target' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unescaped nested reference bracket to remain paragraph text" >&2
+  exit 1
+fi
+
+printf '%s\n' \
+  '[   ]: /target' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a whitespace-only reference label to remain paragraph text" >&2
+  exit 1
+fi
+
+# An escaped opening bracket is valid and preserves leaf-block semantics.
+printf '%s\n' \
+  '[a\[b]: /target' \
+  '22. list item after an escaped reference label' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an escaped reference label failure" >&2
   exit 1
 fi
 
