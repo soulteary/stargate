@@ -791,6 +791,33 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
   exit 1
 fi
 
+# A fence interrupts the paragraph containing an incomplete multiline label;
+# the opener cannot be accumulated as label text and skipped with a later
+# apparent definition suffix.
+printf '%s\n' \
+  '[foo' \
+  '```text' \
+  'bar]: /target' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence interrupting a multiline label failure" >&2
+  exit 1
+fi
+
+# A physical line ending after a backslash is not a bracket escape. Preserve
+# the literal backslash and continue parsing the valid multiline label.
+printf '%s\n' \
+  '[foo\' \
+  'bar]: /target' \
+  '22. list item after a backslash-ended reference label' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a backslash-ended label failure" >&2
+  exit 1
+fi
+
 # Unicode whitespace does not satisfy CommonMark's requirement that a link
 # reference label contain a non-whitespace character. NBSP therefore leaves
 # this reference-shaped line as paragraph text.
@@ -812,6 +839,18 @@ printf '%s\n' \
   > "$fence_fixture"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unbalanced reference destination to remain paragraph text" >&2
+  exit 1
+fi
+
+# A block opener likewise interrupts an unfinished reference title instead of
+# becoming title text which can hide the fence from structural validation.
+printf '%s\n' \
+  '[ref]: /target "foo' \
+  '```text' \
+  'bar"' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence interrupting a reference title failure" >&2
   exit 1
 fi
 
