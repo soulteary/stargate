@@ -423,6 +423,38 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Bracketed text which is not an assignment word does not gain array-subscript
+# arithmetic semantics. Its `<<` remains a real heredoc and the later text is
+# payload rather than an executed htpasswd command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo arr[1 << 2]' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a real heredoc after bracketed command data to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Quote state spans physical lines. A `<<` inside the continued single-quoted
+# argument is literal data and must not consume the following real command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "printf '%s\\n' 'not a heredoc" \
+  "<<EOF'" \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command after a multiline quoted string failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # xargs executes its command operand with both initial and input-derived
 # arguments; a wrapped htpasswd invocation must therefore be inspected.
 printf '%s\n' \
@@ -572,6 +604,47 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe substitution in a nested heredoc failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Process substitutions execute their own command bodies, but they remain one
+# word in the outer argv. A redirection target must not split later options
+# away from the htpasswd command that receives them.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'htpasswd -C 10 > >(cat) -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd option after process substitution failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# The process-substitution body is an independently executable context too.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'cat <(htpasswd -bn "" password)' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command inside process substitution failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Unquoted command substitutions likewise remain one outer argv word.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'htpasswd -C 10 $(printf file) -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe option after unquoted command substitution failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
