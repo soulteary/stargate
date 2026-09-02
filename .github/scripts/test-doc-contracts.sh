@@ -214,6 +214,65 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Arithmetic left shifts use the same characters as a heredoc operator but do
+# not start a heredoc body or hide commands on following lines.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo $((1 << 2))' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after an arithmetic shift failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Arithmetic expansions may span physical lines; the parser must retain that
+# state when the shift operator itself appears on a continuation line.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo $((1' \
+  '  << 2))' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after a multiline arithmetic shift failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# xargs executes its command operand with both initial and input-derived
+# arguments; a wrapped htpasswd invocation must therefore be inspected.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'printf password | xargs -n 1 htpasswd -bn ""' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command delegated through xargs failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Short xargs flags may be bundled before an option whose value is supplied
+# in the next argv token; that operand is not the delegated command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'printf password | xargs -rn 1 htpasswd -bn ""' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after bundled xargs options failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Backtick substitutions execute in both unquoted and double-quoted contexts.
 printf '%s\n' \
   '' \
