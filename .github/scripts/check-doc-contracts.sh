@@ -66,7 +66,8 @@ contract_violation_count() {
     sub markdown_command_contexts {
       my ($text) = @_;
       my @contexts;
-      my ($fence_char, $fence_length, $capture_fence, $fence_content);
+      my ($fence_char, $fence_length, $capture_fence, $console_fence,
+          $fence_content);
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -79,7 +80,14 @@ contract_violation_count() {
             $fence_content = "";
             next;
           }
-          $fence_content .= "$line\n" if $capture_fence;
+          if ($capture_fence) {
+            my $command_line = $line;
+            # A leading hash in console/terminal output conventionally denotes
+            # a root-shell prompt, not a comment. Untyped and shell fences keep
+            # normal shell-comment semantics.
+            $command_line =~ s/^[ \t]*[#\$>][ \t]+// if $console_fence;
+            $fence_content .= "$command_line\n";
+          }
           next;
         }
 
@@ -89,6 +97,7 @@ contract_violation_count() {
           $fence_length = length($marker);
           $capture_fence = $info eq "" ||
             $info =~ /^(?:bash|sh|shell|zsh|console|terminal)$/i;
+          $console_fence = $info =~ /^(?:console|terminal)$/i;
           $fence_content = "";
           next;
         }
@@ -109,6 +118,71 @@ contract_violation_count() {
       }
       push @contexts, $fence_content
         if defined $fence_char && $capture_fence;
+      return @contexts;
+    }
+
+    sub backtick_command_contexts {
+      my ($text) = @_;
+      my @contexts = ($text);
+      my $quote = "";
+      my $escaped = 0;
+      my $offset = 0;
+
+      while ($offset < length($text)) {
+        my $char = substr($text, $offset, 1);
+        if ($quote eq "\x27") {
+          $quote = "" if $char eq "\x27";
+          $offset++;
+          next;
+        }
+        if ($escaped) {
+          $escaped = 0;
+          $offset++;
+          next;
+        }
+        if ($char eq "\\") {
+          $escaped = 1;
+          $offset++;
+          next;
+        }
+        if ($char eq "\x27") {
+          $quote = "\x27" unless $quote eq "\"";
+          $offset++;
+          next;
+        }
+        if ($char eq "\"") {
+          $quote = $quote eq "\"" ? "" : "\"";
+          $offset++;
+          next;
+        }
+        if ($char ne "`") {
+          $offset++;
+          next;
+        }
+
+        $offset++;
+        my $body = "";
+        my $body_escaped = 0;
+        my $closed = 0;
+        while ($offset < length($text)) {
+          my $nested = substr($text, $offset, 1);
+          if ($body_escaped) {
+            $body .= $nested;
+            $body_escaped = 0;
+          } elsif ($nested eq "\\") {
+            $body .= $nested;
+            $body_escaped = 1;
+          } elsif ($nested eq "`") {
+            $closed = 1;
+            $offset++;
+            last;
+          } else {
+            $body .= $nested;
+          }
+          $offset++;
+        }
+        push @contexts, $body if $closed && $body =~ /\S/;
+      }
       return @contexts;
     }
 
@@ -300,13 +374,28 @@ contract_violation_count() {
       return (0, 0);
     }
 
+    sub wrapper_option_needs_operand {
+      my ($wrapper, $option) = @_;
+      return 0 if $option =~ /^--[^=]+=/;
+
+      if ($wrapper eq "sudo") {
+        return 1 if $option =~ /^--(?:chdir|close-from|group|host|other-user|prompt|role|type|user)$/;
+        return 1 if $option =~ /^-[^-]*[CDghpRTuU]$/;
+      } elsif ($wrapper eq "env") {
+        return 1 if $option =~ /^--(?:chdir|split-string|unset)$/;
+        return 1 if $option =~ /^-[^-]*[CSu]$/;
+      } elsif ($wrapper eq "exec") {
+        return 1 if $option eq "-a";
+      }
+      return 0;
+    }
+
     sub htpasswd_command_index {
       my (@arguments) = @_;
       my %prefix = map { $_ => 1 }
         qw(if then elif else while until do ! time);
       my %wrapper = map { $_ => 1 }
         qw(command exec builtin nohup env sudo);
-      my $wrapper_pending = 0;
       my $index = 0;
 
       while ($index < @arguments) {
@@ -327,12 +416,20 @@ contract_violation_count() {
         }
 
         if ($wrapper{$argument}) {
-          $wrapper_pending = 1;
+          my $wrapper = $argument;
           $index++;
-          next;
-        }
-        if ($wrapper_pending && $argument =~ /^-/) {
-          $index++;
+          while ($index < @arguments) {
+            my $option = $arguments[$index];
+            if ($option eq "--") {
+              $index++;
+              last;
+            }
+            last unless $option =~ /^-/ && $option ne "-";
+            my $needs_operand =
+              wrapper_option_needs_operand($wrapper, $option);
+            $index++;
+            $index++ if $needs_operand && $index < @arguments;
+          }
           next;
         }
         return $index if $argument =~ m{(?:^|/)htpasswd$};
@@ -344,22 +441,24 @@ contract_violation_count() {
     sub unsafe_htpasswd_count_in_context {
       my ($text) = @_;
       my $unsafe = 0;
-      for my $segment (shell_command_segments($text)) {
-        my @arguments = shell_tokens($segment);
-        my $command_index = htpasswd_command_index(@arguments);
-        next if $command_index < 0;
+      for my $execution_context (backtick_command_contexts($text)) {
+        for my $segment (shell_command_segments($execution_context)) {
+          my @arguments = shell_tokens($segment);
+          my $command_index = htpasswd_command_index(@arguments);
+          next if $command_index < 0;
 
-        for (my $index = $command_index + 1; $index < @arguments; $index++) {
-          my $argument = $arguments[$index];
-          last if $argument eq "--";
-          my ($redirection, $has_target) = redirection_details($argument);
-          if ($redirection) {
-            $index++ unless $has_target;
-            next;
-          }
-          if ($argument =~ /^-[A-Za-z]*b[A-Za-z]*$/) {
-            $unsafe++;
-            last;
+          for (my $index = $command_index + 1; $index < @arguments; $index++) {
+            my $argument = $arguments[$index];
+            last if $argument eq "--";
+            my ($redirection, $has_target) = redirection_details($argument);
+            if ($redirection) {
+              $index++ unless $has_target;
+              next;
+            }
+            if ($argument =~ /^-[A-Za-z]*b[A-Za-z]*$/) {
+              $unsafe++;
+              last;
+            }
           }
         }
       }
