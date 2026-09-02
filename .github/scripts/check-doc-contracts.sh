@@ -100,6 +100,9 @@ check_markdown_structure() {
       return 1 if $remaining =~ /^ {0,3}(?:`{3,}|~{3,})/;
       return 1 if $remaining =~ /^ {0,3}#{1,6}(?:[ ]|$)/;
       return 1 if thematic_break($remaining);
+      my ($starts_html, undef, undef, $html_interrupts) =
+        html_block_start($remaining);
+      return 1 if $starts_html && $html_interrupts;
 
       my @marker = list_marker_details($remaining);
       if (@marker) {
@@ -115,6 +118,43 @@ check_markdown_structure() {
       return 0 if $remaining =~ /^ {0,3}#{1,6}(?:[ ]|$)/;
       return 0 if thematic_break($remaining);
       return 1;
+    }
+
+    sub html_block_start {
+      my ($content) = @_;
+      return (1, qr/-->/, 0, 1) if $content =~ /^ {0,3}<!--/;
+      return (1, qr/\?>/, 0, 1) if $content =~ /^ {0,3}<\?/;
+      return (1, qr/\]\]>/, 0, 1) if $content =~ /^ {0,3}<!\[CDATA\[/;
+      return (1, qr/>/, 0, 1) if $content =~ /^ {0,3}<![A-Z]/;
+
+      if ($content =~ /^ {0,3}<(script|pre|style|textarea)(?:[ \t]|>|$)/i) {
+        my $tag = $1;
+        return (1, qr{</\Q$tag\E[ \t]*>}i, 0, 1);
+      }
+
+      if ($content =~ m{^ {0,3}</?(?:
+          address|article|aside|base|basefont|blockquote|body|caption|center|col|
+          colgroup|dd|details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|
+          footer|form|frame|frameset|h[1-6]|head|header|hr|html|iframe|legend|
+          li|link|main|menu|menuitem|nav|noframes|ol|optgroup|option|p|param|
+          search|section|summary|table|tbody|td|tfoot|th|thead|title|tr|track|ul
+        )(?:[ \t]|/?>|$)}ix) {
+        return (1, undef, 1, 1);
+      }
+
+      # A complete open or closing tag for any other element starts a type-7
+      # HTML block only where it does not interrupt an existing paragraph.
+      if ($content =~ m{^ {0,3}</[A-Za-z][A-Za-z0-9-]*[ \t]*>[ \t]*$} ||
+          $content =~ m{^ {0,3}<[A-Za-z][A-Za-z0-9-]*(?:[ \t]+[A-Za-z_:][A-Za-z0-9_.:-]*(?:[ \t]*=[ \t]*(?:[^\x00-\x20"\x27=<>`]+|"[^"]*"|\x27[^\x27]*\x27))?)*[ \t]*/?>[ \t]*$}) {
+        return (1, undef, 1, 0);
+      }
+      return (0, undef, 0, 0);
+    }
+
+    sub html_block_finished {
+      my ($content, $end_pattern, $until_blank) = @_;
+      return $content =~ /^ *$/ if $until_blank;
+      return $content =~ /$end_pattern/;
     }
 
     sub open_containers {
@@ -169,6 +209,10 @@ check_markdown_structure() {
         my ($fence_char, $fence_length, $fence_line);
         my @containers;
         my @fence_containers;
+        my $html_active = 0;
+        my $html_end_pattern;
+        my $html_until_blank = 0;
+        my @html_containers;
         my $paragraph_active = 0;
         my $paragraph_depth = 0;
         my $line_number = 0;
@@ -209,6 +253,33 @@ check_markdown_structure() {
               next LINE;
             }
 
+            if ($html_active) {
+              my ($offset, $matched) =
+                continue_containers($line, \@html_containers);
+              if ($matched < @html_containers) {
+                # Unlike a fenced block, a raw HTML block simply ends when
+                # its list or block-quote container ends. Reprocess the line
+                # at the surviving outer container level.
+                splice @containers, $matched;
+                $html_active = 0;
+                undef $html_end_pattern;
+                $html_until_blank = 0;
+                @html_containers = ();
+                $paragraph_active = 0;
+                next REPROCESS;
+              }
+
+              my $html_content = substr($line, $offset);
+              if (html_block_finished(
+                  $html_content, $html_end_pattern, $html_until_blank)) {
+                $html_active = 0;
+                undef $html_end_pattern;
+                $html_until_blank = 0;
+                @html_containers = ();
+              }
+              next LINE;
+            }
+
             my ($offset, $matched) = continue_containers($line, \@containers);
             if ($matched < @containers) {
               my $remaining = substr($line, $offset);
@@ -230,6 +301,20 @@ check_markdown_structure() {
               open_containers($line, $offset, \@containers, $paragraph_here);
             $paragraph_active = 0 if $opened;
             my $content = substr($line, $offset);
+
+            my ($starts_html, $html_end, $until_blank, $html_interrupts) =
+              html_block_start($content);
+            if ($starts_html && (!$paragraph_here || $html_interrupts)) {
+              $paragraph_active = 0;
+              unless (html_block_finished($content, $html_end, $until_blank)) {
+                $html_active = 1;
+                $html_end_pattern = $html_end;
+                $html_until_blank = $until_blank;
+                @html_containers = map { { %$_ } } @containers;
+              }
+              next LINE;
+            }
+
             if ($content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/) {
               my ($marker, $info) = ($1, $2);
               my $char = substr($marker, 0, 1);
