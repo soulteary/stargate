@@ -1005,6 +1005,10 @@ contract_violation_count() {
       $text =~ s/\{/\x1c/g;
       $text =~ s/\}/\x1d/g;
       $text =~ s/,/\x1e/g;
+      # Preserve whether redirection characters were quoted or escaped so the
+      # post-tokenization grammar pass only splits real shell operators.
+      $text =~ s/</\x16/g;
+      $text =~ s/>/\x17/g;
       return $text;
     }
 
@@ -1013,7 +1017,74 @@ contract_violation_count() {
       $text =~ s/\x1c/\{/g;
       $text =~ s/\x1d/\}/g;
       $text =~ s/\x1e/,/g;
+      $text =~ s/\x16/</g;
+      $text =~ s/\x17/>/g;
       return $text;
+    }
+
+    sub shell_redirection_operator_at {
+      my ($word, $offset) = @_;
+      my $remaining = substr($word, $offset);
+      for my $operator (
+          "&>>", "<<<", "<<-", "&>", "<<", "<>", ">>",
+          "<&", ">&", ">|", ">", "<") {
+        return $operator if index($remaining, $operator) == 0;
+      }
+      return;
+    }
+
+    sub split_attached_redirection_tokens {
+      my (@tokens) = @_;
+      my @split;
+
+      for my $token (@tokens) {
+        if (!length($token)) {
+          push @split, $token;
+          next;
+        }
+        my $remaining = $token;
+        while (length($remaining)) {
+          my ($operator_offset, $operator);
+          for (my $offset = 0; $offset < length($remaining); $offset++) {
+            my $candidate = shell_redirection_operator_at(
+              $remaining,
+              $offset,
+            );
+            next unless defined $candidate;
+            ($operator_offset, $operator) = ($offset, $candidate);
+            last;
+          }
+
+          if (!defined $operator) {
+            push @split, $remaining;
+            last;
+          }
+
+          my $prefix = substr($remaining, 0, $operator_offset);
+          my $descriptor = "";
+          if ($prefix =~ /^(?:\d+|\{[A-Za-z_][A-Za-z0-9_]*\})$/) {
+            $descriptor = $prefix;
+          } elsif (length($prefix)) {
+            push @split, $prefix;
+          }
+
+          my $target_start = $operator_offset + length($operator);
+          my $next_operator = length($remaining);
+          for (my $offset = $target_start;
+               $offset < length($remaining);
+               $offset++) {
+            if (defined shell_redirection_operator_at($remaining, $offset)) {
+              $next_operator = $offset;
+              last;
+            }
+          }
+          push @split,
+            $descriptor . $operator .
+            substr($remaining, $target_start, $next_operator - $target_start);
+          $remaining = substr($remaining, $next_operator);
+        }
+      }
+      return @split;
     }
 
     sub shell_tokens {
@@ -1119,7 +1190,7 @@ contract_violation_count() {
         $in_token = 1;
       }
       push @tokens, $token if $in_token;
-      return @tokens;
+      return split_attached_redirection_tokens(@tokens);
     }
 
     sub flush_shell_segment {
@@ -1290,7 +1361,7 @@ contract_violation_count() {
 
       if ($wrapper eq "sudo") {
         return 1 if $option =~ /^--(?:chdir|close-from|group|host|other-user|prompt|role|type|user)$/;
-        return 1 if $option =~ /^-[^-]*[CDghpRTuU]$/;
+        return 1 if $option =~ /^-[^-]*[CDghpRrTtuU]$/;
       } elsif ($wrapper eq "env") {
         return 1 if $option =~ /^--(?:chdir|split-string|unset)$/;
         return 1 if $option =~ /^-[^-]*[CSu]$/;
@@ -1325,7 +1396,7 @@ contract_violation_count() {
       # than more flags (for example, `-ul` means user `l`).
       for my $flag (split //, $1) {
         return 1 if $flag =~ /^[lvV]$/;
-        return 0 if $flag =~ /^[CDghpRTuU]$/;
+        return 0 if $flag =~ /^[CDghpRrTtuU]$/;
       }
       return 0;
     }
