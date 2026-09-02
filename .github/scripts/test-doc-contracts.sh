@@ -54,10 +54,18 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
-# The bundled Compose network key and Traefik labels must resolve to the same name.
+# Preserve the legacy logical key so Compose can reuse an existing named network.
+perl -0pi -e 's/^  traefik:\n    name: stargate-traefik$/  stargate-traefik:\n    name: stargate-traefik/m' "$temp_dir/docker-compose.yml"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a bundled Compose logical-key compatibility failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docker-compose.yml
+
+# Traefik must select the actual Docker network name, not the logical Compose key.
 perl -0pi -e 's/traefik\.docker\.network=stargate-traefik/traefik.docker.network=traefik/' "$temp_dir/docker-compose.yml"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
-  echo "Expected a bundled Compose network contract failure" >&2
+  echo "Expected a bundled Traefik label network failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docker-compose.yml

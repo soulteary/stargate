@@ -253,13 +253,14 @@ contract_violation_count() {
     if (!defined($compose_network_key) || !defined($compose_network_name)) {
       warn "Cannot resolve the Compose-managed Traefik network in $compose_path\n";
       $count++;
-    } elsif ($compose_network_key ne $compose_network_name) {
-      warn "Compose network key and actual name differ in $compose_path\n";
+    } elsif ($compose_network_key ne "traefik" ||
+             $compose_network_name ne "stargate-traefik") {
+      warn "Bundled Compose must preserve logical key traefik and actual name stargate-traefik in $compose_path\n";
       $count++;
     } else {
-      my $attached_services = () = $compose =~ /^\s{6}-\s+\Q$compose_network_name\E\s*$/mg;
+      my $attached_services = () = $compose =~ /^\s{6}-\s+\Q$compose_network_key\E\s*$/mg;
       if ($attached_services < 3) {
-        warn "Not every bundled service uses $compose_network_name in $compose_path\n";
+        warn "Not every bundled service uses logical network key $compose_network_key in $compose_path\n";
         $count++;
       }
       my @label_networks = $compose =~ /traefik\.docker\.network=([^\s"]+)/g;

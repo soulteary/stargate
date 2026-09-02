@@ -10,7 +10,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - stargate-traefik
+      - traefik
 
   stargate: # Your Stargate forward auth service
     image: ghcr.io/soulteary/stargate:v1.0.0
@@ -42,7 +42,7 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - stargate-traefik
+      - traefik
     labels:
       - traefik.enable=true
       - traefik.docker.network=stargate-traefik
@@ -54,7 +54,7 @@ services:
   whoami: # A demo whoami service that is protected with Stargate
     image: traefik/whoami:v1.11.0
     networks:
-      - stargate-traefik
+      - traefik
     labels:
       - traefik.enable=true
       - traefik.docker.network=stargate-traefik
@@ -64,7 +64,7 @@ services:
        # Add this to services that you want to guard
 
 networks:
-  stargate-traefik:
+  traefik:
     name: stargate-traefik
     ipam:
       config:
