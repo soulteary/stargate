@@ -338,4 +338,41 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/DEPLOYMENT.md
 
+# CommonMark fenced blocks allow up to three leading spaces, either marker
+# character, and a closing marker at least as long as the opening marker.
+fence_fixture="$temp_dir/fence-structure-test.md"
+printf '%s\n' \
+  '   ```bash' \
+  'echo valid' \
+  '   ```' \
+  '~~~text' \
+  'valid' \
+  '~~~~' \
+  'inline ``` markers are not fences' \
+  '    ```four-space-indented-code' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected valid CommonMark fence forms to pass" >&2
+  exit 1
+fi
+
+printf '%s\n' '   ```bash' 'echo unclosed' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an indented unclosed fence failure" >&2
+  exit 1
+fi
+
+printf '%s\n' '```text' 'wrong marker' '~~~' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a mismatched fence-marker failure" >&2
+  exit 1
+fi
+
+printf '%s\n' '````text' 'short close' '```' > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a short closing-fence failure" >&2
+  exit 1
+fi
+rm -f "$fence_fixture"
+
 echo "Documentation contract self-tests passed."

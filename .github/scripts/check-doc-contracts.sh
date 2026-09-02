@@ -16,15 +16,6 @@ check_markdown_structure() {
   local root=$1
   local failed=false
 
-  while IFS= read -r -d '' file; do
-    local fences
-    fences=$(grep -c '^```' "$file" || true)
-    if (( fences % 2 != 0 )); then
-      echo "Unclosed fenced code block: ${file#"$root"/}" >&2
-      failed=true
-    fi
-  done < <(find "$root" -type f -name '*.md' -not -path '*/.git/*' -print0)
-
   if ! perl -MFile::Find -MFile::Basename -e '
     my $root = shift;
     my $failed = 0;
@@ -36,6 +27,37 @@ check_markdown_structure() {
         open my $fh, "<", $file or die "open $file: $!";
         local $/;
         my $text = <$fh>;
+
+        my ($fence_char, $fence_length, $fence_line);
+        my $line_number = 0;
+        for my $line (split /\n/, $text, -1) {
+          $line_number++;
+          $line =~ s/\r$//;
+          if (defined $fence_char) {
+            if ($line =~ /^ {0,3}(\Q$fence_char\E+)[ \t]*$/ && length($1) >= $fence_length) {
+              undef $fence_char;
+              undef $fence_length;
+              undef $fence_line;
+            }
+            next;
+          }
+
+          next unless $line =~ /^ {0,3}(`{3,}|~{3,})(.*)$/;
+          my ($marker, $info) = ($1, $2);
+          my $char = substr($marker, 0, 1);
+          # CommonMark does not treat a backtick sequence as an opening fence
+          # when its info string itself contains a backtick.
+          next if $char eq "`" && index($info, "`") >= 0;
+          $fence_char = $char;
+          $fence_length = length($marker);
+          $fence_line = $line_number;
+        }
+        if (defined $fence_char) {
+          (my $relative = $file) =~ s{^\Q$root\E/?}{};
+          warn "Unclosed fenced code block in $relative:$fence_line\n";
+          $failed = 1;
+        }
+
         while ($text =~ /\[[^\]]*\]\(([^)]+)\)/g) {
           my $target = $1;
           $target =~ s/^<|>$//g;
