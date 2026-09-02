@@ -76,6 +76,28 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Backslashes are literal inside single quotes, including immediately before
+# the closing quote; a later parse failure must not hide an earlier -b option.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "htpasswd -bn \"\" password > 'output\\'" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd option before a quoted backslash failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Unsafe invocations in explicit inline-code contexts remain protected.
+printf '%s\n' '' 'Never run `htpasswd -bn "" password`.' >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe inline htpasswd command contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # File-descriptor and combined-output redirections stay inside the command;
 # neither form may hide a batch-password option which follows it.
 printf '%s\n' \
@@ -113,7 +135,10 @@ printf '%s\n' \
   'htpasswd -nBC 10 stargate; printf "%s\\n" "-b"' \
   'htpasswd -nBC 10 stargate & printf "%s\\n" "-b"' \
   'htpasswd -nBC 10 stargate # never add -b' \
+  '# Do not invoke htpasswd with -b because that exposes the password.' \
+  'printf "%s\\n" "htpasswd -b is unsafe"' \
   '```' \
+  'Do not invoke htpasswd with -b because that exposes the password.' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected safe htpasswd command-boundary examples to pass" >&2
