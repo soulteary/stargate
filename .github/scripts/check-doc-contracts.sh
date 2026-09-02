@@ -624,6 +624,7 @@ contract_violation_count() {
       my $quote = "";
       my $escaped = 0;
       my $comment = 0;
+      my $array_depth = 0;
       my $offset = 0;
 
       # A backslash-newline is part of the same logical shell command.
@@ -639,14 +640,14 @@ contract_violation_count() {
           next;
         }
         if ($quote eq "\x27") {
-          $segment .= $char;
+          $segment .= $char unless $array_depth;
           $quote = "" if $char eq "\x27";
           $offset++;
           next;
         }
         if ($quote eq "\"" || $quote eq "`") {
           if ($escaped) {
-            $segment .= $char;
+            $segment .= $char unless $array_depth;
             $escaped = 0;
             $offset++;
             next;
@@ -655,31 +656,50 @@ contract_violation_count() {
             my $next = $offset + 1 < length($text)
               ? substr($text, $offset + 1, 1)
               : "";
-            $segment .= $char;
+            $segment .= $char unless $array_depth;
             $escaped = 1 if $quote eq "`" || $next =~ /^[\$`"\\]$/;
             $offset++;
             next;
           }
-          $segment .= $char;
+          $segment .= $char unless $array_depth;
           $quote = "" if $char eq $quote;
           $offset++;
           next;
         }
         if ($escaped) {
-          $segment .= $char;
+          $segment .= $char unless $array_depth;
           $escaped = 0;
           $offset++;
           next;
         }
         if ($char eq "\\") {
-          $segment .= $char;
+          $segment .= $char unless $array_depth;
           $escaped = 1;
           $offset++;
           next;
         }
         if ($char eq "\x27" || $char eq "\"" || $char eq "`") {
           $quote = $char;
-          $segment .= $char;
+          $segment .= $char unless $array_depth;
+          $offset++;
+          next;
+        }
+
+        if ($array_depth) {
+          $array_depth++ if $char eq "(";
+          $array_depth-- if $char eq ")";
+          $offset++;
+          next;
+        }
+
+        # Parentheses immediately following an assignment word introduce a
+        # Bash indexed/associative array literal. Its elements are data, not
+        # commands. Command substitutions inside them have already been
+        # extracted independently by command_substitution_contexts().
+        if ($char eq "(" && $segment =~
+            /(?:^|[ \t])(?:[A-Za-z_][A-Za-z0-9_]*)(?:\[[^\]\r\n]*\])?\+?=$/) {
+          $segment .= "()";
+          $array_depth = 1;
           $offset++;
           next;
         }
@@ -867,6 +887,48 @@ contract_violation_count() {
       return $index < @arguments ? @arguments[$index .. $#arguments] : ();
     }
 
+    sub timeout_option_needs_operand {
+      my ($option) = @_;
+      return 0 if $option =~ /^--[^=]+=/;
+      return 1 if $option =~ /^--(?:kill-after|signal)$/;
+      return 1 if $option =~ /^-[^-]*[ks]$/;
+      return 0;
+    }
+
+    sub timeout_command_arguments {
+      my (@arguments) = @_;
+      my $command_index = command_word_index(@arguments);
+      return unless $command_index >= 0;
+      return unless $arguments[$command_index] =~ m{(?:^|/)g?timeout$};
+
+      my $index = $command_index + 1;
+      while ($index < @arguments) {
+        my $option = $arguments[$index];
+        if ($option eq "--") {
+          $index++;
+          last;
+        }
+        last unless $option =~ /^-/ && $option ne "-";
+        my $needs_operand = timeout_option_needs_operand($option);
+        $index++;
+        $index++ if $needs_operand && $index < @arguments;
+      }
+
+      # timeout requires one duration operand before the delegated command.
+      $index++ if $index < @arguments;
+      return $index < @arguments ? @arguments[$index .. $#arguments] : ();
+    }
+
+    sub eval_command {
+      my (@arguments) = @_;
+      my $command_index = command_word_index(@arguments);
+      return unless $command_index >= 0;
+      return unless $arguments[$command_index] eq "eval";
+      return join(" ", @arguments[$command_index + 1 .. $#arguments])
+        if $command_index + 1 < @arguments;
+      return "";
+    }
+
     sub unsafe_htpasswd_count_in_arguments {
       my (@arguments) = @_;
       my $unsafe = 0;
@@ -875,9 +937,17 @@ contract_violation_count() {
       $unsafe += unsafe_htpasswd_count_in_context($shell_command)
         if defined $shell_command && length($shell_command);
 
+      my $evaluated_command = eval_command(@arguments);
+      $unsafe += unsafe_htpasswd_count_in_context($evaluated_command)
+        if defined $evaluated_command && length($evaluated_command);
+
       my @xargs_command = xargs_command_arguments(@arguments);
       $unsafe += unsafe_htpasswd_count_in_arguments(@xargs_command)
         if @xargs_command;
+
+      my @timeout_command = timeout_command_arguments(@arguments);
+      $unsafe += unsafe_htpasswd_count_in_arguments(@timeout_command)
+        if @timeout_command;
 
       my $command_index = htpasswd_command_index(@arguments);
       return $unsafe if $command_index < 0;
