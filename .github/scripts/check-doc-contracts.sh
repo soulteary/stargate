@@ -104,6 +104,21 @@ check_markdown_structure() {
       return ($char, length($marker));
     }
 
+    sub setext_underline {
+      my ($content) = @_;
+      return $content =~ /^ {0,3}(?:=+|-+)[ \t]*$/;
+    }
+
+    sub link_reference_definition {
+      my ($content) = @_;
+      return $content =~ m{^ {0,3}
+        \[(?:\\.|[^\]\\])+\]:[ \t]*
+        (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)
+        (?:[ \t]+(?:"[^"]*"|\x27[^\x27]*\x27|\([^()]*\)))?
+        [ \t]*$
+      }x;
+    }
+
     sub interrupts_paragraph {
       my ($remaining) = @_;
       return 1 if $remaining =~ /^ *$/;
@@ -322,6 +337,15 @@ check_markdown_structure() {
             # must not create paragraph state that prevents a later non-one
             # ordered list from opening.
             if (!$paragraph_here && $content =~ /^ {4}/) {
+              $paragraph_active = 0;
+              next LINE;
+            }
+
+            if ($paragraph_here && setext_underline($content)) {
+              $paragraph_active = 0;
+              next LINE;
+            }
+            if (!$paragraph_here && link_reference_definition($content)) {
               $paragraph_active = 0;
               next LINE;
             }
