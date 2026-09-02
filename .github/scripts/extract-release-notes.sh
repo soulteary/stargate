@@ -6,12 +6,13 @@ output=${2:?usage: extract-release-notes.sh TAG OUTPUT [CHANGELOG]}
 changelog=${3:-CHANGELOG.md}
 repository=${GITHUB_REPOSITORY:-soulteary/stargate}
 
-version=${tag#v}
-base_version=${version%%-*}
-if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+if [[ ! "$tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$ ]]; then
   echo "Unsupported release tag: $tag" >&2
   exit 1
 fi
+
+version=${tag#v}
+base_version=${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}
 
 temp_file=$(mktemp)
 trap 'rm -f "$temp_file"' EXIT
@@ -42,8 +43,13 @@ awk -v version="$base_version" '
 }
 
 header=$(head -n 1 "$temp_file")
-if [[ "$version" != *-* && "$header" == *Unreleased* ]]; then
-  echo "Formal release $tag requires a dated CHANGELOG entry" >&2
+if [[ ! "$header" =~ ^##\ \[$base_version\]\ -\ [0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+  echo "Release $tag requires an exact dated CHANGELOG heading for $base_version" >&2
+  exit 1
+fi
+
+if ! tail -n +2 "$temp_file" | grep -Eq '^[[:space:]]*[^[:space:]]'; then
+  echo "CHANGELOG.md section for $base_version is empty" >&2
   exit 1
 fi
 

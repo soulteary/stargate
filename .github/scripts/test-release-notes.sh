@@ -28,9 +28,25 @@ if bash "$repo_root/.github/scripts/extract-release-notes.sh" v1.0.0 "$temp_dir/
   echo "Formal release unexpectedly accepted an Unreleased changelog entry" >&2
   exit 1
 fi
+if bash "$repo_root/.github/scripts/extract-release-notes.sh" v1.0.0-rc.2 "$temp_dir/unreleased-rc.md" "$unreleased_changelog" >/dev/null 2>&1; then
+  echo "Prerelease unexpectedly accepted an Unreleased changelog entry" >&2
+  exit 1
+fi
+
+malformed_changelog="$temp_dir/malformed-CHANGELOG.md"
+sed 's/## \[1.0.0\] - 2026-08-27/## [1.0.0] - 27 August 2026/' "$repo_root/CHANGELOG.md" > "$malformed_changelog"
+if bash "$repo_root/.github/scripts/extract-release-notes.sh" v1.0.0 "$temp_dir/malformed.md" "$malformed_changelog" >/dev/null 2>&1; then
+  echo "Malformed changelog heading unexpectedly succeeded" >&2
+  exit 1
+fi
 
 if bash "$repo_root/.github/scripts/extract-release-notes.sh" v9.9.9 "$temp_dir/missing.md" "$repo_root/CHANGELOG.md" >/dev/null 2>&1; then
   echo "Missing changelog version unexpectedly succeeded" >&2
+  exit 1
+fi
+
+if bash "$repo_root/.github/scripts/extract-release-notes.sh" v01.0.0 "$temp_dir/invalid-tag.md" "$repo_root/CHANGELOG.md" >/dev/null 2>&1; then
+  echo "Invalid SemVer tag unexpectedly succeeded" >&2
   exit 1
 fi
 
