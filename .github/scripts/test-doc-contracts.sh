@@ -98,6 +98,19 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# A CommonMark code span can cross a physical line. Its normalized contents
+# still form one displayed command and must be scanned as one context.
+printf '%s\n' \
+  '' \
+  '`htpasswd -bn ""' \
+  'password`' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe multiline inline htpasswd command failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # File-descriptor and combined-output redirections stay inside the command;
 # neither form may hide a batch-password option which follows it.
 printf '%s\n' \
@@ -176,6 +189,30 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# The same wrapper grammar applies to unfenced standalone commands. Wrapper
+# operands must not prevent the line from reaching the deeper shell parser.
+printf '%s\n' \
+  '' \
+  'sudo -u root htpasswd -bn "" password' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe standalone command after a sudo option failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Capturing a wrapper-prefixed standalone line must not treat a mention passed
+# as data to an unrelated command as an htpasswd invocation.
+printf '%s\n' \
+  '' \
+  'sudo printf "%s\\n" "do not use htpasswd -b"' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected wrapper command data mentioning htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 printf '%s\n' \
   '' \
   '```bash' \
@@ -184,6 +221,20 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command after an env unset option failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Path-qualified wrappers retain their wrapper semantics and delegate to the
+# following command just like an unqualified env invocation.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '/usr/bin/env htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after path-qualified env failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
