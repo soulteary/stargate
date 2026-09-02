@@ -7,6 +7,9 @@ on:
 permissions:
   contents: read
 
+env:
+  CI_RECIPES_VERSION: 2efeb2b9125e4902548665a8d3453d6bb8cdb7d6
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -37,31 +40,31 @@ jobs:
           done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           echo "code=$code_changed" >> "$GITHUB_OUTPUT"
 
-      - name: Check documentation contracts
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: |
-          bash .github/scripts/check-doc-contracts.sh "$BASE_SHA"
-          bash .github/scripts/test-doc-contracts.sh
-          bash .github/scripts/test-go-version-contract.sh
-
-      - name: Validate Docker Compose configuration
-        run: docker compose config >/dev/null
-
-      - name: Check release-note extraction
-        run: |
-          bash .github/scripts/test-release-notes.sh
-          bash .github/scripts/test-release-workflow.sh
-
-      - name: Check local launcher
-        run: bash .github/scripts/test-start-local.sh
-
       - name: Set up Go
-        if: steps.changes.outputs.code == 'true'
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: true
+
+      - name: Install CI recipes
+        env:
+          GOBIN: ${{ runner.temp }}/ci-recipes-bin
+        run: |
+          go install "github.com/soulteary/ci-recipes/cmd/ci-recipes@${CI_RECIPES_VERSION}"
+          echo "$GOBIN" >> "$GITHUB_PATH"
+
+      - name: Check documentation contracts
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          ci-recipes stargate check-doc-contracts "$BASE_SHA"
+          ci-recipes stargate check-go-version-contract
+
+      - name: Validate Docker Compose configuration
+        run: docker compose config >/dev/null
+
+      - name: Check release workflow contracts
+        run: ci-recipes stargate check-release-workflow
 
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
