@@ -103,6 +103,7 @@ contract_violation_count() {
       # with known shell prefixes/delegators are executable contexts; their
       # actual command words are validated later by the shell parser.
       return $line if $line =~ m{^(?:\S*/)?htpasswd[ \t]+-};
+      return $line if $line =~ /^[A-Za-z_][A-Za-z0-9_]*=/;
       return $line if $line =~ m{^(?:(?:\S*/)?(?:
           sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
           find|eval|stdbuf|bash|dash|ksh|mksh|pdksh|sh|zsh
@@ -360,14 +361,25 @@ contract_violation_count() {
         my $modern_substitution =
           $char eq "\x24" && substr($source, $offset + 1, 1) eq "(" &&
           substr($source, $offset + 2, 1) ne "(";
+        my $arithmetic_expansion =
+          $char eq "\x24" && substr($source, $offset + 1, 2) eq "((";
         my $process_substitution =
           $quote eq "" && ($char eq "<" || $char eq ">") &&
           substr($source, $offset + 1, 1) eq "(";
-        if ($modern_substitution || $process_substitution) {
+        if ($modern_substitution || $arithmetic_expansion ||
+            $process_substitution) {
           my ($body, $end, $closed) =
             dollar_paren_body($source, $offset);
           if ($closed) {
-            push @contexts, $body if $body =~ /\S/;
+            if ($arithmetic_expansion) {
+              # Arithmetic text is data, but substitutions nested inside it
+              # still execute and must enter the normal context queue.
+              my (undef, @nested) =
+                command_substitution_contexts($body);
+              push @contexts, @nested;
+            } else {
+              push @contexts, $body if $body =~ /\S/;
+            }
             $filtered .= "__shell_substitution__";
             $offset = $end;
             next;
