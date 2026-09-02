@@ -82,14 +82,16 @@ check_markdown_structure() {
         $remaining =~ /^( {0,3})([-+*]|\d{1,9}[.)])(?:([ ]+)|$)/;
       my ($before, $marker, $spacing) = ($1, $2, $3);
       my $space_count = defined $spacing ? length($spacing) : 1;
-      my $padding = $space_count <= 4 ? $space_count : 1;
+      my $after_marker = substr(
+        $remaining, length($before) + length($marker));
+      my $has_content = $after_marker =~ /[^ ]/;
+      my $padding = $has_content && $space_count <= 4 ? $space_count : 1;
       my $width = length($before) + length($marker) + $padding;
       my $content = length($remaining) >= $width
         ? substr($remaining, $width)
         : "";
       my $ordered = $marker =~ /^(\d{1,9})[.)]$/;
       my $start = $ordered ? 0 + $1 : 0;
-      my $has_content = $content =~ /[^ ]/;
       return ($width, $ordered, $start, $has_content);
     }
 
@@ -112,11 +114,12 @@ check_markdown_structure() {
     sub reference_title {
       my ($content) = @_;
       # CommonMark backslash escapes may protect ASCII punctuation, including
-      # the delimiter used by any of the three reference-title forms.
+      # the delimiter used by any title form. Before other characters, a
+      # backslash remains literal rather than making the title invalid.
       return $content =~ m{^(?:
-        "(?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^"\\])*" |
-        \x27(?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^\x27\\])*\x27 |
-        \((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^()\\])*\)
+        "(?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|\\(?=[^\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e])|[^"\\])*" |
+        \x27(?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|\\(?=[^\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e])|[^\x27\\])*\x27 |
+        \((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|\\(?=[^\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e])|[^()\\])*\)
       )[ \t]*$}x;
     }
 
@@ -174,7 +177,7 @@ check_markdown_structure() {
     sub link_reference_definition {
       my ($content) = @_;
       return unless $content =~ m{^[ ]{0,3}
-        \[((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^\[\]\\])+)
+        \[((?:\\[^\r\n]|[^\[\]\\])+)
         \]:[ \t]*(.*)$
       }x;
       my ($label, $destination_text) = ($1, $2);
@@ -242,7 +245,7 @@ check_markdown_structure() {
     sub multiline_reference_lines {
       my ($content, $containers, $line_index, $lines) = @_;
       return 0 unless $content =~ m{^[ ]{0,3}
-        \[((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^\[\]\\])+)
+        \[((?:\\[^\r\n]|[^\[\]\\])+)
         \]:[ \t]*$
       }x;
       return 0 unless valid_reference_label($1);
@@ -285,8 +288,6 @@ check_markdown_structure() {
           if ($char eq "\\") {
             return 0 if $offset + 1 >= length($fragment);
             my $escaped = substr($fragment, $offset + 1, 1);
-            return 0 unless $escaped =~
-              /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/;
             $label .= "\\$escaped";
             $offset += 2;
             next;
