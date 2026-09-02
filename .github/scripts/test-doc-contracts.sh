@@ -421,6 +421,18 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
   exit 1
 fi
 
+# Type-1 raw HTML blocks end only at the exact closing-tag sequence. A tag
+# with whitespace before `>` remains literal HTML content through EOF.
+printf '%s\n' \
+  '<script>' \
+  '</script >' \
+  '``` literal marker in the still-open HTML block' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an inexact raw HTML closing tag to remain open" >&2
+  exit 1
+fi
+
 # Fence parsing must resume immediately after a raw HTML block terminates.
 printf '%s\n' \
   '<!--' \
@@ -576,6 +588,32 @@ printf '%s\n' \
   > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unclosed fence after a continued reference title failure" >&2
+  exit 1
+fi
+
+# Backslash-escaped ASCII punctuation is valid inside each reference-title
+# delimiter form. It must not turn the definition into paragraph text.
+printf '%s\n' \
+  '[reference]: /target "escaped \"title\""' \
+  '22. list item after an escaped reference title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an escaped reference title failure" >&2
+  exit 1
+fi
+
+# The same escape rule applies when a title follows a next-line destination.
+printf '%s\n' \
+  '[reference]:' \
+  '  /target (escaped \(title\))' \
+  '22. list item after an escaped multiline title' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after an escaped multiline title failure" >&2
   exit 1
 fi
 
