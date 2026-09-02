@@ -528,6 +528,45 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# A complete standalone link-reference definition is a leaf block. It must
+# not prevent a following non-one ordered list from opening.
+printf '%s\n' \
+  '[reference]: /target' \
+  '22. list item after a reference definition' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a link-reference definition failure" >&2
+  exit 1
+fi
+
+# A Setext underline closes its preceding paragraph as a heading, so a
+# non-one ordered list may likewise begin immediately afterward.
+printf '%s\n' \
+  'Setext heading' \
+  '==============' \
+  '22. list item after a heading' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a Setext heading failure" >&2
+  exit 1
+fi
+
+# A reference-shaped line cannot interrupt an existing paragraph.
+printf '%s\n' \
+  'paragraph before a reference-shaped line' \
+  '[reference]: /target' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a reference-shaped paragraph continuation to pass" >&2
+  exit 1
+fi
+
 # Exercise the same five-space list-container indentation used by the existing
 # localized API response examples, so those real blocks cannot silently regress.
 perl -0pi -e 's/^     ```\r?\n//m' "$temp_dir/docs/enUS/API.md"
