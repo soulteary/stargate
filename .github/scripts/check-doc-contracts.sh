@@ -180,102 +180,183 @@ contract_violation_count() {
       return @tokens;
     }
 
-    sub unsafe_htpasswd_count_in_context {
+    sub flush_shell_segment {
+      my ($segments, $segment_ref) = @_;
+      push @$segments, $$segment_ref if $$segment_ref =~ /\S/;
+      $$segment_ref = "";
+    }
+
+    sub shell_command_segments {
       my ($text) = @_;
-      my $unsafe = 0;
+      my @segments;
+      my $segment = "";
+      my $quote = "";
+      my $escaped = 0;
+      my $comment = 0;
+      my $offset = 0;
 
-      # A backslash-newline is part of the same shell command. Preserve other
-      # newlines because they terminate the invocation being inspected.
+      # A backslash-newline is part of the same logical shell command.
       $text =~ s/\\\r?\n[ \t]*/ /g;
-      while ($text =~ /(?:^|[\r\n;|&()])[ \t]*(?:[$>][ \t]+)?(?:(?:[A-Za-z_][A-Za-z0-9_]*=\S+|sudo|command|env)[ \t]+)*(?:\S*\/)?htpasswd\b/gm) {
-        my $cursor = pos($text);
-        my $segment = "";
-        my $quote = "";
-        my $escaped = 0;
-
-        while ($cursor < length($text)) {
-          my $char = substr($text, $cursor, 1);
-          if ($quote eq "\x27") {
-            $segment .= $char;
-            $quote = "" if $char eq "\x27";
-            $cursor++;
-            next;
+      while ($offset < length($text)) {
+        my $char = substr($text, $offset, 1);
+        if ($comment) {
+          if ($char eq "\n" || $char eq "\r") {
+            flush_shell_segment(\@segments, \$segment);
+            $comment = 0;
           }
-          if ($quote eq "\"") {
-            if ($escaped) {
-              $segment .= $char;
-              $escaped = 0;
-              $cursor++;
-              next;
-            }
-            if ($char eq "\\") {
-              my $next = $cursor + 1 < length($text)
-                ? substr($text, $cursor + 1, 1)
-                : "";
-              $segment .= $char;
-              $escaped = 1 if $next =~ /^[\$`"\\]$/;
-              $cursor++;
-              next;
-            }
-            $segment .= $char;
-            $quote = "" if $char eq "\"";
-            $cursor++;
-            next;
-          }
+          $offset++;
+          next;
+        }
+        if ($quote eq "\x27") {
+          $segment .= $char;
+          $quote = "" if $char eq "\x27";
+          $offset++;
+          next;
+        }
+        if ($quote eq "\"" || $quote eq "`") {
           if ($escaped) {
             $segment .= $char;
             $escaped = 0;
-            $cursor++;
+            $offset++;
             next;
           }
           if ($char eq "\\") {
-            $segment .= $char;
-            $escaped = 1;
-            $cursor++;
-            next;
-          }
-          if ($char eq "\x27" || $char eq "\"") {
-            $quote = $char;
-            $segment .= $char;
-            $cursor++;
-            next;
-          }
-
-          # Stop at Markdown code-span boundaries and unquoted shell control
-          # operators. Redirection operators such as 2>&1, <&0, &>file, and
-          # >|file remain part of the current command and must not hide an
-          # option which follows them.
-          last if $char =~ /[\r\n`;()]/;
-          if ($char eq "&") {
-            my $previous = length($segment) ? substr($segment, -1, 1) : "";
-            my $next = $cursor + 1 < length($text)
-              ? substr($text, $cursor + 1, 1)
+            my $next = $offset + 1 < length($text)
+              ? substr($text, $offset + 1, 1)
               : "";
-            if ($previous eq ">" || $previous eq "<" || $next eq ">") {
-              $segment .= $char;
-              $cursor++;
-              next;
-            }
-            last;
+            $segment .= $char;
+            $escaped = 1 if $quote eq "`" || $next =~ /^[\$`"\\]$/;
+            $offset++;
+            next;
           }
-          if ($char eq "|") {
-            my $previous = length($segment) ? substr($segment, -1, 1) : "";
-            if ($previous eq ">") {
-              $segment .= $char;
-              $cursor++;
-              next;
-            }
-            last;
-          }
-          my $previous = length($segment) ? substr($segment, -1, 1) : "";
-          last if $char eq "#" && ($segment eq "" || $previous =~ /[ \t]/);
           $segment .= $char;
-          $cursor++;
+          $quote = "" if $char eq $quote;
+          $offset++;
+          next;
+        }
+        if ($escaped) {
+          $segment .= $char;
+          $escaped = 0;
+          $offset++;
+          next;
+        }
+        if ($char eq "\\") {
+          $segment .= $char;
+          $escaped = 1;
+          $offset++;
+          next;
+        }
+        if ($char eq "\x27" || $char eq "\"" || $char eq "`") {
+          $quote = $char;
+          $segment .= $char;
+          $offset++;
+          next;
         }
 
+        my $previous = length($segment) ? substr($segment, -1, 1) : "";
+        if ($char eq "#" && ($segment eq "" || $previous =~ /[ \t]/)) {
+          $comment = 1;
+          $offset++;
+          next;
+        }
+        if ($char =~ /[\r\n;()]/) {
+          flush_shell_segment(\@segments, \$segment);
+          $offset++;
+          next;
+        }
+        if ($char eq "&") {
+          my $next = $offset + 1 < length($text)
+            ? substr($text, $offset + 1, 1)
+            : "";
+          if ($previous eq ">" || $previous eq "<" || $next eq ">") {
+            $segment .= $char;
+          } else {
+            flush_shell_segment(\@segments, \$segment);
+          }
+          $offset++;
+          next;
+        }
+        if ($char eq "|") {
+          if ($previous eq ">") {
+            $segment .= $char;
+          } else {
+            flush_shell_segment(\@segments, \$segment);
+          }
+          $offset++;
+          next;
+        }
+        $segment .= $char;
+        $offset++;
+      }
+      flush_shell_segment(\@segments, \$segment);
+      return @segments;
+    }
+
+    sub redirection_details {
+      my ($token) = @_;
+      if ($token =~ /^((?:\d*(?:<<<|<<-|<<|<>|>>|<&|>&|>\||>|<)|&>>?))(.*)$/) {
+        return (1, length($2) > 0);
+      }
+      return (0, 0);
+    }
+
+    sub htpasswd_command_index {
+      my (@arguments) = @_;
+      my %prefix = map { $_ => 1 }
+        qw(if then elif else while until do ! time);
+      my %wrapper = map { $_ => 1 }
+        qw(command exec builtin nohup env sudo);
+      my $wrapper_pending = 0;
+      my $index = 0;
+
+      while ($index < @arguments) {
+        my $argument = $arguments[$index];
+        if ($argument eq "\$" || $prefix{$argument}) {
+          $index++;
+          next;
+        }
+        if ($argument =~ /^[A-Za-z_][A-Za-z0-9_]*=/) {
+          $index++;
+          next;
+        }
+
+        my ($redirection, $has_target) = redirection_details($argument);
+        if ($redirection) {
+          $index += $has_target ? 1 : 2;
+          next;
+        }
+
+        if ($wrapper{$argument}) {
+          $wrapper_pending = 1;
+          $index++;
+          next;
+        }
+        if ($wrapper_pending && $argument =~ /^-/) {
+          $index++;
+          next;
+        }
+        return $index if $argument =~ m{(?:^|/)htpasswd$};
+        return -1;
+      }
+      return -1;
+    }
+
+    sub unsafe_htpasswd_count_in_context {
+      my ($text) = @_;
+      my $unsafe = 0;
+      for my $segment (shell_command_segments($text)) {
         my @arguments = shell_tokens($segment);
-        for my $argument (@arguments) {
+        my $command_index = htpasswd_command_index(@arguments);
+        next if $command_index < 0;
+
+        for (my $index = $command_index + 1; $index < @arguments; $index++) {
+          my $argument = $arguments[$index];
           last if $argument eq "--";
+          my ($redirection, $has_target) = redirection_details($argument);
+          if ($redirection) {
+            $index++ unless $has_target;
+            next;
+          }
           if ($argument =~ /^-[A-Za-z]*b[A-Za-z]*$/) {
             $unsafe++;
             last;
