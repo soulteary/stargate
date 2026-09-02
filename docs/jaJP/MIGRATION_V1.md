@@ -7,7 +7,48 @@ Stargate v1.0.0 はデプロイと HTTP の安定した契約を定義します�
 1. 現在のイメージ、環境変数、Proxy ルート、Callback ホスト、Probe を記録します。
 2. ロールバック用に `v0.12.0` イメージと以前のコンテナを保持します。
 3. `/_logout`、`/totp/enroll`、`/_session_exchange` の呼び出し元を確認します。
-4. 複数レプリカでは Redis セッションストレージを準備します。
+4. 複数プロセスが Traffic を処理する場合、Rollout 中に新旧プロセスが重なる場合、または Session と消費済み Ticket の状態を再起動後も保持する場合は Redis を準備します。1 つの稼働中プロセスなら Cross-Domain Callback があってもインメモリストレージを使えますが、すべての状態はプロセスローカルで再起動時に失われます。
+
+## ロールバック設定を保持して v1 環境を作成
+
+古い環境ファイルで v1 を起動しないでください。`stargate.env` を変更せず、v0.12.0 Container も保持します。次のコマンドは保護されたロールバックコピーと独立した v1 ファイルを作成し、既存の出力を上書きせず、廃止設定を v1 ファイルからだけ除去します。
+
+```bash
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+old_container=${STARGATE_OLD_CONTAINER:-stargate}
+
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+umask 077
+
+# ファイルがない場合は、既存 Container の環境を保護された状態で出力します。
+if [ ! -e "$old_env" ]; then
+  export_tmp=$(mktemp "${old_env}.tmp.XXXXXX")
+  trap 'rm -f "$export_tmp"' 0 1 2 15
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$old_container" > "$export_tmp"
+  ln "$export_tmp" "$old_env"
+  rm -f "$export_tmp"
+  trap - 0 1 2 15
+fi
+
+test -f "$old_env"
+chmod 600 "$old_env"
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '
+  /^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/ { next }
+  /^[[:space:]]*PORT[[:space:]]*(=|$)/ { print "PORT=8080"; next }
+  { print }
+' "$old_env" > "$v1_env")
+```
+
+Herald ベースの TOTP では、Stargate が Warden 経由で認証済みユーザーを解決する必要があるため、`WARDEN_ENABLED=true` と `WARDEN_URL` も設定してください。
+
+v1 は `WARDEN_OTP_ENABLED` または `WARDEN_OTP_SECRET_KEY` が存在するだけで、空や `false` でも拒否します。`stargate-v1.env` に追加しないでください。TOTP には Stargate の `HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`、`HERALD_URL` と対応する Herald Service Auth を設定します。Herald から herald-totp への TOTP Proxy と、herald-totp 独自の `HERALD_TOTP_ENCRYPTION_KEY` も設定し、旧 Warden Secret を自動再利用しないでください。[設定](CONFIG.md)を参照してください。
+
+`--env-file ./stargate-v1.env` で v1 を検証・起動します。ロールバック期間が終わるまで `stargate-v0.12.0.env`、未変更の元ファイル、旧 Container を保持してください。
 
 ## 必須の変更
 

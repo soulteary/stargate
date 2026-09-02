@@ -255,6 +255,84 @@ contract_violation_count() {
       }
     }
 
+    for my $file (glob "$root/docs/*/DEPLOYMENT.md") {
+      open my $fh, "<", $file or die "open $file: $!";
+      local $/;
+      my $text = <$fh>;
+      for my $term (
+        "SESSION_STORAGE_ENABLED=false",
+        "SESSION_STORAGE_ENABLED=true",
+        "SESSION_STORAGE_REDIS_*",
+        "SESSION_EXCHANGE_SECRET",
+      ) {
+        next if index($text, $term) >= 0;
+        warn "Missing session-storage deployment scope $term in $file\n";
+        $count++;
+      }
+      for my $term (
+        "stargate-v0.12.0.env",
+        "stargate-v1.env",
+        "WARDEN_OTP_ENABLED",
+        "WARDEN_OTP_SECRET_KEY",
+        "HERALD_ENABLED=true",
+        "HERALD_TOTP_ENABLED=true",
+        "HERALD_URL",
+        "HERALD_TOTP_ENCRYPTION_KEY",
+        "--env-file ./stargate-v1.env",
+        q{old_container=${STARGATE_OLD_CONTAINER:-stargate}},
+        q{mktemp "${old_env}.tmp.XXXXXX"},
+        qq{docker inspect --format \x27{{range .Config.Env}}{{println .}}{{end}}\x27 "\$old_container"},
+        q{ln "$export_tmp" "$old_env"},
+        q{chmod 600 "$old_env"},
+        q{set -C; cat "$old_env" > "$rollback_env"},
+        q{WARDEN_OTP_(ENABLED|SECRET_KEY)},
+        q{PORT[[:space:]]*(=|$)},
+        q{print "PORT=8080"},
+      ) {
+        next if index($text, $term) >= 0;
+        warn "Missing safe v1 environment migration contract $term in $file\n";
+        $count++;
+      }
+      if ($text !~ /`WARDEN_ENABLED=true`[^\n]*`WARDEN_URL`/) {
+        warn "Missing Warden prerequisites for Herald TOTP migration in $file\n";
+        $count++;
+      }
+    }
+
+    for my $file (glob "$root/docs/*/MIGRATION_V1.md") {
+      open my $fh, "<", $file or die "open $file: $!";
+      local $/;
+      my $text = <$fh>;
+      for my $term (
+        "stargate-v0.12.0.env",
+        "stargate-v1.env",
+        "WARDEN_OTP_ENABLED",
+        "WARDEN_OTP_SECRET_KEY",
+        "HERALD_ENABLED=true",
+        "HERALD_TOTP_ENABLED=true",
+        "HERALD_URL",
+        "HERALD_TOTP_ENCRYPTION_KEY",
+        "--env-file ./stargate-v1.env",
+        q{old_container=${STARGATE_OLD_CONTAINER:-stargate}},
+        q{mktemp "${old_env}.tmp.XXXXXX"},
+        qq{docker inspect --format \x27{{range .Config.Env}}{{println .}}{{end}}\x27 "\$old_container"},
+        q{ln "$export_tmp" "$old_env"},
+        q{chmod 600 "$old_env"},
+        q{set -C; cat "$old_env" > "$rollback_env"},
+        q{WARDEN_OTP_(ENABLED|SECRET_KEY)},
+        q{PORT[[:space:]]*(=|$)},
+        q{print "PORT=8080"},
+      ) {
+        next if index($text, $term) >= 0;
+        warn "Missing v1 migration environment contract $term in $file\n";
+        $count++;
+      }
+      if ($text !~ /`WARDEN_ENABLED=true`[^\n]*`WARDEN_URL`/) {
+        warn "Missing Warden prerequisites for Herald TOTP migration in $file\n";
+        $count++;
+      }
+    }
+
     my $changelog_path = "$root/CHANGELOG.md";
     open my $changelog_fh, "<", $changelog_path or die "open $changelog_path: $!";
     local $/;
@@ -278,7 +356,6 @@ contract_violation_count() {
     }
 
     my @patterns = (
-      ["retired Warden OTP setting", qr/\bWARDEN_OTP_(?:ENABLED|SECRET_KEY)\b/],
       ["legacy Redis setting", qr/\b(?:REDIS_ENABLED|REDIS_ADDR|REDIS_PASSWORD)\b/],
       ["stale Fiber version", qr/Fiber v2\.52/],
       ["invalid bcrypt command", qr/go run -c [^\n]*golang\.org\/x\/crypto\/bcrypt/],
@@ -299,6 +376,19 @@ contract_violation_count() {
         open my $fh, "<", $file or die "open $file: $!";
         local $/;
         my $text = <$fh>;
+
+        my $retired_text = $text;
+        if ($file =~ m{/(?:DEPLOYMENT|MIGRATION_V1)\.md$}) {
+          # Migration guidance may name retired settings only as exact inline-code
+          # identifiers. Any remaining occurrence is an executable or ambiguous
+          # use and would make v1 reject the environment at startup.
+          $retired_text =~ s/`WARDEN_OTP_ENABLED`//g;
+          $retired_text =~ s/`WARDEN_OTP_SECRET_KEY`//g;
+        }
+        while ($retired_text =~ /\bWARDEN_OTP_(?:ENABLED|SECRET_KEY)\b/g) {
+          warn "active or ambiguous retired Warden OTP setting in $file\n";
+          $count++;
+        }
 
         for my $entry (@patterns) {
           my ($label, $pattern) = @$entry;

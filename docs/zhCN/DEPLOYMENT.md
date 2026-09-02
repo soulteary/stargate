@@ -549,7 +549,12 @@ services:
       replicas: 3
 ```
 
-**必须配置：** 多实例、滚动升级和跨域部署必须启用 Redis 会话存储（`SESSION_STORAGE_ENABLED=true` 并配置 `SESSION_STORAGE_REDIS_*`）。Redis 会在副本间同时共享 Session 与单次 Ticket 的重放状态。仅使用负载均衡器会话保持（Sticky Session）不受支持；它只能作为额外的路由优化。
+**会话存储适用范围：**
+
+- **单进程、单副本（包括跨域回调）：** 只要 Ticket 签发、兑换及后续 Session 使用始终由同一个存活的 Stargate 进程处理，就可以使用进程内存储（`SESSION_STORAGE_ENABLED=false`）。Session 记录与已消费 Ticket 哈希只存在于该进程；进程重启后两者都会丢失，活动 Session 失效，也无法跨重启保留 Ticket 单次消费状态。
+- **多进程或多副本：** 只要 Session 或交换 Ticket 可能由不同进程处理，就必须使用 Redis。设置 `SESSION_STORAGE_ENABLED=true`，所有副本使用相同的 `SESSION_STORAGE_REDIS_*` 命名空间和 `SESSION_EXCHANGE_SECRET`。Sticky Session 只能优化路由，不能替代共享状态或跨进程重放防护。
+- **滚动升级：** 新旧进程会重叠运行；要无中断滚动替换，必须使用 Redis。未使用 Redis 时，应停旧再启新，并接受 Session 失效和用户重新登录。不要在同一服务实例池中混用 v0.12.0 与 v1.0.0。
+- **跨进程重启保留状态：** 只要要求 Session 或已消费 Ticket 的重放状态在进程替换或重启后继续有效，就必须使用 Redis。
 
 #### 2. 负载均衡
 
@@ -849,13 +854,44 @@ curl -H "Cookie: stargate_session_id=<session_id>" http://auth.example.com/_auth
 
 ### 升级步骤
 
-1. **准备可复用的环境变量文件**：将当前容器配置整理到 `stargate.env`，不要把密钥写入命令历史，并限制文件权限。
+1. **分别生成回滚与 v1 环境文件**：保持现有 `stargate.env` 不变。下面的命令在任一目标文件已存在时会拒绝覆盖，并且只从新的 v1 文件中删除废弃的 Warden OTP 配置。
 
 ```bash
-chmod 600 stargate.env
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+old_container=${STARGATE_OLD_CONTAINER:-stargate}
+
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+umask 077
+
+# 文件不存在时，安全导出现有容器的环境。
+if [ ! -e "$old_env" ]; then
+  export_tmp=$(mktemp "${old_env}.tmp.XXXXXX")
+  trap 'rm -f "$export_tmp"' 0 1 2 15
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$old_container" > "$export_tmp"
+  ln "$export_tmp" "$old_env"
+  rm -f "$export_tmp"
+  trap - 0 1 2 15
+fi
+
+test -f "$old_env"
+chmod 600 "$old_env"
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '
+  /^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/ { next }
+  /^[[:space:]]*PORT[[:space:]]*(=|$)/ { print "PORT=8080"; next }
+  { print }
+' "$old_env" > "$v1_env")
 ```
 
-2. **保留旧容器用于回滚**：
+Herald TOTP 要求 Stargate 通过 Warden 解析已认证用户，因此还必须配置 `WARDEN_ENABLED=true` 和 `WARDEN_URL`。
+
+只要环境中存在 `WARDEN_OTP_ENABLED` 或 `WARDEN_OTP_SECRET_KEY`（即使为空或为 `false`），v1 都会拒绝启动，请勿把它们加回新文件。需要 TOTP 时，在 `stargate-v1.env` 中为 Stargate 配置 `HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`、`HERALD_URL` 及一种受支持的 Herald 服务鉴权方式；同时在 Herald 配置 TOTP 代理，并为 herald-totp 单独配置 `HERALD_TOTP_ENCRYPTION_KEY`，不要自动复用旧 Warden 密钥。参见[配置说明](CONFIG.md)。
+
+2. **保留旧容器及其原始环境用于回滚**：
 
 ```bash
 docker stop stargate
@@ -873,7 +909,7 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  --env-file ./stargate.env \
+  --env-file ./stargate-v1.env \
   -p 8080:8080 \
   --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
@@ -891,7 +927,8 @@ curl --fail http://127.0.0.1:8080/readyz
 如果升级后出现问题：
 
 ```bash
-# 删除新容器并恢复未修改的旧容器
+# 删除新容器并恢复未修改的旧容器。
+# 保留 stargate-v0.12.0.env 作为回滚配置记录。
 docker rm -f stargate
 docker rename stargate-previous stargate
 docker start stargate

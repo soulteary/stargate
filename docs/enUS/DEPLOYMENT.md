@@ -437,7 +437,12 @@ services:
       replicas: 3
 ```
 
-**Required:** Multi-instance, rolling-upgrade, and cross-domain deployments must enable Redis session storage (`SESSION_STORAGE_ENABLED=true` and configure `SESSION_STORAGE_REDIS_*`). Redis shares both sessions and single-use ticket replay state across replicas. Load-balancer sticky sessions alone are not supported; they may be used only as an additional routing optimization.
+**Session storage scope:**
+
+- **One process / one replica, including cross-domain callbacks:** in-memory storage (`SESSION_STORAGE_ENABLED=false`) is supported when ticket issuance, ticket redemption, and subsequent session use all reach the same live Stargate process. Session records and consumed-ticket hashes exist only in that process. A restart loses both stores, invalidates active sessions, and means single-use ticket state is not retained across the restart.
+- **Multiple processes or replicas:** Redis is required whenever a session or exchange ticket may be handled by different processes. Set `SESSION_STORAGE_ENABLED=true`, configure the same `SESSION_STORAGE_REDIS_*` namespace, and use the same `SESSION_EXCHANGE_SECRET` on every replica. Sticky sessions are only a routing optimization; they do not provide shared state or cross-process replay protection.
+- **Rolling upgrade:** Redis is required for an uninterrupted rolling replacement because old and new processes overlap. Without Redis, use a stop-then-start upgrade and accept session invalidation and fresh login. Never mix v0.12.0 and v1.0.0 in one serving pool.
+- **State across a process restart:** Redis is required whenever sessions or consumed-ticket replay state must survive a process replacement or restart.
 
 #### 2. Load Balancing
 
@@ -662,13 +667,44 @@ If you encounter problems:
 
 ### Upgrade Steps
 
-1. **Prepare a reusable environment file:** Copy the current container settings into `stargate.env`, keep secrets out of shell history, and restrict the file permissions.
+1. **Create separate rollback and v1 environment files:** Keep the existing `stargate.env` unchanged. The commands below refuse to overwrite either output file and remove the retired Warden OTP settings only from the new v1 file.
 
 ```bash
-chmod 600 stargate.env
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+old_container=${STARGATE_OLD_CONTAINER:-stargate}
+
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+umask 077
+
+# If the file is missing, export the existing container environment securely.
+if [ ! -e "$old_env" ]; then
+  export_tmp=$(mktemp "${old_env}.tmp.XXXXXX")
+  trap 'rm -f "$export_tmp"' 0 1 2 15
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$old_container" > "$export_tmp"
+  ln "$export_tmp" "$old_env"
+  rm -f "$export_tmp"
+  trap - 0 1 2 15
+fi
+
+test -f "$old_env"
+chmod 600 "$old_env"
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '
+  /^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/ { next }
+  /^[[:space:]]*PORT[[:space:]]*(=|$)/ { print "PORT=8080"; next }
+  { print }
+' "$old_env" > "$v1_env")
 ```
 
-2. **Keep the previous container for rollback:**
+Herald-backed TOTP requires Stargate to resolve authenticated users through Warden, so also set `WARDEN_ENABLED=true` and `WARDEN_URL`.
+
+v1 rejects `WARDEN_OTP_ENABLED` and `WARDEN_OTP_SECRET_KEY` whenever either name is present, including empty or `false` values. Do not copy them back. If TOTP is needed, configure Stargate in `stargate-v1.env` with `HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`, `HERALD_URL`, and one supported Herald service-auth method. Configure Herald's TOTP proxy and herald-totp's independent `HERALD_TOTP_ENCRYPTION_KEY`; do not automatically reuse the retired Warden secret. See [Configuration](CONFIG.md).
+
+2. **Keep the previous container and its original environment for rollback:**
 
 ```bash
 docker stop stargate
@@ -686,7 +722,7 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  --env-file ./stargate.env \
+  --env-file ./stargate-v1.env \
   -p 8080:8080 \
   --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
@@ -704,7 +740,8 @@ curl --fail http://127.0.0.1:8080/readyz
 If problems occur after upgrade:
 
 ```bash
-# Remove the new container and restore the unchanged previous container
+# Remove the new container and restore the unchanged previous container.
+# Keep stargate-v0.12.0.env as the rollback configuration record.
 docker rm -f stargate
 docker rename stargate-previous stargate
 docker start stargate

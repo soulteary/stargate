@@ -437,7 +437,12 @@ services:
       replicas: 3
 ```
 
-**Obligatoire :** Les déploiements multi-instances, les mises à niveau progressives et les scénarios inter-domaines doivent activer le stockage Redis (`SESSION_STORAGE_ENABLED=true` et `SESSION_STORAGE_REDIS_*`). Redis partage les sessions et l'état anti-rejeu des tickets à usage unique entre les réplicas. Les Sticky Sessions seules ne sont pas prises en charge et ne peuvent servir que d'optimisation de routage supplémentaire.
+**Périmètre du stockage de session :**
+
+- **Un processus / une réplique, y compris avec des callbacks inter-domaines :** le stockage en mémoire (`SESSION_STORAGE_ENABLED=false`) est pris en charge si l'émission, l'échange du ticket et l'utilisation ultérieure de la session atteignent le même processus Stargate actif. Les sessions et les empreintes de tickets consommés n'existent que dans ce processus. Un redémarrage perd les deux états, invalide les sessions actives et ne conserve pas l'usage unique des tickets.
+- **Plusieurs processus ou répliques :** Redis est obligatoire dès qu'une session ou un ticket peut être traité par des processus différents. Utilisez `SESSION_STORAGE_ENABLED=true`, le même espace `SESSION_STORAGE_REDIS_*` et le même `SESSION_EXCHANGE_SECRET` sur toutes les répliques. Les Sticky Sessions ne sont qu'une optimisation de routage et ne remplacent ni l'état partagé ni la protection anti-rejeu inter-processus.
+- **Mise à niveau progressive :** Redis est obligatoire pour un remplacement sans interruption, car anciens et nouveaux processus se chevauchent. Sans Redis, arrêtez puis démarrez le service et acceptez l'invalidation des sessions et une nouvelle connexion. Ne mélangez jamais v0.12.0 et v1.0.0 dans le même pool.
+- **État persistant après redémarrage :** Redis est obligatoire si les sessions ou l'état anti-rejeu des tickets consommés doivent survivre au remplacement ou au redémarrage d'un processus.
 
 #### 2. Répartition de Charge
 
@@ -662,13 +667,44 @@ Si vous rencontrez des problèmes :
 
 ### Étapes de Mise à Jour
 
-1. **Préparer un fichier d'environnement réutilisable** : enregistrer la configuration dans `stargate.env` et protéger ce fichier.
+1. **Créer des fichiers d'environnement distincts pour le retour arrière et v1** : conserver `stargate.env` sans modification. Les commandes suivantes refusent d'écraser les fichiers cibles et retirent les anciens paramètres Warden OTP uniquement du nouveau fichier v1.
 
 ```bash
-chmod 600 stargate.env
+set -eu
+old_env=./stargate.env
+rollback_env=./stargate-v0.12.0.env
+v1_env=./stargate-v1.env
+old_container=${STARGATE_OLD_CONTAINER:-stargate}
+
+test ! -e "$rollback_env"
+test ! -e "$v1_env"
+umask 077
+
+# Si le fichier manque, exporter de manière protégée l'environnement du conteneur existant.
+if [ ! -e "$old_env" ]; then
+  export_tmp=$(mktemp "${old_env}.tmp.XXXXXX")
+  trap 'rm -f "$export_tmp"' 0 1 2 15
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$old_container" > "$export_tmp"
+  ln "$export_tmp" "$old_env"
+  rm -f "$export_tmp"
+  trap - 0 1 2 15
+fi
+
+test -f "$old_env"
+chmod 600 "$old_env"
+(set -C; cat "$old_env" > "$rollback_env")
+(set -C; awk '
+  /^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/ { next }
+  /^[[:space:]]*PORT[[:space:]]*(=|$)/ { print "PORT=8080"; next }
+  { print }
+' "$old_env" > "$v1_env")
 ```
 
-2. **Conserver l'ancien conteneur pour le retour en arrière :**
+Le TOTP via Herald exige que Stargate résolve les utilisateurs authentifiés par Warden ; configurez donc aussi `WARDEN_ENABLED=true` et `WARDEN_URL`.
+
+v1 refuse `WARDEN_OTP_ENABLED` et `WARDEN_OTP_SECRET_KEY` dès que l'un de ces noms est présent, même vide ou à `false`. Ne les réintroduisez pas. Pour TOTP, configurez dans `stargate-v1.env` `HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`, `HERALD_URL` et une méthode d'authentification de service Herald prise en charge. Configurez aussi le proxy TOTP de Herald et un `HERALD_TOTP_ENCRYPTION_KEY` indépendant dans herald-totp ; ne réutilisez pas automatiquement l'ancien secret Warden. Voir la [configuration](CONFIG.md).
+
+2. **Conserver l'ancien conteneur et son environnement d'origine pour le retour en arrière :**
 
 ```bash
 docker stop stargate
@@ -686,7 +722,7 @@ docker pull ghcr.io/soulteary/stargate:v1.0.0
 ```bash
 docker run -d \
   --name stargate \
-  --env-file ./stargate.env \
+  --env-file ./stargate-v1.env \
   -p 8080:8080 \
   --restart unless-stopped \
   ghcr.io/soulteary/stargate:v1.0.0
@@ -704,7 +740,8 @@ curl --fail http://127.0.0.1:8080/readyz
 Si des problèmes surviennent après la mise à jour :
 
 ```bash
-# Supprimer le nouveau conteneur et restaurer l'ancien conteneur intact
+# Supprimer le nouveau conteneur et restaurer l'ancien conteneur intact.
+# Conserver stargate-v0.12.0.env comme référence de configuration de retour arrière.
 docker rm -f stargate
 docker rename stargate-previous stargate
 docker start stargate
