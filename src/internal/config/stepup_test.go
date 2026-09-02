@@ -59,6 +59,39 @@ func TestInitializeStepUpAcceptsQuestionMarkGlob(t *testing.T) {
 	testza.AssertFalse(t, matcher.RequiresStepUp("/users/ab/settings"))
 }
 
+func TestValidStepUpPathPattern(t *testing.T) {
+	tests := []struct {
+		name    string
+		pattern string
+		valid   bool
+	}{
+		{name: "question mark glob", pattern: "/users/?/settings", valid: true},
+		{name: "star glob", pattern: "/admin/*", valid: true},
+		{name: "literal newline", pattern: "/ad\nmin", valid: false},
+		{name: "trailing literal newline", pattern: "/admin\n", valid: false},
+		{name: "embedded NUL", pattern: "/ad\x00min", valid: false},
+		{name: "embedded control", pattern: "/ad\x1fmin", valid: false},
+		{name: "Unicode control", pattern: "/ad\u0085min", valid: false},
+		{name: "encoded NUL", pattern: "/admin/%00", valid: false},
+		{name: "encoded LF uppercase", pattern: "/admin/%0A", valid: false},
+		{name: "encoded LF lowercase", pattern: "/admin/%0a", valid: false},
+		{name: "encoded CR uppercase", pattern: "/admin/%0D", valid: false},
+		{name: "encoded CR lowercase", pattern: "/admin/%0d", valid: false},
+		{name: "backslash", pattern: `/admin\\users`, valid: false},
+		{name: "fragment", pattern: "/admin#users", valid: false},
+		{name: "dot segment", pattern: "/admin/../public", valid: false},
+		{name: "encoded dot segment", pattern: "/admin/%2e%2e/public", valid: false},
+		{name: "invalid escape", pattern: "/admin/%zz", valid: false},
+		{name: "non-local absolute path", pattern: "//evil.example/admin", valid: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			testza.AssertEqual(t, test.valid, ValidStepUpPathPattern(test.pattern))
+		})
+	}
+}
+
 func TestInitStepUpMatcher_Enabled_SinglePath(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")

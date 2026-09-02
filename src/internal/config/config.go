@@ -501,7 +501,7 @@ func Initialize(l *logger.Logger) error {
 			}
 			usablePatterns++
 			if !ValidStepUpPathPattern(pattern) {
-				return NewValidationError(StepUpPaths.Name, "must contain only local absolute path patterns without queries, fragments, backslashes, or dot segments", StepUpPaths.PossibleValues)
+				return NewValidationError(StepUpPaths.Name, "must contain only local absolute path patterns without control characters, fragments, backslashes, or dot segments", StepUpPaths.PossibleValues)
 			}
 		}
 		if usablePatterns == 0 {

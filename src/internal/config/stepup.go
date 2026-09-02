@@ -4,6 +4,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"unicode"
 )
 
 // StepUpMatcher handles step-up authentication path matching
@@ -15,18 +16,21 @@ type StepUpMatcher struct {
 var stepUpMatcher *StepUpMatcher
 
 // ValidStepUpPathPattern reports whether a configured step-up pattern is a
-// local absolute path without ambiguous dot segments or backslashes.
+// local absolute path without control characters, ambiguous dot segments, or
+// backslashes.
 func ValidStepUpPathPattern(raw string) bool {
+	decoded, err := url.PathUnescape(raw)
+	if err != nil || strings.IndexFunc(decoded, unicode.IsControl) >= 0 {
+		return false
+	}
+
 	raw = strings.TrimSpace(raw)
 	if raw == "" || !strings.HasPrefix(raw, "/") || strings.HasPrefix(raw, "//") || strings.ContainsAny(raw, "\\#") {
 		return false
 	}
 	// Do not parse the pattern as a request URI: '?' is a documented
 	// single-character glob here, not a query delimiter.
-	decoded, err := url.PathUnescape(raw)
-	if err != nil {
-		return false
-	}
+	decoded, _ = url.PathUnescape(raw)
 	for _, segment := range strings.Split(decoded, "/") {
 		if segment == "." || segment == ".." {
 			return false
