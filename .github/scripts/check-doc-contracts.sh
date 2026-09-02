@@ -119,7 +119,7 @@ contract_violation_count() {
       return $line if $line =~ /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
       return $line if $line =~ m{^(?:(?:\S*/)?(?:
           sudo|command|exec|builtin|nohup|env|time|timeout|gtimeout|nice|xargs|
-          find|eval|stdbuf|bash|dash|ksh|mksh|pdksh|sh|zsh
+          find|eval|stdbuf|setsid|bash|dash|ksh|mksh|pdksh|sh|zsh
         )|if|then|elif|else|while|until|do|coproc|!)(?:[ \t]|$)}x;
       return;
     }
@@ -517,7 +517,42 @@ contract_violation_count() {
       while ($offset < length($line)) {
         my $char = substr($line, $offset, 1);
         if ($parameter->{depth} > 0) {
-          if ($parameter->{quote} eq "\x27") {
+          if ($parameter->{nested_depth} > 0) {
+            if ($parameter->{nested_comment}) {
+              $offset++;
+              next;
+            }
+            if ($parameter->{nested_quote} eq "\x27") {
+              $parameter->{nested_quote} = "" if $char eq "\x27";
+            } elsif ($parameter->{nested_quote} eq "\"" ||
+                     $parameter->{nested_quote} eq "`") {
+              if ($parameter->{nested_escaped}) {
+                $parameter->{nested_escaped} = 0;
+              } elsif ($char eq "\\") {
+                $parameter->{nested_escaped} = 1;
+              } elsif ($char eq $parameter->{nested_quote}) {
+                $parameter->{nested_quote} = "";
+              }
+            } elsif ($parameter->{nested_escaped}) {
+              $parameter->{nested_escaped} = 0;
+            } elsif ($char eq "\\") {
+              $parameter->{nested_escaped} = 1;
+            } elsif ($char eq "\x27" || $char eq "\"" || $char eq "`") {
+              $parameter->{nested_quote} = $char;
+            } else {
+              my $previous = $offset > 0
+                ? substr($line, $offset - 1, 1)
+                : "";
+              if ($char eq "#" &&
+                  ($offset == 0 || $previous =~ /[ \t;|&()]/)) {
+                $parameter->{nested_comment} = 1;
+              } elsif ($char eq "(") {
+                $parameter->{nested_depth}++;
+              } elsif ($char eq ")") {
+                $parameter->{nested_depth}--;
+              }
+            }
+          } elsif ($parameter->{quote} eq "\x27") {
             $parameter->{quote} = "" if $char eq "\x27";
           } elsif ($parameter->{quote} eq "\"") {
             if ($parameter->{escaped}) {
@@ -533,6 +568,20 @@ contract_violation_count() {
             $parameter->{escaped} = 1;
           } elsif ($char eq "\x27" || $char eq "\"") {
             $parameter->{quote} = $char;
+          } elsif ($char eq "\x24" &&
+                   substr($line, $offset + 1, 2) eq "((") {
+            $parameter->{nested_depth} = 2;
+            $parameter->{nested_quote} = "";
+            $parameter->{nested_escaped} = 0;
+            $parameter->{nested_comment} = 0;
+            $offset += 2;
+          } elsif (($char eq "\x24" || $char eq "<" || $char eq ">") &&
+                   substr($line, $offset + 1, 1) eq "(") {
+            $parameter->{nested_depth} = 1;
+            $parameter->{nested_quote} = "";
+            $parameter->{nested_escaped} = 0;
+            $parameter->{nested_comment} = 0;
+            $offset++;
           } elsif ($char eq "\x24" &&
                    substr($line, $offset + 1, 1) eq "{") {
             $parameter->{depth}++;
@@ -612,6 +661,10 @@ contract_violation_count() {
           $parameter->{depth} = 1;
           $parameter->{quote} = "";
           $parameter->{escaped} = 0;
+          $parameter->{nested_depth} = 0;
+          $parameter->{nested_quote} = "";
+          $parameter->{nested_escaped} = 0;
+          $parameter->{nested_comment} = 0;
           $offset += 2;
           next;
         }
@@ -745,6 +798,8 @@ contract_violation_count() {
       $shell->{escaped} = 0;
       $arithmetic->{escaped} = 0;
       $parameter->{escaped} = 0;
+      $parameter->{nested_escaped} = 0;
+      $parameter->{nested_comment} = 0;
       return @specs;
     }
 
@@ -755,7 +810,15 @@ contract_violation_count() {
       my @pending;
       my %arithmetic =
         (depth => 0, delimiter => "", quote => "", escaped => 0);
-      my %parameter = (depth => 0, quote => "", escaped => 0);
+      my %parameter = (
+        depth => 0,
+        quote => "",
+        escaped => 0,
+        nested_depth => 0,
+        nested_quote => "",
+        nested_escaped => 0,
+        nested_comment => 0,
+      );
       my %shell = (quote => "", escaped => 0);
 
       for my $line (split /\n/, $text, -1) {
@@ -1072,7 +1135,7 @@ contract_violation_count() {
       my %prefix = map { $_ => 1 }
         qw(if then elif else while until do coproc !);
       my %wrapper = map { $_ => 1 }
-        qw(command exec builtin nohup env sudo time stdbuf);
+        qw(command exec builtin nohup env sudo time stdbuf setsid);
       my $index = 0;
 
       while ($index < @arguments) {
@@ -1186,7 +1249,7 @@ contract_violation_count() {
       my %prefix = map { $_ => 1 }
         qw(if then elif else while until do coproc !);
       my %wrapper = map { $_ => 1 }
-        qw(command exec builtin nohup env sudo time stdbuf);
+        qw(command exec builtin nohup env sudo time stdbuf setsid);
       my $index = 0;
 
       while ($index < @arguments) {
