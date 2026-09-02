@@ -7,13 +7,14 @@ trap 'rm -rf "$temp_dir"' EXIT
 
 git -C "$repo_root" archive HEAD | tar -x -C "$temp_dir"
 # The test script is commonly run before its own changes are committed. Copy
-# the working-tree checker and the files covered by network contracts so the
-# self-test cannot accidentally exercise stale content from HEAD.
+# the working-tree checker and every file covered by self-tests so they cannot
+# accidentally exercise stale content from HEAD and report a false pass.
 cp "$repo_root/.github/scripts/check-doc-contracts.sh" "$temp_dir/.github/scripts/check-doc-contracts.sh"
+cp "$repo_root/CHANGELOG.md" "$temp_dir/CHANGELOG.md"
 cp "$repo_root/docker-compose.yml" "$temp_dir/docker-compose.yml"
-for file in "$repo_root"/docs/*/DEPLOYMENT.md; do
-  locale=$(basename "$(dirname "$file")")
-  cp "$file" "$temp_dir/docs/$locale/DEPLOYMENT.md"
+for file in "$repo_root"/docs/*/CONFIG.md "$repo_root"/docs/*/SECURITY.md "$repo_root"/docs/*/DEPLOYMENT.md; do
+  relative=${file#"$repo_root"/}
+  cp "$file" "$temp_dir/$relative"
 done
 git -C "$temp_dir" init -q
 git -C "$temp_dir" config user.name "doc-contract-test"
@@ -38,6 +39,29 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/API.md
 
+# Password-generation examples must never put a password in htpasswd argv.
+printf '\n```bash\nhtpasswd -bnBC 10 "" password\n```\n' >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd option contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Both high-impact upgrade requirements must remain in the scoped v1 breaking list.
+perl -0pi -e 's/^- The official container now listens on port .*\n//m' "$temp_dir/CHANGELOG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a container-port breaking-change contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- CHANGELOG.md
+
+perl -0pi -e 's/^- `Stargate-Password` request-header authentication .*\n//m' "$temp_dir/CHANGELOG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a password-header breaking-change contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- CHANGELOG.md
+
 # TOTP fields must occur in the confirmation section, not merely somewhere in the file.
 perl -0pi -e 's/(^### `POST \/totp\/enroll\/confirm`.*?)(`enroll_id`)/$1`enrollment_token`/ms' "$temp_dir/docs/enUS/API.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
@@ -52,6 +76,7 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   echo "Expected a removed runtime setting contract failure" >&2
   exit 1
 fi
+
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
 # Preserve the legacy logical key so Compose can reuse an existing named network.

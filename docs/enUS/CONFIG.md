@@ -910,7 +910,8 @@ PASSWORDS='plaintext:test123|admin456'
 
 ```bash
 # `htpasswd` is provided by apache2-utils on Debian/Ubuntu and Alpine.
-htpasswd -bnBC 10 "" 'password' | tr -d ':\n'
+# Enter and confirm the password at the prompts. Copy the hash after `stargate:`.
+htpasswd -nBC 10 stargate
 ```
 
 **Example:**

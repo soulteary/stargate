@@ -12,7 +12,7 @@ This document explains Stargate's security features, security configuration, and
 4. **Service Integration Security**: Secure communication with Warden and Herald services using mTLS or HMAC
 5. **Session Sharing Security**: Secure cross-domain session exchange mechanism
 6. **Input Validation**: Strict validation of all input parameters
-7. **Error Handling**: Production mode hides detailed error information
+7. **Error Handling**: Error messages and other response data are endpoint-specific; `DEBUG` is not a general non-disclosure guarantee
 8. **Security Response Headers**: Automatically adds security-related HTTP response headers
 9. **HTTPS Enforcement**: Production environments should use HTTPS
 10. **OTP Integration**: Secure integration with Herald for OTP/verification code authentication
@@ -179,11 +179,21 @@ export SESSION_STORAGE_REDIS_PASSWORD=your-redis-password
 - ❌ Commit sensitive information to version control
 - ❌ Log sensitive user data
 
-## Error Handling
+## Error Responses and Debug Verification Codes
 
-Stargate does not expose a `MODE` setting. HTTP handlers return bounded, user-facing
-errors regardless of environment; internal errors are recorded through the logger.
-`DEBUG` controls logging verbosity and must not be treated as an error-disclosure switch.
+Stargate does not expose a `MODE` setting. Error responses are endpoint-specific.
+Operational details are normally recorded through the logger, but do not treat
+`DEBUG` as a general response-sanitization or non-disclosure guarantee.
+
+When Stargate runs with `DEBUG=true`, and the configured Herald service runs in
+test mode (`HERALD_TEST_MODE`) and returns a non-empty `debug_code`, Stargate includes
+that test verification code as `debug_code` in the successful `POST /_send_verify_code`
+response. The bundled login page displays the code and fills it into the verification
+code field automatically.
+
+This combination exposes a credential-equivalent verification code to the requesting
+client. Use it only for local development or testing, never in production. In production,
+set Stargate `DEBUG=false` and keep Herald `HERALD_TEST_MODE` disabled.
 
 ## Security Response Headers
 

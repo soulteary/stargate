@@ -181,6 +181,39 @@ contract_violation_count() {
       }
     }
 
+    for my $file (glob "$root/docs/*/SECURITY.md") {
+      open my $fh, "<", $file or die "open $file: $!";
+      local $/;
+      my $text = <$fh>;
+      for my $term ("DEBUG=true", "DEBUG=false", "HERALD_TEST_MODE", "debug_code", "POST /_send_verify_code") {
+        next if index($text, $term) >= 0;
+        warn "Missing debug verification-code security contract $term in $file\n";
+        $count++;
+      }
+    }
+
+    my $changelog_path = "$root/CHANGELOG.md";
+    open my $changelog_fh, "<", $changelog_path or die "open $changelog_path: $!";
+    local $/;
+    my $changelog = <$changelog_fh>;
+    my ($v1_section) = $changelog =~ /^## \[1\.0\.0\][^\n]*\n(.*?)(?=^## |\z)/ms;
+    my ($breaking_changes) = defined($v1_section)
+      ? $v1_section =~ /^### Breaking changes\s*\n(.*?)(?=^### |\z)/ms
+      : undef;
+    if (!defined($breaking_changes)) {
+      warn "Missing v1.0.0 Breaking changes section in $changelog_path\n";
+      $count++;
+    } else {
+      if ($breaking_changes !~ /container[^\n]*`8080`[^\n]*`80`/i) {
+        warn "Missing container port 80 to 8080 migration in v1.0.0 Breaking changes\n";
+        $count++;
+      }
+      if (index($breaking_changes, "PASSWORD_HEADER_AUTH_ENABLED=true") < 0) {
+        warn "Missing password-header authentication opt-in in v1.0.0 Breaking changes\n";
+        $count++;
+      }
+    }
+
     my @patterns = (
       ["retired Warden OTP setting", qr/\bWARDEN_OTP_(?:ENABLED|SECRET_KEY)\b/],
       ["legacy Redis setting", qr/\b(?:REDIS_ENABLED|REDIS_ADDR|REDIS_PASSWORD)\b/],
@@ -192,6 +225,7 @@ contract_violation_count() {
       ["container health check omits port 8080", qr{http://localhost/healthz}],
       ["metrics incorrectly described as new in v1", qr/(?:No metrics endpoint|无指标端点|Added Prometheus metrics)/],
       ["stale Go 1.26 requirement", qr/\bGo(?:\s+(?:Version|版本))?\s*[:：]?\s*1\.26(?:\.\d+)?\+?\b/i],
+      ["unsafe htpasswd batch-password option", qr/\bhtpasswd\s+-[A-Za-z]*b[A-Za-z]*\b/],
     );
 
     find({
@@ -242,7 +276,6 @@ contract_violation_count() {
         }
       }
     }, "$root/docs", glob("$root/README*.md"));
-
 
     my $compose_path = "$root/docker-compose.yml";
     open my $compose_fh, "<", $compose_path or die "open $compose_path: $!";
@@ -333,7 +366,7 @@ current_violations=$(contract_violation_count "$repo_root" 2>/dev/null)
 
 if [[ -n "$base_sha" ]]; then
   temp_dir=$(mktemp -d)
-  git archive "$base_sha" -- 'README*.md' docker-compose.yml docs src/internal/config/config.go \
+  git archive "$base_sha" -- 'README*.md' CHANGELOG.md docker-compose.yml docs src/internal/config/config.go \
     src/cmd/stargate/constants.go src/cmd/stargate/server.go \
     | tar -x -C "$temp_dir"
   base_violations=$(contract_violation_count "$temp_dir" 2>/dev/null)
