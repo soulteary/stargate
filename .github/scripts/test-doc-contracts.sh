@@ -273,6 +273,20 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# The GNU long forms of the deprecated eof/replace switches take only an
+# optional attached value. Without `=VALUE`, the next token is the command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'printf password | xargs --eof htpasswd -bn ""' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after optional xargs eof failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Backtick substitutions execute in both unquoted and double-quoted contexts.
 printf '%s\n' \
   '' \
