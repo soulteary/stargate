@@ -55,13 +55,6 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Configure and verify Go packages
-        if: steps.changes.outputs.code == 'true'
-        run: |
-          echo "GOROOT=$(go env GOROOT)" >> "$GITHUB_ENV"
-          echo "GOPATH=$(go env GOPATH)" >> "$GITHUB_ENV"
-          go list ./src/...
-
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
         run: |
@@ -76,8 +69,8 @@ jobs:
         if: steps.changes.outputs.code == 'true'
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.13.2
-          args: --tests=false --timeout=5m ./src/...
+          version: v2.13.1
+          args: --timeout=5m
           only-new-issues: false
 
       - name: Run unit tests

@@ -131,7 +131,6 @@ func createSessionExchangeTicket(sessionID, audience string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(append(nonce, sealed...)), nil
 }
 
-//nolint:unused // Test helper; test packages are compiled and run separately.
 func consumeSessionExchangeTicket(token, audience string) (string, error) {
 	return consumeSessionExchangeTicketWithStore(context.Background(), token, audience, defaultSessionExchangeReplayStore)
 }

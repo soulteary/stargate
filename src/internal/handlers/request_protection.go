@@ -98,7 +98,6 @@ var (
 	passwordFailureLastCleanup time.Time
 )
 
-//nolint:unused // Test helper; test packages are compiled and run separately.
 func resetPasswordFailureBucketsForTesting() {
 	passwordFailureMu.Lock()
 	defer passwordFailureMu.Unlock()
