@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Bound verification audit events to server-side challenge context. The context
+  uses process memory for standalone deployments and the configured session
+  Redis for multi-instance deployments. Idempotent retries preserve the original
+  attribution, failed attempts retain it through a short audit grace period,
+  and successful verification consumes it.
+
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
 ## [1.0.0] - 2026-08-27

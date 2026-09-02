@@ -232,7 +232,10 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 		challengeID := ctx.FormValue("challenge_id")
 		otpCode := ctx.FormValue("otp_code")
 		useOTP := ctx.FormValue("use_otp") == "true"
-		auditChannel, auditDestination, _ := selectVerificationDestination(userInfo, ctx.FormValue("deliver_via"))
+		auditContext, err := loadChallengeContext(ctx.Context(), challengeID)
+		if err != nil {
+			log.Error().Err(err).Str("challenge_id", challengeID).Msg("Failed to load challenge audit context")
+		}
 
 		// Only per-user TOTP managed by Herald is supported.
 		otpEnabled := config.HeraldTOTPEnabled.ToBool()
@@ -293,7 +296,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 					if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
 						verifyResp != nil && !verifyResp.OK && verifyResp.Reason != "" {
 						reason := verifyResp.Reason
-						auditlog.LogVerifyCodeCheck(ctx.Context(), userID, challengeID, auditChannel, auditDestination, ctx.IP(), false, reason)
+						auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
 						var errorMsg string
 						switch reason {
 						case "expired":
@@ -343,7 +346,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 					reason = "invalid"
 				}
 				log.Warn().Str("reason", reason).Msg("Challenge verification failed")
-				auditlog.LogVerifyCodeCheck(ctx.Context(), userID, challengeID, auditChannel, auditDestination, ctx.IP(), false, reason)
+				auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
 
 				// Provide detailed error message based on reason
 				var errorMsg string
@@ -383,11 +386,16 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 			)
 			heraldSpan.End()
 			metrics.RecordHeraldCall("verify_challenge", "success", duration)
-			auditlog.LogVerifyCodeCheck(ctx.Context(), userID, challengeID, auditChannel, auditDestination, ctx.IP(), true, "")
-
+			auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), true, "")
+			if auditContext.ChallengeID != "" {
+				if err := getChallengeContextStore().Delete(ctx.Context(), auditContext.ChallengeID); err != nil {
+					log.Error().Err(err).Str("challenge_id", auditContext.ChallengeID).Msg("Failed to consume challenge audit context")
+				}
+			}
 			// Verify user ID matches
 			if verifyResp.UserID != userID {
 				log.Warn().Str("expected", userID).Str("got", verifyResp.UserID).Msg("User ID mismatch")
+				auditlog.LogLogin(ctx.Context(), auditContext.UserID, "warden", ctx.IP(), false, "user_id_mismatch")
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
 			}
 

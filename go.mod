@@ -4,6 +4,7 @@ go 1.27.0
 
 require (
 	github.com/MarvinJWendt/testza v0.5.2
+	github.com/alicebob/miniredis/v2 v2.38.0
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/gofiber/template/html/v3 v3.0.8
 	github.com/gofiber/utils/v2 v2.4.2
@@ -73,6 +74,7 @@ require (
 	github.com/tinylib/msgp v1.6.4 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/xo/terminfo v1.0.0 // indirect
+	github.com/yuin/gopher-lua v1.1.2 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.46.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.46.0 // indirect
