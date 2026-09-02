@@ -73,8 +73,8 @@ jobs:
         if: steps.changes.outputs.code == 'true'
         uses: golangci/golangci-lint-action@db9de0fc1a667e1a49d2291a1a042dff081d78f6 # v9
         with:
-          version: v2.13.1
-          args: --timeout=5m ./src/...
+          version: v2.13.2
+          args: --verbose --timeout=5m ./src/...
           only-new-issues: false
 
       - name: Run unit tests
