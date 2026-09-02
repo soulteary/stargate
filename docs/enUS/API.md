@@ -254,6 +254,7 @@ Send verification code request. This endpoint is used in the Warden + Herald OTP
 |--------|-------------|
 | `Idempotency-Key` | Optional. If present, Stargate forwards it to Herald; Herald returns the same challenge response for duplicate requests with the same key within TTL. |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### Request Body
 
 Supported request-body media types:
@@ -440,8 +441,21 @@ Starts enrollment and displays the TOTP bind page. POST prevents cross-site navi
 Confirms TOTP binding with the code from the authenticator app.
 
 - **Authentication**: A session created by a successful login within the last 10 minutes.
-- **Request Body**: Form data using either `application/x-www-form-urlencoded` or `multipart/form-data`, containing the `enroll_id` returned by the enrollment page and the 6-digit TOTP `code`. JSON request bodies are not supported.
-- **Response**: JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400 Bad Request`, and missing recent authentication returns `401 Unauthorized`.
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### Request Body
+
+| Request media type | Supported |
+|--------------------|-----------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+The form must contain the `enroll_id` returned by the enrollment page and the 6-digit TOTP `code`.
+
+#### Response
+
+JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400 Bad Request`, and missing recent authentication returns `401 Unauthorized`.
 
 ### `GET /totp/revoke`
 

@@ -88,6 +88,22 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/frFR/API.md
 
+# TOTP confirmation must reject application/json request bodies.
+perl -0pi -e 's/(^### `POST \/totp\/enroll\/confirm`.*?\| `application\/json` \|) ❌ \|/$1 ✅ |/ms' "$temp_dir/docs/frFR/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a TOTP confirmation application/json contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/frFR/API.md
+
+# The send matrix must remain under the marked request-body heading, not another subsection.
+perl -0pi -e 's/<!-- api-contract: send-verify-code-request-body -->\n//; s/(^### `POST \/_send_verify_code`.*?)(^#### Response)/$1<!-- api-contract: send-verify-code-request-body -->\n$2/ms' "$temp_dir/docs/enUS/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a misplaced send request-body contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/API.md
+
 # Warden fields must be documented as table rows, not only appear in examples.
 perl -0pi -e 's/^\| `challenge_id` .*\n//m' "$temp_dir/docs/itIT/API.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then

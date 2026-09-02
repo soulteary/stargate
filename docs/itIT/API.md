@@ -236,6 +236,7 @@ Richiesta di invio codice di verifica. Questo endpoint è utilizzato nel flusso 
 |---------------|-------------|
 | `Idempotency-Key` | Opzionale. Se presente, Stargate la inoltra a Herald; Herald restituisce la stessa risposta di challenge per richieste duplicate con la stessa chiave entro la TTL. |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### Corpo della Richiesta
 
 Tipi di media supportati per il corpo della richiesta:
@@ -416,7 +417,22 @@ Avvia la registrazione e mostra la pagina di associazione TOTP. Richiede una ses
 
 ### `POST /totp/enroll/confirm`
 
-Conferma la registrazione con dati del form `application/x-www-form-urlencoded` o `multipart/form-data`; i corpi JSON non sono supportati. Sono richiesti una sessione autenticata creata negli ultimi 10 minuti, `enroll_id` e il `code` TOTP a sei cifre. Un'autenticazione assente o non recente restituisce `401 Unauthorized`; in caso di successo la risposta JSON include i codici di backup mostrati una sola volta.
+Conferma la registrazione. È richiesta una sessione autenticata creata negli ultimi 10 minuti.
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### Corpo Richiesta
+
+| Tipo di media del corpo | Supportato |
+|-------------------------|------------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+Il modulo deve contenere `enroll_id` e il `code` TOTP a sei cifre.
+
+#### Risposta
+
+Un'autenticazione assente o non recente restituisce `401 Unauthorized`; in caso di successo la risposta JSON include i codici di backup mostrati una sola volta.
 
 ### `GET /totp/revoke`
 

@@ -254,6 +254,7 @@ TOTP 分支直接提交 `use_otp=true` 和 `otp_code`，不需要预先调用 `P
 |--------|------|
 | `Idempotency-Key` | 可选。若提供，Stargate 会将其透传给 Herald；Herald 在 TTL 内对相同 key 的重复请求返回同一 challenge 响应。 |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### 请求体
 
 请求体媒体类型支持情况：
@@ -440,8 +441,21 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 使用认证器应用生成的 6 位码确认 TOTP 绑定。
 
 - **认证**：要求会话由最近 10 分钟内成功登录创建。
-- **请求体**：`application/x-www-form-urlencoded` 或 `multipart/form-data` 表单数据，同时包含绑定页返回的 `enroll_id` 和 6 位 TOTP `code`；不支持 JSON 请求体。
-- **响应**：JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`；绑定状态无效或过期返回 `400 Bad Request`，缺少最近认证返回 `401 Unauthorized`。
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### 请求体
+
+| 请求体媒体类型 | 支持 |
+|---------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+表单必须同时包含绑定页返回的 `enroll_id` 和 6 位 TOTP `code`。
+
+#### 响应
+
+JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`；绑定状态无效或过期返回 `400 Bad Request`，缺少最近认证返回 `401 Unauthorized`。
 
 ### `GET /totp/revoke`
 

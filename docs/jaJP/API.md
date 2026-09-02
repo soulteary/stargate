@@ -236,6 +236,7 @@ curl -X POST \
 |----------|------|
 | `Idempotency-Key` | 任意。指定した場合、Stargate が Herald に転送する。Herald は TTL 内で同じ key の重複リクエストに同じ challenge 応答を返す。 |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### リクエストボディ
 
 リクエストボディのメディアタイプ対応状況：
@@ -416,7 +417,22 @@ Herald と Herald TOTP が有効な場合に利用できます。すべてのエ
 
 ### `POST /totp/enroll/confirm`
 
-`application/x-www-form-urlencoded` または `multipart/form-data` のフォームデータで登録を確定します。JSON リクエストボディには対応しません。直近 10 分以内のログインで作成された認証済みセッション、`enroll_id`、6 桁の TOTP `code` が必要です。認証がないか古い場合は `401 Unauthorized` を返し、成功時の JSON には一度だけ表示されるバックアップコードが含まれます。
+登録を確定します。直近 10 分以内のログインで作成された認証済みセッションが必要です。
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### リクエストボディ
+
+| リクエストボディのメディアタイプ | 対応 |
+|----------------------------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+フォームには `enroll_id` と 6 桁の TOTP `code` が必要です。
+
+#### レスポンス
+
+認証がないか古い場合は `401 Unauthorized` を返し、成功時の JSON には一度だけ表示されるバックアップコードが含まれます。
 
 ### `GET /totp/revoke`
 

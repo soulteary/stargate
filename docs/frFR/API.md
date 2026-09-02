@@ -237,6 +237,7 @@ Requête d'envoi de code de vérification. Ce point de terminaison est utilisé 
 |---------|-------------|
 | `Idempotency-Key` | Optionnel. Si présent, Stargate le transmet à Herald ; Herald renvoie la même réponse de défi pour les requêtes en double avec la même clé dans la TTL. |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### Corps de Requête
 
 Types de média pris en charge pour le corps de requête :
@@ -417,7 +418,22 @@ Démarre l'inscription et affiche la page d'association TOTP. Nécessite une ses
 
 ### `POST /totp/enroll/confirm`
 
-Confirme l'inscription avec des données de formulaire `application/x-www-form-urlencoded` ou `multipart/form-data` ; les corps JSON ne sont pas pris en charge. Une session authentifiée créée au cours des 10 dernières minutes, `enroll_id` et le `code` TOTP à six chiffres sont obligatoires. Une authentification absente ou trop ancienne renvoie `401 Unauthorized` ; en cas de succès, la réponse JSON inclut les codes de secours affichés une seule fois.
+Confirme l'inscription. Une session authentifiée créée au cours des 10 dernières minutes est obligatoire.
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### Corps de Requête
+
+| Type de média du corps | Pris en charge |
+|------------------------|----------------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+Le formulaire doit contenir `enroll_id` et le `code` TOTP à six chiffres.
+
+#### Réponse
+
+Une authentification absente ou trop ancienne renvoie `401 Unauthorized` ; en cas de succès, la réponse JSON inclut les codes de secours affichés une seule fois.
 
 ### `GET /totp/revoke`
 

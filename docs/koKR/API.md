@@ -236,6 +236,7 @@ curl -X POST \
 |------|------|
 | `Idempotency-Key` | 선택. 있으면 Stargate가 Herald로 전달하며, Herald는 TTL 내 동일 key 중복 요청에 같은 challenge 응답을 반환한다. |
 
+<!-- api-contract: send-verify-code-request-body -->
 #### 요청 본문
 
 요청 본문 미디어 타입 지원 여부:
@@ -416,7 +417,22 @@ Herald와 Herald TOTP가 활성화된 경우 사용할 수 있습니다. 모든 
 
 ### `POST /totp/enroll/confirm`
 
-`application/x-www-form-urlencoded` 또는 `multipart/form-data` 폼 데이터로 등록을 확인하며 JSON 요청 본문은 지원하지 않습니다. 최근 10분 이내의 로그인으로 생성된 인증 세션, `enroll_id`, 6자리 TOTP `code`가 필요합니다. 인증이 없거나 오래된 경우 `401 Unauthorized`를 반환하며 성공 JSON에는 한 번만 표시되는 백업 코드가 포함됩니다.
+등록을 확인합니다. 최근 10분 이내의 로그인으로 생성된 인증 세션이 필요합니다.
+
+<!-- api-contract: totp-enroll-confirm-request-body -->
+#### 요청 본문
+
+| 요청 본문 미디어 타입 | 지원 |
+|----------------------|------|
+| `application/x-www-form-urlencoded` | ✅ |
+| `multipart/form-data` | ✅ |
+| `application/json` | ❌ |
+
+폼에는 `enroll_id`와 6자리 TOTP `code`가 필요합니다.
+
+#### 응답
+
+인증이 없거나 오래된 경우 `401 Unauthorized`를 반환하며 성공 JSON에는 한 번만 표시되는 백업 코드가 포함됩니다.
 
 ### `GET /totp/revoke`
 

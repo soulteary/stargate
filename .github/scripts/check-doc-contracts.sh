@@ -156,11 +156,16 @@ contract_violation_count() {
       }
 
       my ($confirm_section) = $text =~ /^### `POST \/totp\/enroll\/confirm`\s*\n(.*?)(?=^### |\z)/ms;
+      my ($confirm_request_section) = defined($confirm_section)
+        ? ($confirm_section =~ /<!-- api-contract: totp-enroll-confirm-request-body -->\s*\n^#### [^\n]+\n(.*?)(?=^#### |\z)/ms)
+        : undef;
       if (!defined($confirm_section) ||
+          !defined($confirm_request_section) ||
           $confirm_section !~ /`enroll_id`/ ||
           $confirm_section !~ /`code`/ ||
-          $confirm_section !~ /application\/x-www-form-urlencoded/ ||
-          $confirm_section !~ /multipart\/form-data/ ||
+          $confirm_request_section !~ /^\|\s*`application\/x-www-form-urlencoded`\s*\|\s*✅\s*\|/m ||
+          $confirm_request_section !~ /^\|\s*`multipart\/form-data`\s*\|\s*✅\s*\|/m ||
+          $confirm_request_section !~ /^\|\s*`application\/json`\s*\|\s*❌\s*\|/m ||
           $confirm_section !~ /`401 Unauthorized`/ ||
           $confirm_section !~ /10/) {
         warn "Incomplete TOTP confirmation form or authentication contract in $file\n";
@@ -196,12 +201,9 @@ contract_violation_count() {
       }
 
       my ($send_section) = $text =~ /^### `POST \/_send_verify_code`\s*\n(.*?)(?=^### |\z)/ms;
-      my @send_subsections = defined($send_section)
-        ? ($send_section =~ /^#### [^\n]+\n(.*?)(?=^#### |\z)/msg)
-        : ();
-      my ($send_request_section) = grep {
-        /application\/x-www-form-urlencoded/ && /multipart\/form-data/
-      } @send_subsections;
+      my ($send_request_section) = defined($send_section)
+        ? ($send_section =~ /<!-- api-contract: send-verify-code-request-body -->\s*\n^#### [^\n]+\n(.*?)(?=^#### |\z)/ms)
+        : undef;
       if (!defined($send_section) ||
           !defined($send_request_section) ||
           $send_section !~ /`deliver_via`/ ||
