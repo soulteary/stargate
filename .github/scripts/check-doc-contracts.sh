@@ -341,6 +341,155 @@ contract_violation_count() {
       return @contexts;
     }
 
+    sub heredoc_specs_in_line {
+      my ($line) = @_;
+      my @specs;
+      my $quote = "";
+      my $escaped = 0;
+      my $offset = 0;
+
+      while ($offset < length($line)) {
+        my $char = substr($line, $offset, 1);
+        if ($quote eq "\x27") {
+          $quote = "" if $char eq "\x27";
+          $offset++;
+          next;
+        }
+        if ($quote eq "\"") {
+          if ($escaped) {
+            $escaped = 0;
+          } elsif ($char eq "\\") {
+            $escaped = 1;
+          } elsif ($char eq "\"") {
+            $quote = "";
+          }
+          $offset++;
+          next;
+        }
+        if ($escaped) {
+          $escaped = 0;
+          $offset++;
+          next;
+        }
+        if ($char eq "\\") {
+          $escaped = 1;
+          $offset++;
+          next;
+        }
+        if ($char eq "\x27" || $char eq "\"") {
+          $quote = $char;
+          $offset++;
+          next;
+        }
+
+        my $previous = $offset > 0 ? substr($line, $offset - 1, 1) : "";
+        last if $char eq "#" &&
+          ($offset == 0 || $previous =~ /[ \t;|&()]/);
+
+        if ($char ne "<" || substr($line, $offset + 1, 1) ne "<" ||
+            substr($line, $offset + 2, 1) eq "<") {
+          $offset++;
+          next;
+        }
+
+        my $cursor = $offset + 2;
+        my $strip_tabs = substr($line, $cursor, 1) eq "-";
+        $cursor++ if $strip_tabs;
+        $cursor++ while substr($line, $cursor, 1) =~ /[ \t]/;
+
+        my $delimiter = "";
+        my $delimiter_quote = "";
+        my $delimiter_quoted = 0;
+        my $delimiter_escaped = 0;
+        while ($cursor < length($line)) {
+          my $part = substr($line, $cursor, 1);
+          if ($delimiter_quote eq "\x27") {
+            if ($part eq "\x27") {
+              $delimiter_quote = "";
+            } else {
+              $delimiter .= $part;
+            }
+            $cursor++;
+            next;
+          }
+          if ($delimiter_quote eq "\"") {
+            if ($delimiter_escaped) {
+              $delimiter .= $part;
+              $delimiter_escaped = 0;
+            } elsif ($part eq "\\") {
+              $delimiter_escaped = 1;
+            } elsif ($part eq "\"") {
+              $delimiter_quote = "";
+            } else {
+              $delimiter .= $part;
+            }
+            $cursor++;
+            next;
+          }
+          if ($part eq "\\") {
+            $delimiter_quoted = 1;
+            $cursor++;
+            if ($cursor < length($line)) {
+              $delimiter .= substr($line, $cursor, 1);
+              $cursor++;
+            }
+            next;
+          }
+          if ($part eq "\x27" || $part eq "\"") {
+            $delimiter_quoted = 1;
+            $delimiter_quote = $part;
+            $cursor++;
+            next;
+          }
+          last if $part =~ /[ \t\r\n;|&()<>]/;
+          $delimiter .= $part;
+          $cursor++;
+        }
+
+        if (length($delimiter)) {
+          push @specs, {
+            delimiter => $delimiter,
+            literal => $delimiter_quoted,
+            strip_tabs => $strip_tabs,
+            body => "",
+          };
+        }
+        $offset = $cursor > $offset ? $cursor : $offset + 1;
+      }
+      return @specs;
+    }
+
+    sub heredoc_filtered_contexts {
+      my ($text) = @_;
+      my @command_lines;
+      my @expanding_bodies;
+      my @pending;
+
+      for my $line (split /\n/, $text, -1) {
+        $line =~ s/\r$//;
+        if (@pending) {
+          my $candidate = $line;
+          $candidate =~ s/^\t+// if $pending[0]->{strip_tabs};
+          if ($candidate eq $pending[0]->{delimiter}) {
+            my $completed = shift @pending;
+            push @expanding_bodies, $completed->{body}
+              if !$completed->{literal} && $completed->{body} =~ /\S/;
+          } elsif (!$pending[0]->{literal}) {
+            $pending[0]->{body} .= "$line\n";
+          }
+          next;
+        }
+
+        push @command_lines, $line;
+        push @pending, heredoc_specs_in_line($line);
+      }
+      for my $unfinished (@pending) {
+        push @expanding_bodies, $unfinished->{body}
+          if !$unfinished->{literal} && $unfinished->{body} =~ /\S/;
+      }
+      return (join("\n", @command_lines), @expanding_bodies);
+    }
+
     sub shell_tokens {
       my ($text) = @_;
       my @tokens;
@@ -493,6 +642,17 @@ contract_violation_count() {
           $offset++;
           next;
         }
+        if (($char eq "{" || $char eq "}") &&
+            ($previous eq "" || $previous =~ /[ \t\r\n;]/)) {
+          my $next = $offset + 1 < length($text)
+            ? substr($text, $offset + 1, 1)
+            : "";
+          if ($next eq "" || $next =~ /[ \t\r\n;]/) {
+            flush_shell_segment(\@segments, \$segment);
+            $offset++;
+            next;
+          }
+        }
         if ($char eq "&") {
           my $next = $offset + 1 < length($text)
             ? substr($text, $offset + 1, 1)
@@ -596,7 +756,15 @@ contract_violation_count() {
     sub unsafe_htpasswd_count_in_context {
       my ($text) = @_;
       my $unsafe = 0;
-      for my $execution_context (command_substitution_contexts($text)) {
+      my ($commands, @heredoc_bodies) = heredoc_filtered_contexts($text);
+      my @execution_contexts = command_substitution_contexts($commands);
+      for my $body (@heredoc_bodies) {
+        my @nested = command_substitution_contexts($body);
+        shift @nested;
+        push @execution_contexts, @nested;
+      }
+
+      for my $execution_context (@execution_contexts) {
         for my $segment (shell_command_segments($execution_context)) {
           my @arguments = shell_tokens($segment);
           my $command_index = htpasswd_command_index(@arguments);
