@@ -228,6 +228,15 @@ contract_violation_count() {
           } else {
             push @contexts, $standalone;
           }
+        } elsif ($line =~ /\{[^\r\n]*\bhtpasswd\b[^\r\n]*\}/) {
+          # A statically expandable command word may not begin with the
+          # literal text "htpasswd". Confirm it through the same argv parser
+          # used for fenced commands before treating the line as executable.
+          my @arguments = shell_tokens($line);
+          my ($expanded, $expanded_arguments) =
+            bash_brace_expanded_arguments(@arguments);
+          push @contexts, $line if $expanded &&
+            unsafe_htpasswd_count_in_arguments(@$expanded_arguments);
         }
       }
       if (defined $fence_char && $capture_fence) {
@@ -1661,6 +1670,23 @@ contract_violation_count() {
       return ($word);
     }
 
+    sub bash_brace_expanded_arguments {
+      my (@arguments) = @_;
+      my @expanded_arguments;
+      my $expanded = 0;
+
+      for my $argument (@arguments) {
+        my @words = bash_brace_expansions($argument);
+        $expanded = 1
+          if @words != 1 || $words[0] ne $argument;
+        # An entirely empty result from an unquoted brace alternative does
+        # not survive Bash word generation. Quoted brace syntax is protected
+        # by shell_tokens() and never reaches this expansion path.
+        push @expanded_arguments, grep { length($_) } @words;
+      }
+      return ($expanded, \@expanded_arguments);
+    }
+
     sub find_exec_commands {
       my (@arguments) = @_;
       my $command_index = command_word_index(@arguments);
@@ -1706,6 +1732,11 @@ contract_violation_count() {
 
     sub unsafe_htpasswd_count_in_arguments {
       my (@arguments) = @_;
+      my ($brace_expanded, $expanded_arguments) =
+        bash_brace_expanded_arguments(@arguments);
+      return unsafe_htpasswd_count_in_arguments(@$expanded_arguments)
+        if $brace_expanded;
+
       my $unsafe = 0;
 
       my $shell_command = shell_c_command(@arguments);
@@ -1755,14 +1786,7 @@ contract_violation_count() {
           $index++ unless $has_target;
           next;
         }
-        my $batch_option = 0;
-        for my $expanded (bash_brace_expansions($argument)) {
-          if ($expanded =~ /^-[A-Za-z0-9]*b[A-Za-z0-9]*$/) {
-            $batch_option = 1;
-            last;
-          }
-        }
-        if ($batch_option) {
+        if ($argument =~ /^-[A-Za-z0-9]*b[A-Za-z0-9]*$/) {
           $unsafe++;
           last;
         }
