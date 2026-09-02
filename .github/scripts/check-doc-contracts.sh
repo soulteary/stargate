@@ -301,101 +301,167 @@ contract_violation_count() {
       my ($text) = @_;
       my @contexts;
       my $source = $text;
+      my $filtered = "";
       my $quote = "";
       my $escaped = 0;
       my $comment = 0;
       my $offset = 0;
 
       while ($offset < length($source)) {
-          my $char = substr($source, $offset, 1);
-          if ($comment) {
-            $comment = 0 if $char eq "\n" || $char eq "\r";
-            $offset++;
+        my $char = substr($source, $offset, 1);
+        if ($comment) {
+          $filtered .= $char;
+          $comment = 0 if $char eq "\n" || $char eq "\r";
+          $offset++;
+          next;
+        }
+        if ($quote eq "\x27") {
+          $filtered .= $char;
+          $quote = "" if $char eq "\x27";
+          $offset++;
+          next;
+        }
+        if ($escaped) {
+          $filtered .= $char;
+          $escaped = 0;
+          $offset++;
+          next;
+        }
+        if ($char eq "\\") {
+          $filtered .= $char;
+          $escaped = 1;
+          $offset++;
+          next;
+        }
+        if ($char eq "\x27") {
+          $filtered .= $char;
+          $quote = "\x27" unless $quote eq "\"";
+          $offset++;
+          next;
+        }
+        if ($char eq "\"") {
+          $filtered .= $char;
+          $quote = $quote eq "\"" ? "" : "\"";
+          $offset++;
+          next;
+        }
+
+        my $previous = $offset > 0
+          ? substr($source, $offset - 1, 1)
+          : "";
+        if ($quote eq "" && $char eq "#" &&
+            ($offset == 0 || $previous =~ /[ \t\r\n;|&()]/)) {
+          $filtered .= $char;
+          $comment = 1;
+          $offset++;
+          next;
+        }
+
+        my $modern_substitution =
+          $char eq "\x24" && substr($source, $offset + 1, 1) eq "(" &&
+          substr($source, $offset + 2, 1) ne "(";
+        my $process_substitution =
+          $quote eq "" && ($char eq "<" || $char eq ">") &&
+          substr($source, $offset + 1, 1) eq "(";
+        if ($modern_substitution || $process_substitution) {
+          my ($body, $end, $closed) =
+            dollar_paren_body($source, $offset);
+          if ($closed) {
+            push @contexts, $body if $body =~ /\S/;
+            $filtered .= "__shell_substitution__";
+            $offset = $end;
             next;
           }
-          if ($quote eq "\x27") {
-            $quote = "" if $char eq "\x27";
+        }
+
+        if ($char ne "`") {
+          $filtered .= $char;
+          $offset++;
+          next;
+        }
+
+        $offset++;
+        my $body = "";
+        my $body_escaped = 0;
+        my $closed = 0;
+        while ($offset < length($source)) {
+          my $nested = substr($source, $offset, 1);
+          if ($body_escaped) {
+            $body .= $nested;
+            $body_escaped = 0;
+          } elsif ($nested eq "\\") {
+            $body .= $nested;
+            $body_escaped = 1;
+          } elsif ($nested eq "`") {
+            $closed = 1;
             $offset++;
-            next;
+            last;
+          } else {
+            $body .= $nested;
           }
+          $offset++;
+        }
+        if ($closed) {
+          push @contexts, $body if $closed && $body =~ /\S/;
+          $filtered .= "__shell_substitution__";
+        } else {
+          $filtered .= "`$body";
+        }
+      }
+      return ($filtered, @contexts);
+    }
+
+    sub array_assignment_subscript_at {
+      my ($line, $opening) = @_;
+      my $depth = 1;
+      my $quote = "";
+      my $escaped = 0;
+
+      for (my $offset = $opening + 1;
+           $offset < length($line);
+           $offset++) {
+        my $char = substr($line, $offset, 1);
+        if ($quote eq "\x27") {
+          $quote = "" if $char eq "\x27";
+          next;
+        }
+        if ($quote eq "\"") {
           if ($escaped) {
             $escaped = 0;
-            $offset++;
-            next;
-          }
-          if ($char eq "\\") {
+          } elsif ($char eq "\\") {
             $escaped = 1;
-            $offset++;
-            next;
+          } elsif ($char eq "\"") {
+            $quote = "";
           }
-          if ($char eq "\x27") {
-            $quote = "\x27" unless $quote eq "\"";
-            $offset++;
-            next;
-          }
-          if ($char eq "\"") {
-            $quote = $quote eq "\"" ? "" : "\"";
-            $offset++;
-            next;
-          }
-
-          my $previous = $offset > 0
-            ? substr($source, $offset - 1, 1)
-            : "";
-          if ($quote eq "" && $char eq "#" &&
-              ($offset == 0 || $previous =~ /[ \t\r\n;|&()]/)) {
-            $comment = 1;
-            $offset++;
-            next;
-          }
-
-          if ($char eq "\x24" && substr($source, $offset + 1, 1) eq "(" &&
-              substr($source, $offset + 2, 1) ne "(") {
-            my ($body, $end, $closed) =
-              dollar_paren_body($source, $offset);
-            if ($closed) {
-              push @contexts, $body if $body =~ /\S/;
-              $offset = $end;
-              next;
-            }
-          }
-
-          if ($char ne "`") {
-            $offset++;
-            next;
-          }
-
-          $offset++;
-          my $body = "";
-          my $body_escaped = 0;
-          my $closed = 0;
-          while ($offset < length($source)) {
-            my $nested = substr($source, $offset, 1);
-            if ($body_escaped) {
-              $body .= $nested;
-              $body_escaped = 0;
-            } elsif ($nested eq "\\") {
-              $body .= $nested;
-              $body_escaped = 1;
-            } elsif ($nested eq "`") {
-              $closed = 1;
-              $offset++;
-              last;
-            } else {
-              $body .= $nested;
-            }
-            $offset++;
-          }
-          push @contexts, $body if $closed && $body =~ /\S/;
+          next;
+        }
+        if ($escaped) {
+          $escaped = 0;
+          next;
+        }
+        if ($char eq "\\") {
+          $escaped = 1;
+          next;
+        }
+        if ($char eq "\x27" || $char eq "\"") {
+          $quote = $char;
+          next;
+        }
+        $depth++ if $char eq "[";
+        if ($char eq "]") {
+          $depth--;
+          return substr($line, $offset + 1) =~ /^\+?=/
+            if $depth == 0;
+        }
       }
-      return @contexts;
+      return 0;
     }
 
     sub heredoc_specs_in_line {
-      my ($line, $arithmetic, $parameter) = @_;
+      my ($line, $arithmetic, $parameter, $shell) = @_;
       my @specs;
-      my $quote = "";
-      my $escaped = 0;
+      my $quote = $shell->{quote};
+      my $escaped = $shell->{escaped};
       my $offset = 0;
 
       while ($offset < length($line)) {
@@ -506,7 +572,8 @@ contract_violation_count() {
         # shift cannot consume later documentation as a fictitious body.
         my $before = substr($line, 0, $offset);
         my $array_subscript = $char eq "[" &&
-          $before =~ /(?:^|[ \t;|&()])(?:[A-Za-z_][A-Za-z0-9_]*)$/;
+          $before =~ /(?:^|[ \t;|&()])(?:[A-Za-z_][A-Za-z0-9_]*)$/ &&
+          array_assignment_subscript_at($line, $offset);
         my $arithmetic_prefix =
           substr($line, $offset, 3) eq "\x24((" ? 3 :
           substr($line, $offset, 2) eq "((" ? 2 :
@@ -593,6 +660,12 @@ contract_violation_count() {
         }
         $offset = $cursor > $offset ? $cursor : $offset + 1;
       }
+      $shell->{quote} = $quote;
+      # A final backslash consumes the physical line ending; it does not
+      # escape the first character of the next line.
+      $shell->{escaped} = 0;
+      $arithmetic->{escaped} = 0;
+      $parameter->{escaped} = 0;
       return @specs;
     }
 
@@ -604,6 +677,7 @@ contract_violation_count() {
       my %arithmetic =
         (depth => 0, delimiter => "", quote => "", escaped => 0);
       my %parameter = (depth => 0, quote => "", escaped => 0);
+      my %shell = (quote => "", escaped => 0);
 
       for my $line (split /\n/, $text, -1) {
         $line =~ s/\r$//;
@@ -622,7 +696,8 @@ contract_violation_count() {
 
         push @command_lines, $line;
         push @pending,
-          heredoc_specs_in_line($line, \%arithmetic, \%parameter);
+          heredoc_specs_in_line(
+            $line, \%arithmetic, \%parameter, \%shell);
       }
       for my $unfinished (@pending) {
         push @expanding_bodies, $unfinished->{body}
@@ -1214,12 +1289,16 @@ contract_violation_count() {
         my $execution_context = shift @pending;
         my ($commands, @heredoc_bodies) =
           heredoc_filtered_contexts($execution_context);
-        push @pending, command_substitution_contexts($commands);
+        my ($filtered_commands, @substitutions) =
+          command_substitution_contexts($commands);
+        push @pending, @substitutions;
         for my $body (@heredoc_bodies) {
-          push @pending, command_substitution_contexts($body);
+          my (undef, @body_substitutions) =
+            command_substitution_contexts($body);
+          push @pending, @body_substitutions;
         }
 
-        for my $segment (shell_command_segments($commands)) {
+        for my $segment (shell_command_segments($filtered_commands)) {
           my @arguments = shell_tokens($segment);
           $unsafe += unsafe_htpasswd_count_in_arguments(@arguments);
         }
