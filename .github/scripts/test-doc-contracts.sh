@@ -408,6 +408,33 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# setsid delegates to the command after its no-operand session options. Both
+# unqualified and path-qualified forms must preserve the delegated argv.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'setsid -f htpasswd -bn "" password' \
+  '/usr/bin/setsid --wait htpasswd -C 10 -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command delegated through setsid failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'setsid printf "%s\\n" "do not use htpasswd -b"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected setsid command data mentioning htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Brace-group delimiters establish a new simple-command position.
 printf '%s\n' \
   '' \
@@ -574,6 +601,38 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command after a parameter offset failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Braces inside a command substitution nested in `${...}` belong to that
+# command context and cannot close the surrounding parameter expansion. A
+# later `<<` in the parameter word must therefore not become a heredoc.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo ${x:-$({ printf x; }) << 2}' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command after a nested parameter substitution failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# The nested substitution state also survives physical line boundaries.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo ${x:-$(' \
+  '  { printf x; }' \
+  ') << 2}' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe command after a multiline nested parameter substitution failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
