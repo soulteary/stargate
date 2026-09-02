@@ -7,9 +7,14 @@ trap 'rm -rf "$temp_dir"' EXIT
 
 git -C "$repo_root" archive HEAD | tar -x -C "$temp_dir"
 # The test script is commonly run before its own changes are committed. Copy
-# the working-tree checker so the self-test cannot accidentally exercise the
-# old checker from HEAD and report a false pass.
+# the working-tree checker and the files covered by network contracts so the
+# self-test cannot accidentally exercise stale content from HEAD.
 cp "$repo_root/.github/scripts/check-doc-contracts.sh" "$temp_dir/.github/scripts/check-doc-contracts.sh"
+cp "$repo_root/docker-compose.yml" "$temp_dir/docker-compose.yml"
+for file in "$repo_root"/docs/*/DEPLOYMENT.md; do
+  locale=$(basename "$(dirname "$file")")
+  cp "$file" "$temp_dir/docs/$locale/DEPLOYMENT.md"
+done
 git -C "$temp_dir" init -q
 git -C "$temp_dir" config user.name "doc-contract-test"
 git -C "$temp_dir" config user.email "doc-contract-test@example.invalid"
@@ -47,5 +52,30 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   echo "Expected a removed runtime setting contract failure" >&2
   exit 1
 fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# The bundled Compose network key and Traefik labels must resolve to the same name.
+perl -0pi -e 's/traefik\.docker\.network=stargate-traefik/traefik.docker.network=traefik/' "$temp_dir/docker-compose.yml"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a bundled Compose network contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docker-compose.yml
+
+# Every localized deployment guide must create a new external network with the trusted subnet.
+perl -0pi -e 's/--subnet 172\.30\.0\.0\/24/--subnet 172.31.0.0\/24/' "$temp_dir/docs/jaJP/DEPLOYMENT.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized external-network subnet contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/jaJP/DEPLOYMENT.md
+
+# Existing external networks must be inspected rather than silently recreated.
+perl -0pi -e 's/docker network inspect "\$TRAEFIK_NETWORK_NAME"/docker network show "\$TRAEFIK_NETWORK_NAME"/g' "$temp_dir/docs/enUS/DEPLOYMENT.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an existing external-network inspection contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/DEPLOYMENT.md
 
 echo "Documentation contract self-tests passed."

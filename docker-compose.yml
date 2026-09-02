@@ -10,7 +10,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
-      - traefik
+      - stargate-traefik
 
   stargate: # Your Stargate forward auth service
     image: ghcr.io/soulteary/stargate:v1.0.0
@@ -42,10 +42,10 @@ services:
       retries: 3
       start_period: 10s
     networks:
-      - traefik
+      - stargate-traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=traefik
+      - traefik.docker.network=stargate-traefik
       - traefik.http.routers.auth.entrypoints=http
       - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`) # Replace auth.test.localhost with your auth host defined above.
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
@@ -54,17 +54,17 @@ services:
   whoami: # A demo whoami service that is protected with Stargate
     image: traefik/whoami:v1.11.0
     networks:
-      - traefik
+      - stargate-traefik
     labels:
       - traefik.enable=true
-      - traefik.docker.network=traefik
+      - traefik.docker.network=stargate-traefik
       - traefik.http.routers.whoami.entrypoints=http
       - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
       - "traefik.http.routers.whoami.middlewares=stargate"
        # Add this to services that you want to guard
 
 networks:
-  traefik:
+  stargate-traefik:
     name: stargate-traefik
     ipam:
       config:
