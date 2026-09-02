@@ -408,6 +408,21 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Indexed-array subscripts are arithmetic contexts too. Their left shifts are
+# not heredoc operators and cannot consume a following documented command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'arr[1 << 2]=x' \
+  'htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command after an array-subscript shift failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # xargs executes its command operand with both initial and input-derived
 # arguments; a wrapped htpasswd invocation must therefore be inspected.
 printf '%s\n' \
@@ -524,6 +539,39 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd substitution in an expanding heredoc failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Heredocs inside command substitutions must be filtered after extracting the
+# substitution body. Literal payload text is data, not another command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo "$(cat <<EOF' \
+  'htpasswd -C 10 -bn "" password' \
+  'EOF' \
+  ')"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a heredoc payload inside command substitution to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# An expanding nested heredoc still executes substitutions in its payload.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo "$(cat <<EOF' \
+  '$(htpasswd -bn "" password)' \
+  'EOF' \
+  ')"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe substitution in a nested heredoc failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
