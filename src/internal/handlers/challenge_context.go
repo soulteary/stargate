@@ -18,9 +18,17 @@ type challengeContext struct {
 }
 
 type ChallengeContextStore interface {
-	Put(ctx context.Context, value challengeContext, ttl time.Duration) error
+	PutIfAbsent(ctx context.Context, value challengeContext, ttl time.Duration) (bool, error)
 	Get(ctx context.Context, challengeID string) (challengeContext, bool, error)
 	Delete(ctx context.Context, challengeID string) error
+}
+
+// Keep trusted audit attribution briefly after Herald stops accepting a code so
+// an expired verification response can still be recorded accurately.
+const challengeContextAuditGrace = 5 * time.Minute
+
+func challengeContextTTL(expiresIn int) time.Duration {
+	return time.Duration(expiresIn)*time.Second + challengeContextAuditGrace
 }
 
 type memoryChallengeContextEntry struct {
@@ -37,8 +45,12 @@ func newMemoryChallengeContextStore() *memoryChallengeContextStore {
 	return &memoryChallengeContextStore{entries: make(map[string]memoryChallengeContextEntry)}
 }
 
-func (s *memoryChallengeContextStore) Put(_ context.Context, value challengeContext, ttl time.Duration) error {
+func (s *memoryChallengeContextStore) PutIfAbsent(_ context.Context, value challengeContext, ttl time.Duration) (bool, error) {
 	s.mu.Lock()
+	if entry, ok := s.entries[value.ChallengeID]; ok && time.Now().Before(entry.expiresAt) {
+		s.mu.Unlock()
+		return false, nil
+	}
 	expiresAt := time.Now().Add(ttl)
 	s.entries[value.ChallengeID] = memoryChallengeContextEntry{value: value, expiresAt: expiresAt}
 	s.mu.Unlock()
@@ -49,7 +61,7 @@ func (s *memoryChallengeContextStore) Put(_ context.Context, value challengeCont
 			delete(s.entries, value.ChallengeID)
 		}
 	})
-	return nil
+	return true, nil
 }
 
 func (s *memoryChallengeContextStore) Get(_ context.Context, challengeID string) (challengeContext, bool, error) {
@@ -78,12 +90,12 @@ type redisChallengeContextStore struct {
 	prefix string
 }
 
-func (s *redisChallengeContextStore) Put(ctx context.Context, value challengeContext, ttl time.Duration) error {
+func (s *redisChallengeContextStore) PutIfAbsent(ctx context.Context, value challengeContext, ttl time.Duration) (bool, error) {
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		return err
+		return false, err
 	}
-	return s.client.Set(ctx, s.prefix+value.ChallengeID, encoded, ttl).Err()
+	return s.client.SetNX(ctx, s.prefix+value.ChallengeID, encoded, ttl).Result()
 }
 
 func (s *redisChallengeContextStore) Get(ctx context.Context, challengeID string) (challengeContext, bool, error) {

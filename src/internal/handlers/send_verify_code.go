@@ -283,12 +283,13 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 		// Log successful verification code send
 		metrics.RecordHeraldCall("create_challenge", "success", heraldDuration)
 		auditlog.LogVerifyCodeSend(ctx.Context(), userID, createResp.ChallengeID, channel, destination, ctx.IP(), true, "")
-		if err := getChallengeContextStore().Put(ctx.Context(), challengeContext{
+		_, err = getChallengeContextStore().PutIfAbsent(ctx.Context(), challengeContext{
 			ChallengeID: createResp.ChallengeID,
 			UserID:      userID,
 			Channel:     channel,
 			Destination: destination,
-		}, time.Duration(createResp.ExpiresIn)*time.Second); err != nil {
+		}, challengeContextTTL(createResp.ExpiresIn))
+		if err != nil {
 			log.Error().Err(err).Str("challenge_id", createResp.ChallengeID).Msg("Failed to persist challenge audit context")
 		}
 

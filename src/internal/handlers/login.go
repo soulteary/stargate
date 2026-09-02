@@ -386,6 +386,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 			)
 			heraldSpan.End()
 			metrics.RecordHeraldCall("verify_challenge", "success", duration)
+			auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), true, "")
 			if auditContext.ChallengeID != "" {
 				if err := getChallengeContextStore().Delete(ctx.Context(), auditContext.ChallengeID); err != nil {
 					log.Error().Err(err).Str("challenge_id", auditContext.ChallengeID).Msg("Failed to consume challenge audit context")
@@ -394,10 +395,9 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 			// Verify user ID matches
 			if verifyResp.UserID != userID {
 				log.Warn().Str("expected", userID).Str("got", verifyResp.UserID).Msg("User ID mismatch")
-				auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, "user_id_mismatch")
+				auditlog.LogLogin(ctx.Context(), auditContext.UserID, "warden", ctx.IP(), false, "user_id_mismatch")
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
 			}
-			auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), true, "")
 
 			// Store AMR (Authentication Method Reference) from Herald response for later use
 			if len(verifyResp.AMR) > 0 {

@@ -25,7 +25,9 @@ func TestMemoryChallengeContextLifecycle(t *testing.T) {
 	ctx := context.Background()
 	want := testChallengeContext()
 
-	testza.AssertNoError(t, store.Put(ctx, want, 20*time.Millisecond))
+	stored, err := store.PutIfAbsent(ctx, want, 20*time.Millisecond)
+	testza.AssertNoError(t, err)
+	testza.AssertTrue(t, stored)
 	got, found, err := store.Get(ctx, want.ChallengeID)
 	testza.AssertNoError(t, err)
 	testza.AssertTrue(t, found)
@@ -46,7 +48,8 @@ func TestChallengeContextSuccessfulConsumption(t *testing.T) {
 	store := newMemoryChallengeContextStore()
 	ctx := context.Background()
 	want := testChallengeContext()
-	testza.AssertNoError(t, store.Put(ctx, want, time.Minute))
+	_, err := store.PutIfAbsent(ctx, want, time.Minute)
+	testza.AssertNoError(t, err)
 	testza.AssertNoError(t, store.Delete(ctx, want.ChallengeID))
 	_, found, err := store.Get(ctx, want.ChallengeID)
 	testza.AssertNoError(t, err)
@@ -59,7 +62,8 @@ func TestChallengeAuditContextIgnoresLoginDeliveryPreference(t *testing.T) {
 	t.Cleanup(func() { SetChallengeContextStore(nil) })
 	ctx := context.Background()
 	want := testChallengeContext()
-	testza.AssertNoError(t, store.Put(ctx, want, time.Minute))
+	_, err := store.PutIfAbsent(ctx, want, time.Minute)
+	testza.AssertNoError(t, err)
 
 	// The login request may claim a different delivery preference, but audit
 	// context is recovered solely by the server-issued challenge ID.
@@ -90,7 +94,9 @@ func TestRedisChallengeContextSharedAcrossInstances(t *testing.T) {
 	secondReplica := NewChallengeContextStore(clientB)
 	ctx := context.Background()
 	want := testChallengeContext()
-	testza.AssertNoError(t, firstReplica.Put(ctx, want, time.Minute))
+	stored, err := firstReplica.PutIfAbsent(ctx, want, time.Minute)
+	testza.AssertNoError(t, err)
+	testza.AssertTrue(t, stored)
 
 	got, found, err := secondReplica.Get(ctx, want.ChallengeID)
 	testza.AssertNoError(t, err)
@@ -102,4 +108,36 @@ func TestRedisChallengeContextSharedAcrossInstances(t *testing.T) {
 	_, found, err = firstReplica.Get(ctx, want.ChallengeID)
 	testza.AssertNoError(t, err)
 	testza.AssertFalse(t, found)
+}
+
+func TestChallengeContextIdempotentReplayPreservesOriginal(t *testing.T) {
+	stores := []ChallengeContextStore{newMemoryChallengeContextStore()}
+	server := miniredis.RunT(t)
+	client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+	t.Cleanup(func() { _ = client.Close() })
+	stores = append(stores, NewChallengeContextStore(client))
+
+	for _, store := range stores {
+		original := testChallengeContext()
+		stored, err := store.PutIfAbsent(context.Background(), original, time.Minute)
+		testza.AssertNoError(t, err)
+		testza.AssertTrue(t, stored)
+
+		replay := original
+		replay.Channel = "sms"
+		replay.Destination = "13800138000"
+		stored, err = store.PutIfAbsent(context.Background(), replay, 10*time.Minute)
+		testza.AssertNoError(t, err)
+		testza.AssertFalse(t, stored)
+
+		got, found, err := store.Get(context.Background(), original.ChallengeID)
+		testza.AssertNoError(t, err)
+		testza.AssertTrue(t, found)
+		testza.AssertEqual(t, original, got)
+		testza.AssertNoError(t, store.Delete(context.Background(), original.ChallengeID))
+	}
+}
+
+func TestChallengeContextTTLIncludesExpiredAuditGrace(t *testing.T) {
+	testza.AssertEqual(t, 7*time.Minute, challengeContextTTL(120))
 }
