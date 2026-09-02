@@ -201,6 +201,19 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# The shell `time` keyword accepts options before the pipeline command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'time -p htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe timed htpasswd command failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Backtick substitutions execute in both unquoted and double-quoted contexts.
 printf '%s\n' \
   '' \
@@ -254,6 +267,21 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Shell `-c` operands are themselves executable command contexts, including
+# when the interpreter is reached through another supported wrapper.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "bash -c 'htpasswd -bn \"\" password'" \
+  "sudo -u root /bin/sh -c 'htpasswd -C 10 -bn \"\" password'" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd shell command-string failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # A hash prompt in console-like fences represents an executed root command.
 printf '%s\n' \
   '' \
@@ -263,6 +291,19 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command at a console root prompt failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Console prompts commonly include the current user, host, and directory.
+printf '%s\n' \
+  '' \
+  '```terminal' \
+  'root@host:~# htpasswd -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command at a hostname prompt failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
@@ -297,6 +338,7 @@ printf '%s\n' \
   '' \
   '```bash' \
   'sudo -u htpasswd printf "%s\n" "-b"' \
+  "bash safe-script.sh -c 'htpasswd -bn \"\" password'" \
   "printf '%s\\n' '\`htpasswd -bn \"\" password\`'" \
   '```' \
   '```' \
