@@ -261,8 +261,13 @@ check_markdown_structure() {
       my ($offset, $matched) =
         continue_containers($destination_line, $containers);
       return 0 if $matched < @$containers;
+      my $destination_content = substr($destination_line, $offset);
+      # A next-line destination remains part of the interrupted paragraph.
+      # Block constructs which can interrupt that paragraph take precedence
+      # over interpreting their marker text as a bare destination.
+      return 0 if interrupts_paragraph($destination_content);
       my @destination =
-        reference_destination_details(substr($destination_line, $offset));
+        reference_destination_details($destination_content);
       return 0 unless @destination;
 
       my (undef, $title) = @destination;
