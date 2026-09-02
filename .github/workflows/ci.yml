@@ -55,6 +55,10 @@ jobs:
           go-version-file: go.mod
           cache: true
 
+      - name: Download dependencies
+        if: steps.changes.outputs.code == 'true'
+        run: go mod download
+
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
         run: |
