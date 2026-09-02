@@ -338,8 +338,9 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/DEPLOYMENT.md
 
-# CommonMark fenced blocks allow up to three leading spaces, either marker
-# character, and a closing marker at least as long as the opening marker.
+# CommonMark fenced blocks allow up to three leading spaces after list or
+# block-quote container prefixes, either marker character, and a closing
+# marker at least as long as the opening marker.
 fence_fixture="$temp_dir/fence-structure-test.md"
 printf '%s\n' \
   '   ```bash' \
@@ -350,6 +351,15 @@ printf '%s\n' \
   '~~~~' \
   'inline ``` markers are not fences' \
   '    ```four-space-indented-code' \
+  '1. outer list' \
+  '   - nested item' \
+  '' \
+  '     ```json' \
+  '     {}' \
+  '     ```' \
+  '> ~~~text' \
+  '> quoted content' \
+  '> ~~~' \
   > "$fence_fixture"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected valid CommonMark fence forms to pass" >&2
@@ -373,6 +383,27 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   echo "Expected a short closing-fence failure" >&2
   exit 1
 fi
+
+printf '%s\n' \
+  '1. outer list' \
+  '   - nested item' \
+  '' \
+  '     ```json' \
+  '     {}' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed nested-list fence failure" >&2
+  exit 1
+fi
+
+# Exercise the same five-space list-container indentation used by the existing
+# localized API response examples, so those real blocks cannot silently regress.
+perl -0pi -e 's/^     ```\r?\n//m' "$temp_dir/docs/enUS/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized nested-list fence failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/API.md
 rm -f "$fence_fixture"
 
 echo "Documentation contract self-tests passed."
