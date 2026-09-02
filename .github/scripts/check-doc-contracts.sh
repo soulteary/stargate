@@ -781,7 +781,7 @@ contract_violation_count() {
     sub command_word_index {
       my (@arguments) = @_;
       my %prefix = map { $_ => 1 }
-        qw(if then elif else while until do !);
+        qw(if then elif else while until do coproc !);
       my %wrapper = map { $_ => 1 }
         qw(command exec builtin nohup env sudo time);
       my $index = 0;
@@ -924,8 +924,11 @@ contract_violation_count() {
       my $command_index = command_word_index(@arguments);
       return unless $command_index >= 0;
       return unless $arguments[$command_index] eq "eval";
-      return join(" ", @arguments[$command_index + 1 .. $#arguments])
-        if $command_index + 1 < @arguments;
+      my $first_argument = $command_index + 1;
+      $first_argument++ if $first_argument < @arguments &&
+        $arguments[$first_argument] eq "--";
+      return join(" ", @arguments[$first_argument .. $#arguments])
+        if $first_argument < @arguments;
       return "";
     }
 
