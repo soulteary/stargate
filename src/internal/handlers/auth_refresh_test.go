@@ -53,6 +53,32 @@ func TestAuthRefreshRejectsMissingOrDisabledUser(t *testing.T) {
 	testza.AssertFalse(t, auth.IsAuthenticated(sess))
 }
 
+func TestAuthRefreshPreservesSessionWhenRequestDeadlineExpires(t *testing.T) {
+	setupRefreshTest(t)
+	store := setupTestStore()
+	ctx, app := createTestContext("GET", "/_auth", nil, "")
+	defer app.ReleaseCtx(ctx)
+	sess, err := store.Get(ctx)
+	testza.AssertNoError(t, err)
+	sess.Set("user_mail", "active@example.com")
+	sess.Set("auth_method", "warden")
+	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())
+	testza.AssertNoError(t, auth.Authenticate(sess))
+
+	lookupRefreshUser = func(ctx context.Context, _, _ string) *warden.AllowListUser {
+		<-ctx.Done()
+		return nil
+	}
+	requestCtx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
+	defer cancel()
+	<-requestCtx.Done()
+
+	refreshed, err := refreshAuthorizationIfNeeded(requestCtx, sess)
+	testza.AssertEqual(t, context.DeadlineExceeded, err)
+	testza.AssertFalse(t, refreshed)
+	testza.AssertTrue(t, auth.IsAuthenticated(sess))
+}
+
 func TestAuthRefreshReplacesRevokedAuthorization(t *testing.T) {
 	setupRefreshTest(t)
 	store := setupTestStore()

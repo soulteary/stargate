@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Preserve authenticated Warden sessions when an authorization refresh is
+  canceled or reaches the request deadline; the current request still fails
+  closed without turning a transient provider timeout into a logout.
 - Added a 10-second, strictly validated request-context deadline before tracing
   so Warden and Herald calls receive a real `Done` signal and are canceled on
   timeout or handler completion. Fiber/fasthttp client-disconnect limitations
