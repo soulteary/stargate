@@ -828,6 +828,20 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
   exit 1
 fi
 
+# A list item whose first child would be indented code cannot interrupt a
+# paragraph. The later non-one marker and its indented fence therefore remain
+# literal paragraph text rather than opening nested block structure.
+printf '%s\n' \
+  'paragraph before an indented-code item' \
+  '-     code' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an indented-code item not to interrupt a paragraph" >&2
+  exit 1
+fi
+
 # Exercise the same five-space list-container indentation used by the existing
 # localized API response examples, so those real blocks cannot silently regress.
 perl -0pi -e 's/^     ```\r?\n//m' "$temp_dir/docs/enUS/API.md"
