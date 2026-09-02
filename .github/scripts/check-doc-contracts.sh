@@ -123,7 +123,7 @@ check_markdown_structure() {
     sub valid_reference_label {
       my ($label) = @_;
       return 0 if length($label) > 999;
-      return $label =~ /[^ \t]/;
+      return $label =~ /[^ \t\r\n]/;
     }
 
     sub reference_destination_prefix {
@@ -269,6 +269,74 @@ check_markdown_structure() {
       my $following = following_reference_title_lines(
         $containers, $line_index + 1, $lines);
       return defined $following ? 1 + $following : 1;
+    }
+
+    sub multiline_reference_label_lines {
+      my ($content, $containers, $line_index, $lines) = @_;
+      return 0 unless $content =~ /^ {0,3}\[(.*)$/;
+
+      my $label = "";
+      my $fragment = $1;
+      my $current_index = $line_index;
+      while (1) {
+        my $offset = 0;
+        while ($offset < length($fragment)) {
+          my $char = substr($fragment, $offset, 1);
+          if ($char eq "\\") {
+            return 0 if $offset + 1 >= length($fragment);
+            my $escaped = substr($fragment, $offset + 1, 1);
+            return 0 unless $escaped =~
+              /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/;
+            $label .= "\\$escaped";
+            $offset += 2;
+            next;
+          }
+          return 0 if $char eq "[";
+          if ($char eq "]") {
+            return 0 unless substr($fragment, $offset + 1, 1) eq ":";
+            return 0 unless valid_reference_label($label);
+
+            my $definition_tail = substr($fragment, $offset + 2);
+            my $label_lines = $current_index - $line_index;
+            if ($definition_tail =~ /^[ \t]*$/) {
+              my $destination_lines = multiline_reference_lines(
+                "[reference]:", $containers, $current_index, $lines);
+              return $destination_lines > 0
+                ? $label_lines + $destination_lines
+                : 0;
+            }
+
+            my @reference = link_reference_definition(
+              "[reference]:$definition_tail");
+            return 0 unless @reference;
+            my (undef, $title) = @reference;
+            if (defined $title) {
+              my $continued = reference_title_continuation_lines(
+                $title, $containers, $current_index, $lines);
+              return defined $continued
+                ? $label_lines + $continued
+                : 0;
+            }
+            my $following = following_reference_title_lines(
+              $containers, $current_index, $lines);
+            return $label_lines + (defined $following ? $following : 0);
+          }
+          $label .= $char;
+          $offset++;
+        }
+
+        return 0 if $current_index + 1 >= @$lines;
+        my $next_line = $lines->[$current_index + 1];
+        $next_line =~ s/\r$//;
+        $next_line = expand_tabs($next_line);
+        my ($container_offset, $matched) =
+          continue_containers($next_line, $containers);
+        return 0 if $matched < @$containers;
+        $fragment = substr($next_line, $container_offset);
+        return 0 if $fragment =~ /^ *$/;
+        $label .= "\n";
+        $current_index++;
+      }
     }
 
     sub interrupts_paragraph {
@@ -530,6 +598,15 @@ check_markdown_structure() {
             }
             if (!$paragraph_here) {
               my $continuation_lines = multiline_reference_lines(
+                $content, \@containers, $line_index, \@lines);
+              if ($continuation_lines > 0) {
+                $reference_lines_to_skip = $continuation_lines;
+                $paragraph_active = 0;
+                next LINE;
+              }
+            }
+            if (!$paragraph_here) {
+              my $continuation_lines = multiline_reference_label_lines(
                 $content, \@containers, $line_index, \@lines);
               if ($continuation_lines > 0) {
                 $reference_lines_to_skip = $continuation_lines;
