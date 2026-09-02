@@ -222,6 +222,7 @@ check_markdown_structure() {
         return if $matched < @$containers;
         my $content = substr($line, $offset);
         return if $content =~ /^ *$/;
+        return if interrupts_paragraph($content);
         $title .= "\n$content";
         $continuation_lines++;
         return $continuation_lines if reference_title($title);
@@ -295,7 +296,13 @@ check_markdown_structure() {
         while ($offset < length($fragment)) {
           my $char = substr($fragment, $offset, 1);
           if ($char eq "\\") {
-            return 0 if $offset + 1 >= length($fragment);
+            if ($offset + 1 >= length($fragment)) {
+              # A terminal backslash does not escape through a physical line
+              # ending; both it and the newline remain label characters.
+              $label .= "\\";
+              $offset++;
+              next;
+            }
             my $escaped = substr($fragment, $offset + 1, 1);
             $label .= "\\$escaped";
             $offset += 2;
@@ -344,6 +351,7 @@ check_markdown_structure() {
         return 0 if $matched < @$containers;
         $fragment = substr($next_line, $container_offset);
         return 0 if $fragment =~ /^ *$/;
+        return 0 if interrupts_paragraph($fragment);
         $label .= "\n";
         $current_index++;
       }
