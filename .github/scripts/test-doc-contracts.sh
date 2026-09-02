@@ -366,6 +366,16 @@ printf '%s\n' \
   '> - ~~~text' \
   '>   quoted list content' \
   '>   ~~~' \
+  '-   paragraph in a wide list item' \
+  'lazy paragraph continuation' \
+  '    ```text' \
+  '    fenced content after lazy continuation' \
+  '    ```' \
+  'paragraph before a non-list marker' \
+  '2. this remains paragraph text' \
+  '   ```text' \
+  'unindented root fence content' \
+  '   ```' \
   > "$fence_fixture"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected valid CommonMark fence forms to pass" >&2
@@ -424,6 +434,19 @@ printf '%s\n' \
   > "$fence_fixture"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unclosed interleaved-container fence failure" >&2
+  exit 1
+fi
+
+# A lazy paragraph continuation retains its list container, including the
+# wider content column established by marker padding.
+printf '%s\n' \
+  '-   paragraph in a wide list item' \
+  'lazy paragraph continuation' \
+  '    ```text' \
+  '    missing close' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a lazy list continuation failure" >&2
   exit 1
 fi
 
