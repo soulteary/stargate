@@ -59,9 +59,76 @@ check_markdown_structure() {
 
 contract_violation_count() {
   local root=$1
-  perl -MFile::Find -e '
+  perl -MFile::Find -MText::ParseWords=shellwords -e '
     my $root = shift;
     my $count = 0;
+
+    sub unsafe_htpasswd_command_count {
+      my ($text) = @_;
+      my $unsafe = 0;
+
+      # A backslash-newline is part of the same shell command. Preserve other
+      # newlines because they terminate the invocation being inspected.
+      $text =~ s/\\\r?\n[ \t]*/ /g;
+      while ($text =~ /\bhtpasswd\b/g) {
+        my $cursor = pos($text);
+        my $segment = "";
+        my $quote = "";
+        my $escaped = 0;
+
+        while ($cursor < length($text)) {
+          my $char = substr($text, $cursor, 1);
+          if ($escaped) {
+            $segment .= $char;
+            $escaped = 0;
+            $cursor++;
+            next;
+          }
+          if ($char eq "\\") {
+            $segment .= $char;
+            $escaped = 1;
+            $cursor++;
+            next;
+          }
+          if ($quote ne "") {
+            $segment .= $char;
+            $quote = "" if $char eq $quote;
+            $cursor++;
+            next;
+          }
+          if ($char eq "\x27" || $char eq "\"") {
+            $quote = $char;
+            $segment .= $char;
+            $cursor++;
+            next;
+          }
+
+          # Stop at Markdown code-span boundaries and unquoted shell control
+          # operators. Text after these characters belongs to prose or to a
+          # different command and must not be attributed to htpasswd.
+          last if $char =~ /[\r\n`;|&()]/;
+          my $previous = length($segment) ? substr($segment, -1, 1) : "";
+          last if $char eq "#" && ($segment eq "" || $previous =~ /[ \t]/);
+          $segment .= $char;
+          $cursor++;
+        }
+
+        my @arguments;
+        my $parsed = eval {
+          @arguments = shellwords($segment);
+          1;
+        };
+        next unless $parsed;
+        for my $argument (@arguments) {
+          last if $argument eq "--";
+          if ($argument =~ /^-[A-Za-z]*b[A-Za-z]*$/) {
+            $unsafe++;
+            last;
+          }
+        }
+      }
+      return $unsafe;
+    }
 
     my $config_path = "$root/src/internal/config/config.go";
     open my $config_fh, "<", $config_path or die "open $config_path: $!";
@@ -376,12 +443,11 @@ contract_violation_count() {
         local $/;
         my $text = <$fh>;
 
-        # Inspect the complete logical htpasswd command, not only the first
-        # option token. The batch-password flag may follow options with their
-        # own arguments, for example: htpasswd -C 10 -bn "" password.
-        my $command_text = $text;
-        $command_text =~ s/\\\r?\n[ \t]*/ /g;
-        while ($command_text =~ /\bhtpasswd\b[^\r\n]*?[ \t]+-[A-Za-z]*b[A-Za-z]*(?=[ \t]|$)/mg) {
+        # Inspect every complete logical htpasswd command. The batch-password
+        # flag may follow options with their own arguments, but scanning must
+        # stop before subsequent prose or shell commands.
+        my $unsafe_htpasswd = unsafe_htpasswd_command_count($text);
+        for (1 .. $unsafe_htpasswd) {
           warn "unsafe htpasswd batch-password option in $file\n";
           $count++;
         }
