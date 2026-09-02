@@ -12,7 +12,7 @@ git -C "$repo_root" archive HEAD | tar -x -C "$temp_dir"
 cp "$repo_root/.github/scripts/check-doc-contracts.sh" "$temp_dir/.github/scripts/check-doc-contracts.sh"
 cp "$repo_root/CHANGELOG.md" "$temp_dir/CHANGELOG.md"
 cp "$repo_root/docker-compose.yml" "$temp_dir/docker-compose.yml"
-for file in "$repo_root"/docs/*/CONFIG.md "$repo_root"/docs/*/SECURITY.md "$repo_root"/docs/*/DEPLOYMENT.md; do
+for file in "$repo_root"/docs/*/API.md "$repo_root"/docs/*/CONFIG.md "$repo_root"/docs/*/SECURITY.md "$repo_root"/docs/*/DEPLOYMENT.md; do
   relative=${file#"$repo_root"/}
   cp "$file" "$temp_dir/$relative"
 done
@@ -22,6 +22,9 @@ git -C "$temp_dir" config user.email "doc-contract-test@example.invalid"
 git -C "$temp_dir" add .
 git -C "$temp_dir" commit -qm "test baseline"
 base_sha=$(git -C "$temp_dir" rev-parse HEAD)
+
+# A failing baseline would make every negative mutation below look successful.
+(cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null)
 
 # An exact route check must not let /healthz satisfy the /health contract.
 perl -0pi -e 's/`GET \/health`/`GET \/healthz`/' "$temp_dir/docs/enUS/API.md"
@@ -69,6 +72,53 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/API.md
+
+# Both browser-supported form encodings must remain documented in every locale.
+perl -0pi -e 's/(^### `POST \/_send_verify_code`.*?)(`multipart\/form-data`)/$1`unsupported-form-type`/ms' "$temp_dir/docs/deDE/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized send-form encoding contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/deDE/API.md
+
+perl -0pi -e 's/(^### `POST \/totp\/enroll\/confirm`.*?)(`multipart\/form-data`)/$1`unsupported-form-type`/ms' "$temp_dir/docs/frFR/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized TOTP form encoding contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/frFR/API.md
+
+# Warden fields must be documented as table rows, not only appear in examples.
+perl -0pi -e 's/^\| `challenge_id` .*\n//m' "$temp_dir/docs/itIT/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized Warden field contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/itIT/API.md
+
+# Both Warden identifiers may be supplied together; do not regress to exactly-one validation.
+perl -0pi -e 's/(^### `POST \/_login`.*?)(`phone` \+ `mail`)/$1`phone` only/ms' "$temp_dir/docs/deDE/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a combined Warden identifier contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/deDE/API.md
+
+# DingTalk delivery must remain explicitly opt-in.
+perl -0pi -e 's/(^### `POST \/_send_verify_code`.*?)(`deliver_via=dingtalk`)/$1`deliver_via=implicit`/ms' "$temp_dir/docs/jaJP/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an explicit DingTalk delivery contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/jaJP/API.md
+
+# Revoke requires an authenticated session plus password or TOTP reauthentication.
+perl -0pi -e 's/(^### `POST \/totp\/revoke`.*?)(`401 Unauthorized`)/$1`authentication failure`/ms' "$temp_dir/docs/koKR/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized TOTP reauthentication contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/koKR/API.md
 
 # Configuration checks must work in both directions.
 printf '\n| `REMOVED_RUNTIME_SETTING` | string | - | test-only invalid setting |\n' >> "$temp_dir/docs/enUS/CONFIG.md"

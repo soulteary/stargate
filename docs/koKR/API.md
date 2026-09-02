@@ -123,16 +123,35 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 ### `POST /_login`
 
-로그인 요청을 처리하고 비밀번호를 검증하여 세션을 생성합니다.
+로그인 요청을 처리하며 다음 두 가지 인증 모드를 지원합니다:
+
+1. **비밀번호 인증**: 비밀번호를 검증하고 세션 생성
+2. **Warden + Herald OTP 인증**: 인증 코드를 검증하고 세션 생성
 
 #### 요청 본문
 
 폼 데이터 (`application/x-www-form-urlencoded`):
 
+**비밀번호 인증:**
+
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
+| `auth_method` | String | 아니오 | 인증 방식이며 기본값은 `password` |
 | `password` | String | 예 | 사용자 비밀번호 |
 | `callback` | String | 아니오 | 로그인 성공 후 콜백 URL |
+
+**Warden + Herald OTP 인증:**
+
+| 필드 | 타입 | 필수 | 설명 |
+|------|------|------|------|
+| `auth_method` | String | 예 | 인증 방식이며 값은 `warden` |
+| `phone` | String | 아니오 | 사용자 전화번호. `phone` 또는 `mail` 중 하나 이상 필요 |
+| `mail` | String | 아니오 | 사용자 이메일. `mail` 또는 `phone` 중 하나 이상 필요 |
+| `challenge_id` | String | 예 | `POST /_send_verify_code`가 반환한 challenge ID |
+| `verify_code` | String | 예 | 사용자가 입력한 인증 코드 |
+| `callback` | String | 아니오 | 로그인 성공 후 콜백 URL |
+
+핸들러는 같은 Warden 요청에 `phone` + `mail`을 함께 보내는 것도 허용합니다.
 
 #### 콜백 가져오기 우선순위
 
@@ -167,7 +186,8 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 | 상태 코드 | 설명 | 응답 본문 |
 |-----------|------|-----------|
-| `401 Unauthorized` | 잘못된 비밀번호 | Accept 헤더에 따라 JSON/XML/텍스트 형식의 오류 메시지 |
+| `400 Bad Request` | Warden 필드, challenge ID 또는 인증 코드가 잘못되었거나 누락됨 | Accept 헤더에 따라 JSON/XML/텍스트 형식의 오류 메시지 |
+| `401 Unauthorized` | 잘못된 비밀번호, Warden 사용자 없음/비활성 또는 코드 검증 실패 | Accept 헤더에 따라 JSON/XML/텍스트 형식의 오류 메시지 |
 | `500 Internal Server Error` | 서버 오류 | 오류 메시지 |
 
 #### 예제
@@ -175,13 +195,13 @@ curl http://auth.example.com/_login?callback=app.example.com
 ```bash
 # 로그인 폼 제출 (콜백 있음)
 curl -X POST \
-     -d "password=yourpassword&callback=app.example.com" \
+     -d "auth_method=password&password=yourpassword&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 
 # 로그인 폼 제출 (콜백 없음, 자동 추론)
 curl -X POST \
-     -d "password=yourpassword" \
+     -d "auth_method=password&password=yourpassword" \
      -H "X-Forwarded-Host: app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
@@ -207,13 +227,15 @@ curl -X POST \
 
 #### 요청 본문
 
-폼 데이터(`application/x-www-form-urlencoded`)만 지원합니다:
+`application/x-www-form-urlencoded` 또는 `multipart/form-data` 폼 데이터를 지원하며 JSON 요청 본문은 지원하지 않습니다:
 
 | 필드 | 유형 | 필수 | 설명 |
 |------|------|------|------|
-| `phone` | String | 아니오 | 사용자 전화번호 (`phone` 또는 `mail` 중 하나) |
-| `mail` | String | 아니오 | 사용자 이메일 (`phone` 또는 `mail` 중 하나) |
-| `deliver_via` | String | 아니오 | 선호 채널: `sms`, `email`, `dingtalk`. 생략하면 Warden 레코드에서 활성화된 채널을 선택합니다. |
+| `phone` | String | 아니오 | 사용자 전화번호. `phone` 또는 `mail` 중 하나 이상 필요 |
+| `mail` | String | 아니오 | 사용자 이메일. `mail` 또는 `phone` 중 하나 이상 필요 |
+| `deliver_via` | String | 아니오 | 선호 채널: `sms`, `email`, `dingtalk`. 생략하면 활성화된 SMS 대상을 먼저 시도한 뒤 이메일을 시도합니다. DingTalk는 암묵적으로 선택되지 않으므로 호출자는 `deliver_via=dingtalk`를 명시해야 합니다. |
+
+핸들러는 같은 인증 코드 요청에 `phone` + `mail`을 함께 보내는 것도 허용합니다.
 
 #### 처리 흐름
 
@@ -223,9 +245,9 @@ curl -X POST \
    - 사용자의 이메일과 전화 가져오기
 
 2. **Stargate → Herald** : 챌린지 생성 및 인증 코드 전송
-   - Warden에서 반환된 이메일/전화를 대상으로 사용
+   - Warden에서 반환된 이메일, 전화번호 또는 DingTalk 식별자를 대상으로 사용
    - Herald API를 호출하여 챌린지 생성
-   - Herald가 인증 코드 전송 (SMS 또는 이메일)
+   - Herald가 선택된 SMS, 이메일 또는 DingTalk 채널로 인증 코드 전송
 
 3. **결과 반환** : challenge_id 및 관련 정보 반환
 
@@ -365,27 +387,27 @@ curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
 
 ## TOTP 엔드포인트
 
-Herald와 Herald TOTP가 활성화된 경우 사용할 수 있습니다. 등록은 세션을 만든 로그인 후 10분 이내에 시작하고 완료해야 합니다.
+Herald와 Herald TOTP가 활성화된 경우 사용할 수 있습니다. 모든 엔드포인트에는 인증된 세션이 필요합니다. 등록은 해당 세션을 만든 로그인 후 10분 이내에 시작하고 완료해야 합니다.
 
 ### `GET /totp/enroll`
 
-등록 상태를 만들지 않고 확인 페이지를 표시합니다. 최근 10분 이내의 로그인으로 생성된 세션이 필요합니다.
+등록 상태를 만들지 않고 확인 페이지를 표시합니다. 최근 10분 이내의 로그인으로 생성된 세션이 필요합니다. 인증되지 않은 사용자는 `302 Found`로 `/_login`에 리디렉션되고 오래된 세션에는 `401 Unauthorized`가 반환됩니다.
 
 ### `POST /totp/enroll`
 
-등록을 시작하고 TOTP 연결 페이지를 표시합니다. 최근 10분 이내에 생성된 세션이 필요합니다.
+등록을 시작하고 TOTP 연결 페이지를 표시합니다. 최근 10분 이내의 로그인으로 생성된 세션이 필요합니다. 인증되지 않은 사용자는 `302 Found`로 `/_login`에 리디렉션되고 오래된 세션에는 `401 Unauthorized`가 반환됩니다.
 
 ### `POST /totp/enroll/confirm`
 
-폼 데이터(`application/x-www-form-urlencoded`)로 등록을 확인합니다. `enroll_id`와 6자리 TOTP `code`가 모두 필요합니다. 응답은 JSON이며 성공 시 한 번만 표시되는 백업 코드를 포함합니다.
+`application/x-www-form-urlencoded` 또는 `multipart/form-data` 폼 데이터로 등록을 확인하며 JSON 요청 본문은 지원하지 않습니다. 최근 10분 이내의 로그인으로 생성된 인증 세션, `enroll_id`, 6자리 TOTP `code`가 필요합니다. 인증이 없거나 오래된 경우 `401 Unauthorized`를 반환하며 성공 JSON에는 한 번만 표시되는 백업 코드가 포함됩니다.
 
 ### `GET /totp/revoke`
 
-TOTP 연결 해제 확인 페이지를 표시합니다.
+TOTP 연결 해제 확인 페이지를 표시합니다. 인증된 세션이 필요하며 인증되지 않은 사용자는 `302 Found`로 `/_login`에 리디렉션됩니다. 이 페이지에는 10분 제한이 적용되지 않습니다.
 
 ### `POST /totp/revoke`
 
-`password` 또는 현재 `code`로 확인한 후 TOTP 연결을 해제합니다.
+TOTP 연결을 해제합니다. 인증된 세션과 함께 `password` 또는 유효한 현재 TOTP `code`로 재인증해야 합니다. 재인증이 없거나 실패하면 `401 Unauthorized`를 반환합니다.
 
 ## 헬스 체크 엔드포인트
 

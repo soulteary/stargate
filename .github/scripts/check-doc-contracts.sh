@@ -159,24 +159,74 @@ contract_violation_count() {
       if (!defined($confirm_section) ||
           $confirm_section !~ /`enroll_id`/ ||
           $confirm_section !~ /`code`/ ||
-          $confirm_section !~ /application\/x-www-form-urlencoded/) {
-        warn "Incomplete TOTP confirmation form contract in $file\n";
+          $confirm_section !~ /application\/x-www-form-urlencoded/ ||
+          $confirm_section !~ /multipart\/form-data/ ||
+          $confirm_section !~ /`401 Unauthorized`/ ||
+          $confirm_section !~ /10/) {
+        warn "Incomplete TOTP confirmation form or authentication contract in $file\n";
         $count++;
       }
 
       my ($login_section) = $text =~ /^### `POST \/_login`\s*\n(.*?)(?=^### |\z)/ms;
+      my %login_fields;
+      if (defined($login_section)) {
+        while ($login_section =~ /^\|\s*`([^`]+)`\s*\|/mg) {
+          $login_fields{$1}++;
+        }
+      }
+      my $missing_login_field = grep {
+        ($login_fields{$_} // 0) < 1
+      } qw(password phone mail challenge_id verify_code);
       if (!defined($login_section) ||
-          $login_section !~ /challenge_id=ch_xxx&verify_code=123456/) {
-        warn "Missing executable Warden verification login example in $file\n";
+          ($login_fields{auth_method} // 0) < 2 ||
+          ($login_fields{callback} // 0) < 2 ||
+          $missing_login_field ||
+          $login_section !~ /`phone` \+ `mail`/ ||
+          $login_section !~ /auth_method=password&password=yourpassword/ ||
+          $login_section !~ /auth_method=warden&mail=user\@example\.com&challenge_id=ch_xxx&verify_code=123456&callback=app\.example\.com/ ||
+          $login_section !~ /`400 Bad Request`/ ||
+          $login_section !~ /`401 Unauthorized`/ ||
+          $login_section !~ /`500 Internal Server Error`/) {
+        warn "Incomplete password/Warden login contract in $file\n";
         $count++;
       }
 
       my ($send_section) = $text =~ /^### `POST \/_send_verify_code`\s*\n(.*?)(?=^### |\z)/ms;
       if (!defined($send_section) ||
           $send_section !~ /`deliver_via`/ ||
+          $send_section !~ /`deliver_via=dingtalk`/ ||
+          $send_section !~ /`phone` \+ `mail`/ ||
+          $send_section !~ /application\/x-www-form-urlencoded/ ||
+          $send_section !~ /multipart\/form-data/ ||
+          $send_section =~ /application\/json/ ||
           $send_section !~ /`401 Unauthorized`/ ||
           $send_section !~ /`503 Service Unavailable`/) {
         warn "Incomplete verification-send form or status contract in $file\n";
+        $count++;
+      }
+
+      my ($enroll_page_section) = $text =~ /^### `GET \/totp\/enroll`\s*\n(.*?)(?=^### |\z)/ms;
+      my ($enroll_start_section) = $text =~ /^### `POST \/totp\/enroll`\s*\n(.*?)(?=^### |\z)/ms;
+      my ($revoke_page_section) = $text =~ /^### `GET \/totp\/revoke`\s*\n(.*?)(?=^### |\z)/ms;
+      my ($revoke_confirm_section) = $text =~ /^### `POST \/totp\/revoke`\s*\n(.*?)(?=^### |\z)/ms;
+      if (!defined($enroll_page_section) ||
+          $enroll_page_section !~ /10/ ||
+          $enroll_page_section !~ /`\/_login`/ ||
+          $enroll_page_section !~ /`302 Found`/ ||
+          $enroll_page_section !~ /`401 Unauthorized`/ ||
+          !defined($enroll_start_section) ||
+          $enroll_start_section !~ /10/ ||
+          $enroll_start_section !~ /`\/_login`/ ||
+          $enroll_start_section !~ /`302 Found`/ ||
+          $enroll_start_section !~ /`401 Unauthorized`/ ||
+          !defined($revoke_page_section) ||
+          $revoke_page_section !~ /`\/_login`/ ||
+          $revoke_page_section !~ /`302 Found`/ ||
+          !defined($revoke_confirm_section) ||
+          $revoke_confirm_section !~ /`password`/ ||
+          $revoke_confirm_section !~ /`code`/ ||
+          $revoke_confirm_section !~ /`401 Unauthorized`/) {
+        warn "Incomplete TOTP session or reauthentication contract in $file\n";
         $count++;
       }
     }

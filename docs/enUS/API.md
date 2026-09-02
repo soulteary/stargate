@@ -149,11 +149,13 @@ Form data (`application/x-www-form-urlencoded`):
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `auth_method` | String | Yes | Authentication method, value is `warden` |
-| `phone` | String | No | User phone number (one of `phone` or `mail`) |
-| `mail` | String | No | User email (one of `phone` or `mail`) |
+| `phone` | String | No | User phone number; at least one of `phone` or `mail` is required |
+| `mail` | String | No | User email; at least one of `mail` or `phone` is required |
 | `challenge_id` | String | Yes | challenge_id returned by Herald |
 | `verify_code` | String | Yes | Verification code entered by user |
 | `callback` | String | No | Callback URL after successful login |
+
+The handler also accepts `phone` + `mail` in the same Warden request.
 
 #### Callback Retrieval Priority
 
@@ -188,7 +190,8 @@ The response varies depending on whether there is a callback and the request typ
 
 | Status Code | Description | Response Body |
 |-------------|-------------|---------------|
-| `401 Unauthorized` | Incorrect password | Error message in JSON/XML/text format based on Accept header |
+| `400 Bad Request` | Invalid or missing Warden identifier, challenge ID, or verification code | Error message in JSON/XML/text format based on Accept header |
+| `401 Unauthorized` | Incorrect password, absent/inactive Warden user, or failed code verification | Error message in JSON/XML/text format based on Accept header |
 | `500 Internal Server Error` | Server error | Error message |
 
 #### Examples
@@ -236,13 +239,15 @@ Send verification code request. This endpoint is used in the Warden + Herald OTP
 
 #### Request Body
 
-Form data (`application/x-www-form-urlencoded`) only:
+Form data using either `application/x-www-form-urlencoded` or `multipart/form-data`. JSON request bodies are not supported.
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `phone` | String | No | User phone number (one of `phone` or `mail`) |
-| `mail` | String | No | User email (one of `phone` or `mail`) |
-| `deliver_via` | String | No | Preferred channel: `sms`, `email`, or `dingtalk`. If omitted, Stargate selects an enabled channel backed by the Warden record. |
+| `phone` | String | No | User phone number; at least one of `phone` or `mail` is required |
+| `mail` | String | No | User email; at least one of `mail` or `phone` is required |
+| `deliver_via` | String | No | Preferred channel: `sms`, `email`, or `dingtalk`. If omitted, Stargate tries an enabled SMS destination first, then email. DingTalk is never selected implicitly; callers must send `deliver_via=dingtalk`. |
+
+The handler also accepts `phone` + `mail` in the same verification-code request.
 
 #### Processing Flow
 
@@ -252,9 +257,9 @@ Form data (`application/x-www-form-urlencoded`) only:
    - Get user's email and phone
 
 2. **Stargate → Herald**: Create challenge and send verification code
-   - Use email/phone returned by Warden as destination
+   - Use the email, phone, or DingTalk identifier returned by Warden as the destination
    - Call Herald API to create challenge
-   - Herald sends verification code (SMS or Email)
+   - Herald sends the verification code through the selected SMS, email, or DingTalk channel
 
 3. **Return Result**: Return challenge_id and related information
 
@@ -398,29 +403,29 @@ When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`),
 
 ### `GET /totp/enroll`
 
-Displays a confirmation page without creating enrollment state. It requires a recently authenticated session; unauthenticated users are redirected to `/_login`, while an older session receives `401 Unauthorized`.
+Displays a confirmation page without creating enrollment state. It requires a session created by a successful login within the last 10 minutes; unauthenticated users are redirected with `302 Found` to `/_login`, while an older session receives `401 Unauthorized`.
 
 ### `POST /totp/enroll`
 
 Starts enrollment and displays the TOTP bind page. POST prevents cross-site navigation from creating enrollment state.
 
-- **Authentication**: A session created by a successful login within the last 10 minutes. Unauthenticated users are redirected to `/_login`; older sessions receive `401 Unauthorized`.
-- **Response**: 200 OK with enrollment page HTML; or 302 to `/_login` if not authenticated; or 400/503 on configuration or Herald errors.
+- **Authentication**: A session created by a successful login within the last 10 minutes. Unauthenticated users are redirected with `302 Found` to `/_login`; older sessions receive `401 Unauthorized`.
+- **Response**: 200 OK with enrollment page HTML; `302 Found` to `/_login` if not authenticated; or 400/503 on configuration or Herald errors.
 
 ### `POST /totp/enroll/confirm`
 
 Confirms TOTP binding with the code from the authenticator app.
 
 - **Authentication**: A session created by a successful login within the last 10 minutes.
-- **Request Body**: Form data (`application/x-www-form-urlencoded`) containing the `enroll_id` returned by the enrollment page and the 6-digit TOTP `code`.
-- **Response**: JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400`, and missing recent authentication returns `401`.
+- **Request Body**: Form data using either `application/x-www-form-urlencoded` or `multipart/form-data`, containing the `enroll_id` returned by the enrollment page and the 6-digit TOTP `code`. JSON request bodies are not supported.
+- **Response**: JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400 Bad Request`, and missing recent authentication returns `401 Unauthorized`.
 
 ### `GET /totp/revoke`
 
 Displays the TOTP unbind confirmation page.
 
-- **Authentication**: Required (session cookie). Unauthenticated users are redirected to `/_login`.
-- **Response**: 200 OK with revoke confirmation page; or 302 to `/_login` if not authenticated.
+- **Authentication**: Required (session cookie). Unauthenticated users are redirected with `302 Found` to `/_login`.
+- **Response**: 200 OK with revoke confirmation page; or `302 Found` to `/_login` if not authenticated.
 
 ### `POST /totp/revoke`
 
@@ -428,7 +433,7 @@ Confirms TOTP unbind (removes TOTP from the account).
 
 - **Authentication**: Required (session cookie).
 - **Request Body**: `password` or a valid current TOTP `code` is required to prove recent authentication.
-- **Response**: JSON. Success returns `{"ok":true,"subject":"..."}`; failed reauthentication returns `401`, and an upstream revoke failure returns `502`.
+- **Response**: JSON. Success returns `{"ok":true,"subject":"..."}`; failed reauthentication returns `401 Unauthorized`, and an upstream revoke failure returns `502 Bad Gateway`.
 
 **Notes:** TOTP creation and verification are performed by Herald (which may proxy to herald-totp). Stargate only orchestrates the UI and session; it does not implement OTP algorithms.
 
