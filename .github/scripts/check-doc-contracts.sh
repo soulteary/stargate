@@ -1120,6 +1120,9 @@ contract_violation_count() {
       } elsif ($wrapper eq "stdbuf") {
         return 1 if $option =~ /^--(?:input|output|error)$/;
         return 1 if $option =~ /^-[ioe]$/;
+      } elsif ($wrapper eq "time") {
+        return 1 if $option =~ /^--(?:format|output)$/;
+        return 1 if $option =~ /^-[^-]*[fo]$/;
       }
       return 0;
     }
