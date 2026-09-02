@@ -111,6 +111,29 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Assignment words may prefix an unfenced command. They do not prevent the
+# following htpasswd word from being the command which receives -bn.
+printf '%s\n' \
+  '' \
+  'LC_ALL=C htpasswd -bn "" password' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe assignment-prefixed standalone command failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Assignment data may mention htpasswd without executing it.
+printf '%s\n' \
+  '' \
+  'MESSAGE="do not use htpasswd -b" printf "%s\\n" "$MESSAGE"' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected assignment data mentioning htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # File-descriptor and combined-output redirections stay inside the command;
 # neither form may hide a batch-password option which follows it.
 printf '%s\n' \
@@ -357,6 +380,33 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected an unsafe htpasswd command after an arithmetic shift failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Arithmetic expansion is one outer argv word. Parentheses inside it must not
+# split later htpasswd options away from the original command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'htpasswd -C $((5 + 5)) -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe option after arithmetic expansion failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Arithmetic source is data, while command substitutions nested in it execute.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo $(( $(htpasswd -bn "" password) + 1 ))' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe substitution inside arithmetic expansion failure" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
