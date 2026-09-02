@@ -111,6 +111,38 @@ if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" 
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Double quotes apply shell line continuation, so a split quoted option still
+# reaches htpasswd as -bn and must be rejected.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'htpasswd -C 10 "-\' \
+  'bn" "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a double-quoted option joined across a continued newline failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Single and ANSI-C quotes preserve a literal backslash-newline pair. These
+# physical fragments therefore do not form the option word -bn.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "htpasswd '-\\" \
+  "bn' \"\" password" \
+  "htpasswd \$'-\\" \
+  "bn' \"\" password" \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected literal quoted backslash-newline options to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # Quoting an option does not change the argv value received by htpasswd.
 printf '\n```bash\nhtpasswd -C 10 "-bn" "" password\n```\n' >> "$temp_dir/docs/enUS/CONFIG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then

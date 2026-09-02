@@ -1019,10 +1019,21 @@ contract_violation_count() {
       my $array_depth = 0;
       my $offset = 0;
 
-      # A backslash-newline is part of the same logical shell command.
-      $text =~ s/\\\r?\n//g;
       while ($offset < length($text)) {
         my $char = substr($text, $offset, 1);
+        # Bash removes an unescaped backslash-newline pair before building
+        # words, without adding whitespace. Single and ANSI-C quotes keep the
+        # pair literal; this scanner represents both with the single-quote
+        # state. Locale-translated double quotes follow double-quote behavior.
+        if ($char eq "\\" && !$escaped && $quote ne "\x27") {
+          my $newline_length =
+            substr($text, $offset + 1, 1) eq "\n" ? 1 :
+            substr($text, $offset + 1, 2) eq "\r\n" ? 2 : 0;
+          if ($newline_length) {
+            $offset += $newline_length + 1;
+            next;
+          }
+        }
         if ($comment) {
           if ($char eq "\n" || $char eq "\r") {
             flush_shell_segment(\@segments, \$segment);
