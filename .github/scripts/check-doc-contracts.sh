@@ -119,6 +119,52 @@ check_markdown_structure() {
       }x;
     }
 
+    sub reference_destination_details {
+      my ($content) = @_;
+      return unless $content =~ m{^ {0,3}
+        (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)
+        (?:([ \t]+(?:"[^"]*"|\x27[^\x27]*\x27|\([^()]*\))))?
+        [ \t]*$
+      }x;
+      return (1, defined($1));
+    }
+
+    sub reference_title_line {
+      my ($content) = @_;
+      return $content =~ m{^ {0,3}
+        (?:"[^"]*"|\x27[^\x27]*\x27|\([^()]*\))
+        [ \t]*$
+      }x;
+    }
+
+    sub multiline_reference_lines {
+      my ($content, $containers, $line_index, $lines) = @_;
+      return 0 unless $content =~ m{^ {0,3}
+        \[(?:\\.|[^\]\\])+\]:[ \t]*$
+      }x;
+      return 0 if $line_index + 1 >= @$lines;
+
+      my $destination_line = $lines->[$line_index + 1];
+      $destination_line =~ s/\r$//;
+      $destination_line = expand_tabs($destination_line);
+      my ($offset, $matched) =
+        continue_containers($destination_line, $containers);
+      return 0 if $matched < @$containers;
+      my @destination =
+        reference_destination_details(substr($destination_line, $offset));
+      return 0 unless @destination;
+
+      my (undef, $has_title) = @destination;
+      return 1 if $has_title || $line_index + 2 >= @$lines;
+
+      my $title_line = $lines->[$line_index + 2];
+      $title_line =~ s/\r$//;
+      $title_line = expand_tabs($title_line);
+      ($offset, $matched) = continue_containers($title_line, $containers);
+      return 1 if $matched < @$containers;
+      return reference_title_line(substr($title_line, $offset)) ? 2 : 1;
+    }
+
     sub interrupts_paragraph {
       my ($remaining) = @_;
       return 1 if $remaining =~ /^ *$/;
@@ -243,10 +289,19 @@ check_markdown_structure() {
         my $paragraph_active = 0;
         my $paragraph_depth = 0;
         my $line_number = 0;
-        LINE: for my $line (split /\n/, $text, -1) {
-          $line_number++;
+        my $reference_lines_to_skip = 0;
+        my @lines = split /\n/, $text, -1;
+        LINE: for (my $line_index = 0;
+                   $line_index < @lines;
+                   $line_index++) {
+          my $line = $lines[$line_index];
+          $line_number = $line_index + 1;
           $line =~ s/\r$//;
           $line = expand_tabs($line);
+          if ($reference_lines_to_skip > 0) {
+            $reference_lines_to_skip--;
+            next LINE;
+          }
 
           # A container can end before its fenced block is explicitly closed.
           # Report that opening fence immediately, then parse the current line
@@ -348,6 +403,15 @@ check_markdown_structure() {
             if (!$paragraph_here && link_reference_definition($content)) {
               $paragraph_active = 0;
               next LINE;
+            }
+            if (!$paragraph_here) {
+              my $continuation_lines = multiline_reference_lines(
+                $content, \@containers, $line_index, \@lines);
+              if ($continuation_lines > 0) {
+                $reference_lines_to_skip = $continuation_lines;
+                $paragraph_active = 0;
+                next LINE;
+              }
             }
 
             my ($starts_html, $html_end, $until_blank, $html_interrupts) =
