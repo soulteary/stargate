@@ -95,7 +95,20 @@ contract_violation_count() {
 
     sub standalone_command_context {
       my ($line) = @_;
-      $line =~ s/^[ \t]*(?:[\$>%][ \t]+)?//;
+      $line =~ s/^[ \t]*//;
+      while (1) {
+        if ($line =~ s/^(?:[-+*]|\d{1,9}[.)])[ \t]+//) {
+          $line =~ s/^\[[ xX]\][ \t]+//;
+          $line =~ s/^[ \t]*//;
+          next;
+        }
+        if ($line =~ s/^>[ \t]?//) {
+          $line =~ s/^[ \t]*//;
+          next;
+        }
+        last;
+      }
+      $line =~ s/^[\$%][ \t]+//;
       return unless $line =~ /\bhtpasswd\b/;
 
       # A direct invocation remains deliberately strict so a prose sentence
@@ -1072,6 +1085,10 @@ contract_violation_count() {
               $index++;
               last;
             }
+            if ($wrapper eq "env" && $option eq "-") {
+              $index++;
+              next;
+            }
             last unless $option =~ /^-/ && $option ne "-";
             my $needs_operand =
               wrapper_option_needs_operand($wrapper, $option);
@@ -1180,6 +1197,10 @@ contract_violation_count() {
             $index++;
             last;
           }
+          if ($wrapper eq "env" && $option eq "-") {
+            $index++;
+            next;
+          }
           last unless $option =~ /^-/ && $option ne "-";
           my $needs_operand = wrapper_option_needs_operand($wrapper, $option);
           $index++;
@@ -1198,6 +1219,7 @@ contract_violation_count() {
       for (my $index = $env_index + 1; $index < @arguments; $index++) {
         my $option = $arguments[$index];
         last if $option eq "--";
+        next if $option eq "-";
         return $arguments[$index + 1] // "" if
           $option eq "-S" || $option eq "--split-string" ||
           $option =~ /^-[^-]*S$/;
