@@ -46,6 +46,12 @@ func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (b
 		return false, errors.New("session has no refresh identity")
 	}
 	user := lookupRefreshUser(ctx, phone, mail)
+	if user == nil && ctx.Err() != nil {
+		// A canceled or expired request does not prove that the Warden user was
+		// removed or disabled. Fail the current refresh closed, but preserve the
+		// authenticated session so a transient timeout does not log the user out.
+		return false, ctx.Err()
+	}
 	if user == nil || (user.Status != "" && !strings.EqualFold(user.Status, "active")) {
 		_ = auth.Unauthenticate(sess)
 		return false, errors.New("user is no longer active")
