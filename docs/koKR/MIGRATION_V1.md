@@ -18,14 +18,30 @@ set -eu
 old_env=./stargate.env
 rollback_env=./stargate-v0.12.0.env
 v1_env=./stargate-v1.env
+old_container=${STARGATE_OLD_CONTAINER:-stargate}
 
-test -f "$old_env"
 test ! -e "$rollback_env"
 test ! -e "$v1_env"
-chmod 600 "$old_env"
 umask 077
+
+# 파일이 없으면 기존 Container 환경을 보호된 상태로 내보냅니다.
+if [ ! -e "$old_env" ]; then
+  export_tmp=$(mktemp "${old_env}.tmp.XXXXXX")
+  trap 'rm -f "$export_tmp"' 0 1 2 15
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$old_container" > "$export_tmp"
+  ln "$export_tmp" "$old_env"
+  rm -f "$export_tmp"
+  trap - 0 1 2 15
+fi
+
+test -f "$old_env"
+chmod 600 "$old_env"
 (set -C; cat "$old_env" > "$rollback_env")
-(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/' "$old_env" > "$v1_env")
+(set -C; awk '
+  /^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/ { next }
+  /^[[:space:]]*PORT[[:space:]]*(=|$)/ { print "PORT=8080"; next }
+  { print }
+' "$old_env" > "$v1_env")
 ```
 
 Herald 기반 TOTP에서는 Stargate가 Warden을 통해 인증된 사용자를 확인해야 하므로 `WARDEN_ENABLED=true`와 `WARDEN_URL`도 설정하십시오.

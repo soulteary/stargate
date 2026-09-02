@@ -133,11 +133,18 @@ printf '%s\n' \
   'WARDEN_OTP_SECRET_KEY' \
   'WARDEN_OTP_ENABLED=false' \
   'WARDEN_OTP_SECRET_KEY=retired-secret' \
+  'PORT=80' \
   > "$env_test_dir/stargate.env"
 chmod 644 "$env_test_dir/stargate.env"
 (cd "$env_test_dir" && sh -c "$migration_script")
 cmp "$env_test_dir/stargate.env" "$env_test_dir/stargate-v0.12.0.env"
 grep -q '^KEEP_SETTING=kept$' "$env_test_dir/stargate-v1.env"
+grep -q '^PORT=80$' "$env_test_dir/stargate-v0.12.0.env"
+grep -q '^PORT=8080$' "$env_test_dir/stargate-v1.env"
+if grep -q '^PORT=80$' "$env_test_dir/stargate-v1.env"; then
+  echo "Documented v1 environment retained the legacy container port" >&2
+  exit 1
+fi
 if grep -q '^WARDEN_OTP_\(ENABLED\|SECRET_KEY\)\($\|=\)' "$env_test_dir/stargate-v1.env"; then
   echo "Documented v1 environment retained a retired Warden OTP setting" >&2
   exit 1
@@ -156,6 +163,30 @@ if (cd "$env_test_dir" && sh -c "$migration_script" >/dev/null 2>&1); then
 fi
 [[ "$rollback_checksum" == "$(cksum "$env_test_dir/stargate-v0.12.0.env")" ]]
 [[ "$v1_checksum" == "$(cksum "$env_test_dir/stargate-v1.env")" ]]
+
+# A deployment without an existing env file must be recoverable from the old
+# container without exposing secrets or leaving a partial output on failure.
+export_test_dir="$temp_dir/env-export-test"
+mkdir -p "$export_test_dir/bin"
+printf '%s\n' \
+  '#!/bin/sh' \
+  'printf "%s\\n" KEEP_SETTING=from-container WARDEN_OTP_ENABLED=true PORT=80' \
+  > "$export_test_dir/bin/docker"
+chmod +x "$export_test_dir/bin/docker"
+(cd "$export_test_dir" && PATH="$export_test_dir/bin:$PATH" sh -c "$migration_script")
+cmp "$export_test_dir/stargate.env" "$export_test_dir/stargate-v0.12.0.env"
+grep -q '^KEEP_SETTING=from-container$' "$export_test_dir/stargate-v1.env"
+grep -q '^PORT=8080$' "$export_test_dir/stargate-v1.env"
+if grep -q '^WARDEN_OTP_ENABLED\($\|=\)' "$export_test_dir/stargate-v1.env"; then
+  echo "Exported v1 environment retained a retired Warden OTP setting" >&2
+  exit 1
+fi
+for file in stargate.env stargate-v0.12.0.env stargate-v1.env; do
+  if [[ "$(stat -c '%a' "$export_test_dir/$file")" != "600" ]]; then
+    echo "Exported environment migration left $file with non-private permissions" >&2
+    exit 1
+  fi
+done
 
 perl -0pi -e 's/^- `Stargate-Password` request-header authentication .*\n//m' "$temp_dir/CHANGELOG.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then

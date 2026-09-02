@@ -279,9 +279,15 @@ contract_violation_count() {
         "HERALD_URL",
         "HERALD_TOTP_ENCRYPTION_KEY",
         "--env-file ./stargate-v1.env",
+        q{old_container=${STARGATE_OLD_CONTAINER:-stargate}},
+        q{mktemp "${old_env}.tmp.XXXXXX"},
+        qq{docker inspect --format \x27{{range .Config.Env}}{{println .}}{{end}}\x27 "\$old_container"},
+        q{ln "$export_tmp" "$old_env"},
         q{chmod 600 "$old_env"},
         q{set -C; cat "$old_env" > "$rollback_env"},
-        qq{awk \x27!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|\$)/\x27 "\$old_env" > "\$v1_env"},
+        q{WARDEN_OTP_(ENABLED|SECRET_KEY)},
+        q{PORT[[:space:]]*(=|$)},
+        q{print "PORT=8080"},
       ) {
         next if index($text, $term) >= 0;
         warn "Missing safe v1 environment migration contract $term in $file\n";
@@ -307,9 +313,15 @@ contract_violation_count() {
         "HERALD_URL",
         "HERALD_TOTP_ENCRYPTION_KEY",
         "--env-file ./stargate-v1.env",
+        q{old_container=${STARGATE_OLD_CONTAINER:-stargate}},
+        q{mktemp "${old_env}.tmp.XXXXXX"},
+        qq{docker inspect --format \x27{{range .Config.Env}}{{println .}}{{end}}\x27 "\$old_container"},
+        q{ln "$export_tmp" "$old_env"},
         q{chmod 600 "$old_env"},
         q{set -C; cat "$old_env" > "$rollback_env"},
-        qq{awk \x27!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|\$)/\x27 "\$old_env" > "\$v1_env"},
+        q{WARDEN_OTP_(ENABLED|SECRET_KEY)},
+        q{PORT[[:space:]]*(=|$)},
+        q{print "PORT=8080"},
       ) {
         next if index($text, $term) >= 0;
         warn "Missing v1 migration environment contract $term in $file\n";

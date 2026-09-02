@@ -674,14 +674,30 @@ set -eu
 old_env=./stargate.env
 rollback_env=./stargate-v0.12.0.env
 v1_env=./stargate-v1.env
+old_container=${STARGATE_OLD_CONTAINER:-stargate}
 
-test -f "$old_env"
 test ! -e "$rollback_env"
 test ! -e "$v1_env"
-chmod 600 "$old_env"
 umask 077
+
+# Falls die Datei fehlt, die Umgebung des vorhandenen Containers geschützt exportieren.
+if [ ! -e "$old_env" ]; then
+  export_tmp=$(mktemp "${old_env}.tmp.XXXXXX")
+  trap 'rm -f "$export_tmp"' 0 1 2 15
+  docker inspect --format '{{range .Config.Env}}{{println .}}{{end}}' "$old_container" > "$export_tmp"
+  ln "$export_tmp" "$old_env"
+  rm -f "$export_tmp"
+  trap - 0 1 2 15
+fi
+
+test -f "$old_env"
+chmod 600 "$old_env"
 (set -C; cat "$old_env" > "$rollback_env")
-(set -C; awk '!/^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/' "$old_env" > "$v1_env")
+(set -C; awk '
+  /^[[:space:]]*WARDEN_OTP_(ENABLED|SECRET_KEY)[[:space:]]*(=|$)/ { next }
+  /^[[:space:]]*PORT[[:space:]]*(=|$)/ { print "PORT=8080"; next }
+  { print }
+' "$old_env" > "$v1_env")
 ```
 
 Herald-basiertes TOTP erfordert, dass Stargate authentifizierte Benutzer über Warden auflöst. Daher auch `WARDEN_ENABLED=true` und `WARDEN_URL` setzen.
