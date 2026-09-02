@@ -176,18 +176,22 @@ contract_violation_count() {
       }
       my $missing_login_field = grep {
         ($login_fields{$_} // 0) < 1
-      } qw(password phone mail challenge_id verify_code);
+      } qw(password phone mail challenge_id verify_code use_otp otp_code);
       if (!defined($login_section) ||
           ($login_fields{auth_method} // 0) < 2 ||
           ($login_fields{callback} // 0) < 2 ||
           $missing_login_field ||
           $login_section !~ /`phone` \+ `mail`/ ||
+          $login_section !~ /`HERALD_TOTP_ENABLED=true`/ ||
           $login_section !~ /auth_method=password&password=yourpassword/ ||
           $login_section !~ /auth_method=warden&mail=user\@example\.com&challenge_id=ch_xxx&verify_code=123456&callback=app\.example\.com/ ||
+          $login_section !~ /auth_method=warden&mail=user\@example\.com&use_otp=true&otp_code=123456&callback=app\.example\.com/ ||
           $login_section !~ /`400 Bad Request`/ ||
           $login_section !~ /`401 Unauthorized`/ ||
+          $login_section !~ /`502 Bad Gateway`/ ||
+          $login_section !~ /`503 Service Unavailable`/ ||
           $login_section !~ /`500 Internal Server Error`/) {
-        warn "Incomplete password/Warden login contract in $file\n";
+        warn "Incomplete password/Warden challenge/TOTP login contract in $file\n";
         $count++;
       }
 
@@ -198,7 +202,6 @@ contract_violation_count() {
           $send_section !~ /`phone` \+ `mail`/ ||
           $send_section !~ /application\/x-www-form-urlencoded/ ||
           $send_section !~ /multipart\/form-data/ ||
-          $send_section =~ /application\/json/ ||
           $send_section !~ /`401 Unauthorized`/ ||
           $send_section !~ /`503 Service Unavailable`/) {
         warn "Incomplete verification-send form or status contract in $file\n";

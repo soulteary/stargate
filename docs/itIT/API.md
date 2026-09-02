@@ -126,7 +126,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 Elabora le richieste di login e supporta due modalità di autenticazione:
 
 1. **Autenticazione con password**: verifica la password e crea una sessione
-2. **Autenticazione OTP Warden + Herald**: verifica il codice e crea una sessione
+2. **Autenticazione Warden**: verifica un codice challenge Herald oppure un codice TOTP già configurato e crea una sessione
 
 #### Corpo Richiesta
 
@@ -140,18 +140,21 @@ Dati form (`application/x-www-form-urlencoded`):
 | `password` | String | Sì | Password utente |
 | `callback` | String | No | URL callback dopo login riuscito |
 
-**Autenticazione OTP Warden + Herald:**
+**Autenticazione Warden:**
 
 | Campo | Tipo | Richiesto | Descrizione |
 |-------|------|-----------|-------------|
 | `auth_method` | String | Sì | Metodo di autenticazione; valore `warden` |
 | `phone` | String | No | Numero di telefono; è richiesto almeno uno tra `phone` e `mail` |
 | `mail` | String | No | Indirizzo email; è richiesto almeno uno tra `mail` e `phone` |
-| `challenge_id` | String | Sì | ID del challenge restituito da `POST /_send_verify_code` |
-| `verify_code` | String | Sì | Codice di verifica inserito dall'utente |
+| `challenge_id` | String | Condizionale | Richiesto con `verify_code`; facoltativo quando `use_otp=true` |
+| `verify_code` | String | Condizionale | Richiesto per il challenge Herald quando `use_otp` è assente o `false` |
+| `use_otp` | Boolean | No | Impostare a `true` per usare un autenticatore TOTP configurato invece di un challenge Herald |
+| `otp_code` | String | Condizionale | Richiesto quando `use_otp=true` |
 | `callback` | String | No | URL callback dopo login riuscito |
 
 Il gestore accetta anche `phone` + `mail` nella stessa richiesta Warden.
+La variante TOTP richiede `HERALD_TOTP_ENABLED=true` e un utente già registrato. In caso contrario, usare la variante `challenge_id` + `verify_code`.
 
 #### Priorità Recupero Callback
 
@@ -186,8 +189,10 @@ La risposta varia a seconda che ci sia un callback e il tipo di richiesta:
 
 | Codice di Stato | Descrizione | Corpo Risposta |
 |----------------|-------------|----------------|
-| `400 Bad Request` | Campi Warden, ID del challenge o codice di verifica mancanti o non validi | Messaggio di errore in formato JSON/XML/testo secondo header Accept |
-| `401 Unauthorized` | Password errata, utente Warden assente/inattivo o verifica del codice fallita | Messaggio di errore in formato JSON/XML/testo secondo header Accept |
+| `400 Bad Request` | Identificatore Warden o campi del metodo scelto mancanti/non validi, oppure TOTP non registrato | Messaggio di errore in formato JSON/XML/testo secondo header Accept |
+| `401 Unauthorized` | Password errata, utente Warden assente/inattivo o verifica challenge/TOTP fallita | Messaggio di errore in formato JSON/XML/testo secondo header Accept |
+| `502 Bad Gateway` | Lettura dello stato TOTP da Herald non riuscita | Messaggio di errore |
+| `503 Service Unavailable` | Servizio di verifica Herald non disponibile | Messaggio di errore |
 | `500 Internal Server Error` | Errore server | Messaggio di errore |
 
 #### Esempi
@@ -209,6 +214,12 @@ curl -X POST \
 # Warden + Herald: login con il challenge restituito da /_send_verify_code
 curl -X POST \
      -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+
+# Warden + TOTP: login con un autenticatore già configurato
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&use_otp=true&otp_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```

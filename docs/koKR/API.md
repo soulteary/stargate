@@ -126,7 +126,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 로그인 요청을 처리하며 다음 두 가지 인증 모드를 지원합니다:
 
 1. **비밀번호 인증**: 비밀번호를 검증하고 세션 생성
-2. **Warden + Herald OTP 인증**: 인증 코드를 검증하고 세션 생성
+2. **Warden 인증**: Herald challenge 코드 또는 등록된 TOTP 코드를 검증하고 세션 생성
 
 #### 요청 본문
 
@@ -140,18 +140,21 @@ curl http://auth.example.com/_login?callback=app.example.com
 | `password` | String | 예 | 사용자 비밀번호 |
 | `callback` | String | 아니오 | 로그인 성공 후 콜백 URL |
 
-**Warden + Herald OTP 인증:**
+**Warden 인증:**
 
 | 필드 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | `auth_method` | String | 예 | 인증 방식이며 값은 `warden` |
 | `phone` | String | 아니오 | 사용자 전화번호. `phone` 또는 `mail` 중 하나 이상 필요 |
 | `mail` | String | 아니오 | 사용자 이메일. `mail` 또는 `phone` 중 하나 이상 필요 |
-| `challenge_id` | String | 예 | `POST /_send_verify_code`가 반환한 challenge ID |
-| `verify_code` | String | 예 | 사용자가 입력한 인증 코드 |
+| `challenge_id` | String | 조건부 | `verify_code`와 함께 사용할 때 필수이며 `use_otp=true`일 때 선택 사항 |
+| `verify_code` | String | 조건부 | `use_otp`가 없거나 `false`일 때 Herald challenge 검증에 필수 |
+| `use_otp` | Boolean | 아니오 | Herald challenge 대신 등록된 TOTP 인증기를 사용하려면 `true`로 설정 |
+| `otp_code` | String | 조건부 | `use_otp=true`일 때 필수 |
 | `callback` | String | 아니오 | 로그인 성공 후 콜백 URL |
 
 핸들러는 같은 Warden 요청에 `phone` + `mail`을 함께 보내는 것도 허용합니다.
+TOTP 방식에는 `HERALD_TOTP_ENABLED=true`와 이미 등록된 사용자가 필요합니다. 그렇지 않으면 `challenge_id` + `verify_code` 방식을 사용합니다.
 
 #### 콜백 가져오기 우선순위
 
@@ -186,8 +189,10 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 | 상태 코드 | 설명 | 응답 본문 |
 |-----------|------|-----------|
-| `400 Bad Request` | Warden 필드, challenge ID 또는 인증 코드가 잘못되었거나 누락됨 | Accept 헤더에 따라 JSON/XML/텍스트 형식의 오류 메시지 |
-| `401 Unauthorized` | 잘못된 비밀번호, Warden 사용자 없음/비활성 또는 코드 검증 실패 | Accept 헤더에 따라 JSON/XML/텍스트 형식의 오류 메시지 |
+| `400 Bad Request` | Warden 식별자 또는 선택한 검증 방식의 필드가 잘못되었거나 누락됨, 또는 TOTP 미등록 | Accept 헤더에 따라 JSON/XML/텍스트 형식의 오류 메시지 |
+| `401 Unauthorized` | 잘못된 비밀번호, Warden 사용자 없음/비활성 또는 challenge/TOTP 검증 실패 | Accept 헤더에 따라 JSON/XML/텍스트 형식의 오류 메시지 |
+| `502 Bad Gateway` | Herald TOTP 상태 조회 실패 | 오류 메시지 |
+| `503 Service Unavailable` | Herald 검증 서비스를 사용할 수 없음 | 오류 메시지 |
 | `500 Internal Server Error` | 서버 오류 | 오류 메시지 |
 
 #### 예제
@@ -209,6 +214,12 @@ curl -X POST \
 # Warden + Herald: /_send_verify_code가 반환한 challenge로 로그인
 curl -X POST \
      -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+
+# Warden + TOTP: 등록된 인증기로 로그인
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&use_otp=true&otp_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```

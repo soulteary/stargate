@@ -96,6 +96,21 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/itIT/API.md
 
+# The Warden TOTP variant needs its own conditional fields and executable example.
+perl -0pi -e 's/^\| `otp_code` .*\n//m' "$temp_dir/docs/frFR/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized Warden TOTP field contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/frFR/API.md
+
+perl -0pi -e 's/(auth_method=warden&mail=user\@example\.com&)use_otp=true&otp_code=123456/$1use_otp=false&missing_otp_code=123456/' "$temp_dir/docs/jaJP/API.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected a localized Warden TOTP example contract failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/jaJP/API.md
+
 # Both Warden identifiers may be supplied together; do not regress to exactly-one validation.
 perl -0pi -e 's/(^### `POST \/_login`.*?)(`phone` \+ `mail`)/$1`phone` only/ms' "$temp_dir/docs/deDE/API.md"
 if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
@@ -103,6 +118,15 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/deDE/API.md
+
+# Explicitly naming an unsupported JSON request media type or a JSON response must not fail the form contract.
+perl -0pi -e 's/JSON request bodies are not supported/`application\/json` request bodies are not supported/g' "$temp_dir/docs/enUS/API.md"
+perl -0pi -e 's/(^### `POST \/_send_verify_code`.*?\*\*Success Response \(200 OK\)\*\*)/$1\n\nResponse media type: `application\/json`./ms' "$temp_dir/docs/enUS/API.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected explicit unsupported application/json wording to remain valid" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/API.md
 
 # DingTalk delivery must remain explicitly opt-in.
 perl -0pi -e 's/(^### `POST \/_send_verify_code`.*?)(`deliver_via=dingtalk`)/$1`deliver_via=implicit`/ms' "$temp_dir/docs/jaJP/API.md"

@@ -130,7 +130,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 Handles login requests, supports two authentication modes:
 
 1. **Password Authentication Mode**: Verifies password and creates session
-2. **Warden + Herald OTP Authentication Mode**: Verifies code and creates session
+2. **Warden Authentication Mode**: Verifies either a Herald challenge code or an enrolled TOTP code and creates a session
 
 #### Request Body
 
@@ -144,18 +144,21 @@ Form data (`application/x-www-form-urlencoded`):
 | `password` | String | Yes | User password |
 | `callback` | String | No | Callback URL after successful login |
 
-**Warden + Herald OTP Authentication Mode:**
+**Warden Authentication Mode:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `auth_method` | String | Yes | Authentication method, value is `warden` |
 | `phone` | String | No | User phone number; at least one of `phone` or `mail` is required |
 | `mail` | String | No | User email; at least one of `mail` or `phone` is required |
-| `challenge_id` | String | Yes | challenge_id returned by Herald |
-| `verify_code` | String | Yes | Verification code entered by user |
+| `challenge_id` | String | Conditional | Required with `verify_code`; optional when `use_otp=true` |
+| `verify_code` | String | Conditional | Required for Herald challenge verification when `use_otp` is absent or `false` |
+| `use_otp` | Boolean | No | Set to `true` to use an enrolled TOTP authenticator instead of a Herald challenge code |
+| `otp_code` | String | Conditional | Required when `use_otp=true` |
 | `callback` | String | No | Callback URL after successful login |
 
 The handler also accepts `phone` + `mail` in the same Warden request.
+The TOTP variant requires `HERALD_TOTP_ENABLED=true` and an already enrolled user. Otherwise, use the `challenge_id` + `verify_code` variant.
 
 #### Callback Retrieval Priority
 
@@ -190,8 +193,10 @@ The response varies depending on whether there is a callback and the request typ
 
 | Status Code | Description | Response Body |
 |-------------|-------------|---------------|
-| `400 Bad Request` | Invalid or missing Warden identifier, challenge ID, or verification code | Error message in JSON/XML/text format based on Accept header |
-| `401 Unauthorized` | Incorrect password, absent/inactive Warden user, or failed code verification | Error message in JSON/XML/text format based on Accept header |
+| `400 Bad Request` | Invalid or missing Warden identifier or selected verification fields, or TOTP is not enrolled | Error message in JSON/XML/text format based on Accept header |
+| `401 Unauthorized` | Incorrect password, absent/inactive Warden user, or failed challenge/TOTP verification | Error message in JSON/XML/text format based on Accept header |
+| `502 Bad Gateway` | Herald TOTP status lookup failed | Error message |
+| `503 Service Unavailable` | Herald verification service is unavailable | Error message |
 | `500 Internal Server Error` | Server error | Error message |
 
 #### Examples
@@ -206,12 +211,22 @@ curl -X POST \
      http://auth.example.com/_login
 ```
 
-**Warden + Herald OTP Authentication:**
+**Warden + Herald Challenge Authentication:**
 
 ```bash
 # Submit login form (with verification code)
 curl -X POST \
      -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+```
+
+**Warden + TOTP Authenticator Authentication:**
+
+```bash
+# Submit login form with an enrolled authenticator code
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&use_otp=true&otp_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -224,6 +239,8 @@ curl -X POST \
 4. User enters verification code, calls `POST /_login` for verification
 5. Stargate calls Herald to verify the code
 6. After successful verification, Stargate creates session and returns
+
+With the TOTP variant, the client sets `use_otp=true` and supplies `otp_code`; no prior `POST /_send_verify_code` call is required.
 
 ## Send Verification Code Endpoint
 

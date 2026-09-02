@@ -126,7 +126,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 ログインリクエストを処理し、次の 2 つの認証モードをサポートします：
 
 1. **パスワード認証**：パスワードを検証してセッションを作成
-2. **Warden + Herald OTP 認証**：検証コードを確認してセッションを作成
+2. **Warden 認証**：Herald challenge コードまたは登録済み TOTP コードを検証してセッションを作成
 
 #### リクエスト本文
 
@@ -140,18 +140,21 @@ curl http://auth.example.com/_login?callback=app.example.com
 | `password` | String | はい | ユーザーパスワード |
 | `callback` | String | いいえ | ログイン成功後のコールバック URL |
 
-**Warden + Herald OTP 認証：**
+**Warden 認証：**
 
 | フィールド | 型 | 必須 | 説明 |
 |-----------|-----|------|------|
 | `auth_method` | String | はい | 認証方式。値は `warden` |
 | `phone` | String | いいえ | ユーザーの電話番号。`phone` または `mail` の少なくとも一方が必要 |
 | `mail` | String | いいえ | ユーザーのメールアドレス。`mail` または `phone` の少なくとも一方が必要 |
-| `challenge_id` | String | はい | `POST /_send_verify_code` が返したチャレンジ ID |
-| `verify_code` | String | はい | ユーザーが入力した検証コード |
+| `challenge_id` | String | 条件付き | `verify_code` とともに使用する場合は必須。`use_otp=true` の場合は任意 |
+| `verify_code` | String | 条件付き | `use_otp` が未指定または `false` の場合、Herald challenge の検証に必須 |
+| `use_otp` | Boolean | いいえ | Herald challenge の代わりに登録済み TOTP 認証器を使う場合は `true` |
+| `otp_code` | String | 条件付き | `use_otp=true` の場合は必須 |
 | `callback` | String | いいえ | ログイン成功後のコールバック URL |
 
 ハンドラーは同じ Warden リクエストで `phone` + `mail` を同時に送ることも許可します。
+TOTP 方式には `HERALD_TOTP_ENABLED=true` と登録済みユーザーが必要です。それ以外では `challenge_id` + `verify_code` 方式を使用します。
 
 #### コールバック取得の優先順位
 
@@ -186,8 +189,10 @@ curl http://auth.example.com/_login?callback=app.example.com
 
 | ステータスコード | 説明 | レスポンス本文 |
 |----------------|------|----------------|
-| `400 Bad Request` | Warden フィールド、チャレンジ ID、または検証コードが不正または不足 | Accept ヘッダーに応じて JSON/XML/テキスト形式のエラーメッセージ |
-| `401 Unauthorized` | パスワード誤り、Warden ユーザーの不在/無効、またはコード検証失敗 | Accept ヘッダーに応じて JSON/XML/テキスト形式のエラーメッセージ |
+| `400 Bad Request` | Warden 識別子または選択した検証方式のフィールドが不正/不足、あるいは TOTP 未登録 | Accept ヘッダーに応じて JSON/XML/テキスト形式のエラーメッセージ |
+| `401 Unauthorized` | パスワード誤り、Warden ユーザーの不在/無効、または challenge/TOTP 検証失敗 | Accept ヘッダーに応じて JSON/XML/テキスト形式のエラーメッセージ |
+| `502 Bad Gateway` | Herald の TOTP 状態取得に失敗 | エラーメッセージ |
+| `503 Service Unavailable` | Herald 検証サービスが利用不可 | エラーメッセージ |
 | `500 Internal Server Error` | サーバーエラー | エラーメッセージ |
 
 #### 例
@@ -209,6 +214,12 @@ curl -X POST \
 # Warden + Herald：/_send_verify_code が返した challenge でログイン
 curl -X POST \
      -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+
+# Warden + TOTP：登録済み認証器でログイン
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&use_otp=true&otp_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```

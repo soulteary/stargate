@@ -130,7 +130,7 @@ curl http://auth.example.com/_login?callback=app.example.com
 处理登录请求，支持两种认证模式：
 
 1. **密码认证模式**：验证密码并创建会话
-2. **Warden + Herald OTP 认证模式**：验证验证码并创建会话
+2. **Warden 认证模式**：验证 Herald challenge 验证码或已绑定的 TOTP 验证码并创建会话
 
 #### 请求体
 
@@ -144,18 +144,21 @@ curl http://auth.example.com/_login?callback=app.example.com
 | `password` | String | 是 | 用户密码 |
 | `callback` | String | 否 | 登录成功后的回调 URL |
 
-**Warden + Herald OTP 认证模式：**
+**Warden 认证模式：**
 
 | 字段 | 类型 | 必需 | 说明 |
 |------|------|------|------|
 | `auth_method` | String | 是 | 认证方式，值为 `warden` |
 | `phone` | String | 否 | 用户手机号；`phone` 与 `mail` 至少提供一项 |
 | `mail` | String | 否 | 用户邮箱；`mail` 与 `phone` 至少提供一项 |
-| `challenge_id` | String | 是 | Herald 返回的 challenge_id |
-| `verify_code` | String | 是 | 用户输入的验证码 |
+| `challenge_id` | String | 条件必需 | 使用 `verify_code` 时必需；`use_otp=true` 时可选 |
+| `verify_code` | String | 条件必需 | `use_otp` 未提供或为 `false` 时，用于 Herald challenge 验证且必须提供 |
+| `use_otp` | Boolean | 否 | 设为 `true` 时使用已绑定的 TOTP 认证器，而不是 Herald challenge 验证码 |
+| `otp_code` | String | 条件必需 | `use_otp=true` 时必须提供 |
 | `callback` | String | 否 | 登录成功后的回调 URL |
 
 Warden 请求也允许同时提交 `phone` + `mail`。
+TOTP 分支要求 `HERALD_TOTP_ENABLED=true` 且用户已经完成绑定；否则应使用 `challenge_id` + `verify_code` 分支。
 
 #### Callback 获取优先级
 
@@ -190,8 +193,10 @@ Warden 请求也允许同时提交 `phone` + `mail`。
 
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
-| `400 Bad Request` | Warden 标识、challenge ID 或验证码无效或缺失 | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
-| `401 Unauthorized` | 密码错误、Warden 用户不存在/未激活或验证码校验失败 | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
+| `400 Bad Request` | Warden 标识或所选验证分支字段无效/缺失，或者用户尚未绑定 TOTP | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
+| `401 Unauthorized` | 密码错误、Warden 用户不存在/未激活，或 challenge/TOTP 验证失败 | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
+| `502 Bad Gateway` | Herald TOTP 状态查询失败 | 错误消息 |
+| `503 Service Unavailable` | Herald 验证服务不可用 | 错误消息 |
 | `500 Internal Server Error` | 服务器错误 | 错误消息 |
 
 #### 示例
@@ -206,12 +211,22 @@ curl -X POST \
      http://auth.example.com/_login
 ```
 
-**Warden + Herald OTP 认证：**
+**Warden + Herald challenge 认证：**
 
 ```bash
 # 提交登录表单（使用验证码）
 curl -X POST \
      -d "auth_method=warden&mail=user@example.com&challenge_id=ch_xxx&verify_code=123456&callback=app.example.com" \
+     -c cookies.txt \
+     http://auth.example.com/_login
+```
+
+**Warden + TOTP 认证器认证：**
+
+```bash
+# 使用已绑定认证器生成的 TOTP 验证码登录
+curl -X POST \
+     -d "auth_method=warden&mail=user@example.com&use_otp=true&otp_code=123456&callback=app.example.com" \
      -c cookies.txt \
      http://auth.example.com/_login
 ```
@@ -224,6 +239,8 @@ curl -X POST \
 4. 用户输入验证码，调用 `POST /_login` 进行验证
 5. Stargate 调用 Herald 验证验证码
 6. 验证成功后，Stargate 创建 session 并返回
+
+TOTP 分支直接提交 `use_otp=true` 和 `otp_code`，不需要预先调用 `POST /_send_verify_code`。
 
 ## 发送验证码端点
 
