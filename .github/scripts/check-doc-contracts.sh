@@ -126,15 +126,62 @@ check_markdown_structure() {
       return $label =~ /[^ \t]/;
     }
 
+    sub reference_destination_prefix {
+      my ($content) = @_;
+      return unless length($content);
+
+      if (substr($content, 0, 1) eq "<") {
+        my $offset = 1;
+        while ($offset < length($content)) {
+          my $char = substr($content, $offset, 1);
+          if ($char eq "\\" && $offset + 1 < length($content) &&
+              substr($content, $offset + 1, 1) =~
+                /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/) {
+            $offset += 2;
+            next;
+          }
+          return (1, substr($content, $offset + 1)) if $char eq ">";
+          return if $char eq "<" || $char eq "\r" || $char eq "\n";
+          $offset++;
+        }
+        return;
+      }
+
+      my $offset = 0;
+      my $parentheses = 0;
+      while ($offset < length($content)) {
+        my $char = substr($content, $offset, 1);
+        last if $char eq " " || $char eq "\t";
+        return if ord($char) < 0x20 || ord($char) == 0x7f;
+        if ($char eq "\\" && $offset + 1 < length($content) &&
+            substr($content, $offset + 1, 1) =~
+              /[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/) {
+          $offset += 2;
+          next;
+        }
+        if ($char eq "(") {
+          $parentheses++;
+        } elsif ($char eq ")") {
+          return if $parentheses == 0;
+          $parentheses--;
+        }
+        $offset++;
+      }
+      return if $offset == 0 || $parentheses != 0;
+      return (1, substr($content, $offset));
+    }
+
     sub link_reference_definition {
       my ($content) = @_;
       return unless $content =~ m{^[ ]{0,3}
         \[((?:\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]|[^\[\]\\])+)
-        \]:[ \t]*
-        (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)(.*)$
+        \]:[ \t]*(.*)$
       }x;
-      my ($label, $remainder) = ($1, $2);
+      my ($label, $destination_text) = ($1, $2);
       return unless valid_reference_label($label);
+      my @destination = reference_destination_prefix($destination_text);
+      return unless @destination;
+      my (undef, $remainder) = @destination;
       return (1, 0) if $remainder =~ /^[ \t]*$/;
       return unless $remainder =~ s/^[ \t]+//;
       return unless reference_title($remainder);
@@ -143,10 +190,10 @@ check_markdown_structure() {
 
     sub reference_destination_details {
       my ($content) = @_;
-      return unless $content =~ m{^[ ]{0,3}
-        (?:<[^<>\r\n]*>|[^ \t<>\r\n]+)(.*)$
-      }x;
-      my $remainder = $1;
+      return unless $content =~ /^ {0,3}(.*)$/;
+      my @destination = reference_destination_prefix($1);
+      return unless @destination;
+      my (undef, $remainder) = @destination;
       return (1, 0) if $remainder =~ /^[ \t]*$/;
       return unless $remainder =~ s/^[ \t]+//;
       return unless reference_title($remainder);
