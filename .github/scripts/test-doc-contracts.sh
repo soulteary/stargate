@@ -213,6 +213,19 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# Modern command substitutions are executable even inside double quotes.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'echo "$(htpasswd -bn "" password)"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe modern htpasswd command substitution failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # A hash prompt in console-like fences represents an executed root command.
 printf '%s\n' \
   '' \
@@ -264,6 +277,27 @@ printf '%s\n' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
 if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
   echo "Expected non-command htpasswd wrapper, quoting, and comment forms to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+# Once a console transcript uses prompts, unprompted lines are output rather
+# than shell commands. Modern substitutions in a single-quoted string are
+# literal as well.
+printf '%s\n' \
+  '' \
+  '```console' \
+  '$ printf "%s\n" "htpasswd -C 10 -bn is unsafe"' \
+  'htpasswd -C 10 -bn is unsafe' \
+  '```' \
+  '```bash' \
+  "printf '%s\\n' '\$(htpasswd -bn \"\" password)'" \
+  '# `htpasswd -bn "" password` is not executed in a comment' \
+  '# $(htpasswd -bn "" password) is not executed in a comment' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected console output and literal command substitutions to pass" >&2
   exit 1
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
