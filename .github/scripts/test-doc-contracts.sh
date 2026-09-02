@@ -76,6 +76,32 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# File-descriptor and combined-output redirections stay inside the command;
+# neither form may hide a batch-password option which follows it.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'htpasswd -C 10 2>&1 -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd option after descriptor redirection failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  'htpasswd -C 10 &>/tmp/htpasswd.log -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd option after combined redirection failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # An option mentioned after a Markdown or shell command boundary does not
 # belong to the preceding safe htpasswd invocation and must not be a violation.
 printf '%s\n' \
@@ -85,6 +111,7 @@ printf '%s\n' \
   'htpasswd -nBC 10 stargate && printf "%s\\n" "-b"' \
   'htpasswd -nBC 10 stargate | sed -n "-b"' \
   'htpasswd -nBC 10 stargate; printf "%s\\n" "-b"' \
+  'htpasswd -nBC 10 stargate & printf "%s\\n" "-b"' \
   'htpasswd -nBC 10 stargate # never add -b' \
   '```' \
   >> "$temp_dir/docs/enUS/CONFIG.md"
