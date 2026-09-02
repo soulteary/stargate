@@ -19,6 +19,79 @@ check_markdown_structure() {
   if ! perl -MFile::Find -MFile::Basename -e '
     my $root = shift;
     my $failed = 0;
+
+    sub expand_leading_indent {
+      my ($line) = @_;
+      my $expanded = "";
+      my $column = 0;
+      my $offset = 0;
+      while ($offset < length($line)) {
+        my $char = substr($line, $offset, 1);
+        if ($char eq " ") {
+          $expanded .= " ";
+          $column++;
+        } elsif ($char eq "\t") {
+          my $width = 4 - ($column % 4);
+          $expanded .= " " x $width;
+          $column += $width;
+        } else {
+          last;
+        }
+        $offset++;
+      }
+      return $expanded . substr($line, $offset);
+    }
+
+    sub strip_block_quote_prefixes {
+      my ($line) = @_;
+      my $depth = 0;
+      while ($line =~ s/^ {0,3}>[ \t]?//) {
+        $depth++;
+      }
+      return ($line, $depth);
+    }
+
+    sub markdown_container_content {
+      my ($line, $list_indents) = @_;
+      $line = expand_leading_indent($line);
+      my ($leading) = $line =~ /^( *)/;
+      my $indent = length($leading);
+
+      # Blank lines do not end a list container. Keep the current content
+      # column so a fenced block after a blank line is still interpreted in
+      # the surrounding list item.
+      if ($line =~ /^ *$/) {
+        my $blank_base = @$list_indents ? $list_indents->[-1] : 0;
+        return ("", $blank_base);
+      }
+
+      # Continuation content is measured from the active list item content
+      # column. Pop containers when the line returns to an outer indentation.
+      while (@$list_indents && $indent < $list_indents->[-1]) {
+        pop @$list_indents;
+      }
+      my $base_indent = @$list_indents ? $list_indents->[-1] : 0;
+      my $content = substr($line, $base_indent);
+
+      # A child list marker may itself introduce a fence (for example
+      # "- ```"). CommonMark permits up to three spaces before the marker and
+      # uses one to four following spaces to determine its content column.
+      if ($content =~ /^( {0,3})([-+*]|\d{1,9}[.)])(?:([ ]+)|$)/) {
+        my ($before, $marker, $spacing) = ($1, $2, $3);
+        my $space_count = defined $spacing ? length($spacing) : 1;
+        my $padding = $space_count <= 4 ? $space_count : 1;
+        my $content_indent =
+          $base_indent + length($before) + length($marker) + $padding;
+        push @$list_indents, $content_indent;
+        my $nested = length($line) >= $content_indent
+          ? substr($line, $content_indent)
+          : "";
+        return ($nested, $content_indent);
+      }
+
+      return ($content, $base_indent);
+    }
+
     find({
       no_chdir => 1,
       wanted => sub {
@@ -29,20 +102,40 @@ check_markdown_structure() {
         my $text = <$fh>;
 
         my ($fence_char, $fence_length, $fence_line);
+        my ($fence_quote_depth, $fence_base_indent);
+        my $active_quote_depth = 0;
+        my @list_indents;
         my $line_number = 0;
         for my $line (split /\n/, $text, -1) {
           $line_number++;
           $line =~ s/\r$//;
           if (defined $fence_char) {
-            if ($line =~ /^ {0,3}(\Q$fence_char\E+)[ \t]*$/ && length($1) >= $fence_length) {
+            my ($container_line, $quote_depth) = strip_block_quote_prefixes($line);
+            $container_line = expand_leading_indent($container_line);
+            my ($leading) = $container_line =~ /^( *)/;
+            my $indent = length($leading);
+            my $candidate = $quote_depth == $fence_quote_depth
+              && $indent >= $fence_base_indent
+              ? substr($container_line, $fence_base_indent)
+              : "";
+            if ($candidate =~ /^ {0,3}(\Q$fence_char\E+)[ \t]*$/ && length($1) >= $fence_length) {
               undef $fence_char;
               undef $fence_length;
               undef $fence_line;
+              undef $fence_quote_depth;
+              undef $fence_base_indent;
             }
             next;
           }
 
-          next unless $line =~ /^ {0,3}(`{3,}|~{3,})(.*)$/;
+          my ($container_line, $quote_depth) = strip_block_quote_prefixes($line);
+          if ($quote_depth != $active_quote_depth) {
+            @list_indents = ();
+            $active_quote_depth = $quote_depth;
+          }
+          my ($content, $base_indent) =
+            markdown_container_content($container_line, \@list_indents);
+          next unless $content =~ /^ {0,3}(`{3,}|~{3,})(.*)$/;
           my ($marker, $info) = ($1, $2);
           my $char = substr($marker, 0, 1);
           # CommonMark does not treat a backtick sequence as an opening fence
@@ -51,6 +144,8 @@ check_markdown_structure() {
           $fence_char = $char;
           $fence_length = length($marker);
           $fence_line = $line_number;
+          $fence_quote_depth = $quote_depth;
+          $fence_base_indent = $base_indent;
         }
         if (defined $fence_char) {
           (my $relative = $file) =~ s{^\Q$root\E/?}{};
