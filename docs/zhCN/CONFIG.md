@@ -922,7 +922,8 @@ PASSWORDS='plaintext:test123|admin456'
 
 ```bash
 # Debian/Ubuntu 和 Alpine 可通过 apache2-utils 安装 `htpasswd`。
-htpasswd -bnBC 10 "" 'password' | tr -d ':\n'
+# 根据提示输入并确认密码，然后复制 `stargate:` 后面的哈希值。
+htpasswd -nBC 10 stargate
 ```
 
 **示例：**

@@ -14,10 +14,26 @@ Ce document explique les fonctionnalités de sécurité de Stargate, la configur
 4. **Sécurité d'intégration de service**: Communication sécurisée avec les services Warden et Herald en utilisant mTLS ou HMAC
 5. **Sécurité de partage de session**: Mécanisme d'échange de session cross-domain sécurisé
 6. **Validation des entrées**: Validation stricte de tous les paramètres d'entrée
-7. **Gestion des erreurs**: Les réponses HTTP utilisent des erreurs limitées ; `DEBUG` ne contrôle que la journalisation
+7. **Gestion des erreurs**: Les messages d'erreur et les autres données de réponse dépendent de chaque endpoint ; `DEBUG` ne constitue pas une garantie générale de non-divulgation
 8. **En-têtes de réponse de sécurité**: Ajoute automatiquement les en-têtes de réponse HTTP liés à la sécurité
 9. **Application HTTPS**: Les environnements de production doivent utiliser HTTPS
 10. **Intégration OTP**: Intégration sécurisée avec Herald pour l'authentification OTP/code de vérification
+
+## Réponses d'erreur et codes de vérification de débogage
+
+Stargate ne propose pas de paramètre `MODE`. Les réponses d'erreur dépendent de chaque endpoint.
+Les détails opérationnels sont normalement consignés dans les journaux, mais `DEBUG` ne doit pas
+être considéré comme une garantie générale de nettoyage des réponses ou de non-divulgation.
+
+Lorsque Stargate fonctionne avec `DEBUG=true`, que le service Herald configuré fonctionne en mode
+test (`HERALD_TEST_MODE`) et renvoie un `debug_code` non vide, Stargate inclut ce code de test sous
+le champ `debug_code` dans la réponse réussie à `POST /_send_verify_code`. La page de connexion
+fournie affiche ce code et le renseigne automatiquement dans le champ de vérification.
+
+Cette combinaison divulgue au client demandeur un code de vérification équivalent à un identifiant
+d'authentification. Utilisez-la uniquement en développement local ou pour des tests, jamais en
+production. En production, définissez Stargate sur `DEBUG=false` et désactivez `HERALD_TEST_MODE`
+dans Herald.
 
 Pour plus de détails, consultez la [version anglaise](../enUS/SECURITY.md).
 
