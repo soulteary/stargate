@@ -728,6 +728,32 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
   exit 1
 fi
 
+# Reference labels may contain internal line endings. The completed definition
+# remains a leaf before a non-one ordered list.
+printf '%s\n' \
+  '[foo' \
+  'bar]: /target' \
+  '22. list item after a multiline reference label' \
+  '    ```text' \
+  '    unclosed list fence' \
+  > "$fence_fixture"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unclosed fence after a multiline reference label failure" >&2
+  exit 1
+fi
+
+# An unclosed multiline label remains ordinary paragraph text.
+printf '%s\n' \
+  '[incomplete' \
+  'label without a closing bracket' \
+  '22. still paragraph text' \
+  '    ``` literal paragraph text' \
+  > "$fence_fixture"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an incomplete multiline reference label to remain paragraph text" >&2
+  exit 1
+fi
+
 # A bare destination must balance every unescaped parenthesis. An invalid
 # definition stays paragraph text, so a non-one list marker cannot interrupt.
 printf '%s\n' \
