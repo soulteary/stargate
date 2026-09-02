@@ -14,10 +14,25 @@ Dieses Dokument erläutert die Sicherheitsfunktionen von Stargate, die Sicherhei
 4. **Service-Integrationssicherheit**: Sichere Kommunikation mit Warden- und Herald-Diensten unter Verwendung von mTLS oder HMAC
 5. **Sitzungsfreigabe-Sicherheit**: Sicherer Mechanismus zum Austausch von Sitzungen zwischen Domains
 6. **Eingabevalidierung**: Strenge Validierung aller Eingabeparameter
-7. **Fehlerbehandlung**: HTTP-Antworten verwenden begrenzte Fehlermeldungen; `DEBUG` steuert nur die Protokollierung
+7. **Fehlerbehandlung**: Fehlermeldungen und sonstige Antwortdaten sind Endpunkt-spezifisch; `DEBUG` ist keine allgemeine Nichtoffenlegungsgarantie
 8. **Sicherheitsantwort-Header**: Fügt automatisch sicherheitsbezogene HTTP-Antwort-Header hinzu
 9. **HTTPS-Erzwingung**: Produktionsumgebungen müssen HTTPS verwenden
 10. **OTP-Integration**: Sichere Integration mit Herald für OTP/Verifizierungscode-Authentifizierung
+
+## Fehlerantworten und Debug-Prüfcodes
+
+Stargate bietet keine `MODE`-Einstellung. Fehlerantworten sind Endpunkt-spezifisch.
+Betriebsdetails werden normalerweise protokolliert, aber `DEBUG` darf nicht als allgemeine
+Garantie für bereinigte Antworten oder gegen Offenlegung verstanden werden.
+
+Wenn Stargate mit `DEBUG=true` läuft und der konfigurierte Herald-Dienst im Testmodus
+(`HERALD_TEST_MODE`) einen nicht leeren `debug_code` zurückgibt, nimmt Stargate diesen
+Testcode als `debug_code` in die erfolgreiche Antwort auf `POST /_send_verify_code` auf.
+Die mitgelieferte Anmeldeseite zeigt den Code an und füllt ihn automatisch in das Prüffeld ein.
+
+Diese Kombination legt dem anfragenden Client einen einem Berechtigungsnachweis gleichwertigen
+Prüfcode offen. Verwenden Sie sie nur für lokale Entwicklung oder Tests, niemals in der Produktion.
+Setzen Sie dort Stargate auf `DEBUG=false` und lassen Sie Herald `HERALD_TEST_MODE` deaktiviert.
 
 Weitere Details finden Sie in der [englischen Version](../enUS/SECURITY.md).
 

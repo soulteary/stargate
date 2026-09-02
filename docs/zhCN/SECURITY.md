@@ -12,7 +12,7 @@
 4. **服务集成安全**: 使用 mTLS 或 HMAC 与 Warden 和 Herald 服务进行安全通信
 5. **会话共享安全**: 安全的跨域会话交换机制
 6. **输入验证**: 严格验证所有输入参数
-7. **错误处理**: 生产模式隐藏详细错误信息
+7. **错误处理**: 错误消息和其他响应数据由各端点定义；`DEBUG` 不是通用的不披露保证
 8. **安全响应头**: 自动添加安全相关的 HTTP 响应头
 9. **HTTPS 强制**: 生产环境应使用 HTTPS
 10. **OTP 集成**: 与 Herald 的安全集成，用于 OTP/验证码认证
@@ -179,10 +179,18 @@ export SESSION_STORAGE_REDIS_PASSWORD=your-redis-password
 - ❌ 将敏感信息提交到版本控制
 - ❌ 记录敏感用户数据
 
-## 错误处理
+## 错误响应和调试验证码
 
-Stargate 不提供 `MODE` 配置。无论运行环境如何，HTTP 处理器都只返回受控的用户可见错误，
-内部错误通过日志记录。`DEBUG` 仅控制日志详细程度，不能作为错误信息是否对外暴露的开关。
+Stargate 不提供 `MODE` 配置。错误响应由各端点分别定义。运行细节通常写入日志，
+但不能把 `DEBUG` 当作通用的响应净化机制或不披露保证。
+
+当 Stargate 使用 `DEBUG=true` 运行，并且所配置的 Herald 服务启用了测试模式
+（`HERALD_TEST_MODE`）且返回非空 `debug_code` 时，Stargate 会在成功的
+`POST /_send_verify_code` 响应中以 `debug_code` 返回该测试验证码。内置登录页会显示该验证码，
+并自动填入验证码输入框。
+
+该组合会向请求客户端披露等同认证凭据的验证码，只能用于本地开发或测试，绝不能用于生产。
+生产环境应设置 Stargate `DEBUG=false`，并保持 Herald `HERALD_TEST_MODE` 关闭。
 
 ## 安全响应头
 

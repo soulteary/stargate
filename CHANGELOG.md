@@ -22,6 +22,8 @@ This file records user-visible changes. For upgrade steps and configuration exam
 ### Breaking changes
 
 - Go 1.27 or later is required to build Stargate.
+- The official container now listens on port `8080` instead of `80`; update container port mappings, reverse-proxy targets, and health probes accordingly.
+- `Stargate-Password` request-header authentication is disabled by default; trusted legacy integrations must explicitly set `PASSWORD_HEADER_AUTH_ENABLED=true`.
 - Logout and account-state changes use POST requests with same-origin validation.
 - Cross-domain session exchange uses short-lived, signed, single-use tickets instead of raw session IDs and requires `SESSION_EXCHANGE_SECRET`.
 - Forwarded host, protocol, URI, and client-IP headers are ignored unless the immediate proxy is listed in `TRUSTED_PROXIES`.

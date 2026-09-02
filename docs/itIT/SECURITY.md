@@ -14,10 +14,25 @@ Questo documento spiega le funzionalità di sicurezza di Stargate, la configuraz
 4. **Sicurezza dell'integrazione del servizio**: Comunicazione sicura con i servizi Warden e Herald utilizzando mTLS o HMAC
 5. **Sicurezza della condivisione delle sessioni**: Meccanismo di scambio di sessioni cross-domain sicuro
 6. **Validazione degli input**: Validazione rigorosa di tutti i parametri di input
-7. **Gestione degli errori**: Le risposte HTTP usano errori limitati; `DEBUG` controlla solo la registrazione
+7. **Gestione degli errori**: I messaggi di errore e gli altri dati di risposta dipendono dall'endpoint; `DEBUG` non è una garanzia generale di non divulgazione
 8. **Intestazioni di risposta di sicurezza**: Aggiunge automaticamente intestazioni di risposta HTTP relative alla sicurezza
 9. **Applicazione HTTPS**: Gli ambienti di produzione devono utilizzare HTTPS
 10. **Integrazione OTP**: Integrazione sicura con Herald per l'autenticazione OTP/codice di verifica
+
+## Risposte di errore e codici di verifica di debug
+
+Stargate non espone un'impostazione `MODE`. Le risposte di errore dipendono dall'endpoint.
+I dettagli operativi vengono normalmente registrati nei log, ma `DEBUG` non deve essere
+considerato una garanzia generale di sanitizzazione delle risposte o di non divulgazione.
+
+Quando Stargate è eseguito con `DEBUG=true`, il servizio Herald configurato è in modalità di test
+(`HERALD_TEST_MODE`) e restituisce un `debug_code` non vuoto, Stargate include quel codice di test
+come `debug_code` nella risposta riuscita a `POST /_send_verify_code`. La pagina di accesso inclusa
+mostra il codice e lo inserisce automaticamente nel campo di verifica.
+
+Questa combinazione divulga al client richiedente un codice di verifica equivalente a una credenziale.
+Usarla solo per sviluppo locale o test, mai in produzione. In produzione impostare Stargate
+`DEBUG=false` e mantenere disabilitato `HERALD_TEST_MODE` in Herald.
 
 Per maggiori dettagli, consulta la [versione inglese](../enUS/SECURITY.md).
 
