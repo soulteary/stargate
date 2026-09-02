@@ -684,6 +684,34 @@ if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/
 fi
 git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
 
+# External GNU time consumes format and output operands before the command it
+# executes. Those option values cannot be mistaken for the delegated command.
+printf '%s\n' \
+  '' \
+  '```bash' \
+  "/usr/bin/time -f 'elapsed: %e' htpasswd -bn \"\" password" \
+  'env time --output time.log htpasswd -C 10 -bn "" password' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected an unsafe htpasswd command delegated through GNU time failure" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
+printf '%s\n' \
+  '' \
+  '```bash' \
+  '/usr/bin/time -f htpasswd printf "%s\\n" "-b"' \
+  '/usr/bin/time --output=htpasswd printf "%s\\n" "-b"' \
+  '```' \
+  >> "$temp_dir/docs/enUS/CONFIG.md"
+if ! (cd "$temp_dir" && bash .github/scripts/check-doc-contracts.sh "$base_sha" >/dev/null 2>&1); then
+  echo "Expected GNU time option data mentioning htpasswd to pass" >&2
+  exit 1
+fi
+git -C "$temp_dir" checkout -q -- docs/enUS/CONFIG.md
+
 # xargs executes its command operand with both initial and input-derived
 # arguments; a wrapped htpasswd invocation must therefore be inspected.
 printf '%s\n' \
