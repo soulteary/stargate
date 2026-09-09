@@ -23,7 +23,7 @@ services:
     environment:
       - AUTH_HOST=auth.test.localhost # Replace with your auth host (e.g.: auth.example.com).
       - PASSWORDS=plaintext:test1234|test1337 # Replace with your passwords. See the docs for more info.
-      - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
+      - CALLBACK_ALLOWED_HOSTS=hello.test.localhost
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
       - TRUSTED_PROXIES=172.30.0.0/24 # Matches the Compose-managed Traefik network below.
       - COOKIE_SECURE=false # Local HTTP only. Keep the default true in HTTPS deployments.
@@ -51,16 +51,18 @@ services:
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
       - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 
-  whoami: # A demo whoami service that is protected with Stargate
-    image: traefik/whoami:v1.11.0
+  hello: # A soulteary/hello demo service protected with Stargate
+    image: ghcr.io/soulteary/hello:2.3.0
+    command: ["-listen", ":8080"]
     networks:
       - traefik
     labels:
       - traefik.enable=true
       - traefik.docker.network=stargate-traefik
-      - traefik.http.routers.whoami.entrypoints=http
-      - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
-      - "traefik.http.routers.whoami.middlewares=stargate"
+      - traefik.http.routers.hello.entrypoints=http
+      - traefik.http.routers.hello.rule=Host(`hello.test.localhost`)
+      - "traefik.http.routers.hello.middlewares=stargate"
+      - traefik.http.services.hello.loadbalancer.server.port=8080
        # Add this to services that you want to guard
 
 networks:

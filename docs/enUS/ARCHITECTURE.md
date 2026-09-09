@@ -374,7 +374,7 @@ Modify the `internal/web/templates/login.html` template file.
 ### Docker Deployment
 
 - Multi-stage build to reduce image size
-- Build stage: `golang:1.27.0-alpine3.24`; runtime stage: `alpine:3.24` (health checks use BusyBox wget)
+- Build stage: `golang:1.27.1-alpine3.24`; runtime stage: `alpine:3.24` (health checks use BusyBox wget)
 - Template files copied from `src/internal/web/templates` to `/app/web/templates` in image
 - Uses `-ldflags "-s -w"` during compilation to reduce binary size
 - Application automatically finds template paths (supports `./internal/web/templates` for local development and `./web/templates` for production)

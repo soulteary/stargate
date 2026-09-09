@@ -113,9 +113,9 @@ services:
 docker-compose up -d
 ```
 
-The bundled stack starts Traefik, Stargate, and the protected `whoami` demo on
+The bundled stack starts Traefik, Stargate, and the protected `soulteary/hello` demo on
 a Compose-managed network whose CIDR matches `TRUSTED_PROXIES`. Open
-`http://whoami.test.localhost` to exercise the complete login flow.
+`http://hello.test.localhost` to exercise the complete login flow.
 
 ### Local Development
 

@@ -94,7 +94,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### 构建参数
 
-- **基础镜像**：`golang:1.27.0-alpine3.24`（构建阶段）
+- **基础镜像**：`golang:1.27.1-alpine3.24`（构建阶段）
 - **运行镜像**：`alpine:3.24`（运行阶段，包含 CA 证书和用于 HTTPS/健康检查的 BusyBox `wget`）
 - **工作目录**：`/app`
 - **暴露端口**：`8080`
@@ -180,7 +180,7 @@ services:
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
-      - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
+      - CALLBACK_ALLOWED_HOSTS=hello.test.localhost
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
       - TRUSTED_PROXIES=${TRAEFIK_NETWORK_CIDR:?set TRAEFIK_NETWORK_CIDR from docker network inspect}
       - COOKIE_SECURE=false # 仅本地 HTTP；HTTPS 部署请省略。
@@ -194,16 +194,18 @@ services:
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
       - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 
-  whoami:
-    image: traefik/whoami
+  hello:
+    image: ghcr.io/soulteary/hello:2.3.0
+    command: ["-listen", ":8080"]
     networks:
       - traefik
     labels:
       - traefik.enable=true
       - traefik.docker.network=${TRAEFIK_NETWORK_NAME:-traefik}
-      - traefik.http.routers.whoami.entrypoints=http
-      - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
-      - "traefik.http.routers.whoami.middlewares=stargate"
+      - traefik.http.routers.hello.entrypoints=http
+      - traefik.http.routers.hello.rule=Host(`hello.test.localhost`)
+      - "traefik.http.routers.hello.middlewares=stargate"
+      - traefik.http.services.hello.loadbalancer.server.port=8080
 
 networks:
   traefik:

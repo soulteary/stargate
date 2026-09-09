@@ -328,7 +328,7 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
 ### Docker デプロイメント
 
 - イメージサイズを削減するためのマルチステージビルド
-- ビルドステージ: `golang:1.27.0-alpine3.24`；実行ステージ: `alpine:3.24`（ヘルスチェックには BusyBox wget を使用）
+- ビルドステージ: `golang:1.27.1-alpine3.24`；実行ステージ: `alpine:3.24`（ヘルスチェックには BusyBox wget を使用）
 - テンプレートファイルを `src/internal/web/templates` からイメージ内の `/app/web/templates` にコピー
 - バイナリサイズを削減するため、コンパイル時に `-ldflags "-s -w"` を使用
 - アプリケーションは自動的にテンプレートパスを見つける（ローカル開発用に `./internal/web/templates`、本番環境用に `./web/templates` をサポート）
