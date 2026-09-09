@@ -233,7 +233,7 @@ jobs:
           sha256sum $(ls | grep -v '^checksums.txt$') > checksums.txt
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4.0.0
+        uses: docker/setup-qemu-action@1f40c72289eff860ee54a304f1438e3cff362e0a # v4.3.0
         with:
           platforms: arm64
 
