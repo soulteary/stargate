@@ -94,7 +94,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### 빌드 매개변수
 
-- **베이스 이미지**: `golang:1.27.0-alpine3.24` (빌드 단계)
+- **베이스 이미지**: `golang:1.27.1-alpine3.24` (빌드 단계)
 - **실행 이미지**: `alpine:3.24` (CA 인증서와 HTTPS·헬스 체크용 BusyBox `wget` 포함)
 - **작업 디렉토리**: `/app`
 - **공개 포트**: `8080`
@@ -180,7 +180,7 @@ services:
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
-      - CALLBACK_ALLOWED_HOSTS=whoami.test.localhost
+      - CALLBACK_ALLOWED_HOSTS=hello.test.localhost
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
       - TRUSTED_PROXIES=${TRAEFIK_NETWORK_CIDR:?set TRAEFIK_NETWORK_CIDR from docker network inspect}
       - COOKIE_SECURE=false # Local HTTP only; omit for HTTPS.
@@ -194,16 +194,18 @@ services:
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
       - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 
-  whoami:
-    image: traefik/whoami
+  hello:
+    image: ghcr.io/soulteary/hello:2.3.0
+    command: ["-listen", ":8080"]
     networks:
       - traefik
     labels:
       - traefik.enable=true
       - traefik.docker.network=${TRAEFIK_NETWORK_NAME:-traefik}
-      - traefik.http.routers.whoami.entrypoints=http
-      - traefik.http.routers.whoami.rule=Host(`whoami.test.localhost`)
-      - "traefik.http.routers.whoami.middlewares=stargate"
+      - traefik.http.routers.hello.entrypoints=http
+      - traefik.http.routers.hello.rule=Host(`hello.test.localhost`)
+      - "traefik.http.routers.hello.middlewares=stargate"
+      - traefik.http.services.hello.loadbalancer.server.port=8080
 
 networks:
   traefik:
