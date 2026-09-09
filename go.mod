@@ -17,7 +17,7 @@ require (
 	github.com/soulteary/cli-kit v1.8.0
 	github.com/soulteary/forwardauth-kit/v2 v2.1.0
 	github.com/soulteary/health-kit/v2 v2.1.0
-	github.com/soulteary/herald v1.1.0
+	github.com/soulteary/herald v1.2.0
 	github.com/soulteary/i18n-kit/v2 v2.1.0
 	github.com/soulteary/logger-kit/v2 v2.1.0
 	github.com/soulteary/metrics-kit/v2 v2.1.0
@@ -41,7 +41,7 @@ require (
 	atomicgo.dev/keyboard v0.2.10 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
 	filippo.io/edwards25519 v1.2.0 // indirect
-	github.com/andybalholm/brotli v1.2.2 // indirect
+	github.com/andybalholm/brotli v1.2.3 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/boombuler/barcode v1.1.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
@@ -66,9 +66,9 @@ require (
 	github.com/mattn/go-runewidth v0.0.28 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/philhofer/fwd v1.2.0 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/prometheus/common v0.70.1 // indirect
-	github.com/prometheus/procfs v0.21.1 // indirect
+	github.com/prometheus/client_model v0.6.3 // indirect
+	github.com/prometheus/common v0.71.0 // indirect
+	github.com/prometheus/procfs v0.22.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/soulteary/http-kit v1.4.0 // indirect
 	github.com/tinylib/msgp v1.6.4 // indirect
