@@ -2,6 +2,7 @@ package config
 
 import (
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -51,6 +52,16 @@ func (v *EnvVariable) ToDuration() time.Duration {
 		return 0
 	}
 	return duration
+}
+
+// ToInt parses the value as a base-10 integer.
+// Returns fallback when the value is empty or cannot be parsed.
+func (v *EnvVariable) ToInt(fallback int) int {
+	parsed, err := strconv.Atoi(strings.TrimSpace(v.Value))
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func (v *EnvVariable) Validate() error {

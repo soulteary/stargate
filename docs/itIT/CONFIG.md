@@ -322,6 +322,9 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `AUTH_REFRESH_ENABLED` | true/false | true | Aggiornamento periodico autorizzazioni |
 | `AUTH_REFRESH_INTERVAL` | durata | `5m` | Intervallo aggiornamento |
 | `REQUEST_CONTEXT_TIMEOUT` | durata | `10s` | Scadenza delle chiamate upstream; nessuna garanzia di annullamento alla disconnessione del client |
+| `RATE_LIMIT_LOGIN_MAX` | intero | 10 | Tentativi di accesso per finestra e per client; 0 disabilita |
+| `RATE_LIMIT_VERIFICATION_MAX` | intero | 5 | Richieste di verifica per finestra e per client; 0 disabilita |
+| `RATE_LIMIT_WINDOW` | durata | `1m` | Finestra fissa di limitazione |
 
 Key ID e secret HMAC devono essere impostati insieme. Anche certificato e chiave client mTLS devono essere configurati come coppia completa; in caso contrario l'avvio fallisce.
 

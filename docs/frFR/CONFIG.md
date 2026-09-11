@@ -322,6 +322,9 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `AUTH_REFRESH_ENABLED` | true/false | true | Actualisation périodique des autorisations |
 | `AUTH_REFRESH_INTERVAL` | durée | `5m` | Intervalle d'actualisation |
 | `REQUEST_CONTEXT_TIMEOUT` | durée | `10s` | Échéance des appels amont ; aucune garantie d'annulation à la déconnexion du client |
+| `RATE_LIMIT_LOGIN_MAX` | entier | 10 | Tentatives de connexion par fenêtre et par client ; 0 désactive |
+| `RATE_LIMIT_VERIFICATION_MAX` | entier | 5 | Demandes de vérification par fenêtre et par client ; 0 désactive |
+| `RATE_LIMIT_WINDOW` | durée | `1m` | Fenêtre fixe de limitation de débit |
 
 L'identifiant et le secret HMAC doivent être définis ensemble. Le certificat et la clé client mTLS doivent également former une paire complète, sinon le démarrage échoue.
 
