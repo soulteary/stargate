@@ -322,6 +322,9 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `AUTH_REFRESH_ENABLED` | true/false | true | Regelmäßige Autorisierungsaktualisierung |
 | `AUTH_REFRESH_INTERVAL` | Dauer | `5m` | Aktualisierungsintervall |
 | `REQUEST_CONTEXT_TIMEOUT` | Dauer | `10s` | Request-Deadline für Upstream-Aufrufe; keine Garantie für Abbruch bei Client-Trennung |
+| `RATE_LIMIT_LOGIN_MAX` | Ganzzahl | 10 | Anmeldeversuche pro Fenster und Client; 0 deaktiviert |
+| `RATE_LIMIT_VERIFICATION_MAX` | Ganzzahl | 5 | Verifizierungsanfragen pro Fenster und Client; 0 deaktiviert |
+| `RATE_LIMIT_WINDOW` | Dauer | `1m` | Festes Ratenbegrenzungsfenster |
 
 HMAC Key ID und Secret müssen gemeinsam gesetzt werden. mTLS-Clientzertifikat und -schlüssel müssen ebenfalls gemeinsam gesetzt werden; unvollständige Paare führen zum Startfehler.
 

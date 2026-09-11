@@ -555,6 +555,7 @@ services:
 
 - **单进程、单副本（包括跨域回调）：** 只要 Ticket 签发、兑换及后续 Session 使用始终由同一个存活的 Stargate 进程处理，就可以使用进程内存储（`SESSION_STORAGE_ENABLED=false`）。Session 记录与已消费 Ticket 哈希只存在于该进程；进程重启后两者都会丢失，活动 Session 失效，也无法跨重启保留 Ticket 单次消费状态。
 - **多进程或多副本：** 只要 Session 或交换 Ticket 可能由不同进程处理，就必须使用 Redis。设置 `SESSION_STORAGE_ENABLED=true`，所有副本使用相同的 `SESSION_STORAGE_REDIS_*` 命名空间和 `SESSION_EXCHANGE_SECRET`。Sticky Session 只能优化路由，不能替代共享状态或跨进程重放防护。
+- **跨副本限流：** 限流计数通过同一个 Redis 连接共享。未设置 `SESSION_STORAGE_ENABLED=true` 时，每个副本各自执行配额，N 个副本的实际放行量最多是 `RATE_LIMIT_LOGIN_MAX` 与 `RATE_LIMIT_VERIFICATION_MAX` 的 N 倍。配额按客户端地址统计，因此必须在 `TRUSTED_PROXIES` 中列出反向代理，否则所有客户端都会归属到代理地址并共用一份配额。
 - **滚动升级：** 新旧进程会重叠运行；要无中断滚动替换，必须使用 Redis。未使用 Redis 时，应停旧再启新，并接受 Session 失效和用户重新登录。不要在同一服务实例池中混用 v0.12.0 与 v1.0.0。
 - **跨进程重启保留状态：** 只要要求 Session 或已消费 Ticket 的重放状态在进程替换或重启后继续有效，就必须使用 Redis。
 

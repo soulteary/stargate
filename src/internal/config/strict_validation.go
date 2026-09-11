@@ -14,6 +14,14 @@ func strictValidationError(variable *EnvVariable, reason string) error {
 	return NewValidationError(variable.Name, reason, variable.PossibleValues)
 }
 
+func validateNonNegativeInteger(variable *EnvVariable) error {
+	value, err := strconv.Atoi(strings.TrimSpace(variable.Value))
+	if err != nil || value < 0 {
+		return strictValidationError(variable, "must be zero (disabled) or a positive integer")
+	}
+	return nil
+}
+
 func validatePositiveInteger(variable *EnvVariable) error {
 	value, err := strconv.Atoi(strings.TrimSpace(variable.Value))
 	if err != nil || value <= 0 {
@@ -202,6 +210,15 @@ func validateStrictSettings() error {
 	}
 	if _, err := time.ParseDuration(RequestContextTimeout.Value); err != nil || RequestContextTimeout.ToDuration() <= 0 {
 		return strictValidationError(&RequestContextTimeout, "must be a positive Go duration")
+	}
+	if err := validateNonNegativeInteger(&RateLimitLoginMax); err != nil {
+		return err
+	}
+	if err := validateNonNegativeInteger(&RateLimitVerificationMax); err != nil {
+		return err
+	}
+	if _, err := time.ParseDuration(RateLimitWindow.Value); err != nil || RateLimitWindow.ToDuration() <= 0 {
+		return strictValidationError(&RateLimitWindow, "must be a positive Go duration")
 	}
 	redisDBValue := SessionStorageRedisDB.Value
 	redisDB, err := strconv.Atoi(redisDBValue)

@@ -101,6 +101,9 @@ services:
 | `AUTH_REFRESH_ENABLED` | true/false | true | 否 |
 | `AUTH_REFRESH_INTERVAL` | duration | 5m | 否 |
 | `REQUEST_CONTEXT_TIMEOUT` | duration | 10s | 否 |
+| `RATE_LIMIT_LOGIN_MAX` | 整数 | 10 | 否 |
+| `RATE_LIMIT_VERIFICATION_MAX` | 整数 | 5 | 否 |
+| `RATE_LIMIT_WINDOW` | duration | 1m | 否 |
 
 ## 必需配置
 
@@ -889,6 +892,58 @@ Fiber/fasthttp 在普通 HTTP 客户端断开时不会提供逐请求取消信�
 | **默认值** | `10s` |
 
 **示例：** `REQUEST_CONTEXT_TIMEOUT=10s`
+
+#### `RATE_LIMIT_LOGIN_MAX`
+
+单个客户端在 `RATE_LIMIT_WINDOW` 时间窗口内可以访问 `/_login` 与 `/_step_up` 的最大次数。
+重复的 `Stargate-Password` 请求头失败共用同一配额。设置为 `0` 可关闭登录配额。
+
+| 属性 | 值 |
+|-----------|-------|
+| **类型** | 整数 |
+| **必需** | 否 |
+| **默认值** | `10` |
+
+**示例：** `RATE_LIMIT_LOGIN_MAX=10`
+
+#### `RATE_LIMIT_VERIFICATION_MAX`
+
+单个客户端在 `RATE_LIMIT_WINDOW` 时间窗口内可以访问 `/_send_verify_code` 以及 TOTP
+绑定、解绑端点的最大次数。设置为 `0` 可关闭验证码配额。
+
+| 属性 | 值 |
+|-----------|-------|
+| **类型** | 整数 |
+| **必需** | 否 |
+| **默认值** | `5` |
+
+**示例：** `RATE_LIMIT_VERIFICATION_MAX=5`
+
+#### `RATE_LIMIT_WINDOW`
+
+两个配额共用的固定统计窗口，取值必须是正的 Go duration。
+
+| 属性 | 值 |
+|-----------|-------|
+| **类型** | String (duration) |
+| **必需** | 否 |
+| **默认值** | `1m` |
+
+**示例：** `RATE_LIMIT_WINDOW=1m`
+
+#### 限流状态与客户端归属
+
+当 `SESSION_STORAGE_ENABLED=true` 时，限流计数通过 Redis 共享，复用与会话相同的连接和
+`SESSION_STORAGE_REDIS_KEY_PREFIX`，此时所有副本共同执行同一份配额。未启用 Redis 时计数
+仅保存在进程内，N 个副本的实际放行量是配置值的 N 倍。Redis 不可用时，Stargate 会退回到
+进程内计数并记录告警，而不是取消限流或拒绝全部请求。
+
+配额按客户端地址统计，而客户端地址只有在对端出现在 `TRUSTED_PROXIES` 中时才会取自转发头。
+如果反向代理没有列入 `TRUSTED_PROXIES`，所有客户端都会被归属到代理地址，整个部署因此共用
+一份配额。`TRUSTED_PROXIES` 为空时 Stargate 会在启动时告警，首次收到来自不受信任对端的
+转发头时会再次告警。请把 `TRUSTED_PROXIES` 设置为反向代理的来源 IP 或 CIDR，配额才能按
+客户端生效。
+
 
 ## 密码配置
 

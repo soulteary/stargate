@@ -377,6 +377,9 @@ func createApp() *fiber.App {
 	setupMiddleware(app)
 	store, redisClient := setupSessionStore()
 	handlers.SetChallengeContextStore(handlers.NewChallengeContextStore(redisClient))
+	// Share rate-limit counters through the same Redis as sessions so every
+	// replica enforces one quota instead of one quota each.
+	handlers.SetRateLimitStore(handlers.NewRateLimitStore(redisClient))
 	healthAggregator := setupHealthChecker(redisClient)
 	replayStore := handlers.NewSessionExchangeReplayStore(redisClient)
 

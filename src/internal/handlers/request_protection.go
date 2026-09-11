@@ -1,14 +1,14 @@
 package handlers
 
 import (
-	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/gofiber/fiber/v3/middleware/limiter"
+	"github.com/soulteary/stargate/src/internal/config"
 )
 
 type requestOrigin struct {
@@ -65,77 +65,137 @@ func RequireSameOrigin() fiber.Handler {
 	}
 }
 
-func endpointRateLimit(max int, expiration time.Duration) fiber.Handler {
-	return limiter.New(limiter.Config{
-		Max:        max,
-		Expiration: expiration,
-		KeyGenerator: func(ctx fiber.Ctx) string {
-			return ctx.IP() + ":" + ctx.Path()
-		},
-		LimitReached: func(ctx fiber.Ctx) error {
-			ctx.Set(fiber.HeaderRetryAfter, "60")
-			return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many requests")
-		},
+// Rate-limit response headers, kept byte-for-byte compatible with the Fiber
+// limiter this package previously used so existing clients keep working.
+const (
+	xRateLimitLimit     = "X-RateLimit-Limit"
+	xRateLimitRemaining = "X-RateLimit-Remaining"
+	xRateLimitReset     = "X-RateLimit-Reset"
+)
+
+// untrustedForwardedWarning reports a proxied deployment that never declared
+// its proxy: once per process, rather than on every request.
+var untrustedForwardedWarning sync.Once
+
+// warnUntrustedForwardedHeaders reports the misconfiguration that silently
+// collapses per-client rate limiting: a reverse proxy sits in front of
+// Stargate but its address is absent from TRUSTED_PROXIES, so every client is
+// attributed to the proxy and the whole deployment shares one quota.
+func warnUntrustedForwardedHeaders(ctx fiber.Ctx) {
+	if log == nil || trustForwardedHeaders(ctx) {
+		return
+	}
+	if ctx.Get("X-Forwarded-For") == "" && ctx.Get("X-Forwarded-Host") == "" {
+		return
+	}
+	untrustedForwardedWarning.Do(func() {
+		log.Warn().
+			Str("peer", ctx.IP()).
+			Msg("Received forwarded headers from an untrusted peer: rate limits are keyed by the proxy address, so every client shares one quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
 	})
 }
 
+// resetRateLimitStateForTesting restores a pristine process-local store and
+// re-arms the one-shot proxy warning so ordering between tests cannot leak.
+func resetRateLimitStateForTesting() {
+	SetRateLimitStore(newMemoryRateLimitStore())
+	untrustedForwardedWarning = sync.Once{}
+}
+
+// rateLimitWindow returns the configured fixed window. Startup validation
+// rejects a non-positive duration, so the fallback only covers callers that
+// construct handlers without running Initialize, such as unit tests.
+func rateLimitWindow() time.Duration {
+	if window := config.RateLimitWindow.ToDuration(); window > 0 {
+		return window
+	}
+	return config.DefaultRateLimitWindow
+}
+
+func retryAfterSeconds(retryAfter time.Duration) string {
+	seconds := int(retryAfter.Seconds())
+	if seconds < 1 {
+		seconds = 1
+	}
+	return strconv.Itoa(seconds)
+}
+
+// consumeRateLimit records one request against key and reports whether the
+// caller is over quota, how much of the quota is left, and how long the current
+// window still runs.
+func consumeRateLimit(ctx fiber.Ctx, key string, max int) (exceeded bool, remaining int, retryAfter time.Duration) {
+	warnUntrustedForwardedHeaders(ctx)
+
+	count, window, err := getRateLimitStore().Incr(ctx.Context(), key, rateLimitWindow())
+	if err != nil && log != nil {
+		// The store already fell back to process-local counting, so the request
+		// still carries a bound; only cross-replica sharing is degraded.
+		log.Warn().Err(err).Msg("Shared rate-limit store is unavailable, falling back to per-replica limits")
+	}
+
+	remaining = max - count
+	if remaining < 0 {
+		remaining = 0
+	}
+	return count > max, remaining, window
+}
+
+// endpointRateLimit enforces a fixed-window limit through the shared rate-limit
+// store. The limit is read per request so operators get the value that startup
+// validation accepted, and a limit of zero disables the endpoint quota.
+func endpointRateLimit(limit func() int) fiber.Handler {
+	return func(ctx fiber.Ctx) error {
+		max := limit()
+		if max <= 0 {
+			return ctx.Next()
+		}
+
+		exceeded, remaining, retryAfter := consumeRateLimit(ctx, ctx.IP()+":"+ctx.Path(), max)
+		ctx.Set(xRateLimitLimit, strconv.Itoa(max))
+		ctx.Set(xRateLimitRemaining, strconv.Itoa(remaining))
+		ctx.Set(xRateLimitReset, retryAfterSeconds(retryAfter))
+		if !exceeded {
+			return ctx.Next()
+		}
+
+		ctx.Set(fiber.HeaderRetryAfter, retryAfterSeconds(retryAfter))
+		return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many requests")
+	}
+}
+
 func LoginRateLimit() fiber.Handler {
-	return endpointRateLimit(10, time.Minute)
+	return endpointRateLimit(func() int {
+		return config.RateLimitLoginMax.ToInt(config.DefaultRateLimitLoginMax)
+	})
 }
 
 func VerificationRateLimit() fiber.Handler {
-	return endpointRateLimit(5, time.Minute)
+	return endpointRateLimit(func() int {
+		return config.RateLimitVerificationMax.ToInt(config.DefaultRateLimitVerificationMax)
+	})
 }
 
-type passwordFailureBucket struct {
-	count  int
-	resets time.Time
-}
-
-var (
-	passwordFailureMu          sync.Mutex
-	passwordFailureBuckets     = make(map[string]passwordFailureBucket)
-	passwordFailureLastCleanup time.Time
-)
-
-func resetPasswordFailureBucketsForTesting() {
-	passwordFailureMu.Lock()
-	defer passwordFailureMu.Unlock()
-	passwordFailureBuckets = make(map[string]passwordFailureBucket)
-	passwordFailureLastCleanup = time.Time{}
-}
-
+// rateLimitPasswordHeaderFailure throttles repeated Stargate-Password
+// failures. It shares the login quota and, like every other endpoint limit,
+// the shared store, so a credential-stuffing client cannot simply move to
+// another replica.
 func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) error {
 	if strings.TrimSpace(ctx.Get("Stargate-Password")) == "" {
 		return nil
 	}
 
-	now := time.Now()
-	key := ctx.IP()
-	passwordFailureMu.Lock()
-	if passwordFailureLastCleanup.IsZero() || now.Sub(passwordFailureLastCleanup) >= time.Minute {
-		for bucketKey, candidate := range passwordFailureBuckets {
-			if !now.Before(candidate.resets) {
-				delete(passwordFailureBuckets, bucketKey)
-			}
-		}
-		passwordFailureLastCleanup = now
-	}
-	bucket := passwordFailureBuckets[key]
-	if bucket.resets.IsZero() || !now.Before(bucket.resets) {
-		bucket = passwordFailureBucket{resets: now.Add(time.Minute)}
-	}
-	bucket.count++
-	passwordFailureBuckets[key] = bucket
-	passwordFailureMu.Unlock()
-
-	if bucket.count <= 10 {
+	max := config.RateLimitLoginMax.ToInt(config.DefaultRateLimitLoginMax)
+	if max <= 0 {
 		return nil
 	}
-	retryAfter := int(time.Until(bucket.resets).Seconds())
-	if retryAfter < 1 {
-		retryAfter = 1
+
+	// The forward-auth path deliberately keeps its original response shape and
+	// does not advertise quota state through X-RateLimit-* headers.
+	exceeded, _, retryAfter := consumeRateLimit(ctx, "password-failure:"+ctx.IP(), max)
+	if !exceeded {
+		return nil
 	}
-	ctx.Set(fiber.HeaderRetryAfter, fmt.Sprintf("%d", retryAfter))
+
+	ctx.Set(fiber.HeaderRetryAfter, retryAfterSeconds(retryAfter))
 	return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many failed password attempts")
 }

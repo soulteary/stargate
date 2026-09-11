@@ -83,6 +83,9 @@ func TestRequireSameOriginNormalizesDefaultPort(t *testing.T) {
 }
 
 func TestLoginRateLimitRejectsBurst(t *testing.T) {
+	resetRateLimitStateForTesting()
+	t.Cleanup(resetRateLimitStateForTesting)
+
 	app := fiber.New()
 	app.Post("/_login", LoginRateLimit(), func(c fiber.Ctx) error {
 		return c.SendStatus(fiber.StatusNoContent)
@@ -102,8 +105,8 @@ func TestLoginRateLimitRejectsBurst(t *testing.T) {
 }
 
 func TestPasswordHeaderFailureRateLimit(t *testing.T) {
-	resetPasswordFailureBucketsForTesting()
-	t.Cleanup(resetPasswordFailureBucketsForTesting)
+	resetRateLimitStateForTesting()
+	t.Cleanup(resetRateLimitStateForTesting)
 
 	for i := 0; i < 10; i++ {
 		ctx, app := createTestContext(fiber.MethodGet, "/_auth", map[string]string{
