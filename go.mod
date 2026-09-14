@@ -13,18 +13,18 @@ require (
 	github.com/pterm/pterm v0.12.83
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/rs/zerolog v1.35.1
-	github.com/soulteary/audit-kit v1.8.0
+	github.com/soulteary/audit-kit v1.9.0
 	github.com/soulteary/cli-kit v1.9.0
 	github.com/soulteary/forwardauth-kit/v2 v2.2.0
-	github.com/soulteary/health-kit/v2 v2.2.0
+	github.com/soulteary/health-kit/v2 v2.3.0
 	github.com/soulteary/herald v1.2.0
 	github.com/soulteary/i18n-kit/v2 v2.2.0
-	github.com/soulteary/logger-kit/v2 v2.2.0
+	github.com/soulteary/logger-kit/v2 v2.3.0
 	github.com/soulteary/metrics-kit/v2 v2.2.0
 	github.com/soulteary/middleware-kit/v2 v2.2.0
 	github.com/soulteary/redis-kit v1.6.0
 	github.com/soulteary/secure-kit v1.6.0
-	github.com/soulteary/session-kit/v2 v2.2.0
+	github.com/soulteary/session-kit/v2 v2.3.0
 	github.com/soulteary/tracing-kit v1.5.0
 	github.com/soulteary/version-kit/v2 v2.2.0
 	github.com/soulteary/warden v1.2.0
