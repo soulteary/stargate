@@ -131,8 +131,8 @@ github.com/soulteary/forwardauth-kit/v2 v2.2.0 h1:cGgBfl7ShxD3YLUiRt3fhOSM2x4zuI
 github.com/soulteary/forwardauth-kit/v2 v2.2.0/go.mod h1:PWjpuW57EgFJAzYGTlxeyFNZ+N5a4qlrRLPH8v3Vhho=
 github.com/soulteary/health-kit/v2 v2.3.0 h1:T+r27bDGfae4jvp7cIZfeRDuL9zJ/ggcpBtopiztvnk=
 github.com/soulteary/health-kit/v2 v2.3.0/go.mod h1:D5V1lHUxA4ITVUpfH3/KFhWzonfdA3pu7329FmaUSdk=
-github.com/soulteary/herald v1.2.0 h1:uVgj9+uC1174k8Y6Xz3YLX7iXdlATWUa/zVrMmBZgH8=
-github.com/soulteary/herald v1.2.0/go.mod h1:3suNJL5i0l+nYpzXNLRf0vKQtgH2q+U6sJrernNPo4I=
+github.com/soulteary/herald v1.2.1 h1:/cx7cistynX2VESvXx1NaHFCjvvdoeB/1DhvdVhYJ6o=
+github.com/soulteary/herald v1.2.1/go.mod h1:V2Yp/yJgcaQ5Nxi+X1mLUgkhrMKpEV6OWBXQWWTQ2qs=
 github.com/soulteary/http-kit v1.5.0 h1:VCvsCjsLEgcg0x/cfbhQyo+KdzCL28+3PqVCrR8h+so=
 github.com/soulteary/http-kit v1.5.0/go.mod h1:WoOxPjfMZrj0IYEn/Lagb3vGt9eFlsPXutwRufckOpA=
 github.com/soulteary/i18n-kit/v2 v2.2.0 h1:Z8MP2P9cKySu6Ei0nI0jhDp0Ufqjh0h2SiqhBHUSVKE=
@@ -153,8 +153,8 @@ github.com/soulteary/tracing-kit v1.5.0 h1:p01bQ0n0SJjIsT2LWk62b9w4feZ8kF87GTC3L
 github.com/soulteary/tracing-kit v1.5.0/go.mod h1:miM/OzzVyeYqevNbI5DzlNFgIPr/K0KHO99JK8bMLeg=
 github.com/soulteary/version-kit/v2 v2.2.0 h1:m0oIXopaA2wco5hvf4ZRvSD2A45EyCEE8JeMNrwrfFE=
 github.com/soulteary/version-kit/v2 v2.2.0/go.mod h1:ZFiDSqWHrpeRtuhs2sEj8VNfCa8Xcm65DZjctG3Q0Lk=
-github.com/soulteary/warden v1.2.0 h1:+eHlyf0yeBG2/Ik7uJlAzzO4tfbTiPphI7mDjUSHZ14=
-github.com/soulteary/warden v1.2.0/go.mod h1:mbKwJwmSt1Gh6A6i5JKHNRwE3iEhf9SZwY9qmqes24s=
+github.com/soulteary/warden v1.3.0 h1:0lInZ7Q332TCo07LT8YCUQFH4moHtE+4mYZEvZjxqRg=
+github.com/soulteary/warden v1.3.0/go.mod h1:bCcF+7XUokuznhp+7Z9wlBmrVhXo4njkq96TWCYF5Gc=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=

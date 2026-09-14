@@ -17,7 +17,7 @@ require (
 	github.com/soulteary/cli-kit v1.9.0
 	github.com/soulteary/forwardauth-kit/v2 v2.2.0
 	github.com/soulteary/health-kit/v2 v2.3.0
-	github.com/soulteary/herald v1.2.0
+	github.com/soulteary/herald v1.2.1
 	github.com/soulteary/i18n-kit/v2 v2.2.0
 	github.com/soulteary/logger-kit/v2 v2.3.0
 	github.com/soulteary/metrics-kit/v2 v2.2.0
@@ -27,7 +27,7 @@ require (
 	github.com/soulteary/session-kit/v2 v2.3.0
 	github.com/soulteary/tracing-kit v1.5.0
 	github.com/soulteary/version-kit/v2 v2.2.0
-	github.com/soulteary/warden v1.2.0
+	github.com/soulteary/warden v1.3.0
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasthttp v1.74.0
 	go.opentelemetry.io/otel v1.46.0
