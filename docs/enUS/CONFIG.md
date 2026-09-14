@@ -101,6 +101,9 @@ Below are all environment variables used in code. "Required" means the service w
 | `AUTH_REFRESH_ENABLED` | true/false | true | No |
 | `AUTH_REFRESH_INTERVAL` | duration | 5m | No |
 | `REQUEST_CONTEXT_TIMEOUT` | duration | 10s | No |
+| `RATE_LIMIT_LOGIN_MAX` | integer | 10 | No |
+| `RATE_LIMIT_VERIFICATION_MAX` | integer | 5 | No |
+| `RATE_LIMIT_WINDOW` | duration | 1m | No |
 
 ## Required Configuration
 
@@ -877,6 +880,65 @@ promise immediate client-disconnect cancellation.
 | **Default** | `10s` |
 
 **Example:** `REQUEST_CONTEXT_TIMEOUT=10s`
+
+#### `RATE_LIMIT_LOGIN_MAX`
+
+Maximum number of requests one client may send to `/_login` and `/_step_up`
+within `RATE_LIMIT_WINDOW`. The same quota bounds repeated `Stargate-Password`
+header failures. Set it to `0` to disable the login quota.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Integer |
+| **Required** | No |
+| **Default** | `10` |
+
+**Example:** `RATE_LIMIT_LOGIN_MAX=10`
+
+#### `RATE_LIMIT_VERIFICATION_MAX`
+
+Maximum number of requests one client may send to `/_send_verify_code` and the
+TOTP enrollment and revocation endpoints within `RATE_LIMIT_WINDOW`. Set it to
+`0` to disable the verification quota.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Integer |
+| **Required** | No |
+| **Default** | `5` |
+
+**Example:** `RATE_LIMIT_VERIFICATION_MAX=5`
+
+#### `RATE_LIMIT_WINDOW`
+
+Fixed window over which both quotas are counted. The value must be a positive
+Go duration.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String (duration) |
+| **Required** | No |
+| **Default** | `1m` |
+
+**Example:** `RATE_LIMIT_WINDOW=1m`
+
+#### Rate-limit state and client attribution
+
+Rate-limit counters are shared through Redis when `SESSION_STORAGE_ENABLED=true`,
+using the same connection and `SESSION_STORAGE_REDIS_KEY_PREFIX` as sessions. Every
+replica then enforces one quota. Without Redis the counters stay process-local, so
+a deployment with N replicas allows up to N times the configured value. If Redis
+becomes unreachable, Stargate falls back to process-local counting and logs a
+warning rather than removing the limit or rejecting every request.
+
+Quotas are keyed by client address, and the client address is the direct peer
+unless the peer is listed in `TRUSTED_PROXIES`. Behind a reverse proxy that is not
+listed there, every client is attributed to the proxy and the whole deployment
+shares a single quota. Stargate warns at startup when `TRUSTED_PROXIES` is empty
+and again when it first receives forwarded headers from an untrusted peer. Set
+`TRUSTED_PROXIES` to the reverse-proxy source IPs or CIDRs so quotas apply per
+client.
+
 
 ## Password Configuration
 

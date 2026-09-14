@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -16,6 +17,15 @@ var log *logger.Logger
 
 // SessionExpiration is the session expiration time
 const SessionExpiration = 24 * time.Hour
+
+// Rate-limit defaults. They are the fallback used by handlers that run without
+// Initialize (unit tests) and the source of the documented DefaultValue below,
+// so the two can never drift apart.
+const (
+	DefaultRateLimitLoginMax        = 10
+	DefaultRateLimitVerificationMax = 5
+	DefaultRateLimitWindow          = time.Minute
+)
 
 var (
 	Debug = EnvVariable{
@@ -420,6 +430,33 @@ var (
 		Validator:      ValidateAny,
 	}
 
+	// Rate limiting. State is shared through the session Redis when
+	// SESSION_STORAGE_ENABLED=true, so a multi-replica deployment enforces one
+	// quota instead of one quota per replica. A limit of 0 disables that quota.
+	RateLimitLoginMax = EnvVariable{
+		Name:           "RATE_LIMIT_LOGIN_MAX",
+		Required:       false,
+		DefaultValue:   strconv.Itoa(DefaultRateLimitLoginMax),
+		PossibleValues: []string{"0 (disabled) or a positive integer"},
+		Validator:      ValidateAny,
+	}
+
+	RateLimitVerificationMax = EnvVariable{
+		Name:           "RATE_LIMIT_VERIFICATION_MAX",
+		Required:       false,
+		DefaultValue:   strconv.Itoa(DefaultRateLimitVerificationMax),
+		PossibleValues: []string{"0 (disabled) or a positive integer"},
+		Validator:      ValidateAny,
+	}
+
+	RateLimitWindow = EnvVariable{
+		Name:           "RATE_LIMIT_WINDOW",
+		Required:       false,
+		DefaultValue:   DefaultRateLimitWindow.String(),
+		PossibleValues: []string{"1m", "30s", "5m"},
+		Validator:      ValidateAny,
+	}
+
 	// Login channel toggles: when false, SMS or email verification code login is disabled
 	LoginSMSEnabled = EnvVariable{
 		Name:           "LOGIN_SMS_ENABLED",
@@ -437,6 +474,22 @@ var (
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
 )
+
+// warnUnattributableRateLimits reports the configuration in which rate limits
+// stop being per-client. With an empty TRUSTED_PROXIES, forwarded headers are
+// ignored and the client address is the direct peer. That is correct for a
+// directly exposed deployment, but behind a reverse proxy every client is
+// attributed to the proxy and therefore shares a single quota.
+func warnUnattributableRateLimits() {
+	if strings.TrimSpace(TrustedProxies.Value) != "" {
+		return
+	}
+	if RateLimitLoginMax.ToInt(DefaultRateLimitLoginMax) <= 0 &&
+		RateLimitVerificationMax.ToInt(DefaultRateLimitVerificationMax) <= 0 {
+		return
+	}
+	log.Warn().Msg("TRUSTED_PROXIES is empty: the client address is the direct peer, so behind a reverse proxy every client shares one rate-limit quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
+}
 
 func Initialize(l *logger.Logger) error {
 	log = l
@@ -470,7 +523,7 @@ func Initialize(l *logger.Logger) error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &LoginSMSEnabled, &LoginEmailEnabled}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
@@ -568,6 +621,8 @@ func Initialize(l *logger.Logger) error {
 	if Language.Value != "" {
 		log.Info().Str("name", Language.Name).Str("value", Language.Value).Msg("Config loaded")
 	}
+
+	warnUnattributableRateLimits()
 
 	// Initialize step-up matcher after configuration is loaded
 	InitStepUpMatcher()

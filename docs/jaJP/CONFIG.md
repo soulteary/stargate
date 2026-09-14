@@ -322,6 +322,9 @@ PORT=8080
 | `AUTH_REFRESH_ENABLED` | true/false | true | 認可情報の定期更新 |
 | `AUTH_REFRESH_INTERVAL` | 期間 | `5m` | 更新間隔 |
 | `REQUEST_CONTEXT_TIMEOUT` | 期間 | `10s` | 上流呼び出しの期限。クライアント切断時の即時キャンセルは保証しない |
+| `RATE_LIMIT_LOGIN_MAX` | 整数 | 10 | クライアントごと・ウィンドウごとのログイン試行数。0 で無効 |
+| `RATE_LIMIT_VERIFICATION_MAX` | 整数 | 5 | クライアントごと・ウィンドウごとの認証コード要求数。0 で無効 |
+| `RATE_LIMIT_WINDOW` | 期間 | `1m` | レート制限の固定ウィンドウ |
 
 HMAC の Key ID と Secret は必ず同時に設定します。mTLS のクライアント証明書と鍵も完全なペアが必要で、不完全な設定では起動に失敗します。
 

@@ -443,6 +443,7 @@ services:
 
 - **1 プロセス / 1 レプリカ（クロスドメイン Callback を含む）:** Ticket の発行、交換、その後の Session 利用が同じ稼働中の Stargate プロセスに到達する場合、インメモリストレージ（`SESSION_STORAGE_ENABLED=false`）を利用できます。Session と消費済み Ticket のハッシュはそのプロセス内だけに存在します。再起動すると両方が失われ、稼働中の Session は無効になり、Ticket の一回限りの状態も引き継がれません。
 - **複数プロセスまたはレプリカ:** Session や交換 Ticket が異なるプロセスで処理される可能性がある場合は Redis が必須です。全レプリカで `SESSION_STORAGE_ENABLED=true`、同じ `SESSION_STORAGE_REDIS_*` 名前空間、同じ `SESSION_EXCHANGE_SECRET` を使用します。Sticky Session はルーティング最適化にすぎず、共有状態やプロセス間リプレイ防止の代替にはなりません。
+- **レプリカ間のレート制限:** レート制限のカウンタは同じ Redis 接続で共有されます。`SESSION_STORAGE_ENABLED=true` を設定しない場合は各レプリカが個別に配額を適用するため、N レプリカでは `RATE_LIMIT_LOGIN_MAX` と `RATE_LIMIT_VERIFICATION_MAX` の最大 N 倍まで許可されます。配額はクライアントアドレス単位で数えるため、リバースプロキシを `TRUSTED_PROXIES` に列挙する必要があります。列挙しない場合、すべてのクライアントがプロキシに帰属し 1 つの配額を共有します。
 - **ローリングアップグレード:** 新旧プロセスが重なるため、無停止の入れ替えには Redis が必須です。Redis を使わない場合は停止後に起動し、Session の無効化と再ログインを受け入れてください。v0.12.0 と v1.0.0 を同じ Serving Pool に混在させないでください。
 - **再起動をまたぐ状態保持:** Session または消費済み Ticket のリプレイ状態をプロセス交換・再起動後も保持する必要がある場合は Redis が必須です。
 

@@ -443,6 +443,7 @@ services:
 
 - **단일 프로세스 / 단일 복제본(교차 도메인 Callback 포함):** Ticket 발급, 교환 및 이후 Session 사용이 모두 같은 실행 중인 Stargate 프로세스에 도달하면 인메모리 스토리지(`SESSION_STORAGE_ENABLED=false`)를 사용할 수 있습니다. Session과 소비된 Ticket 해시는 해당 프로세스에만 존재합니다. 재시작하면 두 상태가 사라지고 활성 Session이 무효화되며 Ticket의 일회성 상태도 유지되지 않습니다.
 - **여러 프로세스 또는 복제본:** Session이나 교환 Ticket이 서로 다른 프로세스에서 처리될 수 있으면 Redis가 필수입니다. 모든 복제본에서 `SESSION_STORAGE_ENABLED=true`, 동일한 `SESSION_STORAGE_REDIS_*` 네임스페이스와 동일한 `SESSION_EXCHANGE_SECRET`을 사용합니다. Sticky Session은 라우팅 최적화일 뿐 공유 상태나 프로세스 간 재사용 방지를 대신하지 않습니다.
+- **복제본 간 레이트 리밋:** 레이트 리밋 카운터는 동일한 Redis 연결로 공유됩니다. `SESSION_STORAGE_ENABLED=true`를 설정하지 않으면 각 복제본이 자체 할당량을 적용하므로 N개 복제본에서는 `RATE_LIMIT_LOGIN_MAX`와 `RATE_LIMIT_VERIFICATION_MAX`의 최대 N배까지 허용됩니다. 할당량은 클라이언트 주소 단위로 계산되므로 리버스 프록시를 `TRUSTED_PROXIES`에 나열해야 합니다. 그렇지 않으면 모든 클라이언트가 프록시로 귀속되어 하나의 할당량을 공유합니다.
 - **롤링 업그레이드:** 이전 프로세스와 새 프로세스가 겹치므로 무중단 교체에는 Redis가 필수입니다. Redis가 없으면 중지 후 시작하고 Session 무효화와 재로그인을 허용해야 합니다. v0.12.0과 v1.0.0을 같은 Serving Pool에 혼합하지 마십시오.
 - **재시작 후 상태 유지:** Session 또는 소비된 Ticket의 재사용 방지 상태가 프로세스 교체나 재시작 후에도 유지되어야 하면 Redis가 필수입니다.
 

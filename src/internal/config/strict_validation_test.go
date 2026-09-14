@@ -13,6 +13,7 @@ func setValidStrictTestValues(t *testing.T) {
 		&WardenCacheTTL, &AuthRefreshInterval, &RequestContextTimeout, &SessionStorageRedisDB,
 		&SessionStorageEnabled, &SessionStorageRedisAddr, &WardenURL, &HeraldURL,
 		&UserHeaderName, &ProxyHeader, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader,
+		&RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow,
 	}
 	values := make([]string, len(variables))
 	for i, variable := range variables {
@@ -42,6 +43,9 @@ func setValidStrictTestValues(t *testing.T) {
 	HeaderAuthEnabled.Value = "false"
 	HeaderAuthSharedSecret.Value = ""
 	HeaderAuthSecretHeader.Value = "X-Stargate-Header-Auth"
+	RateLimitLoginMax.Value = "10"
+	RateLimitVerificationMax.Value = "5"
+	RateLimitWindow.Value = "1m"
 }
 
 func TestValidateStrictSettingsAcceptsOperationalDefaults(t *testing.T) {
@@ -206,5 +210,43 @@ func TestValidateStrictSettingsRejectsIPCallbackHost(t *testing.T) {
 			testza.AssertNotNil(t, err)
 			testza.AssertEqual(t, CallbackAllowedHosts.Name, err.(*ValidationError).KeyName)
 		})
+	}
+}
+
+func TestValidateStrictSettingsRejectsNegativeRateLimit(t *testing.T) {
+	setValidStrictTestValues(t)
+	RateLimitLoginMax.Value = "-1"
+
+	err := validateStrictSettings()
+	testza.AssertNotNil(t, err)
+	testza.AssertEqual(t, RateLimitLoginMax.Name, err.(*ValidationError).KeyName)
+}
+
+func TestValidateStrictSettingsRejectsNonNumericRateLimit(t *testing.T) {
+	setValidStrictTestValues(t)
+	RateLimitVerificationMax.Value = "many"
+
+	err := validateStrictSettings()
+	testza.AssertNotNil(t, err)
+	testza.AssertEqual(t, RateLimitVerificationMax.Name, err.(*ValidationError).KeyName)
+}
+
+// Zero is the documented way to disable a quota, so it must stay valid.
+func TestValidateStrictSettingsAcceptsDisabledRateLimits(t *testing.T) {
+	setValidStrictTestValues(t)
+	RateLimitLoginMax.Value = "0"
+	RateLimitVerificationMax.Value = "0"
+
+	testza.AssertNoError(t, validateStrictSettings())
+}
+
+func TestValidateStrictSettingsRejectsInvalidRateLimitWindow(t *testing.T) {
+	setValidStrictTestValues(t)
+	for _, window := range []string{"", "0s", "-1m", "60"} {
+		RateLimitWindow.Value = window
+
+		err := validateStrictSettings()
+		testza.AssertNotNil(t, err)
+		testza.AssertEqual(t, RateLimitWindow.Name, err.(*ValidationError).KeyName)
 	}
 }

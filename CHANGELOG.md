@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- Shared endpoint rate-limit state through the configured session Redis so a
+  multi-replica deployment enforces one quota instead of one quota per replica.
+  A Redis outage degrades to per-replica counting instead of removing the limit
+  or rejecting every request.
+- Made the login and verification quotas configurable through
+  `RATE_LIMIT_LOGIN_MAX`, `RATE_LIMIT_VERIFICATION_MAX` and `RATE_LIMIT_WINDOW`,
+  and applied the login quota to repeated `Stargate-Password` header failures.
+- Warned at startup when `TRUSTED_PROXIES` is empty, and again on the first
+  forwarded headers received from an untrusted peer, because that is the
+  configuration in which every client behind a reverse proxy is attributed to
+  the proxy address and shares a single rate-limit quota.
 - Replaced repository-local CI and release Bash programs with the pinned,
   tested `soulteary/ci-recipes` Go tool.
 - Preserve authenticated Warden sessions when an authorization refresh is

@@ -322,6 +322,9 @@ PORT=8080
 | `AUTH_REFRESH_ENABLED` | true/false | true | 권한 정보 주기적 갱신 |
 | `AUTH_REFRESH_INTERVAL` | 기간 | `5m` | 갱신 간격 |
 | `REQUEST_CONTEXT_TIMEOUT` | 기간 | `10s` | 업스트림 호출 기한. 클라이언트 연결 종료 시 즉시 취소는 보장하지 않음 |
+| `RATE_LIMIT_LOGIN_MAX` | 정수 | 10 | 클라이언트별·윈도우별 로그인 시도 수. 0이면 비활성화 |
+| `RATE_LIMIT_VERIFICATION_MAX` | 정수 | 5 | 클라이언트별·윈도우별 인증 코드 요청 수. 0이면 비활성화 |
+| `RATE_LIMIT_WINDOW` | 기간 | `1m` | 레이트 리밋 고정 윈도우 |
 
 HMAC Key ID와 Secret은 함께 설정해야 합니다. mTLS 클라이언트 인증서와 키도 완전한 쌍이어야 하며, 불완전한 설정은 시작 실패로 처리됩니다.
 
