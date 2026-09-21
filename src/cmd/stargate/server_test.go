@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"io"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -13,6 +15,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	health "github.com/soulteary/health-kit/v2"
 	logger "github.com/soulteary/logger-kit/v2"
+	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
 )
@@ -538,4 +541,41 @@ func TestSetupMiddleware_FaviconNotFound(t *testing.T) {
 	testza.AssertNotPanics(t, func() {
 		setupMiddleware(app)
 	})
+}
+
+// TestCreateApp_LoginWorksWithoutRedis is the end-to-end form of the nil-client
+// regression: SESSION_STORAGE_ENABLED defaults to false, so this is the default
+// deployment, and every rate-limited POST used to panic inside the rate-limit
+// store and come back as a 500 from the recover middleware.
+func TestCreateApp_LoginWorksWithoutRedis(t *testing.T) {
+	ensureTestWorkingDir(t)
+	initLogger()
+	t.Setenv("SESSION_STORAGE_ENABLED", "false")
+	setupTestConfig(t)
+
+	app := createApp()
+
+	req := httptest.NewRequest(http.MethodPost, RouteLogin, strings.NewReader("password=test123"))
+	req.Host = config.AuthHost.String()
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := app.Test(req)
+	testza.AssertNoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	testza.AssertNoError(t, err)
+	testza.AssertNotEqual(t, http.StatusInternalServerError, resp.StatusCode,
+		"login must not fault when session storage is in memory: %s", string(body))
+	testza.AssertEqual(t, http.StatusOK, resp.StatusCode, string(body))
+
+	// The session cookie proves the request reached the login handler rather
+	// than dying in middleware.
+	var sessionCookie *http.Cookie
+	for _, c := range resp.Cookies() {
+		if c.Name == auth.SessionCookieName {
+			sessionCookie = c
+		}
+	}
+	testza.AssertNotNil(t, sessionCookie, "login should have issued a session cookie")
 }

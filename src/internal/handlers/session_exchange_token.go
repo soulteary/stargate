@@ -58,7 +58,7 @@ var defaultSessionExchangeReplayStore SessionExchangeReplayStore = &memorySessio
 // Stargate replicas enforce the same single-use ticket state. Standalone
 // in-memory deployments retain the process-local implementation.
 func NewSessionExchangeReplayStore(client redis.Cmdable) SessionExchangeReplayStore {
-	if client == nil {
+	if redisClientMissing(client) {
 		return defaultSessionExchangeReplayStore
 	}
 	prefix := config.SessionStorageRedisKeyPrefix.String()
