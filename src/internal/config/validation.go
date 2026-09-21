@@ -8,7 +8,8 @@ import (
 
 	"github.com/soulteary/cli-kit/env"
 	"github.com/soulteary/cli-kit/validator"
-	secure "github.com/soulteary/secure-kit"
+	secure "github.com/soulteary/secure-kit/v2"
+	"github.com/soulteary/secure-kit/v2/passwd"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
@@ -85,7 +86,7 @@ func (v *EnvVariable) Validate() error {
 var (
 	SupportedAlgorithms = map[string]secure.HashResolver{
 		"plaintext": &secure.PlaintextResolver{},
-		"bcrypt":    &secure.BcryptResolver{},
+		"bcrypt":    &passwd.BcryptResolver{},
 	}
 
 	ValidateNotEmptyString = func(v EnvVariable) bool {

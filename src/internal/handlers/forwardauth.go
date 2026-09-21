@@ -8,8 +8,9 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/rs/zerolog"
-	forwardauth "github.com/soulteary/forwardauth-kit/v2"
-	logger "github.com/soulteary/logger-kit/v2"
+	forwardauth "github.com/soulteary/forwardauth-kit/v3"
+	fafiber "github.com/soulteary/forwardauth-kit/v3/fiberadapter"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -128,13 +129,7 @@ func InitForwardAuthHandler(l *logger.Logger) {
 		CallbackParam: "callback",
 
 		// i18n support
-		TranslateFunc: func(c forwardauth.Context, key string) string {
-			// Get the underlying Fiber context if available
-			if fc, ok := c.(*forwardauth.FiberContext); ok {
-				return i18n.T(fc.Underlying(), key)
-			}
-			return key
-		},
+		TranslateFunc: translateForwardAuth,
 
 		// Logging
 		Logger: &forwardAuthLogger{log: l},
@@ -147,6 +142,21 @@ func InitForwardAuthHandler(l *logger.Logger) {
 
 	forwardAuthHandler = forwardauth.NewHandler(&faConfig)
 	log.Info().Msg("ForwardAuth handler initialized")
+}
+
+// translateForwardAuth resolves a forwardauth-kit message key against the
+// language negotiated for the current request.
+//
+// The type assertion is the load-bearing part. forwardauth-kit hands over its
+// own Context interface, and only the Fiber adapter's implementation carries
+// the Fiber request that i18n reads the language from. Asserting the wrong
+// type still compiles and silently returns the untranslated key, so this has a
+// test of its own.
+func translateForwardAuth(c forwardauth.Context, key string) string {
+	if src, ok := c.(fafiber.CtxSource); ok {
+		return i18n.T(src.Unwrap(), key)
+	}
+	return key
 }
 
 // parseStepUpPaths parses the step-up paths configuration.
@@ -175,5 +185,5 @@ func GetForwardAuthHandler() *forwardauth.Handler {
 // ForwardAuthCheckRoute creates a Fiber handler for the ForwardAuth check route.
 // This is the main entry point for Traefik/Nginx ForwardAuth integration.
 func ForwardAuthCheckRoute(store *session.Store) fiber.Handler {
-	return forwardauth.FiberCheckRoute(forwardAuthHandler, store)
+	return fafiber.CheckRoute(forwardAuthHandler, store)
 }

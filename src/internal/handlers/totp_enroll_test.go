@@ -41,7 +41,8 @@ func TestTOTPEnrollPageRouteRendersPostForm(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	testza.AssertNoError(t, TOTPEnrollPageRoute(store)(ctx))
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
@@ -106,6 +107,8 @@ func TestTOTPEnrollRoute_Authenticated_NoUserID_400(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	// Do not set user_id so handler returns 400
 
 	err = handler(ctx)
@@ -137,7 +140,8 @@ func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
 	sess.Set("user_id", "u_test")
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
-	ctx.Request().Header.Set("Cookie", auth.SessionCookieName+"="+sess.ID())
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -188,6 +192,8 @@ func TestTOTPEnrollRoute_AlreadyBound_RedirectsToRevoke(t *testing.T) {
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
 	ctx.Request().Header.Set("Cookie", auth.SessionCookieName+"="+sess.ID())
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -237,6 +243,8 @@ func TestTOTPEnrollConfirmAPI_MissingParams_400(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	sess.Set("user_id", "u_test")
 	ctx.Request().Header.Set("Cookie", auth.SessionCookieName+"="+sess.ID())
 
@@ -266,9 +274,9 @@ func TestTOTPEnrollConfirmAPI_ClientNil_503(t *testing.T) {
 	sess.Set(totpEnrollmentIDKey, "e1")
 	sess.Set(totpEnrollmentSubjectKey, "u_test")
 	sess.Set(totpEnrollmentStartedKey, time.Now().Unix())
-	sessionID := sess.ID()
 	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -290,9 +298,9 @@ func TestTOTPEnrollConfirmAPI_RejectsUnboundEnrollment(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	sess.Set("user_id", "u_test")
-	sessionID := sess.ID()
 	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	testza.AssertNoError(t, handler(ctx))
 	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
@@ -340,6 +348,8 @@ func TestTOTPEnrollConfirmAPIReturnsBackupCodesWhenSessionCleanupFails(t *testin
 	sess.Set(totpEnrollmentSubjectKey, "u_test")
 	sess.Set(totpEnrollmentStartedKey, time.Now().Unix())
 	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	testza.AssertNoError(t, sess.Save())
 	ctx.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
 	failingStorage.fail = true
@@ -362,9 +372,9 @@ func TestTOTPEnrollRequiresRecentAuthentication(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	sess.Set("user_id", "u_test")
-	sessionID := sess.ID()
 	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	sess, err = store.Get(ctx)
 	testza.AssertNoError(t, err)
 	sess.Set("created_at", time.Now().Add(-totpEnrollmentValidity-time.Minute).Unix())

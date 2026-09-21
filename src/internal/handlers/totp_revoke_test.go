@@ -87,6 +87,8 @@ func TestTOTPRevokeRoute_Authenticated_NoUserID_400(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -115,6 +117,8 @@ func TestTOTPRevokeRoute_Authenticated_ClientNil_503(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	sess.Set("user_id", "u_test")
 
 	err = handler(ctx)
@@ -161,6 +165,8 @@ func TestTOTPRevokeConfirmAPI_NoUserID_400(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	// Do not set user_id
 
 	err = handler(ctx)
@@ -185,6 +191,8 @@ func TestTOTPRevokeConfirmAPI_ClientNil_503(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	sess.Set("user_id", "u_test")
 
 	err = handler(ctx)
@@ -207,6 +215,8 @@ func TestTOTPRevokeConfirmAPI_RequiresRecentAuthentication(t *testing.T) {
 	testza.AssertNoError(t, err)
 	sess.Set("user_id", "u_test")
 	testza.AssertNoError(t, auth.Authenticate(sess))
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = TOTPRevokeConfirmAPI(store)(ctx)
 	testza.AssertNoError(t, err)

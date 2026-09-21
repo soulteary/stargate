@@ -12,9 +12,9 @@ import (
 	"unicode"
 
 	"github.com/pquerna/otp/totp"
-	logger "github.com/soulteary/logger-kit/v2"
-	secure "github.com/soulteary/secure-kit"
-	session "github.com/soulteary/session-kit/v2"
+	logger "github.com/soulteary/logger-kit/v3"
+	secure "github.com/soulteary/secure-kit/v2"
+	session "github.com/soulteary/session-kit/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 	internal_tls "github.com/soulteary/stargate/src/internal/tlsconfig"
 	"github.com/soulteary/warden/pkg/warden"

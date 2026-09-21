@@ -11,7 +11,7 @@ import (
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/herald/pkg/herald"
-	logger "github.com/soulteary/logger-kit/v2"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"

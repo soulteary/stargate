@@ -6,7 +6,7 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
-	logger "github.com/soulteary/logger-kit/v2"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )
@@ -96,6 +96,8 @@ func TestCheckRoute_SetsAuthHeadersFromSession(t *testing.T) {
 
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -129,6 +131,8 @@ func TestCheckRoute_SetsScopesFromInterfaceSlice(t *testing.T) {
 
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
