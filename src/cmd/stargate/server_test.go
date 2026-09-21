@@ -10,11 +10,13 @@ import (
 	"time"
 
 	"github.com/MarvinJWendt/testza"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/gofiber/fiber/v3"
 	health "github.com/soulteary/health-kit/v4"
 	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
+	"github.com/valyala/fasthttp"
 )
 
 // testLoggerMain creates a logger instance for testing
@@ -538,4 +540,62 @@ func TestSetupMiddleware_FaviconNotFound(t *testing.T) {
 	testza.AssertNotPanics(t, func() {
 		setupMiddleware(app)
 	})
+}
+
+// TestSetupSessionStoreRedisKeyPrefix pins the Redis key layout that sessions
+// are stored under.
+//
+// session-kit v3 moved Redis storage out of the root package into redisstore,
+// and setupSessionStore now builds the Redis client itself rather than letting
+// the kit build one and handing it back. The prefix rules survived that move -
+// a configured prefix is used as given, an empty one falls back to "session:",
+// and one without a trailing colon gets one - and they decide whether an
+// existing deployment still finds its sessions after a rolling restart, so
+// they are asserted against a real Redis rather than inferred.
+func TestSetupSessionStoreRedisKeyPrefix(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		prefix string
+		want   string
+	}{
+		{name: "configured prefix is used as given", prefix: "stargate:session:", want: "stargate:session:"},
+		{name: "empty prefix falls back to session:", prefix: "", want: "session:"},
+		{name: "prefix without trailing colon gets one", prefix: "noColon", want: "noColon:"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			redisServer := miniredis.RunT(t)
+			initLogger()
+
+			t.Setenv("SESSION_STORAGE_ENABLED", "true")
+			t.Setenv("SESSION_STORAGE_REDIS_ADDR", redisServer.Addr())
+			t.Setenv("SESSION_STORAGE_REDIS_DB", "0")
+			setupTestConfig(t)
+
+			// SESSION_STORAGE_REDIS_KEY_PREFIX has a non-empty default, so the
+			// empty case has to be set past the config layer to reach the kit.
+			originalPrefix := config.SessionStorageRedisKeyPrefix.Value
+			t.Cleanup(func() { config.SessionStorageRedisKeyPrefix.Value = originalPrefix })
+			config.SessionStorageRedisKeyPrefix.Value = tc.prefix
+
+			store, redisClient := setupSessionStore()
+			testza.AssertNotNil(t, store)
+			// The client is shared with the challenge context store, the
+			// rate-limit store, the replay store and the health check, all of
+			// which need the concrete type.
+			testza.AssertNotNil(t, redisClient)
+			testza.AssertNoError(t, redisClient.Ping(context.Background()).Err())
+
+			app := fiber.New()
+			ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
+			defer app.ReleaseCtx(ctx)
+
+			sess, err := store.Get(ctx)
+			testza.AssertNoError(t, err)
+			sess.Set("probe", "value")
+			testza.AssertNoError(t, sess.Save())
+
+			testza.AssertTrue(t, redisServer.Exists(tc.want+sess.ID()),
+				"session key should be stored under %q, found %v", tc.want, redisServer.Keys())
+		})
+	}
 }

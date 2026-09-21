@@ -183,7 +183,8 @@ func TestStepUpAPIRecordsRecentVerification(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = StepUpAPI(store)(ctx)
 	testza.AssertNoError(t, err)

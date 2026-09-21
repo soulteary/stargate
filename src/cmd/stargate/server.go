@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -26,7 +27,10 @@ import (
 	metricsfiber "github.com/soulteary/metrics-kit/v3/fiberadapter"
 	middlewarekit "github.com/soulteary/middleware-kit/v3"
 	mwfiber "github.com/soulteary/middleware-kit/v3/fiberadapter"
-	session "github.com/soulteary/session-kit/v2"
+	rediskitclient "github.com/soulteary/redis-kit/client"
+	session "github.com/soulteary/session-kit/v3"
+	sessionfiber "github.com/soulteary/session-kit/v3/fiberadapter"
+	sessionredis "github.com/soulteary/session-kit/v3/redisstore"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
@@ -120,18 +124,27 @@ func setupSessionStore() (*fibersession.Store, *redis.Client) {
 			}
 		}
 
-		// Use NewRedisStorageFromConfig once; reuse the same client for health check to avoid double connection
-		redisStorage, err := session.NewRedisStorageFromConfig(
-			config.SessionStorageRedisAddr.Value,
-			config.SessionStorageRedisPassword.Value,
-			redisDB,
-			config.SessionStorageRedisKeyPrefix.Value,
-		)
+		// Build the client here rather than letting redisstore build it and
+		// handing it back: redisstore.Client is an interface, while the
+		// challenge context store, the rate-limit store, the session exchange
+		// replay store and the health check all need the concrete
+		// *redis.Client. One client still serves all of them, so this stays a
+		// single connection.
+		redisCfg := rediskitclient.DefaultConfig().
+			WithAddr(config.SessionStorageRedisAddr.Value).
+			WithPassword(config.SessionStorageRedisPassword.Value).
+			WithDB(redisDB)
+		// Same bound redisstore applies to its own connectivity check.
+		redisCfg.DialTimeout = 5 * time.Second
+
+		// NewClient pings before it returns and closes the client if the server
+		// does not answer, so an unreachable Redis fails here at startup.
+		client, err := rediskitclient.NewClient(redisCfg)
 		if err != nil {
-			log.Fatal().Err(err).Msg("Failed to initialize Redis session storage")
+			log.Fatal().Err(fmt.Errorf("failed to create Redis client: %w", err)).Msg("Failed to initialize Redis session storage")
 		}
-		sessionStorage = redisStorage
-		redisClient = redisStorage.GetClient()
+		redisClient = client
+		sessionStorage = sessionredis.New(client, config.SessionStorageRedisKeyPrefix.Value)
 		log.Info().Msg("Session storage configured to use Redis")
 	} else {
 		// Use in-memory storage
@@ -148,9 +161,9 @@ func setupSessionStore() (*fibersession.Store, *redis.Client) {
 
 	// Create session Manager and get Fiber session config
 	sessionManager := session.NewManager(sessionStorage, sessionConfig)
-	fiberConfig := sessionManager.FiberSessionConfig()
+	fiberConfig := sessionfiber.SessionConfig(sessionManager)
 
-	// Set KeyGenerator (not provided by session-kit's FiberSessionConfig)
+	// Set KeyGenerator (not provided by session-kit's SessionConfig)
 	fiberConfig.KeyGenerator = utils.UUID
 
 	return fibersession.NewStore(fiberConfig), redisClient

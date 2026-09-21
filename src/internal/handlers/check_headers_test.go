@@ -96,6 +96,8 @@ func TestCheckRoute_SetsAuthHeadersFromSession(t *testing.T) {
 
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -129,6 +131,8 @@ func TestCheckRoute_SetsScopesFromInterfaceSlice(t *testing.T) {
 
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)

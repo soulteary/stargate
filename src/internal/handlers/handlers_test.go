@@ -93,6 +93,27 @@ func createTestContext(method, path string, headers map[string]string, body stri
 	return ctx, app
 }
 
+// rebindSessionContext returns a second context bound to sess's current id.
+//
+// session-kit v3 rotates the session id inside Authenticate. A Fiber context
+// remembers the id it first resolved, and Regenerate does not update that
+// memory, so a handler invoked on the original context would look up the id
+// that was just rotated away. Carrying the current id into a fresh context as
+// a request cookie is what a browser does with the Set-Cookie a login response
+// returns, so this is the unit-test equivalent of the next real request.
+//
+// The caller's app is reused so the new context keeps the same Fiber config,
+// and the caller is responsible for releasing both contexts.
+func rebindSessionContext(t *testing.T, app *fiber.App, ctx fiber.Ctx, sess *session.Session) fiber.Ctx {
+	t.Helper()
+	next := app.AcquireCtx(&fasthttp.RequestCtx{})
+	ctx.Request().CopyTo(next.Request())
+	next.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
+	next.Locals("i18n-bundle", i18n.GetBundle())
+	next.Locals("i18n-language", i18n.LangEN)
+	return next
+}
+
 func responseCookieValue(ctx fiber.Ctx, name string) string {
 	raw := ctx.Response().Header.PeekCookie(name)
 	if len(raw) == 0 {
@@ -123,6 +144,8 @@ func TestCheckRoute_Authenticated(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	// Test handler
 	err = handler(ctx)
@@ -355,6 +378,8 @@ func TestLoginRoute_Authenticated(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	// Should redirect, but we can't easily test redirect in unit test
@@ -392,6 +417,8 @@ func TestIndexRoute_Authenticated(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -623,6 +650,8 @@ func TestLoginRoute_Authenticated_WithForwardedProto(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -1159,6 +1188,8 @@ func TestLoginRoute_NoCallback_RedirectsToRoot(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -1191,6 +1222,8 @@ func TestLoginRoute_WithForwardedProto_Empty(t *testing.T) {
 	testza.AssertNoError(t, err)
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)

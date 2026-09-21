@@ -38,9 +38,11 @@ func TestAuthRefreshRejectsMissingOrDisabledUser(t *testing.T) {
 	sess.Set("user_mail", "disabled@example.com")
 	sess.Set("auth_method", "warden")
 	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())
-	sessionID := sess.ID()
 	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	// Authenticate rotates the session id, so the refresh has to run against a
+	// context carrying the new one, the way the next real request would.
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	sess, err = store.Get(ctx)
 	testza.AssertNoError(t, err)
 	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
@@ -90,9 +92,11 @@ func TestAuthRefreshReplacesRevokedAuthorization(t *testing.T) {
 	sess.Set("auth_method", "warden")
 	sess.Set("user_scope", []string{"old-admin"})
 	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())
-	sessionID := sess.ID()
 	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx.Request().Header.SetCookie(auth.SessionCookieName, sessionID)
+	// Authenticate rotates the session id, so the refresh has to run against a
+	// context carrying the new one, the way the next real request would.
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	sess, err = store.Get(ctx)
 	testza.AssertNoError(t, err)
 	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {

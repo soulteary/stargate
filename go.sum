@@ -115,8 +115,8 @@ github.com/soulteary/audit-kit/v2 v2.1.0 h1:7W4oDM3RBz1YiutG+ktA9K1bEeJPvvKy+W4L
 github.com/soulteary/audit-kit/v2 v2.1.0/go.mod h1:9yvpvAYsJDlO5rPGPhih4jRdKFuBHxdSa+5oUEkLa8s=
 github.com/soulteary/cli-kit v1.9.0 h1:MqI51qtK+pspPDoF0WA0RctRrDXB/lkQ0Wl7qWO2eeQ=
 github.com/soulteary/cli-kit v1.9.0/go.mod h1:xwDFEGpNaL5Tgqsv2FW0PRPuCE80Um+LXDUUIzcQxgQ=
-github.com/soulteary/forwardauth-kit/v2 v2.2.0 h1:cGgBfl7ShxD3YLUiRt3fhOSM2x4zuIlt3SZoV9Pxx0s=
-github.com/soulteary/forwardauth-kit/v2 v2.2.0/go.mod h1:PWjpuW57EgFJAzYGTlxeyFNZ+N5a4qlrRLPH8v3Vhho=
+github.com/soulteary/forwardauth-kit/v3 v3.0.0 h1:Cmo01D9RectIS3Wv2i6b/yq+KrAifqHFHaorSQ5CP/8=
+github.com/soulteary/forwardauth-kit/v3 v3.0.0/go.mod h1:Cg3PDzPa8g1ED4TQ4LSa/3dWfJxo+xVvmhAyHpD0l0M=
 github.com/soulteary/health-kit/v4 v4.0.0 h1:z9naNR+5ratOOk7Rhv0x7qf2lhwkqA1BKmZXX3BYpLc=
 github.com/soulteary/health-kit/v4 v4.0.0/go.mod h1:FICSTbB1ZaKpRsn+16u1b2w6TaCxV3E2H2KAYHlQxKQ=
 github.com/soulteary/herald v1.3.0 h1:hWK3ifvIlhbyvjJGoWzk7hY17gHui/mqXGTygkM70UA=
@@ -135,8 +135,8 @@ github.com/soulteary/redis-kit v1.7.0 h1:Js34kAMAB3cXuE+DE9qKPExB0bVNqRoN0fTYR5s
 github.com/soulteary/redis-kit v1.7.0/go.mod h1:7ah1JeSGh7bdnhckG/b699RM0hPWIt4s4k9v95H6mWQ=
 github.com/soulteary/secure-kit/v2 v2.1.0 h1:n5KfT7KO8CrmjGpk4yVcNXshbgT4osu0QeDDg3Yg/3s=
 github.com/soulteary/secure-kit/v2 v2.1.0/go.mod h1:ouOCHlEDBOW1OLGwbxXAnQqfadhI3+zRWMBR2c0eE2c=
-github.com/soulteary/session-kit/v2 v2.3.0 h1:vMRm3yFTMDhgIhN9sF91u5wpd5QZJ5b5uYiUvyMqZUs=
-github.com/soulteary/session-kit/v2 v2.3.0/go.mod h1:ZzRzE3Gs9KJAwikmZWWZllNS3PL0MSdANiUyKD6KhaQ=
+github.com/soulteary/session-kit/v3 v3.1.0 h1:wy24BO8xfmMS1bjBxbPbuk4jv+h5gMEzw3YvuXGQKgE=
+github.com/soulteary/session-kit/v3 v3.1.0/go.mod h1:+YyLEietaUXszRBj8UOGaMnl6gJVC5ppiax0ZCy8Nlw=
 github.com/soulteary/tracing-kit/v2 v2.0.0 h1:7xFJrxz5fTFLjXZ8A+B3IK5+NK+eW54mXA3ldjhtxDQ=
 github.com/soulteary/tracing-kit/v2 v2.0.0/go.mod h1:GJLsfbcHbC4Dki6/rKrrn9VpVHEZUA+/skpD6D/oAkI=
 github.com/soulteary/version-kit/v4 v4.0.0 h1:4gEes54h/iymUhPdY/LhKG1mSuMMpNmzd3fx4glcreU=

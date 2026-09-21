@@ -2,14 +2,21 @@ package handlers
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3/extractors"
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/gofiber/utils/v2"
+	forwardauth "github.com/soulteary/forwardauth-kit/v3"
+	fafiber "github.com/soulteary/forwardauth-kit/v3/fiberadapter"
+	fahttp "github.com/soulteary/forwardauth-kit/v3/httpadapter"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
 // TestGetForwardAuthHandler_ReturnsNonNilAfterInit verifies that after InitForwardAuthHandler
@@ -74,4 +81,45 @@ func TestForwardAuthLogger_InfoWarnErrorAndFields(t *testing.T) {
 	l.Info().Str("key", "val").Msg("info message")
 	l.Warn().Bool("enabled", true).Msg("warn message")
 	l.Error().Err(errors.New("test err")).Int("code", 400).Int64("count", 1).Dur("latency", 10*time.Millisecond).Msg("error message")
+}
+
+// TestTranslateForwardAuthUsesRequestLanguage pins the type assertion in
+// translateForwardAuth. forwardauth-kit v3 renamed FiberContext.Underlying to
+// CtxSource.Unwrap; asserting the wrong type there still compiles and turns
+// every ForwardAuth message back into its raw key, which is only visible in the
+// response body.
+func TestTranslateForwardAuthUsesRequestLanguage(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		lang i18n.Language
+		want string
+	}{
+		{name: "chinese", lang: i18n.LangZH, want: "需要身份验证"},
+		{name: "english", lang: i18n.LangEN, want: "Authentication required"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, app := createTestContext("GET", "/_auth", map[string]string{
+				"Accept-Language": string(tc.lang),
+			}, "")
+			defer app.ReleaseCtx(ctx)
+			ctx.Locals("i18n-language", tc.lang)
+
+			got := translateForwardAuth(fafiber.NewContext(ctx), "error.auth_required")
+			testza.AssertEqual(t, tc.want, got)
+			testza.AssertNotEqual(t, "error.auth_required", got,
+				"the key leaked through untranslated, so the Fiber context was not unwrapped")
+		})
+	}
+}
+
+// TestTranslateForwardAuthFallsBackToKey covers the other side of the
+// assertion. forwardauth-kit's net/http adapter is a forwardauth.Context too,
+// but it carries no Fiber request, so the key is the only honest answer.
+func TestTranslateForwardAuthFallsBackToKey(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/_auth", nil)
+	req.Header.Set("Accept-Language", "zh")
+	var faCtx forwardauth.Context = fahttp.NewContext(httptest.NewRecorder(), req)
+
+	testza.AssertEqual(t, "error.auth_required",
+		translateForwardAuth(faCtx, "error.auth_required"))
 }
