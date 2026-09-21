@@ -183,7 +183,7 @@ Quando `HERALD_ENABLED=true`, Stargate può integrarsi con il servizio Herald tr
 - **Gestione Errori**: Gestisce vari errori restituiti da Herald (scaduto, bloccato, limitato, ecc.)
 
 **Metodo di Integrazione:**
-- Utilizza client Herald Go (`github.com/soulteary/stargate/pkg/herald`)
+- Utilizza client Herald Go (`github.com/soulteary/herald/pkg/herald`)
 - Supporta autenticazione API Key (sviluppo)
 - Supporta autenticazione firma HMAC (produzione, raccomandato)
 - Supporta mTLS (opzionale)
