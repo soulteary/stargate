@@ -183,7 +183,7 @@ Stargate는 인증 기능을 확장하기 위한 선택적 서비스 통합을 �
 - **오류 처리**: Herald가 반환하는 다양한 오류 처리 (만료, 잠금, 속도 제한 등)
 
 **통합 방법:**
-- Herald Go 클라이언트 사용 (`github.com/soulteary/stargate/pkg/herald`)
+- Herald Go 클라이언트 사용 (`github.com/soulteary/herald/pkg/herald`)
 - API 키 인증 지원 (개발 환경)
 - HMAC 서명 인증 지원 (프로덕션 환경, 권장)
 - mTLS 지원 (선택 사항)

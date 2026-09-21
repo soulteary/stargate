@@ -228,7 +228,7 @@ When `HERALD_ENABLED=true`, Stargate can integrate with Herald service through H
 - **Error Handling**: Handle various errors returned by Herald (expired, locked, rate limited, etc.)
 
 **Integration Method:**
-- Use Herald Go client (`github.com/soulteary/stargate/pkg/herald`)
+- Use Herald Go client (`github.com/soulteary/herald/pkg/herald`)
 - Support API Key authentication (development)
 - Support HMAC signature authentication (production, recommended)
 - Support mTLS (optional)

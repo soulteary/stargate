@@ -183,7 +183,7 @@ Wenn `HERALD_ENABLED=true`, kann sich Stargate über den Herald-Client mit dem H
 - **Fehlerbehandlung**: Verschiedene von Herald zurückgegebene Fehler behandeln (abgelaufen, gesperrt, rate limited, etc.)
 
 **Integrationsmethode:**
-- Herald Go-Client verwenden (`github.com/soulteary/stargate/pkg/herald`)
+- Herald Go-Client verwenden (`github.com/soulteary/herald/pkg/herald`)
 - API-Key-Authentifizierung unterstützen (Entwicklung)
 - HMAC-Signatur-Authentifizierung unterstützen (Produktion, empfohlen)
 - mTLS unterstützen (optional)

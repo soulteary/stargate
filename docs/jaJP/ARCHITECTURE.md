@@ -183,7 +183,7 @@ Stargateは認証機能を拡張するためのオプションサービス統合
 - **エラー処理**：Heraldが返すさまざまなエラーを処理（期限切れ、ロック、レート制限など）
 
 **統合方法：**
-- Herald Goクライアントを使用（`github.com/soulteary/stargate/pkg/herald`）
+- Herald Goクライアントを使用（`github.com/soulteary/herald/pkg/herald`）
 - APIキー認証をサポート（開発環境）
 - HMAC署名認証をサポート（本番環境、推奨）
 - mTLSをサポート（オプション）

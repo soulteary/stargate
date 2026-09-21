@@ -228,7 +228,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 - **错误处理**：处理 Herald 返回的各种错误（过期、锁定、限流等）
 
 **集成方式：**
-- 使用 Herald Go 客户端 (`github.com/soulteary/stargate/pkg/herald`)
+- 使用 Herald Go 客户端 (`github.com/soulteary/herald/pkg/herald`)
 - 支持 API Key 认证（开发环境）
 - 支持 HMAC 签名认证（生产环境，推荐）
 - 支持 mTLS（可选）
