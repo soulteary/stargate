@@ -11,8 +11,8 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
-	health "github.com/soulteary/health-kit/v2"
-	logger "github.com/soulteary/logger-kit/v2"
+	health "github.com/soulteary/health-kit/v4"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
 )

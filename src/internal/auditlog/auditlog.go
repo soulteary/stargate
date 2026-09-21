@@ -9,7 +9,7 @@ import (
 	"strings"
 	"sync"
 
-	audit "github.com/soulteary/audit-kit"
+	audit "github.com/soulteary/audit-kit/v2"
 	"github.com/soulteary/stargate/src/internal/config"
 )
 

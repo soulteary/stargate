@@ -16,11 +16,16 @@ import (
 	"github.com/gofiber/template/html/v3"
 	"github.com/gofiber/utils/v2"
 	"github.com/redis/go-redis/v9"
-	health "github.com/soulteary/health-kit/v2"
-	i18nkit "github.com/soulteary/i18n-kit/v2"
-	logger "github.com/soulteary/logger-kit/v2"
-	metricskit "github.com/soulteary/metrics-kit/v2"
-	middlewarekit "github.com/soulteary/middleware-kit/v2"
+	health "github.com/soulteary/health-kit/v4"
+	healthfiber "github.com/soulteary/health-kit/v4/fiberadapter"
+	"github.com/soulteary/health-kit/v4/redisprobe"
+	i18nkit "github.com/soulteary/i18n-kit/v4"
+	i18nfiber "github.com/soulteary/i18n-kit/v4/fiberadapter"
+	logger "github.com/soulteary/logger-kit/v3"
+	loggerfiber "github.com/soulteary/logger-kit/v3/fiberadapter"
+	metricsfiber "github.com/soulteary/metrics-kit/v3/fiberadapter"
+	middlewarekit "github.com/soulteary/middleware-kit/v3"
+	mwfiber "github.com/soulteary/middleware-kit/v3/fiberadapter"
 	session "github.com/soulteary/session-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
@@ -207,7 +212,7 @@ func setupHealthChecker(redisClient *redis.Client) *health.Aggregator {
 
 	// Redis health check (if session storage is enabled)
 	if config.SessionStorageEnabled.ToBool() && redisClient != nil {
-		aggregator.AddChecker(health.NewRedisChecker(redisClient))
+		aggregator.AddChecker(redisprobe.New(redisClient))
 	} else {
 		aggregator.AddChecker(health.NewDisabledChecker("redis").
 			WithMessage("Session storage is disabled"))
@@ -225,10 +230,10 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 
 	// Liveness deliberately excludes dependencies so an external outage does not
 	// cause the container runtime to restart an otherwise healthy process.
-	app.Get(RouteHealthz, health.SimpleFiberHandler("stargate"))
-	app.Get(RouteReadyz, health.FiberHandler(healthAggregator))
+	app.Get(RouteHealthz, healthfiber.SimpleHandler("stargate"))
+	app.Get(RouteReadyz, healthfiber.Handler(healthAggregator))
 	// Keep /health as a backwards-compatible alias for readiness.
-	app.Get(RouteHealth, health.FiberHandler(healthAggregator))
+	app.Get(RouteHealth, healthfiber.Handler(healthAggregator))
 	app.Get(RouteRoot, handlers.IndexRoute(store))
 	app.Get(RouteLogin, handlers.LoginRoute(store))
 	sameOrigin := handlers.RequireSameOrigin()
@@ -245,12 +250,14 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	app.Get(RouteStepUp, handlers.StepUpRoute(store))
 	app.Post(RouteStepUp, sameOrigin, handlers.LoginRateLimit(), handlers.StepUpAPI(store))
 	// Prometheus metrics endpoint
-	app.Get("/metrics", metricskit.FiberHandlerFor(metrics.Registry))
+	app.Get("/metrics", metricsfiber.HandlerFor(metrics.Registry))
 
 	// Register log level endpoint
-	logger.RegisterLevelEndpointFiber(app, "/log/level", logger.LevelHandlerConfig{
-		Logger:     log,
-		AllowedIPs: []string{"127.0.0.1"},
+	loggerfiber.RegisterLevelEndpoint(app, "/log/level", loggerfiber.LevelHandlerConfig{
+		LevelHandlerConfig: logger.LevelHandlerConfig{
+			Logger:     log,
+			AllowedIPs: []string{"127.0.0.1"},
+		},
 	})
 }
 
@@ -287,7 +294,7 @@ func setupMiddleware(app *fiber.App) {
 	log.Debug().Msg("Panic recovery middleware enabled")
 
 	// 2. Security headers (XSS protection, clickjacking prevention, etc.)
-	app.Use(middlewarekit.SecurityHeaders(middlewarekit.DefaultSecurityHeadersConfig()))
+	app.Use(mwfiber.SecurityHeaders(middlewarekit.DefaultSecurityHeadersConfig()))
 	log.Debug().Msg("Security headers middleware enabled")
 
 	// 3. Install a standard Go context with a real Done channel and deadline.
@@ -306,17 +313,21 @@ func setupMiddleware(app *fiber.App) {
 	}
 
 	// 5. i18n middleware (language detection from Query > Cookie > Header > Accept-Language)
-	app.Use(i18nkit.FiberMiddleware(i18nkit.MiddlewareConfig{
-		Bundle: i18n.GetBundle(),
+	app.Use(i18nfiber.Middleware(i18nfiber.Config{
+		MiddlewareConfig: i18nkit.MiddlewareConfig{
+			Bundle: i18n.GetBundle(),
+		},
 	}))
 	log.Debug().Msg("i18n middleware enabled")
 
 	// 6. Request logging with logger-kit
-	app.Use(logger.FiberMiddleware(logger.MiddlewareConfig{
-		Logger:           log,
-		SkipPaths:        []string{RouteHealthz, RouteReadyz, RouteHealth, "/metrics"},
-		IncludeRequestID: true,
-		IncludeLatency:   true,
+	app.Use(loggerfiber.Middleware(loggerfiber.Config{
+		MiddlewareConfig: logger.MiddlewareConfig{
+			Logger:           log,
+			SkipPaths:        []string{RouteHealthz, RouteReadyz, RouteHealth, "/metrics"},
+			IncludeRequestID: true,
+			IncludeLatency:   true,
+		},
 	}))
 	log.Debug().Msg("Request logging middleware enabled")
 
@@ -330,13 +341,15 @@ func setupMiddleware(app *fiber.App) {
 	// 	MaxVisitors:     10000,
 	// 	CleanupInterval: time.Minute,
 	// })
-	// app.Use(middlewarekit.RateLimit(middlewarekit.RateLimitConfig{
-	// 	Limiter:   limiter,
-	// 	SkipPaths: []string{"/healthz", "/metrics"},
-	// 	Logger:    &zerologLogger,
-	// 	OnLimitReached: func(key string) {
-	// 		// Optional: increment Prometheus counter
-	// 		// metrics.RateLimitExceeded.Inc()
+	// app.Use(mwfiber.RateLimit(mwfiber.RateLimitConfig{
+	// 	RateLimitConfig: middlewarekit.RateLimitConfig{
+	// 		Limiter:   limiter,
+	// 		SkipPaths: []string{"/healthz", "/metrics"},
+	// 		Logger:    &zerologLogger,
+	// 		OnLimitReached: func(key string) {
+	// 			// Optional: increment Prometheus counter
+	// 			// metrics.RateLimitExceeded.Inc()
+	// 		},
 	// 	},
 	// }))
 	// log.Info().Msg("Rate limiting middleware enabled")

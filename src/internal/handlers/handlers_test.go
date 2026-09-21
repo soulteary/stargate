@@ -15,8 +15,9 @@ import (
 	"github.com/gofiber/fiber/v3/extractors"
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/gofiber/utils/v2"
-	health "github.com/soulteary/health-kit/v2"
-	logger "github.com/soulteary/logger-kit/v2"
+	health "github.com/soulteary/health-kit/v4"
+	healthfiber "github.com/soulteary/health-kit/v4/fiberadapter"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -457,7 +458,7 @@ func TestHealthRoute(t *testing.T) {
 	healthConfig := health.DefaultConfig().WithServiceName("stargate")
 	aggregator := health.NewAggregator(healthConfig)
 	// No checkers added means all healthy
-	handler := health.FiberHandler(aggregator)
+	handler := healthfiber.Handler(aggregator)
 
 	ctx, app := createTestContext("GET", "/health", nil, "")
 	defer app.ReleaseCtx(ctx)

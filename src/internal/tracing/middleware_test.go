@@ -8,15 +8,15 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/stargate/src/internal/requestcontext"
-	common_tracing "github.com/soulteary/tracing-kit"
+	"github.com/soulteary/tracing-kit/v2/tracingtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel/trace"
 )
 
 func TestTracingMiddleware(t *testing.T) {
-	defer common_tracing.TeardownTestTracer()
-	_, _ = common_tracing.SetupTestTracer(t)
+	defer tracingtest.Teardown()
+	_, _ = tracingtest.Setup(t)
 
 	app := fiber.New()
 	app.Use(TracingMiddleware("test-service"))
@@ -76,8 +76,8 @@ func TestTracingMiddleware(t *testing.T) {
 type tracingContextKey struct{}
 
 func TestTracingMiddlewarePreservesDeadlineCancellationAndValues(t *testing.T) {
-	defer common_tracing.TeardownTestTracer()
-	_, _ = common_tracing.SetupTestTracer(t)
+	defer tracingtest.Teardown()
+	_, _ = tracingtest.Setup(t)
 
 	var captured context.Context
 	app := fiber.New()
