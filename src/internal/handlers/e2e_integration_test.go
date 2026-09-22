@@ -17,7 +17,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/gofiber/utils/v2"
 	"github.com/redis/go-redis/v9"
-	logger "github.com/soulteary/logger-kit/v2"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/redis-kit/cache"
 	"github.com/soulteary/redis-kit/client"
 	"github.com/soulteary/stargate/src/internal/auth"

@@ -6,11 +6,12 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
-	forwardauth "github.com/soulteary/forwardauth-kit/v2"
+	forwardauth "github.com/soulteary/forwardauth-kit/v3"
+	fafiber "github.com/soulteary/forwardauth-kit/v3/fiberadapter"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
-	"github.com/soulteary/tracing-kit"
+	"github.com/soulteary/tracing-kit/v2"
 	"go.opentelemetry.io/otel/attribute"
 )
 
@@ -129,8 +130,8 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		}
 
 		// Wrap Fiber context and session for forwardauth-kit
-		faCtx := forwardauth.NewFiberContext(ctx)
-		faSess := forwardauth.NewFiberSession(sess)
+		faCtx := fafiber.NewContext(ctx)
+		faSess := fafiber.NewSession(sess)
 
 		// Password authentication keeps its original priority over trusted
 		// identity headers. Otherwise resolve the trusted identity here with the

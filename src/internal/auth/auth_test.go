@@ -17,7 +17,7 @@ import (
 	"github.com/gofiber/fiber/v3/extractors"
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/pquerna/otp/totp"
-	logger "github.com/soulteary/logger-kit/v2"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
 )
@@ -166,6 +166,19 @@ func TestCheckPassword_SHA512IsRejected(t *testing.T) {
 	testza.AssertNotNil(t, err)
 }
 
+// rebindSessionContext returns a context bound to sess's current id.
+//
+// session-kit v3 rotates the session id inside Authenticate, and a Fiber
+// context keeps the id it first resolved, so reading the session back has to
+// happen on a context carrying the new id -- what the next request from a
+// browser that followed the Set-Cookie header would carry.
+func rebindSessionContext(app *fiber.App, ctx fiber.Ctx, sess *session.Session) fiber.Ctx {
+	next := app.AcquireCtx(&fasthttp.RequestCtx{})
+	ctx.Request().CopyTo(next.Request())
+	next.Request().Header.SetCookie(SessionCookieName, sess.ID())
+	return next
+}
+
 func TestAuthenticate(t *testing.T) {
 	app := fiber.New()
 	store := session.NewStore(session.Config{
@@ -181,6 +194,10 @@ func TestAuthenticate(t *testing.T) {
 	err = Authenticate(sess)
 	testza.AssertNoError(t, err)
 
+	// Authenticate rotated the session id; read it back on a context carrying
+	// the new one.
+	ctx = rebindSessionContext(app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	// Get session again to verify it was saved
 	sess2, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
@@ -203,6 +220,10 @@ func TestUnauthenticate(t *testing.T) {
 	err = Authenticate(sess)
 	testza.AssertNoError(t, err)
 
+	// Authenticate rotated the session id; read it back on a context carrying
+	// the new one.
+	ctx = rebindSessionContext(app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	// Get session again to verify it was saved
 	sess2, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
@@ -358,6 +379,10 @@ func TestAuthenticate_MultipleTimes(t *testing.T) {
 	err = Authenticate(sess)
 	testza.AssertNoError(t, err)
 
+	// Authenticate rotated the session id; read it back on a context carrying
+	// the new one.
+	ctx = rebindSessionContext(app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 	// Get session again to verify it was saved
 	sess2, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
@@ -367,6 +392,9 @@ func TestAuthenticate_MultipleTimes(t *testing.T) {
 	err = Authenticate(sess2)
 	testza.AssertNoError(t, err)
 
+	// ...which rotated the id again.
+	ctx = rebindSessionContext(app, ctx, sess2)
+	defer app.ReleaseCtx(ctx)
 	// Get session again to verify it remains authenticated
 	sess3, err := store.Get(ctx)
 	testza.AssertNoError(t, err)

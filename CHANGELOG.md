@@ -30,6 +30,24 @@
   Redis for multi-instance deployments. Idempotent retries preserve the original
   attribution, failed attempts retain it through a short audit grace period,
   and successful verification consumes it.
+- Upgraded Herald to v1.3.0 and Warden to v1.4.0, and every kit to its current
+  major: audit-kit v2.1.0, forwardauth-kit v3.0.0, health-kit v4.0.0, i18n-kit
+  v4.0.1, logger-kit v3.0.0, metrics-kit v3.0.0, middleware-kit v3.0.0,
+  redis-kit v1.7.0, secure-kit v2.1.0, session-kit v3.1.0, tracing-kit v2.0.0
+  and version-kit v4.0.0. These releases move their framework-specific entry
+  points into dedicated subpackages, so Stargate now reaches Fiber handlers and
+  middleware through each kit's `fiberadapter`, Redis session storage through
+  session-kit's `redisstore`, Redis health probing through health-kit's
+  `redisprobe`, and OTLP tracer setup through tracing-kit's `otlp`. Responses
+  are unchanged: session cookie attributes, Redis session key prefixes,
+  ForwardAuth decisions, translated messages, security headers, health, metrics
+  and log-level access control all behave exactly as before.
+- Rotated the session identifier on login. session-kit v3 regenerates the
+  identifier inside `Authenticate`, so the identifier a client holds before
+  signing in can no longer be carried into an authenticated session.
+- Build stamping now targets `github.com/soulteary/version-kit/v4`. A build
+  still using the old `/v2` path succeeds but silently reports version `dev`,
+  so out-of-tree build scripts need the same change.
 
 - Fixed a crash on every rate-limited endpoint when Redis session storage is
   disabled, which is the default. Login, verification-code sending, TOTP

@@ -10,17 +10,17 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
-	logger "github.com/soulteary/logger-kit/v2"
+	logger "github.com/soulteary/logger-kit/v3"
 	"go.opentelemetry.io/otel/attribute"
 
 	"github.com/soulteary/herald/pkg/herald"
-	secure "github.com/soulteary/secure-kit"
+	secure "github.com/soulteary/secure-kit/v2"
 	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
-	"github.com/soulteary/tracing-kit"
+	"github.com/soulteary/tracing-kit/v2"
 	"github.com/soulteary/warden/pkg/warden"
 )
 

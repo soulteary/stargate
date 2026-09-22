@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v3"
-	kit "github.com/soulteary/i18n-kit/v2"
+	kit "github.com/soulteary/i18n-kit/v4"
+	i18nfiber "github.com/soulteary/i18n-kit/v4/fiberadapter"
 )
 
 // Language type alias for backward compatibility
@@ -390,7 +391,7 @@ func init() {
 // T returns the translated string for the given key using the language from Fiber context.
 // If the key is not found, it returns the key itself.
 func T(c fiber.Ctx, key string) string {
-	return kit.TFromFiber(c, key)
+	return i18nfiber.T(c, key)
 }
 
 // Tf returns a formatted translated string using the language from Fiber context.

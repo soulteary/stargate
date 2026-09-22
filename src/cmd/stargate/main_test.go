@@ -8,11 +8,11 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
-	logger "github.com/soulteary/logger-kit/v2"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
-	version "github.com/soulteary/version-kit/v2"
+	version "github.com/soulteary/version-kit/v4"
 )
 
 func TestShowBanner(t *testing.T) {

@@ -6,7 +6,7 @@ import (
 	"sync"
 	"testing"
 
-	audit "github.com/soulteary/audit-kit"
+	audit "github.com/soulteary/audit-kit/v2"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/stretchr/testify/assert"
 )

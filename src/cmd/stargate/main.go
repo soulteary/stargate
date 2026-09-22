@@ -11,13 +11,14 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
-	logger "github.com/soulteary/logger-kit/v2"
+	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
-	"github.com/soulteary/tracing-kit"
-	version "github.com/soulteary/version-kit/v2"
+	tracing "github.com/soulteary/tracing-kit/v2"
+	"github.com/soulteary/tracing-kit/v2/otlp"
+	version "github.com/soulteary/version-kit/v4"
 )
 
 // log is the global logger instance
@@ -44,7 +45,7 @@ func runApplication() error {
 
 	// Initialize OpenTelemetry tracing if enabled
 	if config.OTLPEnabled.ToBool() {
-		_, err := tracing.InitTracer(
+		_, err := otlp.InitTracer(
 			"stargate",
 			version.Version,
 			config.OTLPEndpoint.Value,

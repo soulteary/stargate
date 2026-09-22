@@ -11,7 +11,7 @@ import (
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
-	forwardauth "github.com/soulteary/forwardauth-kit/v2"
+	forwardauth "github.com/soulteary/forwardauth-kit/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/requestcontext"
@@ -188,7 +188,8 @@ func TestCheckRouteRejectsStatelessIdentityUsingVerifiedSession(t *testing.T) {
 	sess.Set("user_id", "session-user")
 	sess.Set("step_up_verified_at", time.Now().Unix())
 	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	testza.AssertNoError(t, CheckRoute(store)(ctx))
 	testza.AssertEqual(t, fiber.StatusForbidden, ctx.Response().StatusCode())
@@ -218,6 +219,8 @@ func TestCheckRouteAllowsVerifiedSessionOnStepUpPath(t *testing.T) {
 	sess.Set("step_up_verified_at", time.Now().Unix())
 	testza.AssertNoError(t, auth.Authenticate(sess))
 	ctx.Request().Header.SetCookie(auth.SessionCookieName, sess.ID())
+	ctx = rebindSessionContext(t, app, ctx, sess)
+	defer app.ReleaseCtx(ctx)
 
 	testza.AssertNoError(t, CheckRoute(store)(ctx))
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())

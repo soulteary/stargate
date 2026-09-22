@@ -6,7 +6,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
 
-	sessionkit "github.com/soulteary/session-kit/v2"
+	sessionkit "github.com/soulteary/session-kit/v3"
+	sessionfiber "github.com/soulteary/session-kit/v3/fiberadapter"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -58,8 +59,9 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 			sessionConfig = sessionConfig.WithCookieDomain(cookieDomain)
 		}
 
-		// Use session-kit's CreateCookie for consistent cookie creation
-		cookie := sessionkit.CreateCookie(sessionConfig, sessionID)
+		// session-kit v3's root CreateCookie returns a *http.Cookie; the Fiber
+		// adapter builds the *fiber.Cookie that ctx.Cookie needs.
+		cookie := sessionfiber.Cookie(sessionConfig, sessionID)
 		ctx.Cookie(cookie)
 
 		return ctx.Redirect().Status(fiber.StatusFound).To("/")
