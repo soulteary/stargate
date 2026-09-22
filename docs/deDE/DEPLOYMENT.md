@@ -176,7 +176,7 @@ Verwenden Sie das folgende separate Beispiel nur, wenn Traefik bereits in einem 
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -265,7 +265,7 @@ Bearbeiten Sie `docker-compose.yml` und ändern Sie die Umgebungsvariablen:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -289,7 +289,7 @@ Konfigurieren Sie Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -717,7 +717,7 @@ docker rename stargate stargate-previous
 3. **Neues Image herunterladen:**
 
 ```bash
-docker pull ghcr.io/soulteary/stargate:v1.0.0
+docker pull ghcr.io/soulteary/stargate:1.0.0
 ```
 
 4. **Neuen Container starten:**
@@ -728,7 +728,7 @@ docker run -d \
   --env-file ./stargate-v1.env \
   -p 8080:8080 \
   --restart unless-stopped \
-  ghcr.io/soulteary/stargate:v1.0.0
+  ghcr.io/soulteary/stargate:1.0.0
 ```
 
 5. **Dienst überprüfen:**

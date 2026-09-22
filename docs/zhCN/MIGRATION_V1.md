@@ -66,7 +66,7 @@ Herald TOTP 要求 Stargate 通过 Warden 解析已认证用户，因此还必�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.0.0
+    image: ghcr.io/soulteary/stargate:1.0.0
     ports:
       - "8080:8080"
     read_only: true

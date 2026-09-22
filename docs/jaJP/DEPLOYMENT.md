@@ -176,7 +176,7 @@ Traefik が共有の外部 Docker ネットワークですでに動作してい�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -265,7 +265,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -289,7 +289,7 @@ Stargate は Traefik と統合するように設計されており、Forward Aut
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -717,7 +717,7 @@ docker rename stargate stargate-previous
 3. **新しいイメージのダウンロード:**
 
 ```bash
-docker pull ghcr.io/soulteary/stargate:v1.0.0
+docker pull ghcr.io/soulteary/stargate:1.0.0
 ```
 
 4. **新しいコンテナの起動:**
@@ -728,7 +728,7 @@ docker run -d \
   --env-file ./stargate-v1.env \
   -p 8080:8080 \
   --restart unless-stopped \
-  ghcr.io/soulteary/stargate:v1.0.0
+  ghcr.io/soulteary/stargate:1.0.0
 ```
 
 5. **サービスの確認:**

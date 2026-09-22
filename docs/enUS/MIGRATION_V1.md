@@ -66,7 +66,7 @@ Update reverse-proxy targets and container health checks together. A minimal Com
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.0.0
+    image: ghcr.io/soulteary/stargate:1.0.0
     ports:
       - "8080:8080"
     read_only: true
