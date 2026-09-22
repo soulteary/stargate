@@ -13,7 +13,7 @@ services:
       - traefik
 
   stargate: # Your Stargate forward auth service
-    image: ghcr.io/soulteary/stargate:v1.0.0
+    image: ghcr.io/soulteary/stargate:v1.2.0
     # Local development port mapping: host port 8080 -> container port 8080
     # Purpose: Direct access to service during local development without traefik
     # Production: Uses port 8080 via traefik proxy (not mapped to host)

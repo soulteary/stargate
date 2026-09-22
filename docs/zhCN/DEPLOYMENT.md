@@ -176,7 +176,7 @@ docker compose up -d
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.0.0
+    image: ghcr.io/soulteary/stargate:v1.2.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -221,7 +221,7 @@ networks:
 services:
   # Stargate 认证服务
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.0.0
+    image: ghcr.io/soulteary/stargate:v1.2.0
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
@@ -377,7 +377,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.0.0
+    image: ghcr.io/soulteary/stargate:v1.2.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -401,7 +401,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.0.0
+    image: ghcr.io/soulteary/stargate:v1.2.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
