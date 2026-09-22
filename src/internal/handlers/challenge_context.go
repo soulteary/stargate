@@ -133,7 +133,7 @@ var (
 )
 
 func NewChallengeContextStore(client redis.Cmdable) ChallengeContextStore {
-	if client == nil {
+	if redisClientMissing(client) {
 		return newMemoryChallengeContextStore()
 	}
 	prefix := config.SessionStorageRedisKeyPrefix.String()

@@ -49,6 +49,13 @@
   still using the old `/v2` path succeeds but silently reports version `dev`,
   so out-of-tree build scripts need the same change.
 
+- Fixed a crash on every rate-limited endpoint when Redis session storage is
+  disabled, which is the default. Login, verification-code sending, TOTP
+  enrolment and revocation, and step-up all answered `500` because the shared
+  rate-limit, challenge-context and session-exchange replay stores mistook a
+  nil `*redis.Client` held in a `redis.Cmdable` interface for a live client
+  instead of falling back to their in-memory implementations.
+
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
 ## [1.0.0] - 2026-08-27

@@ -110,7 +110,7 @@ var (
 // provides a client, so every replica enforces one quota. Standalone
 // deployments keep the process-local implementation.
 func NewRateLimitStore(client redis.Cmdable) RateLimitStore {
-	if client == nil {
+	if redisClientMissing(client) {
 		return newMemoryRateLimitStore()
 	}
 	prefix := config.SessionStorageRedisKeyPrefix.String()
