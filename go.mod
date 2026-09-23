@@ -6,7 +6,7 @@ require (
 	github.com/MarvinJWendt/testza v0.5.2
 	github.com/alicebob/miniredis/v2 v2.39.0
 	github.com/gofiber/fiber/v3 v3.5.0
-	github.com/gofiber/template/html/v3 v3.0.8
+	github.com/gofiber/template/html/v3 v3.0.9
 	github.com/gofiber/utils/v2 v2.5.2
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.24.1
@@ -50,7 +50,7 @@ require (
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gofiber/schema v1.8.7 // indirect
-	github.com/gofiber/template/v2 v2.1.1 // indirect
+	github.com/gofiber/template/v2 v2.1.2 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gookit/color v1.6.1 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0 // indirect
