@@ -92,7 +92,8 @@ jobs:
         run: go test -short ./...
 
       - name: Remove stale generated report evidence
-        if: always() && (github.event_name == 'pull_request')
+        id: report_cleanup
+        if: "!cancelled() && (github.event_name == 'pull_request')"
         shell: bash
         run: |
           set -euo pipefail
@@ -121,7 +122,7 @@ jobs:
           threshold: "0"
           report: "true"
           commit: "false"
-        if: always() && github.event_name == 'pull_request'
+        if: "!cancelled() && github.event_name == 'pull_request' && steps.report_cleanup.outcome == 'success'"
       - name: Reuse GTR coverage profile
         if: github.event_name == 'pull_request'
         shell: bash
