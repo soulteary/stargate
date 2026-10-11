@@ -1,0 +1,88 @@
+{
+  "schema_version": "1.0",
+  "tests": {
+    "total": 470,
+    "passed": 466,
+    "failed": 0,
+    "skipped": 4
+  },
+  "coverage": {
+    "covered_statements": 1697,
+    "total_statements": 2178,
+    "percentage": 77.92,
+    "threshold": 70
+  },
+  "packages": [
+    {
+      "name": "src/cmd/stargate",
+      "status": "pass",
+      "tests": 62,
+      "failed": 0,
+      "coverage": 73.58
+    },
+    {
+      "name": "src/internal/auditlog",
+      "status": "pass",
+      "tests": 5,
+      "failed": 0,
+      "coverage": 81.82
+    },
+    {
+      "name": "src/internal/auth",
+      "status": "pass",
+      "tests": 69,
+      "failed": 0,
+      "coverage": 81.88
+    },
+    {
+      "name": "src/internal/config",
+      "status": "pass",
+      "tests": 67,
+      "failed": 0,
+      "coverage": 88.96
+    },
+    {
+      "name": "src/internal/handlers",
+      "status": "pass",
+      "tests": 216,
+      "failed": 0,
+      "coverage": 74.27
+    },
+    {
+      "name": "src/internal/i18n",
+      "status": "pass",
+      "tests": 36,
+      "failed": 0,
+      "coverage": 100
+    },
+    {
+      "name": "src/internal/metrics",
+      "status": "pass",
+      "tests": 7,
+      "failed": 0,
+      "coverage": 100
+    },
+    {
+      "name": "src/internal/requestcontext",
+      "status": "pass",
+      "tests": 2,
+      "failed": 0,
+      "coverage": 100
+    },
+    {
+      "name": "src/internal/tlsconfig",
+      "status": "pass",
+      "tests": 2,
+      "failed": 0,
+      "coverage": 66.67
+    },
+    {
+      "name": "src/internal/tracing",
+      "status": "pass",
+      "tests": 4,
+      "failed": 0,
+      "coverage": 95.56
+    }
+  ],
+  "failures": null
+}
