@@ -34,19 +34,19 @@ jobs:
       matrix:
         include:
           - os: ubuntu-latest
-            go-version: 1.27.0
+            go-version: 1.27.2
             arch: amd64
           - os: ubuntu-24.04-arm
-            go-version: 1.27.0
+            go-version: 1.27.2
             arch: arm64
           - os: windows-latest
-            go-version: 1.27.0
+            go-version: 1.27.2
             arch: amd64
           - os: macos-15-intel
-            go-version: 1.27.0
+            go-version: 1.27.2
             arch: amd64
           - os: macos-latest
-            go-version: 1.27.0
+            go-version: 1.27.2
             arch: arm64
           - os: ubuntu-latest
             go-version: 1.27.x
@@ -154,7 +154,7 @@ jobs:
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.13.1
+          version: v2.14.0
           args: --timeout=5m
           only-new-issues: false
 
