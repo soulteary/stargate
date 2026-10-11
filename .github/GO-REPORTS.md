@@ -23,3 +23,5 @@ Raw profiles/test logs are artifacts, never committed.
 The reports retain the short unit-test tier. Redis-backed full integration
 and coverage checks remain in `main.yml`; platform compatibility and nightly
 test matrices remain independent. These reports do not claim integration coverage.
+
+Published releases with a CI skip annotation use the release-event fallback. Ordinary releases use the tag-push report run; the release gate skips duplicate tests. Stable artifacts containing only reports under `.github` are downloaded into that directory explicitly; mixed report/document artifacts retain the repository hierarchy.
