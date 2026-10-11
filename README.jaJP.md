@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-1.27.2+-blue.svg)](https://golang.org)
-[![codecov](https://codecov.io/gh/soulteary/stargate/branch/main/graph/badge.svg)](https://codecov.io/gh/soulteary/stargate)
+
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 
 > **🚀 セキュアなマイクロサービスへのゲートウェイ**

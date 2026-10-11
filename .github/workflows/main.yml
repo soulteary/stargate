@@ -60,13 +60,3 @@ jobs:
           name: coverage-report
           path: coverage.html
           retention-days: 3
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.out
-          disable_search: true
-          flags: integration
-          name: main
-          fail_ci_if_error: false
