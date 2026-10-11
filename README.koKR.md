@@ -1,7 +1,7 @@
 # Stargate - Forward Auth Service
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/go-1.27+-blue.svg)](https://golang.org)
+[![Go Version](https://img.shields.io/badge/go-1.27.2+-blue.svg)](https://golang.org)
 [![codecov](https://codecov.io/gh/soulteary/stargate/branch/main/graph/badge.svg)](https://codecov.io/gh/soulteary/stargate)
 [![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
 
@@ -121,7 +121,7 @@ docker-compose up -d
 
 ### 로컬 개발
 
-로컬 개발의 경우 Go 1.27+가 설치되어 있는지 확인한 다음:
+로컬 개발의 경우 Go 1.27.2+가 설치되어 있는지 확인한 다음:
 
 ```bash
 chmod +x start-local.sh
