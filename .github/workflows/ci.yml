@@ -92,7 +92,8 @@ jobs:
         run: go test -short ./...
 
       - name: Remove stale generated report evidence
-        if: always() && (github.event_name == 'pull_request')
+        id: report_cleanup
+        if: "!cancelled() && (github.event_name == 'pull_request')"
         shell: bash
         run: |
           set -euo pipefail
@@ -121,7 +122,7 @@ jobs:
           threshold: "0"
           report: "true"
           commit: "false"
-        if: always() && github.event_name == 'pull_request'
+        if: "!cancelled() && github.event_name == 'pull_request' && steps.report_cleanup.outcome == 'success'"
       - name: Reuse GTR coverage profile
         if: github.event_name == 'pull_request'
         shell: bash
@@ -133,7 +134,7 @@ jobs:
         if: steps.changes.outputs.code != 'true'
         run: echo "Only documentation files changed; build checks are not required."
       - name: Upload read-only PR quality evidence
-        if: always() && (github.event_name == 'pull_request')
+        if: "always() && steps.report_cleanup.outcome == 'success' && ((github.event_name == 'pull_request'))"
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: pr-go-quality-${{ github.job }}-${{ github.run_id }}-${{ github.run_attempt }}
