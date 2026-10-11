@@ -454,3 +454,23 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ci-recipes stargate reconcile-release-aliases "${{ needs.release.outputs.tag }}" "${REGISTRY}/${IMAGE_NAME}"
+
+  report_release:
+    name: Dispatch verified release reports
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Request reports for the released tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          RELEASE_TAG: ${{ needs.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          gh workflow run go-quality-reports.yml --repo "$REPOSITORY" --ref "$DEFAULT_BRANCH" \
+            -f "source_ref=refs/tags/$RELEASE_TAG" -f reuse_existing_tag_report=true
