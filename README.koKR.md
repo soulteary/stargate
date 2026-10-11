@@ -1,9 +1,11 @@
 # Stargate - Forward Auth Service
 
+[![Go Test Coverage](./.github/coverage.svg)](./.github/go-test-report.md) [![Go Report Card](./.github/goreportcard.svg)](./.github/goreportcard-report.md)
+
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/go-1.27.2+-blue.svg)](https://golang.org)
 
-[![Go Report Card](.github/goreportcard.svg)](.github/goreportcard-report.md)
+
 
 > **🚀 보안 마이크로서비스로의 게이트웨이**
 
