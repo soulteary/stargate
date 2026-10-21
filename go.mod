@@ -7,7 +7,7 @@ require (
 	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/gofiber/fiber/v3 v3.5.0
 	github.com/gofiber/template/html/v3 v3.0.10
-	github.com/gofiber/utils/v2 v2.6.1
+	github.com/gofiber/utils/v2 v2.6.2
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/pterm/pterm v0.12.84
