@@ -22,7 +22,7 @@ concurrency:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  CI_RECIPES_VERSION: 39e30dfe38566a87ff1b3e92e24743c2aac81df6
+  CI_RECIPES_VERSION: 4b909da4b11948a4de37b6423dae966c2ecb1941
 
 jobs:
   compatibility:

@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 env:
-  CI_RECIPES_VERSION: 39e30dfe38566a87ff1b3e92e24743c2aac81df6
+  CI_RECIPES_VERSION: 4b909da4b11948a4de37b6423dae966c2ecb1941
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -124,7 +124,7 @@ jobs:
           commit: "false"
         if: "!cancelled() && github.event_name == 'pull_request' && steps.report_cleanup.outcome == 'success'"
       - name: Restore project Go toolchain
-        uses: actions/setup-go@v7
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: go.mod
           cache: false
