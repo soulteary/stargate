@@ -1,6 +1,6 @@
 # Stargate - Forward Auth Service
 
-[![Go Test Coverage](./.github/coverage.svg)](./.github/go-test-report.md) [![Go Report Card](./.github/goreportcard.svg)](./.github/goreportcard-report.md) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) [![Go Version](https://img.shields.io/badge/go-1.27.2+-blue.svg)](https://golang.org)
+[![Go Test Coverage](./.github/coverage.svg)](./.github/go-test-report.md) [![Go Report Card](./.github/goreportcard.svg)](./.github/goreportcard-report.md) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) [![Go Version](https://img.shields.io/badge/go-1.27.3+-blue.svg)](https://golang.org)
 
 
 
@@ -120,7 +120,7 @@ docker-compose up -d
 
 ### ローカル開発
 
-ローカル開発では、Go 1.27.2+ がインストールされていることを確認し、次を実行します：
+ローカル開発では、Go 1.27.3+ がインストールされていることを確認し、次を実行します：
 
 ```bash
 chmod +x start-local.sh

@@ -2,6 +2,14 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
+## [1.2.1] - 2026-10-22
+
+### Changed
+
+- Require Go 1.27.3 and align build images and CI toolchains.
+- Update compatible Go dependencies and published Kit versions; refresh module checksums.
+- Preserve the project toolchain after quality report generation.
+
 ## [1.2.0] - 2026-09-22
 
 - Fixed a crash on every rate-limited endpoint when Redis session storage is
