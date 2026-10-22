@@ -10,6 +10,7 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - Update compatible Go dependencies and published Kit versions; refresh module checksums.
 - Preserve the project toolchain after quality report generation.
 - Align Warden with v1.4.2 and pin the validated Go 1.27.3-compatible ci-recipes revision.
+- Align the Herald client with the released v1.3.2 service and TOTP v1.2.5 API module.
 
 ## [1.2.0] - 2026-09-22
 

@@ -17,7 +17,7 @@ require (
 	github.com/soulteary/cli-kit v1.9.2
 	github.com/soulteary/forwardauth-kit/v3 v3.0.2
 	github.com/soulteary/health-kit/v4 v4.0.2
-	github.com/soulteary/herald v1.3.1
+	github.com/soulteary/herald v1.3.2
 	github.com/soulteary/i18n-kit/v4 v4.0.3
 	github.com/soulteary/logger-kit/v3 v3.0.3
 	github.com/soulteary/metrics-kit/v3 v3.0.3
