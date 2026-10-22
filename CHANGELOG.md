@@ -9,6 +9,7 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - Require Go 1.27.3 and align build images and CI toolchains.
 - Update compatible Go dependencies and published Kit versions; refresh module checksums.
 - Preserve the project toolchain after quality report generation.
+- Align Warden with v1.4.2 and pin the validated Go 1.27.3-compatible ci-recipes revision.
 
 ## [1.2.0] - 2026-09-22
 
