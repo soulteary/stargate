@@ -15,16 +15,16 @@ require (
 	github.com/rs/zerolog v1.35.1
 	github.com/soulteary/audit-kit/v2 v2.1.2
 	github.com/soulteary/cli-kit v1.9.2
-	github.com/soulteary/forwardauth-kit/v3 v3.0.3
-	github.com/soulteary/health-kit/v4 v4.0.3
+	github.com/soulteary/forwardauth-kit/v3 v3.0.4
+	github.com/soulteary/health-kit/v4 v4.0.4
 	github.com/soulteary/herald v1.3.2
 	github.com/soulteary/i18n-kit/v4 v4.0.3
 	github.com/soulteary/logger-kit/v3 v3.0.3
 	github.com/soulteary/metrics-kit/v3 v3.0.3
-	github.com/soulteary/middleware-kit/v3 v3.0.2
+	github.com/soulteary/middleware-kit/v3 v3.0.3
 	github.com/soulteary/redis-kit v1.8.0
 	github.com/soulteary/secure-kit/v2 v2.1.2
-	github.com/soulteary/session-kit/v3 v3.1.2
+	github.com/soulteary/session-kit/v3 v3.1.3
 	github.com/soulteary/tracing-kit/v2 v2.0.2
 	github.com/soulteary/version-kit/v4 v4.0.2
 	github.com/soulteary/warden v1.4.2

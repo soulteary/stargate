@@ -2,6 +2,18 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
+## [1.2.2] - 2026-10-28
+
+### Changed
+
+- Update the released authentication and health libraries: forwardauth-kit
+  v3.0.4, health-kit v4.0.4, middleware-kit v3.0.3 and session-kit v3.1.3.
+- Update compatible runtime dependencies, including redis-kit v1.8.0,
+  http-kit/v2 v2.1.0, fasthttp v1.77.0, x/net v0.62.0, gRPC v1.85.0
+  and Prometheus support modules; refresh module checksums.
+- Update govulncheck to v1.9.0 and refresh CI artifact, report and container
+  login Actions. Go 1.27.3 and application configuration remain unchanged.
+
 ## [1.2.1] - 2026-10-22
 
 ### Changed
