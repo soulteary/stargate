@@ -111,8 +111,8 @@ github.com/soulteary/audit-kit/v2 v2.1.2 h1:41zmu0EVgAm4u5tuz4AAPLVxB1BeWpWmfhPD
 github.com/soulteary/audit-kit/v2 v2.1.2/go.mod h1:mtGI+pJdmqntcTaB/jGxLir8OF6IgxFX865XzBa5ZRY=
 github.com/soulteary/cli-kit v1.9.2 h1:lciNt542e/YwV8aTSOLABtA6GTOv6i7iaTV+4w9SAAA=
 github.com/soulteary/cli-kit v1.9.2/go.mod h1:/u1MG5w4C04y2UvjQ2hUgkmFIWX36F26IUzRsBR5qP8=
-github.com/soulteary/forwardauth-kit/v3 v3.0.2 h1:SetllZsAc9L/It5yBVMTnwBN8OQhW+dmlJhrk6aMf4g=
-github.com/soulteary/forwardauth-kit/v3 v3.0.2/go.mod h1:QDuXnKu61dH1+aaq+6PLhvoypSV0OxKKvR6MSdbFEcc=
+github.com/soulteary/forwardauth-kit/v3 v3.0.3 h1:R4Ywbq7T7saUqqXXA/BVJieAkX821QUb0wC4xA3oQL8=
+github.com/soulteary/forwardauth-kit/v3 v3.0.3/go.mod h1:l6iKvPX5bcH+wgpu/YtGhDaTeMODBlPgYu1LUWF+IcU=
 github.com/soulteary/health-kit/v4 v4.0.3 h1:hqr4VVq+dxgiDSyQJMtK4zgZyIPu8YfRyPsEGER4eOI=
 github.com/soulteary/health-kit/v4 v4.0.3/go.mod h1:H8oo+OeAarz41ZPFShmUCVJ0BvE4uK9tIiCDFmu7lSI=
 github.com/soulteary/herald v1.3.2 h1:EhDDQ7fTDl4cWS2oaX2Zo9wkJhdhj+MqMnk5D3/HgQo=
