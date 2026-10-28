@@ -159,7 +159,7 @@ jobs:
           only-new-issues: false
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@v1.2.0
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.9.0
 
       - name: Scan Go dependencies
         run: govulncheck ./...
