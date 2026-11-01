@@ -9,6 +9,10 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - Preserve `429` and `Retry-After` after password-header failures exceed the
   configured quota, instead of overwriting the response with `401` or a login
   redirect. Failed passwords remain rejected.
+- Reject Warden authorization refresh when the stored and returned stable user
+  IDs differ or are missing. Reassigned phone numbers or email addresses cannot
+  transfer an existing session to another account. Existing sessions already
+  rebound by older versions require operator review and revocation or expiry.
 - Keep Redis rate-limit windows fixed during their final second. Commit counter
   creation and millisecond expiry together, and retain existing counts when
   repairing legacy counters without an expiry.

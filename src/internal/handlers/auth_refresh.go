@@ -43,6 +43,12 @@ func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (b
 		_ = auth.Unauthenticate(sess)
 		return false, errors.New("user is no longer active")
 	}
+	// Contacts can be reassigned; they locate records but cannot authorize
+	// rebinding a session to a different stable directory identity.
+	boundUserID, _ := sess.Get("user_id").(string)
+	if boundUserID == "" || user.UserID == "" || boundUserID != user.UserID {
+		return false, errors.New("session refresh identity does not match; sign in again")
+	}
 	sess.Set("user_id", user.UserID)
 	sess.Set("user_mail", user.Mail)
 	sess.Set("user_phone", user.Phone)

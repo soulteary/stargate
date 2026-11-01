@@ -89,6 +89,7 @@ func TestAuthRefreshReplacesRevokedAuthorization(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	sess.Set("user_mail", "active@example.com")
+	sess.Set("user_id", "user-1")
 	sess.Set("auth_method", "warden")
 	sess.Set("user_scope", []string{"old-admin"})
 	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())

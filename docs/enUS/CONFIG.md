@@ -852,6 +852,26 @@ OTLP collector endpoint (e.g. Jaeger/OTLP Collector).
 
 Periodically refresh user/authorization info from Warden and update session during its lifetime.
 
+A refresh may update roles and scopes only when the session's nonempty `user_id`
+exactly matches Warden's nonempty `user_id`. Email addresses and phone numbers
+are lookup inputs and may be reassigned; they cannot rebind a session to another
+account. A mismatch or missing ID rejects the request without replacing identity,
+permissions or the refresh timestamp. The stored session is retained for expiry
+and investigation; the client must sign in again. Legacy sessions without
+`auth_method` remain compatible only when their stored `user_id` matches.
+Warden records used with authorization refresh must provide stable user IDs.
+
+Replace every instance before relying on this boundary; old instances remain
+vulnerable during mixed-version operation or rollback. Pause protected traffic
+for a coordinated replacement. No key-format, persistent-volume or automatic
+record migration is introduced. Already-rebound sessions cannot be detected or
+repaired automatically: review directory reassignment history, retain audit
+and session evidence under access controls, and revoke or expire affected
+sessions before restoring access. If session integrity cannot be established,
+require fresh Warden authentication for all existing sessions. A rollback
+restores the old rebinding behavior and must not resume affected traffic.
+
+
 | Attribute | Value |
 |-----------|-------|
 | **Type** | Boolean |
