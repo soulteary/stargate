@@ -104,10 +104,10 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8080
+      - WARDEN_URL=http://warden:8081
       - WARDEN_API_KEY=your-warden-api-key
       - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8080
+      - HERALD_URL=http://herald:8082
       - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
@@ -189,7 +189,7 @@ Stargateは完全に独立して使用できます。また、以下のサービ
 
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -199,7 +199,7 @@ OTP/検証コードサービスを提供します。有効にすると、Stargat
 
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # 本番環境
 # または
 HERALD_API_KEY=your-api-key  # 開発環境

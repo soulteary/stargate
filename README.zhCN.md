@@ -100,10 +100,10 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8080
+      - WARDEN_URL=http://warden:8081
       - WARDEN_API_KEY=your-warden-api-key
       - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8080
+      - HERALD_URL=http://herald:8082
       - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
@@ -185,7 +185,7 @@ Stargate 可以完全独立使用，也可以选择性地与以下服务集成�
 
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -195,7 +195,7 @@ WARDEN_API_KEY=your-api-key
 
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # 生产环境
 # 或
 HERALD_API_KEY=your-api-key  # 开发环境
@@ -208,9 +208,9 @@ HERALD_API_KEY=your-api-key  # 开发环境
 ```bash
 # Stargate
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_TOTP_ENABLED=true
 HERALD_API_KEY=your-herald-api-key               # 开发环境
 # 或

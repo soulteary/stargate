@@ -27,7 +27,7 @@ export PASSWORDS='plaintext:yourpassword'
 **Docker：**
 
 ```bash
-docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:v1.2.0
+docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:1.2.6
 ```
 
 **Docker Compose：**
@@ -422,7 +422,7 @@ Warden 服务的基础 URL。
 | **类型** | String |
 | **必需** | 否（如果 `WARDEN_ENABLED=true` 则为必需） |
 | **默认值** | 空 |
-| **示例** | `http://warden:8080` 或 `https://warden.example.com` |
+| **示例** | `http://warden:8081` 或 `https://warden.example.com` |
 
 **说明：**
 
@@ -433,7 +433,7 @@ Warden 服务的基础 URL。
 **示例：**
 
 ```bash
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 ```
 
 #### `WARDEN_API_KEY`
@@ -563,7 +563,7 @@ Herald 服务的基础 URL。
 | **类型** | String |
 | **必需** | 否（如果 `HERALD_ENABLED=true` 则为必需） |
 | **默认值** | 空 |
-| **示例** | `http://herald:8080` 或 `https://herald.example.com` |
+| **示例** | `http://herald:8082` 或 `https://herald.example.com` |
 
 **说明：**
 
@@ -574,7 +574,7 @@ Herald 服务的基础 URL。
 **示例：**
 
 ```bash
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 ```
 
 #### `HERALD_API_KEY`
@@ -1086,13 +1086,13 @@ AUTH_HOST=auth.example.com
 
 # Warden 配置
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-warden-api-key
 WARDEN_CACHE_TTL=300
 
 # Herald 配置
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-herald-hmac-secret
 
 # 可选配置
@@ -1119,7 +1119,7 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       # 必需配置
       - AUTH_HOST=auth.example.com
@@ -1135,47 +1135,32 @@ services:
 
 **Warden + Herald OTP 认证模式：**
 
+这是 API-key 模式下的 Stargate 端配置。Warden 和 Herald 应分别按照其
+[Warden 部署指南](https://github.com/soulteary/warden/blob/v1.4.4/docs/enUS/DEPLOYMENT.md)
+和 [Herald 部署指南](https://github.com/soulteary/herald/blob/v1.3.13/docs/enUS/DEPLOYMENT.md)
+部署，并落实各自的数据和持久化要求。提供容器内可达的 URL 和匹配的凭据；
+上游默认端口分别为 Warden `8081`、Herald `8082`。需显式配置共享网络或可路由
+地址。使用 Herald HMAC 模式时，改用匹配的 `HERALD_HMAC_SECRET` 和
+`HERALD_HMAC_KEY_ID` 配置。Warden 用户 ID 必须稳定，并保留部署所需的会话和
+重放状态持久化。本次文档修正不会迁移或删除已有服务数据和数据卷。
+
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
-      # 必需配置
       - AUTH_HOST=auth.example.com
-      
-      # Warden 配置
       - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8080
-      - WARDEN_API_KEY=your-warden-api-key
-      - WARDEN_CACHE_TTL=300
-      
-      # Herald 配置
+      - WARDEN_URL=${WARDEN_URL:?set the reachable Warden URL}
+      - WARDEN_API_KEY=${WARDEN_API_KEY:?set the matching Warden API key}
       - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8080
-      - HERALD_HMAC_SECRET=your-herald-hmac-secret
-      
-      # 可选配置
-      - DEBUG=false
-      - LANGUAGE=zh
-      - LOGIN_PAGE_TITLE=我的认证服务
-      - LOGIN_PAGE_FOOTER_TEXT=© 2024 我的公司
+      - HERALD_URL=${HERALD_URL:?set the reachable Herald URL}
+      - HERALD_API_KEY=${HERALD_API_KEY:?set the matching Herald API key}
+      - CALLBACK_ALLOWED_HOSTS=app.example.com
       - COOKIE_DOMAIN=.example.com
-    depends_on:
-      - warden
-      - herald
-
-  warden:
-    image: warden:latest
-    environment:
-      - WARDEN_DB_URL=postgres://user:pass@db:5432/warden
-    # ... 其他配置
-
-  herald:
-    image: herald:latest
-    environment:
-      - HERALD_REDIS_URL=redis://redis:6379/0
-    # ... 其他配置
+      - SESSION_EXCHANGE_SECRET=${SESSION_EXCHANGE_SECRET:?set at least 32 random characters}
 ```
+
 
 ### 本地开发配置
 
@@ -1305,7 +1290,7 @@ PASSWORDS='bcrypt:<哈希>'
 
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 HEADER_AUTH_ENABLED=true
 HEADER_AUTH_SHARED_SECRET=<至少32个随机字符>
 # 可选；以下为默认请求头名称：

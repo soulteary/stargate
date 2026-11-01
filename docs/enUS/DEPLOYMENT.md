@@ -7,6 +7,7 @@ Upgrading from v0.12.0? Read the [v1.0.0 migration guide](MIGRATION_V1.md) befor
 ## Table of Contents
 
 - [Deployment Methods](#deployment-methods)
+- [Direct Binaries](#direct-binaries)
 - [Docker Deployment](#docker-deployment)
 - [Docker Compose Deployment](#docker-compose-deployment)
 - [Traefik Integration](#traefik-integration)
@@ -25,6 +26,22 @@ Stargate supports the following deployment methods:
 
 This document mainly introduces Docker and Docker Compose deployment methods.
 
+## Direct Binaries
+
+Release binaries target Linux, macOS and Windows on amd64/arm64. Container
+images target Linux amd64/arm64. The binary does not embed HTML templates or
+static assets: install the entire `src/internal/web/templates` directory from
+the matching source tag, including its `assets` subdirectory.
+
+Template and asset paths are relative to the process working directory. The
+lookup order is `./internal/web/templates`, `./web/templates`, then
+`./src/internal/web/templates`. Run from the source checkout or provide the
+matching `web/templates` tree in the installation working directory. Published
+container images already contain these files under `/app/web/templates`.
+A successful `/healthz` response does not verify template availability; also
+check the unauthenticated login page with
+`curl -fsS -o /dev/null http://127.0.0.1:8080/_login`.
+
 ## Service Dependencies
 
 Stargate can integrate with the following optional services:
@@ -34,14 +51,14 @@ Stargate can integrate with the following optional services:
 **Function:** User whitelist management and user information provision
 
 **Deployment Requirements:**
-- Requires database (PostgreSQL/MySQL/SQLite)
+- Uses local JSON data and/or a remote API; no SQL database is required by Warden.
 - Provides HTTP API interface
 - Supports API Key authentication
 
 **Configuration:**
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -57,7 +74,7 @@ WARDEN_API_KEY=your-api-key
 **Configuration:**
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # Recommended for production
 ```
 
@@ -94,7 +111,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### Build Parameters
 
-- **Base Image**: `golang:1.27.2-alpine3.24` (build stage)
+- **Base Image**: `golang:1.27.3-alpine3.24` (build stage)
 - **Runtime Image**: `alpine:3.24` (runtime stage; includes CA certificates and BusyBox `wget` for HTTPS and health checks)
 - **Working Directory**: `/app`
 - **Exposed Port**: `8080`
@@ -165,9 +182,14 @@ docker rm stargate
 The repository root `docker-compose.yml` is the bundled stack: it starts Traefik, Stargate, and the protected demo on the Compose-managed `stargate-traefik` network (`172.30.0.0/24`). It does not require a pre-existing external network.
 
 ```bash
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
+
+The validation commands discard stdout because resolved Compose configuration can
+contain credentials. Earlier terminal or CI output is not rewritten. If actual
+credentials were captured, restrict access, apply retention/cleanup to logs and
+exported copies, and rotate the exposed credentials.
 
 ### Using an Existing External Traefik Network
 
@@ -176,7 +198,7 @@ Use the separate example below when Traefik already runs on a shared external Do
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -238,7 +260,7 @@ else
   export TRAEFIK_NETWORK_CIDR=172.30.0.0/24
 fi
 
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
 
@@ -265,7 +287,7 @@ Edit `docker-compose.yml` and modify environment variables:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -289,7 +311,7 @@ Configure Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

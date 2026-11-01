@@ -1,12 +1,14 @@
 # Stargate アーキテクチャドキュメント
 
+> **過去の翻訳**: 現在の変更がすべて反映されているわけではありません。[最新の英語版](../enUS/ARCHITECTURE.md)を参照してください。
+
 このドキュメントは、Stargate プロジェクトの技術アーキテクチャと設計決定を説明します。
 
 ## 技術スタック
 
-- **言語**: Go 1.27.2
-- **Web フレームワーク**: [Fiber v3.5.0](https://github.com/gofiber/fiber)
-- **テンプレートエンジン**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
+- **言語**: Go 1.27.3
+- **Web フレームワーク**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
+- **テンプレートエンジン**: [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
 - **セッション管理**: session-kit（Fiber 対応ストア；メモリ・Redis）
 - **ログ**: [Zerolog](https://github.com/rs/zerolog)（logger-kit 経由）
 - **ターミナル出力**: [Pterm](https://github.com/pterm/pterm)
@@ -328,7 +330,7 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
 ### Docker デプロイメント
 
 - イメージサイズを削減するためのマルチステージビルド
-- ビルドステージ: `golang:1.27.2-alpine3.24`；実行ステージ: `alpine:3.24`（ヘルスチェックには BusyBox wget を使用）
+- ビルドステージ: `golang:1.27.3-alpine3.24`；実行ステージ: `alpine:3.24`（ヘルスチェックには BusyBox wget を使用）
 - テンプレートファイルを `src/internal/web/templates` からイメージ内の `/app/web/templates` にコピー
 - バイナリサイズを削減するため、コンパイル時に `-ldflags "-s -w"` を使用
 - アプリケーションは自動的にテンプレートパスを見つける（ローカル開発用に `./internal/web/templates`、本番環境用に `./web/templates` をサポート）

@@ -1,12 +1,14 @@
 # Stargate Architektur-Dokumentation
 
+> **Historische Übersetzung**: Dieser Leitfaden enthält nicht alle aktuellen Änderungen. Siehe den [aktuellen englischen Leitfaden](../enUS/ARCHITECTURE.md).
+
 Dieses Dokument beschreibt die technische Architektur und Designentscheidungen des Stargate-Projekts.
 
 ## Technologie-Stack
 
-- **Sprache**: Go 1.27.2
-- **Web-Framework**: [Fiber v3.5.0](https://github.com/gofiber/fiber)
-- **Template-Engine**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
+- **Sprache**: Go 1.27.3
+- **Web-Framework**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
+- **Template-Engine**: [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
 - **Sitzungsverwaltung**: session-kit (Fiber-kompatibler Store; unterstützt Speicher und Redis)
 - **Protokollierung**: [Zerolog](https://github.com/rs/zerolog) über logger-kit
 - **Terminal-Ausgabe**: [Pterm](https://github.com/pterm/pterm)
@@ -329,7 +331,7 @@ Template-Datei `internal/web/templates/login.html` ändern.
 ### Docker-Bereitstellung
 
 - Multi-Stage-Build zur Reduzierung der Image-Größe
-- Build-Stufe: `golang:1.27.2-alpine3.24`; Ausführungsstufe: `alpine:3.24` (Health-Checks verwenden BusyBox wget)
+- Build-Stufe: `golang:1.27.3-alpine3.24`; Ausführungsstufe: `alpine:3.24` (Health-Checks verwenden BusyBox wget)
 - Template-Dateien von `src/internal/web/templates` nach `/app/web/templates` im Image kopiert
 - Verwendet `-ldflags "-s -w"` beim Kompilieren, um die Binärgröße zu reduzieren
 - Die Anwendung findet automatisch Template-Pfade (unterstützt `./internal/web/templates` für lokale Entwicklung und `./web/templates` für Produktion)

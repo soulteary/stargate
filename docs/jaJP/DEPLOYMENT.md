@@ -1,5 +1,7 @@
 # デプロイメントガイド
 
+> **過去の翻訳**: 現在の変更がすべて反映されているわけではありません。[最新の英語版](../enUS/DEPLOYMENT.md)を参照してください。
+
 このドキュメントは、Stargate Forward Auth サービスの詳細なデプロイメントガイドを提供します。
 
 v0.12.0 から更新する場合は、先に [v1.0.0 移行ガイド](MIGRATION_V1.md)を確認してください。
@@ -34,14 +36,14 @@ Stargateは以下のオプションサービスと統合できます：
 **機能:** ユーザーホワイトリスト管理とユーザー情報の提供
 
 **デプロイメント要件:**
-- データベースが必要（PostgreSQL/MySQL/SQLite）
+- ローカル JSON データまたはリモート API を使用します。Warden 自体に SQL データベースは不要です。
 - HTTP APIインターフェースを提供
 - APIキー認証をサポート
 
 **設定:**
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -57,7 +59,7 @@ WARDEN_API_KEY=your-api-key
 **設定:**
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # 本番環境で推奨
 ```
 
@@ -94,7 +96,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### ビルドパラメータ
 
-- **ベースイメージ**: `golang:1.27.2-alpine3.24`（ビルドステージ）
+- **ベースイメージ**: `golang:1.27.3-alpine3.24`（ビルドステージ）
 - **実行イメージ**: `alpine:3.24`（CA 証明書と HTTPS・ヘルスチェック用 BusyBox `wget` を含む）
 - **作業ディレクトリ**: `/app`
 - **公開ポート**: `8080`
@@ -165,7 +167,7 @@ docker rm stargate
 リポジトリ直下の `docker-compose.yml` は同梱スタックです。Compose が管理する `stargate-traefik` ネットワーク（`172.30.0.0/24`）上で Traefik、Stargate、保護されたデモサービスを起動するため、既存の外部ネットワークは不要です。
 
 ```bash
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
 
@@ -176,7 +178,7 @@ Traefik が共有の外部 Docker ネットワークですでに動作してい�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -238,7 +240,7 @@ else
   export TRAEFIK_NETWORK_CIDR=172.30.0.0/24
 fi
 
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
 
@@ -265,7 +267,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -289,7 +291,7 @@ Stargate は Traefik と統合するように設計されており、Forward Aut
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

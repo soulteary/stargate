@@ -1,5 +1,7 @@
 # Bereitstellungsanleitung
 
+> **Historische Übersetzung**: Dieser Leitfaden enthält nicht alle aktuellen Änderungen. Siehe den [aktuellen englischen Leitfaden](../enUS/DEPLOYMENT.md).
+
 Dieses Dokument bietet eine detaillierte Bereitstellungsanleitung für den Stargate Forward Auth-Dienst.
 
 Beim Upgrade von v0.12.0 zuerst den [Migrationsleitfaden für v1.0.0](MIGRATION_V1.md) lesen.
@@ -34,14 +36,14 @@ Stargate kann sich mit den folgenden optionalen Diensten integrieren:
 **Funktion:** Verwaltung der Benutzer-Whitelist und Bereitstellung von Benutzerinformationen
 
 **Bereitstellungsanforderungen:**
-- Erfordert Datenbank (PostgreSQL/MySQL/SQLite)
+- Verwendet lokale JSON-Daten und/oder eine Remote-API; Warden benötigt keine SQL-Datenbank.
 - Stellt HTTP-API-Schnittstelle bereit
 - Unterstützt API-Key-Authentifizierung
 
 **Konfiguration:**
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -57,7 +59,7 @@ WARDEN_API_KEY=your-api-key
 **Konfiguration:**
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # Für Produktion empfohlen
 ```
 
@@ -94,7 +96,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### Build-Parameter
 
-- **Basis-Image**: `golang:1.27.2-alpine3.24` (Build-Stufe)
+- **Basis-Image**: `golang:1.27.3-alpine3.24` (Build-Stufe)
 - **Ausführungs-Image**: `alpine:3.24` (mit CA-Zertifikaten und BusyBox `wget` für HTTPS und Health-Checks)
 - **Arbeitsverzeichnis**: `/app`
 - **Exponierter Port**: `8080`
@@ -165,7 +167,7 @@ docker rm stargate
 Die `docker-compose.yml` im Repository-Stammverzeichnis ist der mitgelieferte Stack: Sie startet Traefik, Stargate und den geschützten Demo-Dienst im von Compose verwalteten Netzwerk `stargate-traefik` (`172.30.0.0/24`). Ein vorhandenes externes Netzwerk ist dafür nicht erforderlich.
 
 ```bash
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
 
@@ -176,7 +178,7 @@ Verwenden Sie das folgende separate Beispiel nur, wenn Traefik bereits in einem 
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -238,7 +240,7 @@ else
   export TRAEFIK_NETWORK_CIDR=172.30.0.0/24
 fi
 
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
 
@@ -265,7 +267,7 @@ Bearbeiten Sie `docker-compose.yml` und ändern Sie die Umgebungsvariablen:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -289,7 +291,7 @@ Konfigurieren Sie Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

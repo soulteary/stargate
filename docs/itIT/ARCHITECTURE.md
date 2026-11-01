@@ -1,12 +1,14 @@
 # Documento di Architettura Stargate
 
+> **Traduzione storica**: questa guida non include tutte le modifiche attuali. Consultare la [guida inglese aggiornata](../enUS/ARCHITECTURE.md).
+
 Questo documento descrive l'architettura tecnica e le decisioni di progettazione del progetto Stargate.
 
 ## Stack Tecnologico
 
-- **Linguaggio**: Go 1.27.2
-- **Framework Web**: [Fiber v3.5.0](https://github.com/gofiber/fiber)
-- **Motore Template**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
+- **Linguaggio**: Go 1.27.3
+- **Framework Web**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
+- **Motore Template**: [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
 - **Gestione Sessioni**: session-kit (store compatibile Fiber; memoria e Redis)
 - **Registrazione**: [Zerolog](https://github.com/rs/zerolog) via logger-kit
 - **Output Terminale**: [Pterm](https://github.com/pterm/pterm)
@@ -328,7 +330,7 @@ Modificare il file template `internal/web/templates/login.html`.
 ### Deployment Docker
 
 - Build multi-stage per ridurre dimensione immagine
-- Stage di build: `golang:1.27.2-alpine3.24`; stage di esecuzione: `alpine:3.24` (gli health check usano BusyBox wget)
+- Stage di build: `golang:1.27.3-alpine3.24`; stage di esecuzione: `alpine:3.24` (gli health check usano BusyBox wget)
 - File template copiati da `src/internal/web/templates` a `/app/web/templates` nell'immagine
 - Utilizza `-ldflags "-s -w"` durante compilazione per ridurre dimensione binario
 - L'applicazione trova automaticamente i percorsi template (supporta `./internal/web/templates` per sviluppo locale e `./web/templates` per produzione)
