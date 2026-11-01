@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/soulteary/cli-kit/env"
 	"github.com/soulteary/cli-kit/validator"
@@ -12,6 +13,26 @@ import (
 	"github.com/soulteary/secure-kit/v2/passwd"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
+
+// ValidateSessionExchangeRedirectPath keeps the configured landing page on the
+// callback origin. Request-supplied redirect parameters are never used.
+func ValidateSessionExchangeRedirectPath(v EnvVariable) bool {
+	p := v.Value
+	if !strings.HasPrefix(p, "/") || strings.Contains(p, "//") ||
+		strings.ContainsAny(p, "\\%?#") || strings.IndexFunc(p, func(r rune) bool {
+		return unicode.IsSpace(r) || unicode.IsControl(r)
+	}) >= 0 {
+		return false
+	}
+	// Do not send a consumed ticket back into the exchange or login endpoints.
+	for _, segment := range strings.Split(p, "/") {
+		if segment == "." || segment == ".." {
+			return false
+		}
+	}
+	return p != "/_session_exchange" && p != "/_session_exchange/" &&
+		p != "/_login" && p != "/_login/"
+}
 
 type EnvVariable struct {
 	Name           string

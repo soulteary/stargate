@@ -14,7 +14,7 @@ import (
 )
 
 // SessionShareRoute handles GET requests to /_session_exchange for cross-domain session sharing.
-// It sets a session cookie with the provided session ID and redirects to the root path.
+// It sets a session cookie and redirects to the configured same-origin landing path.
 // This allows sessions to be shared across different domains/subdomains.
 //
 // Query parameters:
@@ -27,6 +27,10 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 		replayStore = replayStores[0]
 	}
 	return func(ctx fiber.Ctx) error {
+		landingPath := config.SessionExchangeRedirectPath.String()
+		if !config.ValidateSessionExchangeRedirectPath(config.EnvVariable{Value: landingPath}) {
+			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "invalid session exchange redirect configuration")
+		}
 		ticket := ctx.Query("ticket")
 		if ticket == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.missing_session_id"))
@@ -64,7 +68,7 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 		cookie := sessionfiber.Cookie(sessionConfig, sessionID)
 		ctx.Cookie(cookie)
 
-		return ctx.Redirect().Status(fiber.StatusFound).To("/")
+		return ctx.Redirect().Status(fiber.StatusFound).To(landingPath)
 	}
 }
 

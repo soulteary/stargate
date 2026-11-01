@@ -60,6 +60,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `COOKIE_SECURE` | true/false | true | No |
 | `CALLBACK_ALLOWED_HOSTS` | comma-separated hosts | empty | No |
 | `SESSION_EXCHANGE_SECRET` | Secret string (32+ chars) | empty | No |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | Path | `/` | No |
 | `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | No |
 | `PORT` | String | empty (:80) | No |
 | `WARDEN_ENABLED` | true/false | false | No |
@@ -358,6 +359,10 @@ SESSION_EXCHANGE_SECRET=<at-least-32-random-characters>
 ```
 
 The value is never logged. Without it, session exchange requests fail closed. When Redis session storage is enabled, consumed ticket hashes are also stored in Redis with their remaining lifetime so replay protection is shared by every Stargate replica. In-memory deployments enforce single use only within one process.
+
+### `SESSION_EXCHANGE_REDIRECT_PATH`
+
+Landing path on the callback origin after a verified session exchange. The default `/` preserves existing behavior. Set a native application login handshake path such as `/auth/login/example/` when the application must create its own session after ForwardAuth. This is administrator configuration, not a request parameter. Only absolute same-origin paths without queries, fragments, percent escapes or control characters are accepted; login/exchange loops are rejected. It does not change allowed callback hosts or ticket replay protection.
 
 ### `PORT`
 

@@ -60,6 +60,7 @@ services:
 | `COOKIE_SECURE` | true/false | true | 否 |
 | `CALLBACK_ALLOWED_HOSTS` | 逗号分隔的主机名 | 空 | 否 |
 | `SESSION_EXCHANGE_SECRET` | 密钥字符串（至少 32 字符） | 空 | 否 |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | 路径 | `/` | 否 |
 | `LANGUAGE` | en, zh, fr, it, ja, de, ko | en | 否 |
 | `PORT` | String | 空（:80） | 否 |
 | `WARDEN_ENABLED` | true/false | false | 否 |
@@ -358,6 +359,10 @@ SESSION_EXCHANGE_SECRET=<至少-32-个随机字符>
 ```
 
 该值不会写入日志。未配置时，会话交换会安全失败。启用 Redis 会话存储后，已消费票据的哈希也会按剩余有效期写入 Redis，使所有 Stargate 副本共享防重放状态；内存模式仅能在单个进程内保证一次性消费。
+
+### `SESSION_EXCHANGE_REDIRECT_PATH`
+
+验证会话交换票据后，在回调源内跳转的落地路径，默认为 `/`，保留原有行为。若应用还需建立自己的登录会话，可设置 `/auth/login/example/` 等本地登录握手路径。该值由管理员配置，不接受请求参数覆盖；仅允许不含查询、片段、百分号转义和控制字符的同源绝对路径，并拒绝登录或会话交换循环。不会改变回调主机白名单及票据防重放校验。
 
 ### `PORT`
 

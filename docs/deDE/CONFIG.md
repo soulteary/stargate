@@ -248,6 +248,10 @@ Nach dem Setzen von `COOKIE_DOMAIN=.example.com`:
 2. Das Sitzungs-Cookie wird auf die Domain `.example.com` gesetzt
 3. Der Benutzer kann dieselbe Sitzung auf `app1.example.com` und `app2.example.com` verwenden
 
+### `SESSION_EXCHANGE_REDIRECT_PATH`
+
+Zielpfad innerhalb des Callback-Ursprungs nach einem verifizierten Sitzungsaustausch. Standard: `/`. Für den nativen Anmeldeabschluss kann `/auth/login/example/` verwendet werden. Nur vom Administrator konfigurierte absolute Pfade ohne Query, Fragment, Prozentkodierung oder Steuerzeichen sind erlaubt. Callback-Whitelist und Wiedergabeschutz bleiben unverändert.
+
 ### `PORT`
 
 Abhörport des Dienstes (nur für lokale Entwicklung). Wird wie andere Optionen über die config-Paket-Umgebungsvariablen geladen und validiert.
@@ -281,6 +285,7 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `COOKIE_SECURE` | true/false | true | Secure-Attribut der Sitzungs-Cookies |
 | `CALLBACK_ALLOWED_HOSTS` | Host-Liste | leer | Explizite Ziele für Rückleitungen |
 | `SESSION_EXCHANGE_SECRET` | Geheimnis, mind. 32 Zeichen | leer | Signiert kurzlebige domänenübergreifende Tickets |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | Pfad | `/` | Nein |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Aktiviert den vertrauenswürdigen Legacy-Passwort-Header |
 | `LOG_LEVEL` | debug/info/warn/error | info | Start-Protokollstufe |
 | `HEADER_AUTH_ENABLED` | true/false | false | Vertrauenswürdige Header-Authentifizierung |
