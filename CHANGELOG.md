@@ -72,7 +72,7 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ### Performance measurements
 
-On the same Linux arm64 VM (five vCPUs, approximately 5.6GiB RAM), Go 1.27.3
+On the same Linux arm64 VM (five vCPUs, 5.35GiB reported total RAM), Go 1.27.3
 and Redis 8.2.1, three alternating precompiled-binary runs used 5000 operations
 per case. Cold-counter median latency changed from 324933 to 194500 ns/op
 (about 3078 to 5141 operations/s); allocation changed from 886 B/25 allocations
