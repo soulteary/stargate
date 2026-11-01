@@ -248,6 +248,10 @@ COOKIE_DOMAIN=.example.com
 2. 세션 Cookie가 `.example.com` 도메인에 설정됨
 3. 사용자는 `app1.example.com`과 `app2.example.com`에서 동일한 세션을 사용할 수 있습니다
 
+### `SESSION_EXCHANGE_REDIRECT_PATH`
+
+검증된 세션 교환 후 콜백과 같은 출처에서 이동할 경로입니다. 기본값은 `/`입니다. 앱의 자체 로그인을 완료하려면 `/auth/login/example/` 등을 설정합니다. 관리자 설정의 절대 경로만 허용하며 쿼리, 프래그먼트, 퍼센트 인코딩 및 제어 문자는 거부합니다. 콜백 허용 목록과 재사용 방지 검증은 변경되지 않습니다.
+
 ### `PORT`
 
 서비스의 리스닝 포트 (로컬 개발 전용). config 패키지에서 다른 환경 변수와 함께 로드 및 검증됩니다.
@@ -281,6 +285,7 @@ PORT=8080
 | `COOKIE_SECURE` | true/false | true | 세션 쿠키 Secure 속성 |
 | `CALLBACK_ALLOWED_HOSTS` | 호스트 목록 | 비어 있음 | 허용된 리디렉션 대상 |
 | `SESSION_EXCHANGE_SECRET` | 32자 이상 비밀값 | 비어 있음 | 단기 교차 도메인 티켓 서명 |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | 경로 | `/` | 아니요 |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 신뢰된 레거시 비밀번호 헤더 활성화 |
 | `LOG_LEVEL` | debug/info/warn/error | info | 시작 로그 레벨 |
 | `HEADER_AUTH_ENABLED` | true/false | false | 신뢰 헤더 인증 |

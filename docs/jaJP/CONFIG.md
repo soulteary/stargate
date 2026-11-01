@@ -248,6 +248,10 @@ COOKIE_DOMAIN=.example.com
 2. セッション Cookie が `.example.com` ドメインに設定される
 3. ユーザーは `app1.example.com` と `app2.example.com` で同じセッションを使用できます
 
+### `SESSION_EXCHANGE_REDIRECT_PATH`
+
+検証済みのセッション交換後に、コールバック元と同じオリジン内で遷移するパスです。既定値は `/` です。アプリ側のログイン処理には `/auth/login/example/` などを設定できます。管理者が設定した絶対パスのみ使用でき、クエリ、フラグメント、パーセントエスケープ、制御文字は拒否します。ホスト許可リストとリプレイ防止は変更しません。
+
 ### `PORT`
 
 サービスのリスニングポート（ローカル開発のみ）。config パッケージで他の環境変数と同様に読み込み・検証されます。
@@ -281,6 +285,7 @@ PORT=8080
 | `COOKIE_SECURE` | true/false | true | セッション Cookie の Secure 属性 |
 | `CALLBACK_ALLOWED_HOSTS` | ホスト一覧 | 空 | 許可するリダイレクト先 |
 | `SESSION_EXCHANGE_SECRET` | 32 文字以上の秘密値 | 空 | 短命なクロスドメインチケットの署名 |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | パス | `/` | いいえ |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 信頼済みの旧パスワードヘッダーを有効化 |
 | `LOG_LEVEL` | debug/info/warn/error | info | 起動時のログレベル |
 | `HEADER_AUTH_ENABLED` | true/false | false | 信頼済みヘッダー認証 |

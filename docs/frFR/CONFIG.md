@@ -248,6 +248,10 @@ Après avoir défini `COOKIE_DOMAIN=.example.com` :
 2. Le cookie de session est défini au domaine `.example.com`
 3. L'utilisateur peut utiliser la même session sur `app1.example.com` et `app2.example.com`
 
+### `SESSION_EXCHANGE_REDIRECT_PATH`
+
+Chemin de destination sur la même origine après un échange de session validé. Valeur par défaut : `/`. Utilisez par exemple `/auth/login/example/` pour terminer la connexion native. Seuls les chemins absolus configurés par l’administrateur, sans requête, fragment, encodage pour cent ou caractères de contrôle, sont acceptés. La liste des hôtes autorisés et la protection anti-rejeu restent inchangées.
+
 ### `PORT`
 
 Port d'écoute du service (développement local uniquement). Géré par le package config avec les autres options d'environnement.
@@ -281,6 +285,7 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `COOKIE_SECURE` | true/false | true | Attribut Secure des cookies de session |
 | `CALLBACK_ALLOWED_HOSTS` | liste d'hôtes | vide | Destinations de redirection autorisées |
 | `SESSION_EXCHANGE_SECRET` | secret, 32 caractères min. | vide | Signe les tickets inter-domaines à courte durée |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | Chemin | `/` | Non |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Active l'en-tête de mot de passe historique de confiance |
 | `LOG_LEVEL` | debug/info/warn/error | info | Niveau de journalisation initial |
 | `HEADER_AUTH_ENABLED` | true/false | false | Authentification par en-têtes de confiance |

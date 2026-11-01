@@ -248,6 +248,10 @@ Dopo aver impostato `COOKIE_DOMAIN=.example.com`:
 2. Il cookie di sessione è impostato al dominio `.example.com`
 3. L'utente può utilizzare la stessa sessione su `app1.example.com` e `app2.example.com`
 
+### `SESSION_EXCHANGE_REDIRECT_PATH`
+
+Percorso nella stessa origine dopo uno scambio di sessione verificato. Predefinito: `/`. Per completare la sessione nativa si può usare `/auth/login/example/`. Sono ammessi solo percorsi assoluti configurati dall’amministratore, senza query, frammenti, codifica percentuale o caratteri di controllo. La lista degli host consentiti e la protezione dal riutilizzo restano invariate.
+
 ### `PORT`
 
 Porta di ascolto del servizio (solo sviluppo locale). Gestita dal package config insieme alle altre opzioni da variabili d'ambiente.
@@ -281,6 +285,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `COOKIE_SECURE` | true/false | true | Attributo Secure dei cookie di sessione |
 | `CALLBACK_ALLOWED_HOSTS` | elenco host | vuoto | Destinazioni di redirect consentite |
 | `SESSION_EXCHANGE_SECRET` | segreto, minimo 32 caratteri | vuoto | Firma ticket cross-domain di breve durata |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | Percorso | `/` | No |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Abilita l'header password legacy attendibile |
 | `LOG_LEVEL` | debug/info/warn/error | info | Livello di log iniziale |
 | `HEADER_AUTH_ENABLED` | true/false | false | Autenticazione tramite header attendibili |
