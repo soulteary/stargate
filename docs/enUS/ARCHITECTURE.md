@@ -4,9 +4,9 @@ This document describes the technical architecture and design decisions of the S
 
 ## Technology Stack
 
-- **Language**: Go 1.27.2
-- **Web Framework**: [Fiber v3.5.0](https://github.com/gofiber/fiber)
-- **Template Engine**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
+- **Language**: Go 1.27.3
+- **Web Framework**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
+- **Template Engine**: [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
 - **Session Management**: session-kit (Fiber-compatible store; supports in-memory and Redis)
 - **Logging**: [Zerolog](https://github.com/rs/zerolog) via logger-kit
 - **Terminal Output**: [Pterm](https://github.com/pterm/pterm)
@@ -28,6 +28,8 @@ src/
 │   ├── handlers/          # HTTP request handlers (forwardAuth, login, logout, verify code, TOTP, etc.)
 │   ├── i18n/              # Internationalization support
 │   ├── metrics/           # Prometheus metrics
+│   ├── requestcontext/    # Request deadlines and cancellation
+│   ├── tlsconfig/         # Shared service-client TLS configuration
 │   ├── tracing/           # OpenTelemetry tracing middleware
 │   └── web/               # Web resources and HTML templates
 ```
@@ -374,7 +376,7 @@ Modify the `internal/web/templates/login.html` template file.
 ### Docker Deployment
 
 - Multi-stage build to reduce image size
-- Build stage: `golang:1.27.2-alpine3.24`; runtime stage: `alpine:3.24` (health checks use BusyBox wget)
+- Build stage: `golang:1.27.3-alpine3.24`; runtime stage: `alpine:3.24` (health checks use BusyBox wget)
 - Template files copied from `src/internal/web/templates` to `/app/web/templates` in image
 - Uses `-ldflags "-s -w"` during compilation to reduce binary size
 - Application automatically finds template paths (supports `./internal/web/templates` for local development and `./web/templates` for production)

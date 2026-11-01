@@ -104,10 +104,10 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8080
+      - WARDEN_URL=http://warden:8081
       - WARDEN_API_KEY=your-warden-api-key
       - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8080
+      - HERALD_URL=http://herald:8082
       - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
@@ -189,7 +189,7 @@ Fornisce la gestione della whitelist utenti e le informazioni utente. Quando abi
 
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -199,7 +199,7 @@ Fornisce servizi OTP/codici di verifica. Quando abilitata, Stargate chiama Heral
 
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # Produzione
 # o
 HERALD_API_KEY=your-api-key  # Sviluppo

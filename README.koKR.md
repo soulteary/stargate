@@ -104,10 +104,10 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8080
+      - WARDEN_URL=http://warden:8081
       - WARDEN_API_KEY=your-warden-api-key
       - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8080
+      - HERALD_URL=http://herald:8082
       - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
@@ -189,7 +189,7 @@ Stargate는 완전히 독립적으로 사용할 수 있습니다. 또한 다음 
 
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -199,7 +199,7 @@ OTP/인증 코드 서비스를 제공합니다. 활성화되면 Stargate는 Hera
 
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # 프로덕션
 # 또는
 HERALD_API_KEY=your-api-key  # 개발

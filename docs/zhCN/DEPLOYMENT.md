@@ -7,6 +7,7 @@
 ## 目录
 
 - [部署方式](#部署方式)
+- [直接运行二进制](#直接运行二进制)
 - [Docker 部署](#docker-部署)
 - [Docker Compose 部署](#docker-compose-部署)
 - [Traefik 集成](#traefik-集成)
@@ -25,6 +26,18 @@ Stargate 支持以下部署方式：
 
 本文档主要介绍 Docker 和 Docker Compose 部署方式。
 
+## 直接运行二进制
+
+发布二进制的构建目标为 Linux、macOS、Windows 的 amd64/arm64；容器镜像支持 Linux
+amd64/arm64。二进制不内嵌 HTML 模板和静态资源，需要从对应源码标签安装完整的
+`src/internal/web/templates` 目录，包括其中的 `assets` 子目录。
+
+模板和资源路径相对于进程工作目录，查找顺序为 `./internal/web/templates`、
+`./web/templates`、`./src/internal/web/templates`。可从源码根目录运行，或在安装
+工作目录提供匹配版本的 `web/templates`。发布镜像已在 `/app/web/templates` 中包含
+这些文件。`/healthz` 成功不能证明模板可用，还应检查未登录页面，例如执行
+`curl -fsS -o /dev/null http://127.0.0.1:8080/_login`，不输出响应正文。
+
 ## 服务依赖
 
 Stargate 可以与以下可选服务集成：
@@ -34,14 +47,14 @@ Stargate 可以与以下可选服务集成：
 **功能：** 用户白名单管理和用户信息提供
 
 **部署要求：**
-- 需要数据库（PostgreSQL/MySQL/SQLite）
+- 使用本地 JSON 数据文件和/或远程 API；Warden 本身不要求 SQL 数据库。
 - 提供 HTTP API 接口
 - 支持 API Key 认证
 
 **配置：**
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -57,7 +70,7 @@ WARDEN_API_KEY=your-api-key
 **配置：**
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # 生产环境推荐
 ```
 
@@ -94,7 +107,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### 构建参数
 
-- **基础镜像**：`golang:1.27.2-alpine3.24`（构建阶段）
+- **基础镜像**：`golang:1.27.3-alpine3.24`（构建阶段）
 - **运行镜像**：`alpine:3.24`（运行阶段，包含 CA 证书和用于 HTTPS/健康检查的 BusyBox `wget`）
 - **工作目录**：`/app`
 - **暴露端口**：`8080`
@@ -165,9 +178,13 @@ docker rm stargate
 仓库根目录的 `docker-compose.yml` 是自带完整栈：它在 Compose 管理的 `stargate-traefik` 网络（`172.30.0.0/24`）中启动 Traefik、Stargate 和受保护的演示服务，不依赖预先存在的外部网络。
 
 ```bash
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
+
+校验命令会丢弃标准输出，因为 Compose 解析后的配置可能包含凭据。既有终端或
+CI 输出不会自动改写；若其中实际包含凭据，应限制访问，按保留策略处理日志及
+导出副本，并轮换已暴露的凭据。
 
 ### 接入已有的外部 Traefik 网络
 
@@ -176,7 +193,7 @@ docker compose up -d
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -215,115 +232,33 @@ networks:
 
 ### 完整配置（Warden + Herald OTP 认证）
 
-生产环境推荐使用 Warden + Herald 的完整配置：
+下面是对接独立部署 Warden 和 Herald 的 Stargate 端配置：
+
+这是 API-key 模式下的 Stargate 端配置。Warden 和 Herald 应分别按照其
+[Warden 部署指南](https://github.com/soulteary/warden/blob/v1.4.4/docs/enUS/DEPLOYMENT.md)
+和 [Herald 部署指南](https://github.com/soulteary/herald/blob/v1.3.13/docs/enUS/DEPLOYMENT.md)
+部署，并落实各自的数据和持久化要求。提供容器内可达的 URL 和匹配的凭据；
+上游默认端口分别为 Warden `8081`、Herald `8082`。需显式配置共享网络或可路由
+地址。使用 Herald HMAC 模式时，改用匹配的 `HERALD_HMAC_SECRET` 和
+`HERALD_HMAC_KEY_ID` 配置。Warden 用户 ID 必须稳定，并保留部署所需的会话和
+重放状态持久化。本次文档修正不会迁移或删除已有服务数据和数据卷。
 
 ```yaml
 services:
-  # Stargate 认证服务
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8080
-      - WARDEN_API_KEY=your-warden-api-key
-      - WARDEN_CACHE_TTL=300
+      - WARDEN_URL=${WARDEN_URL:?set the reachable Warden URL}
+      - WARDEN_API_KEY=${WARDEN_API_KEY:?set the matching Warden API key}
       - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8080
-      - HERALD_HMAC_SECRET=your-herald-hmac-secret
-      - DEBUG=false
-      - LANGUAGE=zh
+      - HERALD_URL=${HERALD_URL:?set the reachable Herald URL}
+      - HERALD_API_KEY=${HERALD_API_KEY:?set the matching Herald API key}
+      - CALLBACK_ALLOWED_HOSTS=app.example.com
       - COOKIE_DOMAIN=.example.com
-      - SESSION_EXCHANGE_SECRET=replace-with-at-least-32-random-characters
-      - TRUSTED_PROXIES=${TRAEFIK_NETWORK_CIDR:?set TRAEFIK_NETWORK_CIDR from docker network inspect}
-    networks:
-      - traefik
-      - internal
-    depends_on:
-      - warden
-      - herald
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=${TRAEFIK_NETWORK_NAME:-traefik}
-      - traefik.http.routers.auth.entrypoints=http,https
-      - traefik.http.routers.auth.rule=Host(`auth.example.com`) || Path(`/_session_exchange`)
-      - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
-      - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
-
-  # Warden 用户白名单服务
-  warden:
-    image: warden:latest
-    environment:
-      - WARDEN_DB_URL=postgres://warden:password@postgres:5432/warden
-      - WARDEN_API_KEY=your-warden-api-key
-    networks:
-      - internal
-    depends_on:
-      - postgres
-
-  # Herald OTP/验证码服务
-  herald:
-    image: herald:latest
-    environment:
-      - HERALD_REDIS_URL=redis://redis:6379/0
-      - HERALD_HMAC_SECRET=your-herald-hmac-secret
-      - HERALD_EMAIL_API_URL=http://email-service:8080/v1/send
-      - HERALD_SMS_API_URL=http://sms-service:8080/v1/send
-    networks:
-      - internal
-    depends_on:
-      - redis
-
-  # PostgreSQL 数据库（Warden 使用）
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=warden
-      - POSTGRES_USER=warden
-      - POSTGRES_PASSWORD=password
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - internal
-
-  # Redis（Herald 使用）
-  redis:
-    image: redis:7-alpine
-    volumes:
-      - redis_data:/data
-    networks:
-      - internal
-
-  # 示例受保护服务
-  your-app:
-    image: your-app:latest
-    networks:
-      - traefik
-    labels:
-      - traefik.enable=true
-      - traefik.docker.network=${TRAEFIK_NETWORK_NAME:-traefik}
-      - traefik.http.routers.your-app.entrypoints=http,https
-      - traefik.http.routers.your-app.rule=Host(`app.example.com`)
-      - traefik.http.routers.your-app.middlewares=stargate
-
-networks:
-  traefik:
-    name: ${TRAEFIK_NETWORK_NAME:-traefik}
-    external: true
-  internal:
-    internal: true  # 内部网络，不暴露到外部
-
-volumes:
-  postgres_data:
-  redis_data:
+      - SESSION_EXCHANGE_SECRET=${SESSION_EXCHANGE_SECRET:?set at least 32 random characters}
 ```
-
-**说明：**
-
-- `internal` 网络用于服务间通信，不暴露到外部
-- `traefik` 网络用于与 Traefik 和外部服务通信
-- 所有服务间通信都在内网进行，提高安全性
-- 生产环境建议使用环境变量文件（`.env`）管理敏感配置
 
 ### 检查或创建外部网络
 
@@ -350,7 +285,7 @@ else
   export TRAEFIK_NETWORK_CIDR=172.30.0.0/24
 fi
 
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
 
@@ -377,7 +312,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -401,7 +336,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -749,11 +684,11 @@ COOKIE_DOMAIN=.example.com
 
 ```bash
 # 检查 Warden 健康状态
-curl http://warden:8080/health
+curl http://warden:8081/health
 
-# 检查用户是否在白名单中
-curl -H "Authorization: Bearer $WARDEN_API_KEY" \
-     http://warden:8080/v1/users?mail=user@example.com
+# 查询单个用户；仅检查 HTTP 状态，不输出个人信息
+curl -fsS -o /dev/null -H "Authorization: Bearer $WARDEN_API_KEY" \
+     "http://warden:8081/user?mail=user@example.com"
 ```
 
 #### 6. Herald 服务问题
@@ -778,10 +713,10 @@ curl -H "Authorization: Bearer $WARDEN_API_KEY" \
 
 ```bash
 # 检查 Herald 健康状态
-curl http://herald:8080/healthz
+curl http://herald:8082/healthz
 
-# 检查 Redis 连接
-docker exec herald redis-cli ping
+# 在实际 Redis 容器内检查连接；认证和 TLS 参数需按部署配置补充
+docker exec "${HERALD_REDIS_CONTAINER:?set the Redis container name}" redis-cli ping
 
 # 查看 Herald 日志
 docker logs herald | grep -i error
@@ -802,8 +737,8 @@ docker logs herald | grep -i error
 
 ```bash
 # 从 Stargate 容器内测试连接
-docker exec stargate wget -q -O - http://warden:8080/health
-docker exec stargate wget -q -O - http://herald:8080/healthz
+docker exec stargate wget -q -O - http://warden:8081/health
+docker exec stargate wget -q -O - http://herald:8082/healthz
 
 # 检查网络配置
 docker network inspect <network_name>

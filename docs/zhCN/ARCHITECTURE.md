@@ -4,9 +4,9 @@
 
 ## 技术栈
 
-- **语言**: Go 1.27.2
-- **Web 框架**: [Fiber v3.5.0](https://github.com/gofiber/fiber)
-- **模板引擎**: [Fiber Template v1.7.5](https://github.com/gofiber/template)
+- **语言**: Go 1.27.3
+- **Web 框架**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
+- **模板引擎**: [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
 - **会话管理**: session-kit（兼容 Fiber 的存储；支持内存与 Redis）
 - **日志**: [Zerolog](https://github.com/rs/zerolog)（通过 logger-kit）
 - **终端输出**: [Pterm](https://github.com/pterm/pterm)
@@ -28,6 +28,8 @@ src/
 │   ├── handlers/          # HTTP 请求处理器（forwardAuth、登录、登出、验证码、TOTP 等）
 │   ├── i18n/              # 国际化支持
 │   ├── metrics/           # Prometheus 指标
+│   ├── requestcontext/    # 请求 deadline 与取消
+│   ├── tlsconfig/         # 服务客户端 TLS 配置
 │   ├── tracing/           # OpenTelemetry 追踪中间件
 │   └── web/               # Web 资源与 HTML 模板
 ```
@@ -374,7 +376,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 ### Docker 部署
 
 - 多阶段构建，减小镜像体积
-- 构建阶段：`golang:1.27.2-alpine3.24`；运行阶段：`alpine:3.24`（健康检查使用 BusyBox wget）
+- 构建阶段：`golang:1.27.3-alpine3.24`；运行阶段：`alpine:3.24`（健康检查使用 BusyBox wget）
 - 模板文件从 `src/internal/web/templates` 复制到镜像中的 `/app/web/templates`
 - 编译时使用 `-ldflags "-s -w"` 减小二进制体积
 - 应用会自动查找模板路径（支持本地开发的 `./internal/web/templates` 和生产环境的 `./web/templates`）

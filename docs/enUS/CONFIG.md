@@ -27,7 +27,7 @@ export PASSWORDS='plaintext:yourpassword'
 **Docker:**
 
 ```bash
-docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:v1.2.0
+docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:1.2.6
 ```
 
 **Docker Compose:**
@@ -422,7 +422,7 @@ Base URL of the Warden service.
 | **Type** | String |
 | **Required** | No (required if `WARDEN_ENABLED=true`) |
 | **Default** | Empty |
-| **Example** | `http://warden:8080` or `https://warden.example.com` |
+| **Example** | `http://warden:8081` or `https://warden.example.com` |
 
 **Description:**
 
@@ -433,7 +433,7 @@ Base URL of the Warden service.
 **Example:**
 
 ```bash
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 ```
 
 #### `WARDEN_API_KEY`
@@ -563,7 +563,7 @@ Base URL of the Herald service.
 | **Type** | String |
 | **Required** | No (required if `HERALD_ENABLED=true`) |
 | **Default** | Empty |
-| **Example** | `http://herald:8080` or `https://herald.example.com` |
+| **Example** | `http://herald:8082` or `https://herald.example.com` |
 
 **Description:**
 
@@ -574,7 +574,7 @@ Base URL of the Herald service.
 **Example:**
 
 ```bash
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 ```
 
 #### `HERALD_API_KEY`
@@ -1095,13 +1095,13 @@ AUTH_HOST=auth.example.com
 
 # Warden configuration
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-warden-api-key
 WARDEN_CACHE_TTL=300
 
 # Herald configuration
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-herald-hmac-secret
 
 # Optional configuration
@@ -1128,7 +1128,7 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       # Required configuration
       - AUTH_HOST=auth.example.com
@@ -1144,46 +1144,32 @@ services:
 
 **Warden + Herald OTP Authentication Mode:**
 
+This is the Stargate side of an API-key deployment. Deploy
+[Warden](https://github.com/soulteary/warden/blob/v1.4.4/docs/enUS/DEPLOYMENT.md)
+and [Herald](https://github.com/soulteary/herald/blob/v1.3.13/docs/enUS/DEPLOYMENT.md)
+using their versioned guides, including their data and persistence requirements.
+Supply URLs reachable from the Stargate container and matching credentials;
+the upstream default ports are Warden `8081` and Herald `8082`. Configure shared
+networks or routable addresses explicitly. For Herald HMAC mode, use the matching
+`HERALD_HMAC_SECRET`/`HERALD_HMAC_KEY_ID` settings instead of the API-key example.
+Use stable Warden user IDs and retain the deployment's session/replay persistence.
+This documentation does not migrate or delete existing provider data or volumes.
+
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
-      # Required configuration
       - AUTH_HOST=auth.example.com
-      
-      # Warden configuration
       - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8080
-      - WARDEN_API_KEY=your-warden-api-key
-      - WARDEN_CACHE_TTL=300
-      
-      # Herald configuration
+      - WARDEN_URL=${WARDEN_URL:?set the reachable Warden URL}
+      - WARDEN_API_KEY=${WARDEN_API_KEY:?set the matching Warden API key}
       - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8080
-      - HERALD_HMAC_SECRET=your-herald-hmac-secret
-      
-      # Optional configuration
-      - DEBUG=false
-      - LANGUAGE=zh
-      - LOGIN_PAGE_TITLE=My Auth Service
-      - LOGIN_PAGE_FOOTER_TEXT=© 2024 My Company
+      - HERALD_URL=${HERALD_URL:?set the reachable Herald URL}
+      - HERALD_API_KEY=${HERALD_API_KEY:?set the matching Herald API key}
+      - CALLBACK_ALLOWED_HOSTS=app.example.com
       - COOKIE_DOMAIN=.example.com
-    depends_on:
-      - warden
-      - herald
-
-  warden:
-    image: warden:latest
-    environment:
-      - WARDEN_DB_URL=postgres://user:pass@db:5432/warden
-    # ... other configuration
-
-  herald:
-    image: herald:latest
-    environment:
-      - HERALD_REDIS_URL=redis://redis:6379/0
-    # ... other configuration
+      - SESSION_EXCHANGE_SECRET=${SESSION_EXCHANGE_SECRET:?set at least 32 random characters}
 ```
 
 ### Local Development Configuration
@@ -1314,7 +1300,7 @@ Trusted identity headers are disabled by default. This mode requires Warden and 
 
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 HEADER_AUTH_ENABLED=true
 HEADER_AUTH_SHARED_SECRET=<at-least-32-random-characters>
 # Optional; this is the default header name:

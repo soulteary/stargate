@@ -1,5 +1,7 @@
 # Guida al Deployment
 
+> **Traduzione storica**: questa guida non include tutte le modifiche attuali. Consultare la [guida inglese aggiornata](../enUS/DEPLOYMENT.md).
+
 Questo documento fornisce una guida dettagliata al deployment per il servizio Stargate Forward Auth.
 
 Per aggiornare da v0.12.0, leggere prima la [guida alla migrazione v1.0.0](MIGRATION_V1.md).
@@ -34,14 +36,14 @@ Stargate può integrarsi con i seguenti servizi opzionali:
 **Funzione:** Gestione whitelist utenti e fornitura informazioni utente
 
 **Requisiti di Deployment:**
-- Richiede database (PostgreSQL/MySQL/SQLite)
+- Usa dati JSON locali e/o una API remota; Warden non richiede un database SQL.
 - Fornisce interfaccia API HTTP
 - Supporta autenticazione API Key
 
 **Configurazione:**
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -57,7 +59,7 @@ WARDEN_API_KEY=your-api-key
 **Configurazione:**
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # Raccomandato per produzione
 ```
 
@@ -94,7 +96,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 #### Parametri di Build
 
-- **Immagine Base**: `golang:1.27.2-alpine3.24` (stage di build)
+- **Immagine Base**: `golang:1.27.3-alpine3.24` (stage di build)
 - **Immagine di Esecuzione**: `alpine:3.24` (certificati CA e BusyBox `wget` per HTTPS e health check)
 - **Directory di Lavoro**: `/app`
 - **Porta Esposta**: `8080`
@@ -165,7 +167,7 @@ docker rm stargate
 Il file `docker-compose.yml` nella radice del repository è lo stack incluso: avvia Traefik, Stargate e il servizio demo protetto sulla rete `stargate-traefik` gestita da Compose (`172.30.0.0/24`). Non richiede una rete esterna preesistente.
 
 ```bash
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
 
@@ -176,7 +178,7 @@ Usare l'esempio separato seguente solo quando Traefik è già in esecuzione su u
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -238,7 +240,7 @@ else
   export TRAEFIK_NETWORK_CIDR=172.30.0.0/24
 fi
 
-docker compose config
+docker compose config >/dev/null
 docker compose up -d
 ```
 
@@ -265,7 +267,7 @@ Modificare `docker-compose.yml` e modificare le variabili d'ambiente:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -289,7 +291,7 @@ Configurare Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:v1.2.0
+    image: ghcr.io/soulteary/stargate:1.2.6
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

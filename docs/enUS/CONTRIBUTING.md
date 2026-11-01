@@ -96,7 +96,7 @@ For testing service integrations:
 3. **Configure Stargate**:
    ```bash
    export WARDEN_ENABLED=true
-   export WARDEN_URL=http://warden:8080
+   export WARDEN_URL=http://warden:8081
    export WARDEN_API_KEY=your-api-key
    
    export HERALD_ENABLED=true

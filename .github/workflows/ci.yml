@@ -59,6 +59,7 @@ jobs:
         run: |
           ci-recipes stargate check-doc-contracts "$BASE_SHA"
           ci-recipes stargate check-go-version-contract
+          python3 .github/scripts/check-doc-runtime.py
 
       - name: Validate Docker Compose configuration
         run: docker compose config >/dev/null

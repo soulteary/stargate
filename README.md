@@ -100,10 +100,10 @@ services:
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8080
+      - WARDEN_URL=http://warden:8081
       - WARDEN_API_KEY=your-warden-api-key
       - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8080
+      - HERALD_URL=http://herald:8082
       - HERALD_HMAC_SECRET=your-herald-hmac-secret
 ```
 
@@ -187,7 +187,7 @@ Provides user whitelist management and user information. When enabled, Stargate 
 
 ```bash
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 WARDEN_API_KEY=your-api-key
 ```
 
@@ -197,7 +197,7 @@ Provides OTP/verification code services. When enabled, Stargate calls Herald to 
 
 ```bash
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_HMAC_SECRET=your-hmac-secret  # Production
 # or
 HERALD_API_KEY=your-api-key  # Development
@@ -210,9 +210,9 @@ The target flow "bind Authenticator with a dynamic QR code, then sign in with ac
 ```bash
 # Stargate
 WARDEN_ENABLED=true
-WARDEN_URL=http://warden:8080
+WARDEN_URL=http://warden:8081
 HERALD_ENABLED=true
-HERALD_URL=http://herald:8080
+HERALD_URL=http://herald:8082
 HERALD_TOTP_ENABLED=true
 HERALD_API_KEY=your-herald-api-key               # Development
 # or
