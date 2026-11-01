@@ -2,6 +2,24 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
+## [Unreleased]
+
+### Fixed
+
+- Derive container revision labels from the checked-out release source during
+  manual publication. Validate that only the immutable version tag is emitted;
+  mutable aliases remain owned by the release reconciliation job.
+
+## [1.2.3] - 2026-11-01
+
+### Fixed
+
+- Show rejected verification-code errors in the browser with accessible alert
+  semantics across all login modes.
+- Support a strictly validated `SESSION_EXCHANGE_REDIRECT_PATH` so applications
+  can complete native login immediately after session exchange. The default
+  remains `/`, and request parameters cannot override the destination.
+
 ## [1.2.2] - 2026-10-28
 
 ### Changed

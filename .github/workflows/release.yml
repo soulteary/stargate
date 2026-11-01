@@ -196,6 +196,7 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "commit=$COMMIT" >> $GITHUB_OUTPUT
+          echo "source_revision=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           echo "build_date=$BUILD_DATE" >> $GITHUB_OUTPUT
 
       - name: Build binaries
@@ -252,10 +253,25 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.version.outputs.source_revision }}
+          flavor: |
+            latest=false
           # Publish only the full version here. latest/major/minor are mutable
           # aliases and are moved by the high-water reconciliation job.
           tags: |
             type=semver,pattern={{version}},value=${{ steps.release.outputs.tag }}
+
+      - name: Validate immutable image metadata
+        env:
+          METADATA: ${{ steps.meta.outputs.json }}
+          SOURCE_REVISION: ${{ steps.version.outputs.source_revision }}
+          IMMUTABLE_TAG: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          jq -e --arg revision "$SOURCE_REVISION" --arg tag "$IMMUTABLE_TAG" \
+            '.labels["org.opencontainers.image.revision"] == $revision and .tags == [$tag]' \
+            <<< "$METADATA" > /dev/null
 
       - name: Build amd64 image for security scan
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
