@@ -15,7 +15,7 @@ import (
 )
 
 func TestApplicationReportsListenFailure(t *testing.T) {
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp4", "0.0.0.0:0")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, listener.Close()) }()
 	port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
@@ -25,8 +25,8 @@ func TestApplicationReportsListenFailure(t *testing.T) {
 	} {
 		t.Setenv(key, value)
 	}
-	require.ErrorContains(t, runApplication(), "address already in use")
-	require.ErrorContains(t, runApplicationWithApp(fiber.New()), "address already in use")
+	requireListenFailure(t, runApplication(), port)
+	requireListenFailure(t, runApplicationWithApp(fiber.New()), port)
 }
 
 func TestApplicationShutsDownOnTerminationSignal(t *testing.T) {
@@ -79,9 +79,23 @@ func TestStartServerAcceptsPrefixedPort(t *testing.T) {
 	initLogger()
 	previous := config.Port.Value
 	t.Cleanup(func() { config.Port.Value = previous })
-	listener, err := net.Listen("tcp", ":0")
+	listener, err := net.Listen("tcp4", "0.0.0.0:0")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, listener.Close()) }()
-	config.Port.Value = ":" + strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
-	require.ErrorContains(t, startServer(fiber.New()), "address already in use")
+	port := strconv.Itoa(listener.Addr().(*net.TCPAddr).Port)
+	config.Port.Value = ":" + port
+	requireListenFailure(t, startServer(fiber.New()), port)
+}
+
+// Socket error text differs across operating systems. Verify the typed listen
+// failure and requested port, rather than an English platform-specific string.
+func requireListenFailure(t *testing.T, err error, port string) {
+	t.Helper()
+	var operation *net.OpError
+	require.ErrorAs(t, err, &operation)
+	require.Equal(t, "listen", operation.Op)
+	require.NotNil(t, operation.Addr)
+	_, actualPort, splitErr := net.SplitHostPort(operation.Addr.String())
+	require.NoError(t, splitErr)
+	require.Equal(t, port, actualPort)
 }

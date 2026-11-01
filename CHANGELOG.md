@@ -2,7 +2,7 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
-## [1.2.5] - 2026-11-02
+## [1.2.6] - 2026-11-02
 
 ### Fixed in this maintenance review
 
@@ -23,6 +23,10 @@ This file records user-visible changes. For upgrade steps and configuration exam
   work or change successful-password behavior.
 - Repair 56 documentation heading links across translations. Configuration
   translations other than English and Chinese are explicitly marked historical.
+
+- Match startup failure-test listeners to Fiber's IPv4 network and assert the
+  typed listen operation and requested port across operating systems. Add a
+  bounded Windows startup check to PR CI; retain every existing release check.
 
 ### Validation and coverage
 
@@ -90,6 +94,14 @@ template/schema, Prometheus, ABNF and YAML updates. The earlier code extraction
 and language-aware quality-report maintenance are retained. These are separate
 from the three newly reproduced fixes above; existing security and deployment
 requirements are not presented as new changes.
+
+## [1.2.5] - 2026-11-02
+
+The signed tag was created, but the release was not published. Windows
+compatibility validation timed out in a newly added startup failure test: its
+reserved socket did not prevent Fiber's IPv4 server from starting. The immutable
+tag is retained. Version 1.2.6 carries the maintenance changes above and the
+portable test-fixture correction; no check was skipped to publish it.
 
 ## [1.2.4] - 2026-11-01
 
