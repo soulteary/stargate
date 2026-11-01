@@ -618,6 +618,11 @@ HMAC secret for service-to-service authentication with Herald (recommended for p
 - Provides better security for service-to-service communication
 - Must match the HMAC secret configured in Herald service
 
+The current Herald SDK signs HMAC v3 requests, binding `Idempotency-Key` into
+the signature along with the method, path, query, and body. Deploy Herald
+v1.3.7 or newer before upgrading an HMAC-enabled Stargate instance. The SDK
+does not automatically downgrade the signature version.
+
 **Authentication Methods:**
 
 Stargate supports two authentication methods for Herald:
