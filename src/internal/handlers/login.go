@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"html"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/session"
 	logger "github.com/soulteary/logger-kit/v3"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/soulteary/herald/pkg/herald"
 	secure "github.com/soulteary/secure-kit/v2"
@@ -157,10 +159,6 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 		attribute.String("auth.method", authMethod),
 	)
 
-	var userID string                        // Declare userID at function scope
-	var verifyRespAMR []string               // Store AMR from Herald response
-	var wardenUserInfo *warden.AllowListUser // Reused across warden branch to avoid repeated GetUserInfo
-
 	// Determine authentication method
 	// If auth_method is not specified, default to password authentication for backward compatibility
 	if authMethod == "" {
@@ -169,303 +167,18 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 
 	var authenticated bool
 
+	identity := &loginIdentity{userPhone: userPhone, userMail: userMail}
+	var authErr error
 	if authMethod == "warden" {
-		// 手机号规范化后校验格式（如系统自动填充 "138 0013 8000" 已去空格，此处校验是否为有效号码）
-		if userPhone != "" && !auth.IsValidPhone(userPhone) {
-			tracing.RecordError(loginSpan, fmt.Errorf("invalid phone format"))
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.invalid_phone_format"))
+		authenticated, authErr = identity.authenticateWarden(ctx, loginCtx, loginSpan)
+		if authenticated {
+			log.Info().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden authentication successful")
 		}
-		// Check if at least one identifier is provided
-		if userPhone == "" && userMail == "" {
-			tracing.RecordError(loginSpan, fmt.Errorf("no identifier provided"))
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"))
-		}
-
-		// Start span for Warden get user info
-		wardenCtx, wardenSpan := tracing.StartSpan(loginCtx, "warden.get_user_info")
-		wardenSpan.SetAttributes(
-			attribute.String("warden.identifier_type", func() string {
-				if userPhone != "" {
-					return "phone"
-				}
-				return "mail"
-			}()),
-		)
-
-		// Log the authentication attempt
-		log.Debug().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Attempting Warden authentication")
-
-		// Step 1: Get complete user information from Warden (includes status check)
-		wardenStartTime := time.Now()
-		userInfo := auth.GetUserInfo(wardenCtx, userPhone, userMail)
-		wardenDuration := time.Since(wardenStartTime)
-		if userInfo == nil {
-			wardenSpan.SetAttributes(attribute.Bool("warden.user_found", false))
-			wardenSpan.End()
-			tracing.RecordError(loginSpan, fmt.Errorf("user not found in Warden"))
-			metrics.RecordWardenCall("get_user_info", "failure", wardenDuration)
-			metrics.RecordAuthRequest("warden", "failure")
-			log.Warn().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden authentication failed")
-			auditlog.LogLogin(ctx.Context(), "", "warden", ctx.IP(), false, "user_not_in_list")
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
-		}
-		wardenSpan.SetAttributes(
-			attribute.Bool("warden.user_found", true),
-			attribute.String("warden.user_id", userInfo.UserID),
-		)
-		wardenSpan.End()
-		metrics.RecordWardenCall("get_user_info", "success", wardenDuration)
-		wardenUserInfo = userInfo // Reuse for session write and audit to avoid repeated GetUserInfo
-
-		// Step 2: Use user_id from Warden if available, otherwise generate one
-		userID = userInfo.UserID
-		if userID == "" {
-			userID = generateUserID(userPhone, userMail)
-		}
-
-		// Step 3: Get verification code and OTP code from form
-		verifyCode := ctx.FormValue("verify_code")
-		challengeID := ctx.FormValue("challenge_id")
-		otpCode := ctx.FormValue("otp_code")
-		useOTP := ctx.FormValue("use_otp") == "true"
-		auditContext, err := loadChallengeContext(ctx.Context(), challengeID)
-		if err != nil {
-			log.Error().Err(err).Str("challenge_id", challengeID).Msg("Failed to load challenge audit context")
-		}
-
-		// Only per-user TOTP managed by Herald is supported.
-		otpEnabled := config.HeraldTOTPEnabled.ToBool()
-
-		// Step 4: Verify code via Herald (if not using OTP)
-		if !useOTP {
-			// Check if Herald is enabled
-			if !config.HeraldEnabled.ToBool() {
-				// If Herald is not enabled and OTP is also not enabled, return error
-				if !otpEnabled {
-					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.herald_not_configured_use_otp_or_contact"))
-				}
-				// If OTP is enabled, suggest user to use OTP
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.herald_not_configured_use_otp"))
-			}
-
-			// Verify challenge via Herald
-			if challengeID == "" || verifyCode == "" {
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.verify_code_and_challenge_required"))
-			}
-
-			heraldClient := getHeraldClient()
-			if heraldClient == nil {
-				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.herald_unavailable"))
-			}
-
-			verifyReq := &herald.VerifyChallengeRequest{
-				ChallengeID: challengeID,
-				Code:        verifyCode,
-				ClientIP:    ctx.IP(),
-			}
-
-			// Start span for Herald verify challenge
-			heraldCtx, heraldSpan := tracing.StartSpan(loginCtx, "herald.verify_challenge")
-			heraldSpan.SetAttributes(
-				attribute.String("herald.challenge_id", challengeID),
-			)
-
-			startTime := time.Now()
-			verifyResp, err := heraldClient.VerifyChallenge(heraldCtx, verifyReq)
-			duration := time.Since(startTime)
-			if err != nil {
-				tracing.RecordError(heraldSpan, err)
-				heraldSpan.End()
-				metrics.RecordHeraldCall("verify_challenge", "failure", duration)
-				log.Error().Err(err).Msg("Failed to verify challenge")
-
-				// Check if it's a connection error (Herald service unavailable)
-				if heraldErr, ok := err.(*herald.HeraldError); ok {
-					if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
-						// Herald service is unavailable, suggest OTP fallback if enabled
-						if otpEnabled {
-							return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"))
-						}
-						return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
-					}
-					// Herald client returns (verifyResp, err) on 4xx; use verifyResp.Reason for user-facing message
-					if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
-						verifyResp != nil && !verifyResp.OK && verifyResp.Reason != "" {
-						reason := verifyResp.Reason
-						auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
-						var errorMsg string
-						switch reason {
-						case "expired":
-							errorMsg = i18n.T(ctx, "error.verify_code_expired")
-						case "invalid":
-							errorMsg = i18n.T(ctx, "error.verify_code_invalid")
-							if verifyResp.RemainingAttempts != nil {
-								errorMsg = i18n.Tf(ctx, "error.verify_code_invalid_with_attempts", *verifyResp.RemainingAttempts)
-							}
-						case "locked":
-							errorMsg = i18n.T(ctx, "error.verify_code_locked")
-						case "too_many_attempts":
-							errorMsg = i18n.T(ctx, "error.verify_code_too_many")
-						case "rate_limited":
-							errorMsg = i18n.T(ctx, "error.verify_code_rate_limited")
-							if verifyResp.NextResendIn != nil {
-								errorMsg = i18n.Tf(ctx, "error.verify_code_rate_limited_with_wait", *verifyResp.NextResendIn)
-							}
-						case "send_failed":
-							errorMsg = i18n.T(ctx, "error.verify_code_send_failed")
-						case "unauthorized":
-							errorMsg = i18n.T(ctx, "error.verify_code_unauthorized")
-						default:
-							errorMsg = i18n.T(ctx, "error.verify_code_failed")
-						}
-						return SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
-					}
-					// Real auth failure (e.g. bad HMAC), not verification failure
-					if heraldErr.StatusCode == http.StatusUnauthorized {
-						return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_code_unauthorized"))
-					}
-				}
-
-				// Default error handling
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_code_failed"))
-			}
-
-			if !verifyResp.OK {
-				heraldSpan.SetAttributes(
-					attribute.String("herald.result", "failure"),
-					attribute.String("herald.reason", verifyResp.Reason),
-				)
-				heraldSpan.End()
-				metrics.RecordHeraldCall("verify_challenge", "failure", duration)
-				reason := verifyResp.Reason
-				if reason == "" {
-					reason = "invalid"
-				}
-				log.Warn().Str("reason", reason).Msg("Challenge verification failed")
-				auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
-
-				// Provide detailed error message based on reason
-				var errorMsg string
-				switch reason {
-				case "expired":
-					errorMsg = i18n.T(ctx, "error.verify_code_expired")
-				case "invalid":
-					errorMsg = i18n.T(ctx, "error.verify_code_invalid")
-					// Add remaining attempts if available
-					if verifyResp.RemainingAttempts != nil {
-						errorMsg = i18n.Tf(ctx, "error.verify_code_invalid_with_attempts", *verifyResp.RemainingAttempts)
-					}
-				case "locked":
-					errorMsg = i18n.T(ctx, "error.verify_code_locked")
-				case "too_many_attempts":
-					errorMsg = i18n.T(ctx, "error.verify_code_too_many")
-				case "rate_limited":
-					errorMsg = i18n.T(ctx, "error.verify_code_rate_limited")
-					// Add wait time if available
-					if verifyResp.NextResendIn != nil {
-						errorMsg = i18n.Tf(ctx, "error.verify_code_rate_limited_with_wait", *verifyResp.NextResendIn)
-					}
-				case "send_failed":
-					errorMsg = i18n.T(ctx, "error.verify_code_send_failed")
-				case "unauthorized":
-					errorMsg = i18n.T(ctx, "error.verify_code_unauthorized")
-				default:
-					errorMsg = i18n.T(ctx, "error.verify_code_failed")
-				}
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
-			}
-
-			// Log successful verification
-			heraldSpan.SetAttributes(
-				attribute.String("herald.result", "success"),
-				attribute.String("herald.user_id", verifyResp.UserID),
-			)
-			heraldSpan.End()
-			metrics.RecordHeraldCall("verify_challenge", "success", duration)
-			auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), true, "")
-			if auditContext.ChallengeID != "" {
-				if err := getChallengeContextStore().Delete(ctx.Context(), auditContext.ChallengeID); err != nil {
-					log.Error().Err(err).Str("challenge_id", auditContext.ChallengeID).Msg("Failed to consume challenge audit context")
-				}
-			}
-			// Verify user ID matches
-			if verifyResp.UserID != userID {
-				log.Warn().Str("expected", userID).Str("got", verifyResp.UserID).Msg("User ID mismatch")
-				auditlog.LogLogin(ctx.Context(), auditContext.UserID, "warden", ctx.IP(), false, "user_id_mismatch")
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
-			}
-
-			// Store AMR (Authentication Method Reference) from Herald response for later use
-			if len(verifyResp.AMR) > 0 {
-				verifyRespAMR = verifyResp.AMR
-			}
-		} else if otpEnabled && useOTP {
-			// If OTP is enabled and user chose to use OTP (TOTP / Authenticator)
-			if otpCode == "" {
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.otp_code_required"))
-			}
-
-			// Herald TOTP (per-user, via Herald proxy) when configured
-			heraldClient := getHeraldClient()
-			if heraldClient != nil && config.HeraldTOTPEnabled.ToBool() {
-				// Check if user has TOTP enrolled; if not, require verification code login first, then bind in settings
-				statusResp, err := heraldClient.TOTPStatus(loginCtx, userID)
-				if err != nil {
-					log.Warn().Err(err).Str("user_id", userID).Msg("Herald TOTP status check failed")
-					return SendErrorResponse(ctx, fiber.StatusBadGateway, i18n.T(ctx, "error.herald_unavailable_retry"))
-				}
-				if statusResp == nil || !statusResp.TotpEnabled {
-					metrics.RecordAuthRequest("warden_otp", "failure")
-					auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "totp_not_enrolled")
-					return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.totp_not_enrolled"))
-				}
-				verifyReq := &herald.TOTPVerifyRequest{
-					Subject: userID,
-					Code:    otpCode,
-				}
-				if challengeID != "" {
-					verifyReq.ChallengeID = challengeID
-				}
-				verifyResp, err := heraldClient.TOTPVerify(loginCtx, verifyReq)
-				if err != nil || verifyResp == nil || !verifyResp.OK {
-					metrics.RecordAuthRequest("warden_otp", "failure")
-					log.Warn().Err(err).Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("TOTP verification failed")
-					auditlog.LogLogin(ctx.Context(), userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
-					return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.otp_code_invalid"))
-				}
-				metrics.RecordAuthRequest("warden_otp", "success")
-			} else {
-				return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
-			}
-		} else {
-			// Neither Herald verification nor OTP was used
-			// This should not happen if frontend validation works correctly
-			// But we add this check as a safety measure
-			if !otpEnabled {
-				return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.provide_verify_code_or_otp"))
-			}
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.choose_verify_method"))
-		}
-
-		log.Info().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden authentication successful")
-		authenticated = true
 	} else {
-		// Password authentication (default)
-		if password == "" {
-			metrics.RecordAuthRequest("password", "failure")
-			auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), false, "empty_password")
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
-		}
-		if !auth.CheckPassword(password) {
-			metrics.RecordAuthRequest("password", "failure")
-			auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), false, "invalid_password")
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
-		}
-		authenticated = true
+		authenticated, authErr = authenticatePasswordLogin(ctx, password)
 	}
-
 	if !authenticated {
-		return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.authentication_failed"))
+		return authErr
 	}
 
 	sess, err := sessionGetter.Get(ctx)
@@ -482,55 +195,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 	}
 	sess.Set("auth_method", authMethod)
 
-	// Set user information to session for warden authentication before authenticating
-	if authMethod == "warden" {
-		// Reuse wardenUserInfo from earlier in the request to avoid repeated GetUserInfo
-		if wardenUserInfo != nil {
-			// Store complete user information in session
-			if wardenUserInfo.UserID != "" {
-				sess.Set("user_id", wardenUserInfo.UserID)
-			}
-			if wardenUserInfo.Phone != "" {
-				sess.Set("user_phone", wardenUserInfo.Phone)
-			}
-			if wardenUserInfo.Mail != "" {
-				sess.Set("user_mail", wardenUserInfo.Mail)
-			}
-			if wardenUserInfo.Status != "" {
-				sess.Set("user_status", wardenUserInfo.Status)
-			}
-			// Store scope and role for authorization headers
-			if len(wardenUserInfo.Scope) > 0 {
-				sess.Set("user_scope", wardenUserInfo.Scope)
-			}
-			if wardenUserInfo.Role != "" {
-				sess.Set("user_role", wardenUserInfo.Role)
-			}
-			if wardenUserInfo.Name != "" {
-				sess.Set("user_name", wardenUserInfo.Name)
-			}
-			log.Debug().
-				Str("user_id", wardenUserInfo.UserID).
-				Str("phone", secure.MaskPhone(wardenUserInfo.Phone)).
-				Str("mail", secure.MaskEmail(wardenUserInfo.Mail)).
-				Strs("scope", wardenUserInfo.Scope).
-				Str("role", wardenUserInfo.Role).
-				Msg("Stored user info in session")
-		} else {
-			// Fallback: store basic info if wardenUserInfo was not set (should not happen after successful warden auth)
-			if userPhone != "" {
-				sess.Set("user_phone", userPhone)
-			}
-			if userMail != "" {
-				sess.Set("user_mail", userMail)
-			}
-		}
-
-		// Store AMR (Authentication Method Reference) from Herald response if available
-		if len(verifyRespAMR) > 0 {
-			sess.Set("user_amr", verifyRespAMR)
-		}
-	}
+	storeLoginIdentity(sess, authMethod, identity)
 
 	// Authenticate and save session (this will save all session data including user info)
 	err = authenticator.Authenticate(sess)
@@ -541,10 +206,10 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 	// Log successful login and session creation
 	var loggedUserID string
 	if authMethod == "warden" {
-		if wardenUserInfo != nil && wardenUserInfo.UserID != "" {
-			loggedUserID = wardenUserInfo.UserID
+		if identity.wardenUserInfo != nil && identity.wardenUserInfo.UserID != "" {
+			loggedUserID = identity.wardenUserInfo.UserID
 		} else {
-			loggedUserID = userID
+			loggedUserID = identity.userID
 		}
 		metrics.RecordAuthRequest(authMethod, "success")
 		auditlog.LogLogin(ctx.Context(), loggedUserID, authMethod, ctx.IP(), true, "")
@@ -555,121 +220,7 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 	metrics.RecordSessionCreated()
 	auditlog.LogSessionCreate(ctx.Context(), loggedUserID, ctx.IP())
 
-	// Get callback parameter (priority: cookie, form data, query parameter)
-	callbackFromCookie := GetCallbackFromCookie(ctx)
-	callback := callbackFromCookie
-	if callback == "" {
-		callback = ctx.FormValue("callback")
-	}
-	if callback == "" {
-		callback = ctx.Query("callback")
-	}
-
-	// If callback was retrieved from cookie, clear the cookie after successful login
-	if callbackFromCookie != "" {
-		ClearCallbackCookie(ctx)
-	}
-
-	// If no callback, try using origin host as callback
-	if callback == "" {
-		originHost := GetForwardedHost(ctx)
-		// Only use origin host as callback if it's different from auth service domain
-		if IsDifferentDomain(ctx) {
-			callback = originHost
-		}
-	}
-	if callback != "" {
-		callback, err = ValidateCallbackHost(callback)
-		if err != nil {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, "invalid callback host")
-		}
-	}
-
-	// If callback exists, redirect to session exchange endpoint
-	if callback != "" {
-		// Get session ID (should already exist)
-		sessionID := sess.ID()
-		if sessionID == "" {
-			// If ID is empty, try to get it from response cookie
-			// In Fiber session, Save() will set session ID to response cookie
-			cookieBytes := ctx.Response().Header.Peek("Set-Cookie")
-			if len(cookieBytes) > 0 {
-				cookieStr := string(cookieBytes)
-				// Find session cookie (format: stargate_session=<session_id>; ...)
-				cookieName := auth.SessionCookieName + "="
-				if idx := strings.Index(cookieStr, cookieName); idx >= 0 {
-					start := idx + len(cookieName)
-					end := start
-					for end < len(cookieStr) && cookieStr[end] != ';' && cookieStr[end] != ' ' {
-						end++
-					}
-					sessionID = cookieStr[start:end]
-				}
-			}
-			// If still empty, try to get session again
-			if sessionID == "" {
-				sess, err = sessionGetter.Get(ctx)
-				if err != nil {
-					return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
-				}
-				defer sess.Release()
-				sessionID = sess.ID()
-			}
-			if sessionID == "" {
-				// If session ID is still empty, return error
-				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.missing_session_id"))
-			}
-		}
-		proto := GetForwardedProto(ctx)
-		if proto == "" {
-			proto = ctx.Scheme()
-		}
-		ticket, err := createSessionExchangeTicket(sessionID, callback)
-		if err != nil {
-			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "session exchange is not configured")
-		}
-		redirectURL := fmt.Sprintf("%s://%s/_session_exchange?ticket=%s", proto, callback, ticket)
-		// When client accepts JSON (e.g. fetch with Accept: application/json), return 200 + redirect URL
-		// so the client can navigate; with redirect: 'manual', 302 Location is opaque and unreadable.
-		if strings.Contains(ctx.Get("Accept"), "application/json") {
-			ctx.Set("Content-Type", "application/json")
-			return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
-				"success":  true,
-				"redirect": redirectURL,
-				"message":  i18n.T(ctx, "success.login"),
-			})
-		}
-		return ctx.Redirect().Status(fiber.StatusFound).To(redirectURL)
-	}
-
-	// If still no callback (origin domain is the auth service itself), return response based on request type
-	if IsHTMLRequest(ctx) {
-		// HTML request returns success message and adds meta refresh redirect to origin domain
-		ctx.Set("Content-Type", "text/html; charset=utf-8")
-		successMsg := i18n.T(ctx, "success.login")
-
-		// Get origin host and protocol
-		originHost := GetForwardedHost(ctx)
-		proto := GetForwardedProto(ctx)
-		redirectURL := fmt.Sprintf("%s://%s", proto, originHost)
-
-		// Escape URL to ensure HTML safety
-		escapedURL := html.EscapeString(redirectURL)
-
-		// Build HTML with meta refresh
-		clickIfNoRedirect := i18n.T(ctx, "info.click_if_no_redirect")
-		htmlContent := fmt.Sprintf(`<html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=%s"><title>%s</title></head><body><h1>%s</h1><p>%s</p><p><a href="%s">%s</a></p></body></html>`,
-			escapedURL, successMsg, successMsg, successMsg, escapedURL, html.EscapeString(clickIfNoRedirect))
-		return ctx.Status(fiber.StatusOK).SendString(htmlContent)
-	}
-
-	// API request returns JSON response
-	ctx.Set("Content-Type", "application/json")
-	response := fiber.Map{
-		"success": true,
-		"message": i18n.T(ctx, "success.login"),
-	}
-	return ctx.Status(fiber.StatusOK).JSON(response)
+	return completeLoginResponse(ctx, sess, sessionGetter)
 }
 
 // LoginAPI handles POST requests to /_login for password authentication.
@@ -781,3 +332,490 @@ func LoginRoute(store *session.Store) func(c fiber.Ctx) error {
 
 // Note: SendVerifyCodeAPI and sendVerifyCodeHandler have been removed.
 // Verification code sending is now handled by the Herald service via the login flow.
+
+type loginIdentity struct {
+	userID         string
+	userPhone      string
+	userMail       string
+	verifyRespAMR  []string
+	wardenUserInfo *warden.AllowListUser
+}
+
+func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx context.Context, loginSpan trace.Span) (bool, error) {
+	// 手机号规范化后校验格式（如系统自动填充 "138 0013 8000" 已去空格，此处校验是否为有效号码）
+	if identity.userPhone != "" && !auth.IsValidPhone(identity.userPhone) {
+		tracing.RecordError(loginSpan, fmt.Errorf("invalid phone format"))
+		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.invalid_phone_format"))
+	}
+	// Check if at least one identifier is provided
+	if identity.userPhone == "" && identity.userMail == "" {
+		tracing.RecordError(loginSpan, fmt.Errorf("no identifier provided"))
+		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"))
+	}
+
+	// Start span for Warden get user info
+	wardenCtx, wardenSpan := tracing.StartSpan(loginCtx, "warden.get_user_info")
+	wardenSpan.SetAttributes(
+		attribute.String("warden.identifier_type", func() string {
+			if identity.userPhone != "" {
+				return "phone"
+			}
+			return "mail"
+		}()),
+	)
+
+	// Log the authentication attempt
+	log.Debug().Str("phone", secure.MaskPhone(identity.userPhone)).Str("mail", secure.MaskEmail(identity.userMail)).Msg("Attempting Warden authentication")
+
+	// Step 1: Get complete user information from Warden (includes status check)
+	wardenStartTime := time.Now()
+	userInfo := auth.GetUserInfo(wardenCtx, identity.userPhone, identity.userMail)
+	wardenDuration := time.Since(wardenStartTime)
+	if userInfo == nil {
+		wardenSpan.SetAttributes(attribute.Bool("warden.user_found", false))
+		wardenSpan.End()
+		tracing.RecordError(loginSpan, fmt.Errorf("user not found in Warden"))
+		metrics.RecordWardenCall("get_user_info", "failure", wardenDuration)
+		metrics.RecordAuthRequest("warden", "failure")
+		log.Warn().Str("phone", secure.MaskPhone(identity.userPhone)).Str("mail", secure.MaskEmail(identity.userMail)).Msg("Warden authentication failed")
+		auditlog.LogLogin(ctx.Context(), "", "warden", ctx.IP(), false, "user_not_in_list")
+		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
+	}
+	wardenSpan.SetAttributes(
+		attribute.Bool("warden.user_found", true),
+		attribute.String("warden.user_id", userInfo.UserID),
+	)
+	wardenSpan.End()
+	metrics.RecordWardenCall("get_user_info", "success", wardenDuration)
+	identity.wardenUserInfo = userInfo // Reuse for session write and audit to avoid repeated GetUserInfo
+
+	// Step 2: Use user_id from Warden if available, otherwise generate one
+	identity.userID = userInfo.UserID
+	if identity.userID == "" {
+		identity.userID = generateUserID(identity.userPhone, identity.userMail)
+	}
+
+	// Step 3: Get verification code and OTP code from form
+	challengeID := ctx.FormValue("challenge_id")
+	useOTP := ctx.FormValue("use_otp") == "true"
+	auditContext, err := loadChallengeContext(ctx.Context(), challengeID)
+	if err != nil {
+		log.Error().Err(err).Str("challenge_id", challengeID).Msg("Failed to load challenge audit context")
+	}
+
+	// Only per-user TOTP managed by Herald is supported.
+	otpEnabled := config.HeraldTOTPEnabled.ToBool()
+
+	// Step 4: Verify code via Herald (if not using OTP)
+	if !useOTP {
+		return identity.verifyChallenge(ctx, loginCtx, auditContext, otpEnabled)
+	}
+	if otpEnabled && useOTP {
+		return identity.verifyTOTP(ctx, loginCtx)
+	}
+
+	// Neither Herald verification nor OTP was used
+	// This should not happen if frontend validation works correctly
+	// But we add this check as a safety measure
+	if !otpEnabled {
+		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.provide_verify_code_or_otp"))
+	}
+	return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.choose_verify_method"))
+}
+
+func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.Context, auditContext challengeContext, otpEnabled bool) (bool, error) {
+	challengeID := ctx.FormValue("challenge_id")
+	verifyCode := ctx.FormValue("verify_code")
+
+	// Check if Herald is enabled
+	if !config.HeraldEnabled.ToBool() {
+		// If Herald is not enabled and OTP is also not enabled, return error
+		if !otpEnabled {
+			return false, SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.herald_not_configured_use_otp_or_contact"))
+		}
+		// If OTP is enabled, suggest user to use OTP
+		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.herald_not_configured_use_otp"))
+	}
+
+	// Verify challenge via Herald
+	if challengeID == "" || verifyCode == "" {
+		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.verify_code_and_challenge_required"))
+	}
+
+	heraldClient := getHeraldClient()
+	if heraldClient == nil {
+		return false, SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.herald_unavailable"))
+	}
+
+	verifyReq := &herald.VerifyChallengeRequest{
+		ChallengeID: challengeID,
+		Code:        verifyCode,
+		ClientIP:    ctx.IP(),
+	}
+
+	// Start span for Herald verify challenge
+	heraldCtx, heraldSpan := tracing.StartSpan(loginCtx, "herald.verify_challenge")
+	heraldSpan.SetAttributes(
+		attribute.String("herald.challenge_id", challengeID),
+	)
+
+	startTime := time.Now()
+	verifyResp, err := heraldClient.VerifyChallenge(heraldCtx, verifyReq)
+	duration := time.Since(startTime)
+	if err != nil {
+		tracing.RecordError(heraldSpan, err)
+		heraldSpan.End()
+		metrics.RecordHeraldCall("verify_challenge", "failure", duration)
+		log.Error().Err(err).Msg("Failed to verify challenge")
+
+		return false, handleChallengeVerificationError(ctx, err, verifyResp, auditContext, otpEnabled)
+	}
+
+	if !verifyResp.OK {
+		heraldSpan.SetAttributes(
+			attribute.String("herald.result", "failure"),
+			attribute.String("herald.reason", verifyResp.Reason),
+		)
+		heraldSpan.End()
+		metrics.RecordHeraldCall("verify_challenge", "failure", duration)
+		reason := verifyResp.Reason
+		if reason == "" {
+			reason = "invalid"
+		}
+		log.Warn().Str("reason", reason).Msg("Challenge verification failed")
+		auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
+
+		// Provide detailed error message based on reason
+		errorMsg := verificationFailureMessage(ctx, verifyResp, reason)
+		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
+	}
+
+	// Log successful verification
+	heraldSpan.SetAttributes(
+		attribute.String("herald.result", "success"),
+		attribute.String("herald.user_id", verifyResp.UserID),
+	)
+	heraldSpan.End()
+	metrics.RecordHeraldCall("verify_challenge", "success", duration)
+	auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), true, "")
+	if auditContext.ChallengeID != "" {
+		if err := getChallengeContextStore().Delete(ctx.Context(), auditContext.ChallengeID); err != nil {
+			log.Error().Err(err).Str("challenge_id", auditContext.ChallengeID).Msg("Failed to consume challenge audit context")
+		}
+	}
+	// Verify user ID matches
+	if verifyResp.UserID != identity.userID {
+		log.Warn().Str("expected", identity.userID).Str("got", verifyResp.UserID).Msg("User ID mismatch")
+		auditlog.LogLogin(ctx.Context(), auditContext.UserID, "warden", ctx.IP(), false, "user_id_mismatch")
+		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
+	}
+
+	// Store AMR (Authentication Method Reference) from Herald response for later use
+	if len(verifyResp.AMR) > 0 {
+		identity.verifyRespAMR = verifyResp.AMR
+	}
+	return true, nil
+}
+
+func (identity *loginIdentity) verifyTOTP(ctx fiber.Ctx, loginCtx context.Context) (bool, error) {
+	otpCode := ctx.FormValue("otp_code")
+	challengeID := ctx.FormValue("challenge_id")
+
+	// If OTP is enabled and user chose to use OTP (TOTP / Authenticator)
+	if otpCode == "" {
+		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.otp_code_required"))
+	}
+
+	// Herald TOTP (per-user, via Herald proxy) when configured
+	heraldClient := getHeraldClient()
+	if heraldClient != nil && config.HeraldTOTPEnabled.ToBool() {
+		// Check if user has TOTP enrolled; if not, require verification code login first, then bind in settings
+		statusResp, err := heraldClient.TOTPStatus(loginCtx, identity.userID)
+		if err != nil {
+			log.Warn().Err(err).Str("user_id", identity.userID).Msg("Herald TOTP status check failed")
+			return false, SendErrorResponse(ctx, fiber.StatusBadGateway, i18n.T(ctx, "error.herald_unavailable_retry"))
+		}
+		if statusResp == nil || !statusResp.TotpEnabled {
+			metrics.RecordAuthRequest("warden_otp", "failure")
+			auditlog.LogLogin(ctx.Context(), identity.userID, "warden_otp", ctx.IP(), false, "totp_not_enrolled")
+			return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.totp_not_enrolled"))
+		}
+		verifyReq := &herald.TOTPVerifyRequest{
+			Subject: identity.userID,
+			Code:    otpCode,
+		}
+		if challengeID != "" {
+			verifyReq.ChallengeID = challengeID
+		}
+		verifyResp, err := heraldClient.TOTPVerify(loginCtx, verifyReq)
+		if err != nil || verifyResp == nil || !verifyResp.OK {
+			metrics.RecordAuthRequest("warden_otp", "failure")
+			log.Warn().Err(err).Str("phone", secure.MaskPhone(identity.userPhone)).Str("mail", secure.MaskEmail(identity.userMail)).Msg("TOTP verification failed")
+			auditlog.LogLogin(ctx.Context(), identity.userID, "warden_otp", ctx.IP(), false, "otp_verification_failed")
+			return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.otp_code_invalid"))
+		}
+		metrics.RecordAuthRequest("warden_otp", "success")
+	} else {
+		return false, SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
+	}
+	return true, nil
+}
+
+func verificationFailureMessage(ctx fiber.Ctx, verifyResp *herald.VerifyChallengeResponse, reason string) string {
+	var errorMsg string
+	switch reason {
+	case "expired":
+		errorMsg = i18n.T(ctx, "error.verify_code_expired")
+	case "invalid":
+		errorMsg = i18n.T(ctx, "error.verify_code_invalid")
+		if verifyResp.RemainingAttempts != nil {
+			errorMsg = i18n.Tf(ctx, "error.verify_code_invalid_with_attempts", *verifyResp.RemainingAttempts)
+		}
+	case "locked":
+		errorMsg = i18n.T(ctx, "error.verify_code_locked")
+	case "too_many_attempts":
+		errorMsg = i18n.T(ctx, "error.verify_code_too_many")
+	case "rate_limited":
+		errorMsg = i18n.T(ctx, "error.verify_code_rate_limited")
+		if verifyResp.NextResendIn != nil {
+			errorMsg = i18n.Tf(ctx, "error.verify_code_rate_limited_with_wait", *verifyResp.NextResendIn)
+		}
+	case "send_failed":
+		errorMsg = i18n.T(ctx, "error.verify_code_send_failed")
+	case "unauthorized":
+		errorMsg = i18n.T(ctx, "error.verify_code_unauthorized")
+	default:
+		errorMsg = i18n.T(ctx, "error.verify_code_failed")
+	}
+	return errorMsg
+}
+
+func handleChallengeVerificationError(ctx fiber.Ctx, err error, verifyResp *herald.VerifyChallengeResponse, auditContext challengeContext, otpEnabled bool) error {
+	// Check if it's a connection error (Herald service unavailable)
+	if heraldErr, ok := err.(*herald.HeraldError); ok {
+		if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
+			// Herald service is unavailable, suggest OTP fallback if enabled
+			if otpEnabled {
+				return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"))
+			}
+			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
+		}
+		// Herald client returns (verifyResp, err) on 4xx; use verifyResp.Reason for user-facing message
+		if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
+			verifyResp != nil && !verifyResp.OK && verifyResp.Reason != "" {
+			reason := verifyResp.Reason
+			auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
+			errorMsg := verificationFailureMessage(ctx, verifyResp, reason)
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
+		}
+		// Real auth failure (e.g. bad HMAC), not verification failure
+		if heraldErr.StatusCode == http.StatusUnauthorized {
+			return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_code_unauthorized"))
+		}
+	}
+
+	// Default error handling
+	return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_code_failed"))
+}
+
+func authenticatePasswordLogin(ctx fiber.Ctx, password string) (bool, error) {
+	// Password authentication (default)
+	if password == "" {
+		metrics.RecordAuthRequest("password", "failure")
+		auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), false, "empty_password")
+		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
+	}
+	if !auth.CheckPassword(password) {
+		metrics.RecordAuthRequest("password", "failure")
+		auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), false, "invalid_password")
+		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
+	}
+	return true, nil
+}
+
+func storeLoginIdentity(sess *session.Session, authMethod string, identity *loginIdentity) {
+	// Set user information to session for warden authentication before authenticating
+	if authMethod != "warden" {
+		return
+	}
+	// Reuse identity.wardenUserInfo from earlier in the request to avoid repeated GetUserInfo
+	if identity.wardenUserInfo != nil {
+		// Store complete user information in session
+		if identity.wardenUserInfo.UserID != "" {
+			sess.Set("user_id", identity.wardenUserInfo.UserID)
+		}
+		if identity.wardenUserInfo.Phone != "" {
+			sess.Set("user_phone", identity.wardenUserInfo.Phone)
+		}
+		if identity.wardenUserInfo.Mail != "" {
+			sess.Set("user_mail", identity.wardenUserInfo.Mail)
+		}
+		if identity.wardenUserInfo.Status != "" {
+			sess.Set("user_status", identity.wardenUserInfo.Status)
+		}
+		// Store scope and role for authorization headers
+		if len(identity.wardenUserInfo.Scope) > 0 {
+			sess.Set("user_scope", identity.wardenUserInfo.Scope)
+		}
+		if identity.wardenUserInfo.Role != "" {
+			sess.Set("user_role", identity.wardenUserInfo.Role)
+		}
+		if identity.wardenUserInfo.Name != "" {
+			sess.Set("user_name", identity.wardenUserInfo.Name)
+		}
+		log.Debug().
+			Str("user_id", identity.wardenUserInfo.UserID).
+			Str("phone", secure.MaskPhone(identity.wardenUserInfo.Phone)).
+			Str("mail", secure.MaskEmail(identity.wardenUserInfo.Mail)).
+			Strs("scope", identity.wardenUserInfo.Scope).
+			Str("role", identity.wardenUserInfo.Role).
+			Msg("Stored user info in session")
+	} else {
+		// Fallback: store basic info if identity.wardenUserInfo was not set (should not happen after successful warden auth)
+		if identity.userPhone != "" {
+			sess.Set("user_phone", identity.userPhone)
+		}
+		if identity.userMail != "" {
+			sess.Set("user_mail", identity.userMail)
+		}
+	}
+
+	// Store AMR (Authentication Method Reference) from Herald response if available
+	if len(identity.verifyRespAMR) > 0 {
+		sess.Set("user_amr", identity.verifyRespAMR)
+	}
+}
+
+func completeLoginResponse(ctx fiber.Ctx, sess *session.Session, sessionGetter SessionGetter) error {
+	var err error
+
+	// Get callback parameter (priority: cookie, form data, query parameter)
+	callbackFromCookie := GetCallbackFromCookie(ctx)
+	callback := callbackFromCookie
+	if callback == "" {
+		callback = ctx.FormValue("callback")
+	}
+	if callback == "" {
+		callback = ctx.Query("callback")
+	}
+
+	// If callback was retrieved from cookie, clear the cookie after successful login
+	if callbackFromCookie != "" {
+		ClearCallbackCookie(ctx)
+	}
+
+	// If no callback, try using origin host as callback
+	if callback == "" {
+		originHost := GetForwardedHost(ctx)
+		// Only use origin host as callback if it's different from auth service domain
+		if IsDifferentDomain(ctx) {
+			callback = originHost
+		}
+	}
+	if callback != "" {
+		callback, err = ValidateCallbackHost(callback)
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, "invalid callback host")
+		}
+	}
+
+	// If callback exists, redirect to session exchange endpoint
+	if callback != "" {
+		return redirectAfterLogin(ctx, sess, sessionGetter, callback)
+	}
+
+	// If still no callback (origin domain is the auth service itself), return response based on request type
+	if IsHTMLRequest(ctx) {
+		// HTML request returns success message and adds meta refresh redirect to origin domain
+		ctx.Set("Content-Type", "text/html; charset=utf-8")
+		successMsg := i18n.T(ctx, "success.login")
+
+		// Get origin host and protocol
+		originHost := GetForwardedHost(ctx)
+		proto := GetForwardedProto(ctx)
+		redirectURL := fmt.Sprintf("%s://%s", proto, originHost)
+
+		// Escape URL to ensure HTML safety
+		escapedURL := html.EscapeString(redirectURL)
+
+		// Build HTML with meta refresh
+		clickIfNoRedirect := i18n.T(ctx, "info.click_if_no_redirect")
+		htmlContent := fmt.Sprintf(`<html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=%s"><title>%s</title></head><body><h1>%s</h1><p>%s</p><p><a href="%s">%s</a></p></body></html>`,
+			escapedURL, successMsg, successMsg, successMsg, escapedURL, html.EscapeString(clickIfNoRedirect))
+		return ctx.Status(fiber.StatusOK).SendString(htmlContent)
+	}
+
+	// API request returns JSON response
+	ctx.Set("Content-Type", "application/json")
+	response := fiber.Map{
+		"success": true,
+		"message": i18n.T(ctx, "success.login"),
+	}
+	return ctx.Status(fiber.StatusOK).JSON(response)
+}
+
+func redirectAfterLogin(ctx fiber.Ctx, sess *session.Session, sessionGetter SessionGetter, callback string) error {
+	sessionID, err := loginSessionID(ctx, sess, sessionGetter)
+	if sessionID == "" {
+		return err
+	}
+	proto := GetForwardedProto(ctx)
+	if proto == "" {
+		proto = ctx.Scheme()
+	}
+	ticket, err := createSessionExchangeTicket(sessionID, callback)
+	if err != nil {
+		return SendErrorResponse(ctx, fiber.StatusInternalServerError, "session exchange is not configured")
+	}
+	redirectURL := fmt.Sprintf("%s://%s/_session_exchange?ticket=%s", proto, callback, ticket)
+	// When client accepts JSON (e.g. fetch with Accept: application/json), return 200 + redirect URL
+	// so the client can navigate; with redirect: 'manual', 302 Location is opaque and unreadable.
+	if strings.Contains(ctx.Get("Accept"), "application/json") {
+		ctx.Set("Content-Type", "application/json")
+		return ctx.Status(fiber.StatusOK).JSON(fiber.Map{
+			"success":  true,
+			"redirect": redirectURL,
+			"message":  i18n.T(ctx, "success.login"),
+		})
+	}
+	return ctx.Redirect().Status(fiber.StatusFound).To(redirectURL)
+}
+
+func loginSessionID(ctx fiber.Ctx, sess *session.Session, sessionGetter SessionGetter) (string, error) {
+	var err error
+
+	// Get session ID (should already exist)
+	sessionID := sess.ID()
+	if sessionID == "" {
+		// If ID is empty, try to get it from response cookie
+		// In Fiber session, Save() will set session ID to response cookie
+		cookieBytes := ctx.Response().Header.Peek("Set-Cookie")
+		if len(cookieBytes) > 0 {
+			cookieStr := string(cookieBytes)
+			// Find session cookie (format: stargate_session=<session_id>; ...)
+			cookieName := auth.SessionCookieName + "="
+			if idx := strings.Index(cookieStr, cookieName); idx >= 0 {
+				start := idx + len(cookieName)
+				end := start
+				for end < len(cookieStr) && cookieStr[end] != ';' && cookieStr[end] != ' ' {
+					end++
+				}
+				sessionID = cookieStr[start:end]
+			}
+		}
+		// If still empty, try to get session again
+		if sessionID == "" {
+			sess, err = sessionGetter.Get(ctx)
+			if err != nil {
+				return "", SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
+			}
+			defer sess.Release()
+			sessionID = sess.ID()
+		}
+		if sessionID == "" {
+			// If session ID is still empty, return error
+			return "", SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.missing_session_id"))
+		}
+	}
+	return sessionID, nil
+}

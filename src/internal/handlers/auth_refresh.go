@@ -23,25 +23,12 @@ func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (b
 	if !config.AuthRefreshEnabled.ToBool() || !config.WardenEnabled.ToBool() || !auth.IsAuthenticated(sess) {
 		return false, nil
 	}
-	method, _ := sess.Get("auth_method").(string)
-	phone, _ := sess.Get("user_phone").(string)
-	mail, _ := sess.Get("user_mail").(string)
-	if method != "warden" {
-		// Sessions created before auth_method was recorded can still be identified
-		// by their Warden identity. Explicit non-Warden sessions must never be sent
-		// through the global Warden refresh path.
-		if method != "" || (phone == "" && mail == "") {
-			return false, nil
-		}
-	}
-	interval := config.AuthRefreshInterval.ToDuration()
-	if interval <= 0 {
-		interval = 5 * time.Minute
-	}
-	if refreshedAt, ok := sess.Get("auth_refreshed_at").(int64); ok &&
-		time.Since(time.Unix(refreshedAt, 0)) <= interval {
+	if !wardenSessionNeedsRefresh(sess) {
 		return false, nil
 	}
+	phone, _ := sess.Get("user_phone").(string)
+	mail, _ := sess.Get("user_mail").(string)
+
 	if phone == "" && mail == "" {
 		return false, errors.New("session has no refresh identity")
 	}
@@ -65,4 +52,27 @@ func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (b
 	sess.Set("user_status", user.Status)
 	sess.Set("auth_refreshed_at", time.Now().Unix())
 	return true, nil
+}
+
+func wardenSessionNeedsRefresh(sess *session.Session) bool {
+	method, _ := sess.Get("auth_method").(string)
+	phone, _ := sess.Get("user_phone").(string)
+	mail, _ := sess.Get("user_mail").(string)
+	if method != "warden" {
+		// Sessions created before auth_method was recorded can still be identified
+		// by their Warden identity. Explicit non-Warden sessions must never be sent
+		// through the global Warden refresh path.
+		if method != "" || (phone == "" && mail == "") {
+			return false
+		}
+	}
+	interval := config.AuthRefreshInterval.ToDuration()
+	if interval <= 0 {
+		interval = 5 * time.Minute
+	}
+	if refreshedAt, ok := sess.Get("auth_refreshed_at").(int64); ok &&
+		time.Since(time.Unix(refreshedAt, 0)) <= interval {
+		return false
+	}
+	return true
 }

@@ -6,7 +6,7 @@ require (
 	github.com/MarvinJWendt/testza v0.5.2
 	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/gofiber/fiber/v3 v3.6.1
-	github.com/gofiber/template/html/v3 v3.0.11
+	github.com/gofiber/template/html/v3 v3.0.12
 	github.com/gofiber/utils/v2 v2.6.3
 	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.25.0
@@ -17,7 +17,7 @@ require (
 	github.com/soulteary/cli-kit v1.9.2
 	github.com/soulteary/forwardauth-kit/v3 v3.0.4
 	github.com/soulteary/health-kit/v4 v4.0.4
-	github.com/soulteary/herald v1.3.2
+	github.com/soulteary/herald v1.3.6
 	github.com/soulteary/i18n-kit/v4 v4.0.3
 	github.com/soulteary/logger-kit/v3 v3.0.3
 	github.com/soulteary/metrics-kit/v3 v3.0.3
@@ -27,7 +27,7 @@ require (
 	github.com/soulteary/session-kit/v3 v3.1.3
 	github.com/soulteary/tracing-kit/v2 v2.0.2
 	github.com/soulteary/version-kit/v4 v4.0.2
-	github.com/soulteary/warden v1.4.2
+	github.com/soulteary/warden v1.4.3
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasthttp v1.77.0
 	go.opentelemetry.io/otel v1.47.0
@@ -49,11 +49,10 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/gofiber/schema v1.9.1 // indirect
-	github.com/gofiber/template/v2 v2.1.4 // indirect
+	github.com/gofiber/schema v1.9.2 // indirect
+	github.com/gofiber/template/v2 v2.1.5 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.33.0 // indirect
-	github.com/hashicorp/go-uuid v1.0.3 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.4.1 // indirect
 	github.com/lithammer/fuzzysearch v1.1.8 // indirect
@@ -62,10 +61,10 @@ require (
 	github.com/mattn/go-runewidth v0.0.31 // indirect
 	github.com/molecule-man/go-brrr v1.3.1 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/pandatix/go-abnf v0.5.1 // indirect
+	github.com/pandatix/go-abnf v0.5.5 // indirect
 	github.com/philhofer/fwd v1.2.1 // indirect
 	github.com/prometheus/client_model v0.6.3 // indirect
-	github.com/prometheus/common v0.73.0 // indirect
+	github.com/prometheus/common v0.73.1 // indirect
 	github.com/prometheus/procfs v0.23.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
 	github.com/soulteary/http-kit/v2 v2.1.0 // indirect
@@ -80,7 +79,7 @@ require (
 	go.opentelemetry.io/otel/sdk v1.47.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.11.1 // indirect
 	go.uber.org/atomic v1.12.0 // indirect
-	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/crypto v0.58.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
 	golang.org/x/term v0.47.0 // indirect

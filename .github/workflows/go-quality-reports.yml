@@ -190,6 +190,10 @@ jobs:
           threshold: "0"
           report: "true"
           commit: "false"
+      - name: Regenerate language-aware Go report
+        if: "!cancelled() && steps.go_report_card.outcome == 'success'"
+        shell: bash
+        run: sh .github/scripts/regenerate-report-card.sh
       - name: Restore project Go toolchain
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:

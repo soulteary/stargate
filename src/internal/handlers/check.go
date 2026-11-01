@@ -13,6 +13,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/tracing-kit/v2"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func allowTrustedHeaderAuth(ctx fiber.Ctx) bool {
@@ -154,22 +155,7 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		}
 		if err != nil {
 			forwardAuthSpan.SetAttributes(attribute.Bool("auth.authenticated", false))
-
-			switch err {
-			case forwardauth.ErrInvalidPassword:
-				if limitErr := rateLimitPasswordHeaderFailure(ctx); limitErr != nil {
-					return limitErr
-				}
-				return handleNotAuthenticated(ctx)
-			case forwardauth.ErrNotAuthenticated, forwardauth.ErrUserNotFound:
-				return handleNotAuthenticated(ctx)
-			case forwardauth.ErrStepUpRequired:
-				return handler.HandleStepUpRequired(faCtx)
-			case forwardauth.ErrSessionRequired:
-				return handleNotAuthenticated(ctx)
-			default:
-				return handleNotAuthenticated(ctx)
-			}
+			return handleForwardAuthFailure(ctx, handler, faCtx, err)
 		}
 
 		// Header and password authentication are stateless. They are evaluated by
@@ -177,33 +163,63 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		// policy again after a successful authentication result. A protected path
 		// requires a session because that is where the recent verification marker
 		// is stored.
-		if stepUpApplies(ctx) {
-			if !stepUpVerified(sess) {
-				if auth.IsAuthenticated(sess) {
-					return redirectToStepUp(ctx)
-				}
-				return SendErrorResponse(ctx, fiber.StatusForbidden, "step-up requires an authenticated session")
-			}
-			// A verification marker belongs to the session identity that created it.
-			// Password and trusted-header checkers run before the session checker, so
-			// never let a stateless result borrow a verified session's marker.
-			if result.AuthMethod != forwardauth.AuthMethodSession {
-				return SendErrorResponse(ctx, fiber.StatusForbidden, "step-up verification does not match the authentication identity")
-			}
+		if allowed, stepUpErr := enforceStepUpResult(ctx, sess, result); !allowed {
+			return stepUpErr
 		}
 
 		// Set authentication headers
 		handler.SetAuthHeaders(faCtx, result)
 
-		// Record tracing attributes
-		forwardAuthSpan.SetAttributes(attribute.Bool("auth.authenticated", true))
-		if result.UserID != "" {
-			forwardAuthSpan.SetAttributes(attribute.String("auth.user_id", result.UserID))
-		}
-		if result.AuthMethod.String() != "none" {
-			forwardAuthSpan.SetAttributes(attribute.String("auth.method", result.AuthMethod.String()))
-		}
+		recordForwardAuthResult(forwardAuthSpan, result)
 
 		return ctx.SendStatus(fiber.StatusOK)
+	}
+}
+
+func handleForwardAuthFailure(ctx fiber.Ctx, handler *forwardauth.Handler, faCtx *fafiber.Context, err error) error {
+	switch err {
+	case forwardauth.ErrInvalidPassword:
+		if limitErr := rateLimitPasswordHeaderFailure(ctx); limitErr != nil {
+			return limitErr
+		}
+		return handleNotAuthenticated(ctx)
+	case forwardauth.ErrNotAuthenticated, forwardauth.ErrUserNotFound:
+		return handleNotAuthenticated(ctx)
+	case forwardauth.ErrStepUpRequired:
+		return handler.HandleStepUpRequired(faCtx)
+	case forwardauth.ErrSessionRequired:
+		return handleNotAuthenticated(ctx)
+	default:
+		return handleNotAuthenticated(ctx)
+	}
+}
+
+func enforceStepUpResult(ctx fiber.Ctx, sess *session.Session, result *forwardauth.AuthResult) (bool, error) {
+	if stepUpApplies(ctx) {
+		if !stepUpVerified(sess) {
+			if auth.IsAuthenticated(sess) {
+				return false, redirectToStepUp(ctx)
+			}
+			return false, SendErrorResponse(ctx, fiber.StatusForbidden, "step-up requires an authenticated session")
+		}
+		// A verification marker belongs to the session identity that created it.
+		// Password and trusted-header checkers run before the session checker, so
+		// never let a stateless result borrow a verified session's marker.
+		if result.AuthMethod != forwardauth.AuthMethodSession {
+			return false, SendErrorResponse(ctx, fiber.StatusForbidden, "step-up verification does not match the authentication identity")
+		}
+	}
+
+	return true, nil
+}
+
+func recordForwardAuthResult(forwardAuthSpan trace.Span, result *forwardauth.AuthResult) {
+	// Record tracing attributes
+	forwardAuthSpan.SetAttributes(attribute.Bool("auth.authenticated", true))
+	if result.UserID != "" {
+		forwardAuthSpan.SetAttributes(attribute.String("auth.user_id", result.UserID))
+	}
+	if result.AuthMethod.String() != "none" {
+		forwardAuthSpan.SetAttributes(attribute.String("auth.method", result.AuthMethod.String()))
 	}
 }

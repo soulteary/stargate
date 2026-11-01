@@ -1,0 +1,21 @@
+#!/bin/sh
+# Keep the report's English dictionary on Go source. English documentation is
+# checked separately; translated documents are not English spelling mistakes.
+set -eu
+: "${STARGATE_REAL_MISSPELL:?set the path of the pinned misspell binary}"
+if [ "$#" -ne 1 ] || [ ! -d "$1" ]; then
+    echo 'expected one source directory' >&2
+    exit 2
+fi
+find "$1" -type f -name '*.go' -exec sh -c '
+    for source do
+        case "$source" in
+            */src/internal/i18n/i18n.go)
+                # These words occur in French, Italian and German message
+                # literals. All other words, including comments, remain checked.
+                "$STARGATE_REAL_MISSPELL" -i demandes,impossibile,momento,configurato,konfiguration "$source"
+                ;;
+            *) "$STARGATE_REAL_MISSPELL" "$source" ;;
+        esac
+    done
+' sh {} +

@@ -134,16 +134,10 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 		if enrollID == "" || code == "" {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "enroll_id and code required"})
 		}
-		boundEnrollID, _ := sess.Get(totpEnrollmentIDKey).(string)
-		boundSubject, _ := sess.Get(totpEnrollmentSubjectKey).(string)
-		startedAt, startedOK := sess.Get(totpEnrollmentStartedKey).(int64)
-		userID, _ := sess.Get("user_id").(string)
-		enrollmentAge := time.Since(time.Unix(startedAt, 0))
-		if boundEnrollID == "" || boundSubject == "" || userID == "" ||
-			enrollID != boundEnrollID || boundSubject != userID || !startedOK ||
-			enrollmentAge < 0 || enrollmentAge > totpEnrollmentValidity {
+		if invalidTOTPEnrollment(sess, enrollID) {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "invalid_enrollment"})
 		}
+		boundSubject, _ := sess.Get(totpEnrollmentSubjectKey).(string)
 		client := getHeraldClient()
 		if client == nil {
 			return ctx.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{"ok": false, "error": "TOTP service unavailable"})
@@ -178,4 +172,15 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 			"backup_codes": confirmResp.BackupCodes,
 		})
 	}
+}
+
+func invalidTOTPEnrollment(sess *session.Session, enrollID string) bool {
+	boundEnrollID, _ := sess.Get(totpEnrollmentIDKey).(string)
+	boundSubject, _ := sess.Get(totpEnrollmentSubjectKey).(string)
+	startedAt, startedOK := sess.Get(totpEnrollmentStartedKey).(int64)
+	userID, _ := sess.Get("user_id").(string)
+	enrollmentAge := time.Since(time.Unix(startedAt, 0))
+	return boundEnrollID == "" || boundSubject == "" || userID == "" ||
+		enrollID != boundEnrollID || boundSubject != userID || !startedOK ||
+		enrollmentAge < 0 || enrollmentAge > totpEnrollmentValidity
 }
