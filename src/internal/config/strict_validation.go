@@ -38,11 +38,8 @@ func validDNSName(host string) bool {
 		if label == "" || len(label) > 63 || label[0] == '-' || label[len(label)-1] == '-' {
 			return false
 		}
-		for _, char := range label {
-			if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') &&
-				(char < '0' || char > '9') && char != '-' {
-				return false
-			}
+		if !validDNSLabelCharacters(label) {
+			return false
 		}
 	}
 	return true
@@ -53,8 +50,7 @@ func parseHostPort(raw string) (string, error) {
 		return "", strictValidationError(&AuthHost, "must be a host or host:port without scheme, path, query, or fragment")
 	}
 	parsed, err := url.Parse("//" + raw)
-	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.Path != "" ||
-		parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Hostname() == "" {
+	if err != nil || !isHostOnlyURL(parsed) {
 		return "", strictValidationError(&AuthHost, "must be a host or host:port without scheme, path, query, or fragment")
 	}
 	if port := parsed.Port(); port != "" {
@@ -196,6 +192,37 @@ func validateStrictSettings() error {
 	if err := validateCallbackHostList(&CallbackAllowedHosts); err != nil {
 		return err
 	}
+	if err := validateNumericSettings(); err != nil {
+		return err
+	}
+	if err := validateRedisSettings(); err != nil {
+		return err
+	}
+
+	if err := validateHTTPServiceURL(&WardenURL); err != nil {
+		return err
+	}
+	if err := validateHTTPServiceURL(&HeraldURL); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validDNSLabelCharacters(label string) bool {
+	for _, char := range label {
+		if (char < 'a' || char > 'z') && (char < 'A' || char > 'Z') &&
+			(char < '0' || char > '9') && char != '-' {
+			return false
+		}
+	}
+	return true
+}
+
+func isHostOnlyURL(parsed *url.URL) bool {
+	return parsed.Host != "" && parsed.User == nil && parsed.Path == "" && parsed.RawQuery == "" && parsed.Fragment == "" && parsed.Hostname() != ""
+}
+
+func validateNumericSettings() error {
 	if Port.Value != "" {
 		port, err := strconv.Atoi(strings.TrimPrefix(strings.TrimSpace(Port.Value), ":"))
 		if err != nil || port < 1 || port > 65535 {
@@ -205,11 +232,11 @@ func validateStrictSettings() error {
 	if err := validatePositiveInteger(&WardenCacheTTL); err != nil {
 		return err
 	}
-	if _, err := time.ParseDuration(AuthRefreshInterval.Value); err != nil || AuthRefreshInterval.ToDuration() <= 0 {
-		return strictValidationError(&AuthRefreshInterval, "must be a positive Go duration")
+	if err := validatePositiveDuration(&AuthRefreshInterval); err != nil {
+		return err
 	}
-	if _, err := time.ParseDuration(RequestContextTimeout.Value); err != nil || RequestContextTimeout.ToDuration() <= 0 {
-		return strictValidationError(&RequestContextTimeout, "must be a positive Go duration")
+	if err := validatePositiveDuration(&RequestContextTimeout); err != nil {
+		return err
 	}
 	if err := validateNonNegativeInteger(&RateLimitLoginMax); err != nil {
 		return err
@@ -217,9 +244,20 @@ func validateStrictSettings() error {
 	if err := validateNonNegativeInteger(&RateLimitVerificationMax); err != nil {
 		return err
 	}
-	if _, err := time.ParseDuration(RateLimitWindow.Value); err != nil || RateLimitWindow.ToDuration() <= 0 {
-		return strictValidationError(&RateLimitWindow, "must be a positive Go duration")
+	if err := validatePositiveDuration(&RateLimitWindow); err != nil {
+		return err
 	}
+	return nil
+}
+
+func validatePositiveDuration(variable *EnvVariable) error {
+	if _, err := time.ParseDuration(variable.Value); err != nil || variable.ToDuration() <= 0 {
+		return strictValidationError(variable, "must be a positive Go duration")
+	}
+	return nil
+}
+
+func validateRedisSettings() error {
 	redisDBValue := SessionStorageRedisDB.Value
 	redisDB, err := strconv.Atoi(redisDBValue)
 	if err != nil || redisDB < 0 || strings.TrimSpace(redisDBValue) != redisDBValue {
@@ -227,12 +265,6 @@ func validateStrictSettings() error {
 	}
 	if SessionStorageEnabled.ToBool() && strings.TrimSpace(SessionStorageRedisAddr.Value) == "" {
 		return strictValidationError(&SessionStorageRedisAddr, "must be set when Redis session storage is enabled")
-	}
-	if err := validateHTTPServiceURL(&WardenURL); err != nil {
-		return err
-	}
-	if err := validateHTTPServiceURL(&HeraldURL); err != nil {
-		return err
 	}
 	return nil
 }

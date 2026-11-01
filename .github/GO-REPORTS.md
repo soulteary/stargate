@@ -1,7 +1,7 @@
 # Go report workflow
 
 The PR job runs both owned Actions with `commit: false` and released CLIs
-(`go-test-report-action v1.1.2`, `goreportcard-action v1.1.3`, pinned wrapper SHAs).
+(`go-test-report-action v1.1.3`, `goreportcard-action v1.1.4`, pinned wrapper SHAs).
 It replaces the primary Linux Go test/coverage invocation and reuses its profile
 for existing coverage artifacts/gates. Other OS matrices, release verification,
 integration, benchmarks and fuzz workflows retain their distinct checks.
@@ -26,8 +26,21 @@ test matrices remain independent. These reports do not claim integration coverag
 
 Published releases and automated release dispatches reuse only completed successful tag-push report runs for the tested SHA that still have an unexpired stable report artifact. An artifact from an earlier attempt of the same run is valid after a partial retry (`artifact_attempt <= run_attempt`). Active, failed, cancelled, missing, or expired runs do not suppress fresh reports. API errors fail the gate rather than silently assume evidence exists.
 
-The producing reports job outputs its artifact name. Writeback uses that output even when only failed jobs are rerun; it never substitutes the consuming attempt number. Five report files restore the `.github` artifact root; grantseal's mixed report/document artifact retains repository hierarchy.
+The producing reports job outputs its artifact name. Writeback uses that output even when only failed jobs are rerun; it never substitutes the consuming attempt number. Five report files restore the `.github` artifact root.
 
 Report concurrency includes the source ref and unique run ID, so pending reports cannot replace each other. Writeback concurrency includes the tested SHA, so historical releases cannot replace the current source's pending writer. Only the unchanged default-branch source can publish; identical-source writers serialize and a successful report commit makes later writers stale. Artifacts remain available when writeback is skipped or blocked by branch protection.
 
 Cleanup runs even after preceding steps fail. Stable and raw evidence is uploaded after gate failures, and failed report jobs cannot publish repository changes. Report commits have no CI skip annotation: the normal workflow token prevents recursive push triggers. Production Actions and CLI versions remain pinned to formal releases; PR report calls remain read-only.
+
+After the pinned quality Action installs its CLI and native checkers,
+`.github/scripts/regenerate-report-card.sh` regenerates the Markdown report and
+SVG with the repository's language scope. The report checks Go files; the script
+separately fails on English spelling mistakes in root Markdown files and
+`docs/enUS`. Translated READMEs and localized documentation retain their original
+language. Only five known French, Italian and German words in
+`src/internal/i18n/i18n.go` are dictionary exceptions; its other strings and
+English comments remain checked. `test-report-spelling.sh` verifies both genuine
+English typo detection and translation handling, including paths with spaces.
+The same regeneration runs in PR and release/manual jobs before artifact upload.
+To reproduce locally, put the v1.1.4 CLI and its pinned native checkers on `PATH`
+and run `sh .github/scripts/regenerate-report-card.sh` from the repository root.

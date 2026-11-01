@@ -75,8 +75,7 @@ func selectVerificationDestination(userInfo *warden.AllowListUser, deliverVia st
 	if deliverVia == "email" && !config.LoginEmailEnabled.ToBool() {
 		return "", "", "channel_disabled"
 	}
-	switch deliverVia {
-	case "dingtalk":
+	if deliverVia == "dingtalk" {
 		if canonicalDingTalkID != "" {
 			return "dingtalk", canonicalDingTalkID, ""
 		}
@@ -84,28 +83,21 @@ func selectVerificationDestination(userInfo *warden.AllowListUser, deliverVia st
 			return "dingtalk", canonicalPhone, ""
 		}
 		return "", "", "dingtalk_not_bound"
-	case "email":
-		if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
-			return "email", canonicalMail, ""
-		}
-		if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
-			return "sms", canonicalPhone, ""
-		}
-	case "sms", "":
-		if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
-			return "sms", canonicalPhone, ""
-		}
-		if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
-			return "email", canonicalMail, ""
-		}
-	default:
-		if config.LoginSMSEnabled.ToBool() && canonicalPhone != "" {
-			return "sms", canonicalPhone, ""
-		}
-		if config.LoginEmailEnabled.ToBool() && canonicalMail != "" {
-			return "email", canonicalMail, ""
+	}
+	type candidate struct {
+		channel, destination string
+		enabled              bool
+	}
+	candidates := []candidate{{"sms", canonicalPhone, config.LoginSMSEnabled.ToBool()}, {"email", canonicalMail, config.LoginEmailEnabled.ToBool()}}
+	if deliverVia == "email" {
+		candidates[0], candidates[1] = candidates[1], candidates[0]
+	}
+	for _, option := range candidates {
+		if option.enabled && option.destination != "" {
+			return option.channel, option.destination, ""
 		}
 	}
+
 	return "", "", "destination_unavailable"
 }
 
@@ -176,37 +168,10 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 		deliverVia := ctx.FormValue("deliver_via")
 		channel, destination, selectionReason := selectVerificationDestination(userInfo, deliverVia)
 		if selectionReason != "" {
-			switch selectionReason {
-			case "channel_disabled":
-				if deliverVia == "sms" {
-					return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_sms_disabled"), selectionReason)
-				}
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_email_disabled"), selectionReason)
-			case "dingtalk_not_bound":
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), selectionReason)
-			default:
-				return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), selectionReason)
-			}
+			return verificationSelectionError(ctx, deliverVia, selectionReason)
 		}
 
-		// Step 4: Get locale from config or Accept-Language header
-		locale := getLocaleFromConfig()
-		acceptLang := ctx.Get("Accept-Language")
-		if acceptLang != "" {
-			// Parse Accept-Language header (simple parsing, takes first language)
-			// Format: "en-US,en;q=0.9" -> "en-US"
-			parts := strings.Split(acceptLang, ",")
-			if len(parts) > 0 {
-				langPart := strings.TrimSpace(parts[0])
-				// Remove quality value if present
-				if idx := strings.Index(langPart, ";"); idx >= 0 {
-					langPart = langPart[:idx]
-				}
-				if langPart != "" {
-					locale = langPart
-				}
-			}
-		}
+		locale := verificationLocale(ctx)
 
 		// Get Herald client
 		heraldClient := getHeraldClient()
@@ -249,32 +214,7 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 			heraldSpan.End()
 			log.Error().Err(err).Msg("Failed to create challenge")
 
-			reason := "unknown_error"
-			// Check if it's a connection error (Herald service unavailable)
-			if heraldErr, ok := err.(*herald.HeraldError); ok {
-				if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
-					reason = "connection_failed"
-					// Herald service is unavailable, suggest OTP fallback if enabled
-					otpEnabled := config.HeraldTOTPEnabled.ToBool()
-					if otpEnabled {
-						auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
-						return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"), reason)
-					}
-					auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
-					return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), reason)
-				}
-				// Other errors (rate limit, etc.)
-				if heraldErr.StatusCode == http.StatusTooManyRequests {
-					reason = "rate_limited"
-					auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
-					return sendVerifyCodeErrorJSON(ctx, fiber.StatusTooManyRequests, i18n.T(ctx, "error.rate_limited_retry"), reason)
-				}
-				reason = "provider_error"
-			}
-
-			// Default error handling
-			auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
-			return sendVerifyCodeErrorJSON(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.send_verify_code_failed"), reason)
+			return handleChallengeCreationError(ctx, err, userID, channel, destination)
 		}
 
 		// Log successful verification code send
@@ -303,21 +243,91 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 			attribute.String("auth.result", "success"),
 		)
 
-		// Return success response with challenge_id and next_resend_in (for frontend resend cooldown)
-		resp := fiber.Map{
-			"success":      true,
-			"message":      i18n.T(ctx, "success.verify_code_sent"),
-			"challenge_id": createResp.ChallengeID,
-			"expires_in":   createResp.ExpiresIn,
-		}
-		if createResp.NextResendIn > 0 {
-			resp["next_resend_in"] = createResp.NextResendIn
-		}
-		// When DEBUG=true and Herald returns debug_code (HERALD_TEST_MODE), pass through for display/autofill
-		if config.Debug.ToBool() && createResp.DebugCode != "" {
-			resp["debug_code"] = createResp.DebugCode
-		}
-		ctx.Set("Content-Type", "application/json")
-		return ctx.Status(fiber.StatusOK).JSON(resp)
+		return sendChallengeCreated(ctx, createResp)
 	}
+}
+
+func verificationSelectionError(ctx fiber.Ctx, deliverVia, selectionReason string) error {
+	switch selectionReason {
+	case "channel_disabled":
+		if deliverVia == "sms" {
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_sms_disabled"), selectionReason)
+		}
+		return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.login_email_disabled"), selectionReason)
+	case "dingtalk_not_bound":
+		return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.dingtalk_not_bound"), selectionReason)
+	default:
+		return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), selectionReason)
+	}
+}
+
+func verificationLocale(ctx fiber.Ctx) string {
+	// Step 4: Get locale from config or Accept-Language header
+	locale := getLocaleFromConfig()
+	acceptLang := ctx.Get("Accept-Language")
+	if acceptLang != "" {
+		// Parse Accept-Language header (simple parsing, takes first language)
+		// Format: "en-US,en;q=0.9" -> "en-US"
+		parts := strings.Split(acceptLang, ",")
+		if len(parts) > 0 {
+			langPart := strings.TrimSpace(parts[0])
+			// Remove quality value if present
+			if idx := strings.Index(langPart, ";"); idx >= 0 {
+				langPart = langPart[:idx]
+			}
+			if langPart != "" {
+				locale = langPart
+			}
+		}
+	}
+
+	return locale
+}
+
+func handleChallengeCreationError(ctx fiber.Ctx, err error, userID, channel, destination string) error {
+	reason := "unknown_error"
+	// Check if it's a connection error (Herald service unavailable)
+	if heraldErr, ok := err.(*herald.HeraldError); ok {
+		if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
+			reason = "connection_failed"
+			// Herald service is unavailable, suggest OTP fallback if enabled
+			otpEnabled := config.HeraldTOTPEnabled.ToBool()
+			if otpEnabled {
+				auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
+				return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"), reason)
+			}
+			auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), reason)
+		}
+		// Other errors (rate limit, etc.)
+		if heraldErr.StatusCode == http.StatusTooManyRequests {
+			reason = "rate_limited"
+			auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusTooManyRequests, i18n.T(ctx, "error.rate_limited_retry"), reason)
+		}
+		reason = "provider_error"
+	}
+
+	// Default error handling
+	auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
+	return sendVerifyCodeErrorJSON(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.send_verify_code_failed"), reason)
+}
+
+func sendChallengeCreated(ctx fiber.Ctx, createResp *herald.CreateChallengeResponse) error {
+	// Return success response with challenge_id and next_resend_in (for frontend resend cooldown)
+	resp := fiber.Map{
+		"success":      true,
+		"message":      i18n.T(ctx, "success.verify_code_sent"),
+		"challenge_id": createResp.ChallengeID,
+		"expires_in":   createResp.ExpiresIn,
+	}
+	if createResp.NextResendIn > 0 {
+		resp["next_resend_in"] = createResp.NextResendIn
+	}
+	// When DEBUG=true and Herald returns debug_code (HERALD_TEST_MODE), pass through for display/autofill
+	if config.Debug.ToBool() && createResp.DebugCode != "" {
+		resp["debug_code"] = createResp.DebugCode
+	}
+	ctx.Set("Content-Type", "application/json")
+	return ctx.Status(fiber.StatusOK).JSON(resp)
 }

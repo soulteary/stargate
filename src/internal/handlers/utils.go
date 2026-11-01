@@ -109,13 +109,9 @@ func parseCallbackHost(raw string) (string, error) {
 	if err != nil || parsed.Host == "" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
 		return "", fmt.Errorf("invalid callback host")
 	}
-	if parsed.Scheme != "" && parsed.Scheme != "http" && parsed.Scheme != "https" {
-		return "", fmt.Errorf("invalid callback scheme")
+	if err := validateCallbackURLPath(parsed); err != nil {
+		return "", err
 	}
-	if parsed.Path != "" && parsed.Path != "/" {
-		return "", fmt.Errorf("callback paths are not allowed")
-	}
-
 	hostname := strings.ToLower(strings.TrimSuffix(parsed.Hostname(), "."))
 	if hostname == "" || net.ParseIP(hostname) != nil {
 		return "", fmt.Errorf("callback host must be a DNS name")
@@ -312,4 +308,15 @@ func SendErrorResponse(ctx fiber.Ctx, statusCode int, message string) error {
 		ctx.Set("Content-Type", "text/plain")
 		return ctx.Status(statusCode).SendString(message)
 	}
+}
+
+func validateCallbackURLPath(parsed *url.URL) error {
+	if parsed.Scheme != "" && parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return fmt.Errorf("invalid callback scheme")
+	}
+	if parsed.Path != "" && parsed.Path != "/" {
+		return fmt.Errorf("callback paths are not allowed")
+	}
+
+	return nil
 }

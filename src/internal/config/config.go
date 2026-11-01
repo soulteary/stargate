@@ -501,6 +501,26 @@ func warnUnattributableRateLimits() {
 func Initialize(l *logger.Logger) error {
 	log = l
 
+	for _, validate := range []func() error{initializeLanguage, loadConfiguration, validatePasswordSettings, validateStepUpSettings, validateServiceSettings, validateHeaderAuthentication, validateStrictSettings} {
+		if err := validate(); err != nil {
+			return err
+		}
+	}
+
+	// Log language setting
+	if Language.Value != "" {
+		log.Info().Str("name", Language.Name).Str("value", Language.Value).Msg("Config loaded")
+	}
+
+	warnUnattributableRateLimits()
+
+	// Initialize step-up matcher after configuration is loaded
+	InitStepUpMatcher()
+
+	return nil
+}
+
+func initializeLanguage() error {
 	// First, initialize language setting (before other validations that might use i18n)
 	if err := Language.Validate(); err != nil {
 		return err
@@ -523,6 +543,10 @@ func Initialize(l *logger.Logger) error {
 		i18n.SetLanguage(i18n.LangEN)
 	}
 
+	return nil
+}
+
+func loadConfiguration() error {
 	for _, name := range []string{"WARDEN_OTP_ENABLED", "WARDEN_OTP_SECRET_KEY"} {
 		if _, configured := os.LookupEnv(name); configured {
 			return fmt.Errorf("%s has been removed; use Herald-backed TOTP with HERALD_TOTP_ENABLED", name)
@@ -548,6 +572,10 @@ func Initialize(l *logger.Logger) error {
 		}
 	}
 
+	return nil
+}
+
+func validatePasswordSettings() error {
 	if SessionExchangeSecret.Value != "" && len(SessionExchangeSecret.Value) < 32 {
 		return NewValidationError(SessionExchangeSecret.Name, "must contain at least 32 characters", SessionExchangeSecret.PossibleValues)
 	}
@@ -562,6 +590,10 @@ func Initialize(l *logger.Logger) error {
 	if StepUpEnabled.ToBool() && Passwords.Value == "" {
 		return NewValidationError(StepUpEnabled.Name, "requires PASSWORDS for re-authentication", StepUpEnabled.PossibleValues)
 	}
+	return nil
+}
+
+func validateStepUpSettings() error {
 	if StepUpEnabled.ToBool() && strings.TrimSpace(StepUpPaths.Value) == "" {
 		return NewValidationError(StepUpPaths.Name, "must contain at least one protected path when step-up is enabled", StepUpPaths.PossibleValues)
 	}
@@ -583,6 +615,10 @@ func Initialize(l *logger.Logger) error {
 	if StepUpEnabled.ToBool() && strings.TrimSpace(TrustedProxies.Value) == "" {
 		return NewValidationError(TrustedProxies.Name, "must identify the proxies allowed to provide the original request URI when step-up is enabled", TrustedProxies.PossibleValues)
 	}
+	return nil
+}
+
+func validateServiceSettings() error {
 	if WardenEnabled.ToBool() {
 		if strings.TrimSpace(WardenURL.Value) == "" {
 			return NewValidationError(WardenURL.Name, i18n.TStatic("error.config_required_not_set"), WardenURL.PossibleValues)
@@ -594,6 +630,23 @@ func Initialize(l *logger.Logger) error {
 	if (WardenTLSClientCert.Value == "") != (WardenTLSClientKey.Value == "") {
 		return NewValidationError(WardenTLSClientCert.Name, "client certificate and key must be configured together", WardenTLSClientCert.PossibleValues)
 	}
+	return validateHeraldSettings()
+}
+
+func validateHeaderAuthentication() error {
+	if HeaderAuthEnabled.ToBool() {
+		if !WardenEnabled.ToBool() {
+			return NewValidationError(HeaderAuthEnabled.Name, "requires WARDEN_ENABLED=true", HeaderAuthEnabled.PossibleValues)
+		}
+		if strings.TrimSpace(HeaderAuthSharedSecret.Value) == "" {
+			return NewValidationError(HeaderAuthSharedSecret.Name, i18n.TStatic("error.config_required_not_set"), HeaderAuthSharedSecret.PossibleValues)
+		}
+	}
+
+	return nil
+}
+
+func validateHeraldSettings() error {
 	if HeraldEnabled.ToBool() && !WardenEnabled.ToBool() {
 		return NewValidationError(HeraldEnabled.Name, "requires WARDEN_ENABLED=true to resolve authenticated users", HeraldEnabled.PossibleValues)
 	}
@@ -611,28 +664,5 @@ func Initialize(l *logger.Logger) error {
 	if (HeraldTLSClientCert.Value == "") != (HeraldTLSClientKey.Value == "") {
 		return NewValidationError(HeraldTLSClientCert.Name, "client certificate and key must be configured together", HeraldTLSClientCert.PossibleValues)
 	}
-	if HeaderAuthEnabled.ToBool() {
-		if !WardenEnabled.ToBool() {
-			return NewValidationError(HeaderAuthEnabled.Name, "requires WARDEN_ENABLED=true", HeaderAuthEnabled.PossibleValues)
-		}
-		if strings.TrimSpace(HeaderAuthSharedSecret.Value) == "" {
-			return NewValidationError(HeaderAuthSharedSecret.Name, i18n.TStatic("error.config_required_not_set"), HeaderAuthSharedSecret.PossibleValues)
-		}
-	}
-
-	if err := validateStrictSettings(); err != nil {
-		return err
-	}
-
-	// Log language setting
-	if Language.Value != "" {
-		log.Info().Str("name", Language.Name).Str("value", Language.Value).Msg("Config loaded")
-	}
-
-	warnUnattributableRateLimits()
-
-	// Initialize step-up matcher after configuration is loaded
-	InitStepUpMatcher()
-
 	return nil
 }
