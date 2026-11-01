@@ -44,14 +44,14 @@ Stargate Forward Auth Service のドキュメントへようこそ。
 ### はじめに
 
 1. [README.jaJP.md](../../README.jaJP.md) を読んでプロジェクトを理解する
-2. [クイックスタート](../../README.jaJP.md#クイックスタート) セクションを確認する
-3. [設定](../../README.jaJP.md#設定) を参照してサービスを設定する
+2. [クイックスタート](../../README.jaJP.md#-クイックスタート) セクションを確認する
+3. [設定](../../README.jaJP.md#-基本設定) を参照してサービスを設定する
 
 ### 開発者
 
 1. [ARCHITECTURE.md](ARCHITECTURE.md) を読んでアーキテクチャを理解する
 2. [API.md](API.md) を確認して API インターフェースを理解する
-3. [開発ガイド](../../README.jaJP.md#開発ガイド) を参照して開発する
+3. [開発ガイド](CONTRIBUTING.md) を参照して開発する
 
 ### 運用
 
@@ -103,7 +103,7 @@ stargate/
 ### API 関連
 
 - API エンドポイント一覧：[API.md](API.md)
-- 認証フロー：[API.md#認証フロー例](API.md#認証フロー例)
+- 認証フロー：[API.md#認証フローの例](API.md#認証フローの例)
 - エラー処理：[API.md#エラーレスポンス形式](API.md#エラーレスポンス形式)
 
 ### デプロイメント関連
@@ -116,7 +116,7 @@ stargate/
 
 - 技術スタック：[ARCHITECTURE.md#技術スタック](ARCHITECTURE.md#技術スタック)
 - プロジェクト構造：[ARCHITECTURE.md#プロジェクト構造](ARCHITECTURE.md#プロジェクト構造)
-- コアコンポーネント：[ARCHITECTURE.md#コアコンポーネント](ARCHITECTURE.md#コアコンポーネント)
+- コアコンポーネント：[ARCHITECTURE.md#主要コンポーネント](ARCHITECTURE.md#主要コンポーネント)
 
 ## 💡 使用推奨事項
 

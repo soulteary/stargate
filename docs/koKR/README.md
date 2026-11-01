@@ -44,14 +44,14 @@ Stargate Forward Auth Service 문서에 오신 것을 환영합니다.
 ### 시작하기
 
 1. [README.koKR.md](../../README.koKR.md)를 읽어 프로젝트를 이해하세요
-2. [빠른 시작](../../README.koKR.md#빠른-시작) 섹션을 확인하세요
-3. [구성](../../README.koKR.md#구성)을 참조하여 서비스를 구성하세요
+2. [빠른 시작](../../README.koKR.md#-빠른-시작) 섹션을 확인하세요
+3. [구성](../../README.koKR.md#-기본-구성)을 참조하여 서비스를 구성하세요
 
 ### 개발자
 
 1. [ARCHITECTURE.md](ARCHITECTURE.md)를 읽어 아키텍처를 이해하세요
 2. [API.md](API.md)를 확인하여 API 인터페이스를 이해하세요
-3. [개발 가이드](../../README.koKR.md#개발-가이드)를 참조하여 개발하세요
+3. [개발 가이드](CONTRIBUTING.md)를 참조하여 개발하세요
 
 ### 운영
 
@@ -97,26 +97,26 @@ stargate/
 ### 구성 관련
 
 - 환경 변수 구성: [CONFIG.md](CONFIG.md)
-- 비밀번호 구성: [CONFIG.md#비밀번호-구성](CONFIG.md#비밀번호-구성)
-- 구성 예제: [CONFIG.md#구성-예제](CONFIG.md#구성-예제)
+- 비밀번호 구성: [CONFIG.md#비밀번호-설정](CONFIG.md#비밀번호-설정)
+- 구성 예제: [CONFIG.md#설정-예제](CONFIG.md#설정-예제)
 
 ### API 관련
 
 - API 엔드포인트 목록: [API.md](API.md)
-- 인증 흐름: [API.md#인증-흐름-예제](API.md#인증-흐름-예제)
+- 인증 흐름: [API.md#인증-플로우-예제](API.md#인증-플로우-예제)
 - 오류 처리: [API.md#오류-응답-형식](API.md#오류-응답-형식)
 
 ### 배포 관련
 
 - Docker 배포: [DEPLOYMENT.md#docker-배포](DEPLOYMENT.md#docker-배포)
 - Traefik 통합: [DEPLOYMENT.md#traefik-통합](DEPLOYMENT.md#traefik-통합)
-- 프로덕션 환경: [DEPLOYMENT.md#프로덕션-배포](DEPLOYMENT.md#프로덕션-배포)
+- 프로덕션 환경: [DEPLOYMENT.md#프로덕션-환경-배포](DEPLOYMENT.md#프로덕션-환경-배포)
 
 ### 아키텍처 관련
 
 - 기술 스택: [ARCHITECTURE.md#기술-스택](ARCHITECTURE.md#기술-스택)
 - 프로젝트 구조: [ARCHITECTURE.md#프로젝트-구조](ARCHITECTURE.md#프로젝트-구조)
-- 핵심 구성 요소: [ARCHITECTURE.md#핵심-구성-요소](ARCHITECTURE.md#핵심-구성-요소)
+- 핵심 구성 요소: [ARCHITECTURE.md#주요-컴포넌트](ARCHITECTURE.md#주요-컴포넌트)
 
 ## 💡 사용 권장 사항
 

@@ -44,14 +44,14 @@ Willkommen zur Dokumentation des Stargate Forward Auth Service.
 ### Erste Schritte
 
 1. Lesen Sie [README.deDE.md](../../README.deDE.md), um das Projekt zu verstehen
-2. Überprüfen Sie den Abschnitt [Schnellstart](../../README.deDE.md#schnellstart)
-3. Beziehen Sie sich auf [Konfiguration](../../README.deDE.md#konfiguration), um den Dienst zu konfigurieren
+2. Überprüfen Sie den Abschnitt [Schnellstart](../../README.deDE.md#-schnellstart)
+3. Beziehen Sie sich auf [Konfiguration](../../README.deDE.md#-grundkonfiguration), um den Dienst zu konfigurieren
 
 ### Entwickler
 
 1. Lesen Sie [ARCHITECTURE.md](ARCHITECTURE.md), um die Architektur zu verstehen
 2. Überprüfen Sie [API.md](API.md), um die API-Schnittstellen zu verstehen
-3. Beziehen Sie sich auf den [Entwicklungsleitfaden](../../README.deDE.md#entwicklungsleitfaden) für die Entwicklung
+3. Beziehen Sie sich auf den [Entwicklungsleitfaden](CONTRIBUTING.md) für die Entwicklung
 
 ### Betrieb
 
@@ -103,8 +103,8 @@ stargate/
 ### API
 
 - API-Endpunktliste: [API.md](API.md)
-- Authentifizierungsfluss: [API.md#authentifizierungsflussbeispiele](API.md#authentifizierungsflussbeispiele)
-- Fehlerbehandlung: [API.md#fehlerantwortformat](API.md#fehlerantwortformat)
+- Authentifizierungsfluss: [API.md#authentifizierungsfluss-beispiele](API.md#authentifizierungsfluss-beispiele)
+- Fehlerbehandlung: [API.md#fehlerantwort-format](API.md#fehlerantwort-format)
 
 ### Bereitstellung
 
@@ -116,7 +116,7 @@ stargate/
 
 - Technologie-Stack: [ARCHITECTURE.md#technologie-stack](ARCHITECTURE.md#technologie-stack)
 - Projektstruktur: [ARCHITECTURE.md#projektstruktur](ARCHITECTURE.md#projektstruktur)
-- Kernkomponenten: [ARCHITECTURE.md#kernkomponenten](ARCHITECTURE.md#kernkomponenten)
+- Kernkomponenten: [ARCHITECTURE.md#hauptkomponenten](ARCHITECTURE.md#hauptkomponenten)
 
 ## 💡 Verwendungsempfehlungen
 

@@ -45,14 +45,14 @@
 ### 新手入门
 
 1. 阅读 [README.zhCN.md](../../README.zhCN.md) 了解项目
-2. 查看 [快速开始](../../README.zhCN.md#快速开始) 部分
-3. 参考 [配置说明](../../README.zhCN.md#配置说明) 配置服务
+2. 查看 [快速开始](../../README.zhCN.md#-快速开始) 部分
+3. 参考 [配置说明](../../README.zhCN.md#-基本配置) 配置服务
 
 ### 开发人员
 
 1. 阅读 [ARCHITECTURE.md](ARCHITECTURE.md) 了解架构
 2. 查看 [API.md](API.md) 了解 API 接口
-3. 参考 [开发指南](../../README.zhCN.md#开发指南) 进行开发
+3. 参考 [开发指南](CONTRIBUTING.md) 进行开发
 
 ### 运维人员
 
@@ -95,7 +95,7 @@ stargate/
 ### API 相关
 
 - API 端点列表：[API.md](API.md)
-- 认证流程：[API.md#认证流程示例](API.md#认证流程示例)
+- 认证流程：[API.md#认证流程](API.md#认证流程)
 - 错误处理：[API.md#错误响应格式](API.md#错误响应格式)
 
 ### 部署相关

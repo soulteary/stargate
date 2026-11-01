@@ -12,7 +12,7 @@ Upgrading from v0.12.0? Read the [v1.0.0 migration guide](MIGRATION_V1.md) befor
 - [Logout Endpoint](#logout-endpoint)
 - [Session Exchange Endpoint](#session-exchange-endpoint)
 - [TOTP Endpoints](#totp-endpoints)
-- [Health Check Endpoint](#health-check-endpoint)
+- [Health Check Endpoint](#health-check-endpoints)
 - [Metrics Endpoint](#metrics-endpoint)
 - [Root Endpoint](#root-endpoint)
 - [Authentication Flows](#authentication-flows)
