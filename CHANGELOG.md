@@ -2,30 +2,94 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
-## [Unreleased]
+## [1.2.5] - 2026-11-02
 
-### Fixed
+### Fixed in this maintenance review
 
+- Bind Warden authorization refresh to a nonempty, matching stable user ID.
+  Previously, a holder of a valid old session could inherit another account's
+  ID, role and scopes after its stored phone or email was reassigned. This
+  requires Warden, authorization refresh, a session due for refresh, and a
+  directory record resolving the old contact to a different active account.
+  The HTTP regression returns `200` before the fix and `401` afterward. This
+  does not demonstrate anonymous authentication bypass.
+- Keep Redis rate-limit windows fixed in their final second. A request with
+  150ms remaining previously rearmed a one-minute window. Counter creation and
+  expiry now commit in one Lua operation; legacy counters without expiry keep
+  their counts and receive the configured expiry.
 - Preserve `429` and `Retry-After` after password-header failures exceed the
-  configured quota, instead of overwriting the response with `401` or a login
-  redirect. Failed passwords remain rejected.
-- Reject Warden authorization refresh when the stored and returned stable user
-  IDs differ or are missing. Reassigned phone numbers or email addresses cannot
-  transfer an existing session to another account. Existing sessions already
-  rebound by older versions require operator review and revocation or expiry.
-- Keep Redis rate-limit windows fixed during their final second. Commit counter
-  creation and millisecond expiry together, and retain existing counts when
-  repairing legacy counters without an expiry.
+  quota. The response was previously overwritten by `401` or a login redirect.
+  Invalid passwords remain rejected; this does not avoid password verification
+  work or change successful-password behavior.
+- Repair 56 documentation heading links across translations. Configuration
+  translations other than English and Chinese are explicitly marked historical.
 
-### Changed
+### Validation and coverage
 
-- Raise unit, main-branch and release coverage gates to 95%, with an exact
-  statement-count gate that rejects results rounded up from below the threshold.
-  Add authentication, provider-failure, storage-failure and shutdown tests.
-- Document the Redis scripting permissions and rolling-upgrade limitations.
-  Existing key prefixes and integer counters remain compatible; no data or
-  persistent-volume migration is required. Older instances can still extend
-  windows until every instance has been replaced.
+- Enforce at least 95% unit/main/release coverage. Compare statement counts
+  directly so 94.999% cannot pass after rounding. No production files are
+  excluded from coverage.
+- Linux arm64, Go 1.27.3, Redis 8.2.1: 820 unit tests passed, 7 skipped;
+  coverage 2121/2229 statements (95.1548%). With real Redis: 825 passed,
+  2 skipped; coverage 2122/2229 (95.1996%). Race detection and
+  golangci-lint 2.14.0 passed. Linux amd64/arm64 builds passed.
+- Unit skips comprise five service/integration cases and two existing
+  empty-session-ID scenarios that the end-to-end harness cannot construct.
+  The latter fallback behavior is tested directly with the session helper.
+  The full run retains only those two existing skips.
+- Regressions fail before each fix and pass afterward. Real Redis tests cover
+  concurrent counting, final-millisecond expiry and a committed write whose
+  acknowledgement is lost. That acknowledgement fault is injected after the
+  actual Redis write; it is not a production network-failure experiment.
+- Documentation/version/release contracts and launcher checks pass. All 626
+  local file links and 301 local heading links resolve.
+
+### Compatibility and upgrade
+
+- Configuration names, HTTP fields, key prefixes, integer counters and session
+  storage formats stay compatible. No new persistent volume or automatic data
+  migration is introduced. Authorization refresh updates roles/scopes only for
+  the same stable identity; missing or mismatching IDs require fresh login.
+  Legacy sessions without `auth_method` remain supported when their nonempty
+  `user_id` matches Warden. Warden records used for refresh need stable IDs.
+- Redis ACLs must permit `EVAL`, `EVALSHA`, `PTTL`, `SET`, `PEXPIRE` and `INCR`
+  on rate-limit keys. Script cache loss is handled automatically. The existing
+  per-replica fallback during Redis failure remains unchanged.
+- Pause protected traffic for a coordinated replacement of every instance.
+  Old instances retain the identity-rebinding and window-extension behavior
+  during mixed-version operation. For consistent fresh limit windows, wait one
+  configured window after replacement before resuming traffic. Do not delete
+  counters to bypass active quotas.
+- Already-rebound sessions cannot be identified or repaired automatically.
+  Review directory reassignment history, restrict access to retained audit and
+  session evidence, and revoke or expire affected sessions before restoring
+  access. If integrity cannot be established, require fresh Warden authentication
+  for existing sessions. Existing stored records are not rewritten by this fix.
+- Rollback needs no data-format conversion but restores the vulnerable identity
+  refresh and prior rate-limit behavior. Do not resume affected traffic on an
+  old version. Existing Redis persistence and session-exchange replay-storage
+  requirements continue to apply; they are not new in this release.
+
+### Performance measurements
+
+On the same Linux arm64 VM (five vCPUs, 5.35GiB reported total RAM), Go 1.27.3
+and Redis 8.2.1, three alternating precompiled-binary runs used 5000 operations
+per case. Cold-counter median latency changed from 324933 to 194500 ns/op
+(about 3078 to 5141 operations/s); allocation changed from 886 B/25 allocations
+to approximately 517 B/17 allocations. Warm-counter allocation fell from
+616 B/18 allocations to 487 B/16 allocations, while median latency increased
+from 169126 to 196305 ns/op (about 5913 to 5094 operations/s, a 16% latency
+increase). These measurements include VM scheduling noise and do not establish
+an across-the-board latency improvement.
+
+### Earlier merged maintenance included in this version
+
+The release also includes the dependency refresh merged before this review:
+Herald v1.3.13, Warden v1.4.4, compatible Kit maintenance patches, and compatible
+template/schema, Prometheus, ABNF and YAML updates. The earlier code extraction
+and language-aware quality-report maintenance are retained. These are separate
+from the three newly reproduced fixes above; existing security and deployment
+requirements are not presented as new changes.
 
 ## [1.2.4] - 2026-11-01
 
