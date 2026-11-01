@@ -33,10 +33,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - Enforce at least 95% unit/main/release coverage. Compare statement counts
   directly so 94.999% cannot pass after rounding. No production files are
   excluded from coverage.
-- Linux arm64, Go 1.27.3, Redis 8.2.1: 820 unit tests passed, 7 skipped;
-  coverage 2121/2229 statements (95.1548%). With real Redis: 825 passed,
+- Linux arm64, Go 1.27.3, Redis 8.2.1: 516 top-level unit tests passed, 7 skipped;
+  coverage 2121/2229 statements (95.1548%). With real Redis: 521 passed,
   2 skipped; coverage 2122/2229 (95.1996%). Race detection and
   golangci-lint 2.14.0 passed. Linux amd64/arm64 builds passed.
+  Each run also passed 304 subtests (820/825 passing results when included).
 - Unit skips comprise five service/integration cases and two existing
   empty-session-ID scenarios that the end-to-end harness cannot construct.
   The latter fallback behavior is tested directly with the session helper.
