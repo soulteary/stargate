@@ -2,7 +2,7 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
-## [1.2.5] - 2026-11-02
+## [1.2.6] - 2026-11-02
 
 ### Fixed in this maintenance review
 
@@ -24,15 +24,20 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - Repair 56 documentation heading links across translations. Configuration
   translations other than English and Chinese are explicitly marked historical.
 
+- Match startup failure-test listeners to Fiber's IPv4 network and assert the
+  typed listen operation and requested port across operating systems. Add a
+  bounded Windows startup check to PR CI; retain every existing release check.
+
 ### Validation and coverage
 
 - Enforce at least 95% unit/main/release coverage. Compare statement counts
   directly so 94.999% cannot pass after rounding. No production files are
   excluded from coverage.
-- Linux arm64, Go 1.27.3, Redis 8.2.1: 820 unit tests passed, 7 skipped;
-  coverage 2121/2229 statements (95.1548%). With real Redis: 825 passed,
+- Linux arm64, Go 1.27.3, Redis 8.2.1: 516 top-level unit tests passed, 7 skipped;
+  coverage 2121/2229 statements (95.1548%). With real Redis: 521 passed,
   2 skipped; coverage 2122/2229 (95.1996%). Race detection and
   golangci-lint 2.14.0 passed. Linux amd64/arm64 builds passed.
+  Each run also passed 304 subtests (820/825 passing results when included).
 - Unit skips comprise five service/integration cases and two existing
   empty-session-ID scenarios that the end-to-end harness cannot construct.
   The latter fallback behavior is tested directly with the session helper.
@@ -90,6 +95,14 @@ template/schema, Prometheus, ABNF and YAML updates. The earlier code extraction
 and language-aware quality-report maintenance are retained. These are separate
 from the three newly reproduced fixes above; existing security and deployment
 requirements are not presented as new changes.
+
+## [1.2.5] - 2026-11-02
+
+The signed tag was created, but the release was not published. Windows
+compatibility validation timed out in a newly added startup failure test: its
+reserved socket did not prevent Fiber's IPv4 server from starting. The immutable
+tag is retained. Version 1.2.6 carries the maintenance changes above and the
+portable test-fixture correction; no check was skipped to publish it.
 
 ## [1.2.4] - 2026-11-01
 
