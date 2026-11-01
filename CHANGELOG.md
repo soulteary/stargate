@@ -6,6 +6,9 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ### Fixed
 
+- Preserve `429` and `Retry-After` after password-header failures exceed the
+  configured quota, instead of overwriting the response with `401` or a login
+  redirect. Failed passwords remain rejected.
 - Keep Redis rate-limit windows fixed during their final second. Commit counter
   creation and millisecond expiry together, and retain existing counts when
   repairing legacy counters without an expiry.
