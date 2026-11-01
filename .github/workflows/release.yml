@@ -277,14 +277,11 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: ./docker/Dockerfile
+          file: ./docker/release.Dockerfile
           push: false
           load: true
           tags: stargate:release-scan-amd64
           build-args: |
-            VERSION=${{ steps.version.outputs.version }}
-            COMMIT=${{ steps.version.outputs.commit }}
-            BUILD_DATE=${{ steps.version.outputs.build_date }}
             ALPINE_PACKAGE_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
           # Never reuse cached layers when scanning: a cached `apk upgrade`
           # layer can pin outdated OS packages (e.g. openssl) and hide fixed
@@ -293,6 +290,9 @@ jobs:
           no-cache: true
           pull: true
           platforms: linux/amd64
+
+      - name: Verify amd64 release image packaging
+        run: bash .github/scripts/test-release-image.sh stargate:release-scan-amd64 dist/stargate-linux-amd64
 
       - name: Scan amd64 image for high and critical vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
@@ -308,20 +308,20 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: ./docker/Dockerfile
+          file: ./docker/release.Dockerfile
           push: false
           load: true
           tags: stargate:release-scan-arm64
           build-args: |
-            VERSION=${{ steps.version.outputs.version }}
-            COMMIT=${{ steps.version.outputs.commit }}
-            BUILD_DATE=${{ steps.version.outputs.build_date }}
             ALPINE_PACKAGE_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
           # Same reasoning as the amd64 scan build: force a fresh package
           # layer so vulnerability scans reflect the latest fixes.
           no-cache: true
           pull: true
           platforms: linux/arm64
+
+      - name: Verify arm64 release image packaging
+        run: bash .github/scripts/test-release-image.sh stargate:release-scan-arm64 dist/stargate-linux-arm64
 
       - name: Scan arm64 image for high and critical vulnerabilities
         uses: aquasecurity/trivy-action@v0.36.0
@@ -372,20 +372,17 @@ jobs:
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
-          file: ./docker/Dockerfile
+          file: ./docker/release.Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
-            VERSION=${{ steps.version.outputs.version }}
-            COMMIT=${{ steps.version.outputs.commit }}
-            BUILD_DATE=${{ steps.version.outputs.build_date }}
             ALPINE_PACKAGE_REFRESH=${{ github.run_id }}-${{ github.run_attempt }}
           # Always pull the freshest Alpine base so the published image picks
           # up the same OS package fixes verified by the security scan above.
           pull: true
-          cache-from: type=gha,scope=release-docker
-          cache-to: type=gha,mode=max,scope=release-docker
+          cache-from: type=gha,scope=release-packaging-v1
+          cache-to: type=gha,mode=max,scope=release-packaging-v1
           platforms: linux/amd64,linux/arm64
           provenance: mode=max
           sbom: true

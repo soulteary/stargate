@@ -2,7 +2,18 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
-## [Unreleased]
+## [1.2.4] - 2026-11-01
+
+### Changed
+
+- Package the already-built Linux release binaries directly into container
+  images, avoiding repeated Go compilation under emulation. Container binaries
+  now match the downloadable release binaries byte for byte; release images no
+  longer apply a separate UPX compression step.
+- Add native AMD64 and ARM64 packaging checks to pull requests, and verify
+  binary identity, non-root execution, login templates and isolated runtime
+  health before each release image vulnerability scan. Existing compatibility,
+  coverage, dependency scans, both image scans and signing gates are retained.
 
 ### Fixed
 
