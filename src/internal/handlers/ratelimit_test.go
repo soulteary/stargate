@@ -354,7 +354,8 @@ func TestPasswordHeaderFailureLimitDisabledByZero(t *testing.T) {
 		ctx, app := createTestContext(fiber.MethodGet, "/_auth", map[string]string{
 			"Stargate-Password": "wrong-password",
 		}, "")
-		err := rateLimitPasswordHeaderFailure(ctx)
+		limited, err := rateLimitPasswordHeaderFailure(ctx)
+		testza.AssertFalse(t, limited)
 		testza.AssertNoError(t, err)
 		testza.AssertEqual(t, "", string(ctx.Response().Header.Peek(xRateLimitLimit)))
 		app.ReleaseCtx(ctx)

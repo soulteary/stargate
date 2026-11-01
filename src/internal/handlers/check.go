@@ -179,7 +179,7 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 func handleForwardAuthFailure(ctx fiber.Ctx, handler *forwardauth.Handler, faCtx *fafiber.Context, err error) error {
 	switch err {
 	case forwardauth.ErrInvalidPassword:
-		if limitErr := rateLimitPasswordHeaderFailure(ctx); limitErr != nil {
+		if limited, limitErr := rateLimitPasswordHeaderFailure(ctx); limited || limitErr != nil {
 			return limitErr
 		}
 		return handleNotAuthenticated(ctx)

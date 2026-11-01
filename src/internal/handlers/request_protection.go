@@ -179,23 +179,23 @@ func VerificationRateLimit() fiber.Handler {
 // failures. It shares the login quota and, like every other endpoint limit,
 // the shared store, so a credential-stuffing client cannot simply move to
 // another replica.
-func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) error {
+func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) (bool, error) {
 	if strings.TrimSpace(ctx.Get("Stargate-Password")) == "" {
-		return nil
+		return false, nil
 	}
 
 	max := config.RateLimitLoginMax.ToInt(config.DefaultRateLimitLoginMax)
 	if max <= 0 {
-		return nil
+		return false, nil
 	}
 
 	// The forward-auth path deliberately keeps its original response shape and
 	// does not advertise quota state through X-RateLimit-* headers.
 	exceeded, _, retryAfter := consumeRateLimit(ctx, "password-failure:"+ctx.IP(), max)
 	if !exceeded {
-		return nil
+		return false, nil
 	}
 
 	ctx.Set(fiber.HeaderRetryAfter, retryAfterSeconds(retryAfter))
-	return SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many failed password attempts")
+	return true, SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many failed password attempts")
 }

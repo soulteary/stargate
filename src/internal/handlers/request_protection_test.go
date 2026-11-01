@@ -112,8 +112,9 @@ func TestPasswordHeaderFailureRateLimit(t *testing.T) {
 		ctx, app := createTestContext(fiber.MethodGet, "/_auth", map[string]string{
 			"Stargate-Password": "wrong-password",
 		}, "")
-		err := rateLimitPasswordHeaderFailure(ctx)
+		limited, err := rateLimitPasswordHeaderFailure(ctx)
 		app.ReleaseCtx(ctx)
+		testza.AssertFalse(t, limited)
 		testza.AssertNoError(t, err)
 	}
 
@@ -121,7 +122,8 @@ func TestPasswordHeaderFailureRateLimit(t *testing.T) {
 		"Stargate-Password": "wrong-password",
 	}, "")
 	defer app.ReleaseCtx(ctx)
-	err := rateLimitPasswordHeaderFailure(ctx)
+	limited, err := rateLimitPasswordHeaderFailure(ctx)
+	testza.AssertTrue(t, limited)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusTooManyRequests, ctx.Response().StatusCode())
 	testza.AssertNotEqual(t, "", string(ctx.Response().Header.Peek(fiber.HeaderRetryAfter)))
