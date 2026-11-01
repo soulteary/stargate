@@ -2,6 +2,24 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
+## [Unreleased]
+
+### Fixed
+
+- Keep Redis rate-limit windows fixed during their final second. Commit counter
+  creation and millisecond expiry together, and retain existing counts when
+  repairing legacy counters without an expiry.
+
+### Changed
+
+- Raise unit, main-branch and release coverage gates to 95%, with an exact
+  statement-count gate that rejects results rounded up from below the threshold.
+  Add authentication, provider-failure, storage-failure and shutdown tests.
+- Document the Redis scripting permissions and rolling-upgrade limitations.
+  Existing key prefixes and integer counters remain compatible; no data or
+  persistent-volume migration is required. Older instances can still extend
+  windows until every instance has been replaced.
+
 ## [1.2.4] - 2026-11-01
 
 ### Changed

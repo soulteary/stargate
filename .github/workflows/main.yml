@@ -43,13 +43,14 @@ jobs:
           cache: true
 
       - name: Run race, coverage, and integration tests
+        env:
+          STARGATE_TEST_REDIS_ADDR: 127.0.0.1:6379
         run: go test -race -coverprofile=coverage.out -covermode=atomic ./...
 
       - name: Enforce coverage threshold
         run: |
           go tool cover -func=coverage.out
-          total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
-          awk -v total="$total" 'BEGIN { if (total < 70) { printf "coverage %.1f%% is below 70%%\n", total; exit 1 } }'
+          sh .github/scripts/check-coverage.sh coverage.out
 
       - name: Generate coverage report
         run: go tool cover -html=coverage.out -o coverage.html

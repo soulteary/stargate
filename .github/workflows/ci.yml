@@ -67,7 +67,9 @@ jobs:
         run: ci-recipes stargate check-release-workflow
 
       - name: Check local launcher contract
-        run: bash .github/scripts/test-start-local.sh
+        run: |
+          bash .github/scripts/test-start-local.sh
+          sh .github/scripts/test-check-coverage.sh
 
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
@@ -107,7 +109,7 @@ jobs:
           directory: "."
           packages: "./..."
           race: "true"
-          coverage_threshold: "70"
+          coverage_threshold: "95"
           test_args: "-short -count=1"
           version: "v1.1.3"
           cover_mode: "atomic"
@@ -140,6 +142,7 @@ jobs:
           PROFILE: ${{ steps.go_test_report.outputs.coverage_profile }}
         run: |-
           cp "$PROFILE" coverage.out
+          sh .github/scripts/check-coverage.sh coverage.out
       - name: Skip full checks for documentation-only changes
         if: steps.changes.outputs.code != 'true'
         run: echo "Only documentation files changed; build checks are not required."

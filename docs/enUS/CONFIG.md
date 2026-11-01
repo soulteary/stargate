@@ -934,6 +934,22 @@ Go duration.
 
 #### Rate-limit state and client attribution
 
+Redis counters use an atomic Lua script with millisecond expiry. Requests do not
+extend an existing window, including its final second. The Redis account must
+permit `EVAL`, `EVALSHA`, `PTTL`, `SET`, `PEXPIRE`, and `INCR` on the rate-limit
+key prefix. A missing script is reloaded automatically after Redis restarts or
+`SCRIPT FLUSH`. Existing integer counters and key prefixes remain compatible;
+a counter without expiry is given the configured window without losing its count.
+No new persistent volume or data migration is required.
+
+Old instances can still extend a window during a rolling upgrade or rollback.
+To obtain the corrected fixed-window behavior consistently, replace every
+instance. For a coordinated transition, pause authentication traffic, replace
+instances, wait one configured rate-limit window, then resume traffic. Do not
+delete counters to bypass an active quota. Rolling back restores the previous
+window behavior; it does not require rewriting session or counter data.
+
+
 Rate-limit counters are shared through Redis when `SESSION_STORAGE_ENABLED=true`,
 using the same connection and `SESSION_STORAGE_REDIS_KEY_PREFIX` as sessions. Every
 replica then enforces one quota. Without Redis the counters stay process-local, so

@@ -1,5 +1,7 @@
 # Konfigurationsreferenz
 
+> **Historische Übersetzung**: Dieser Leitfaden enthält nicht alle aktuellen Änderungen. Die [aktuelle englische Konfiguration](../enUS/CONFIG.md) beschreibt die Redis-Anforderungen und Upgrade-Grenzen.
+
 Dieses Dokument beschreibt alle Konfigurationsoptionen für Stargate im Detail.
 
 ## Inhaltsverzeichnis

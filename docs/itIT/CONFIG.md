@@ -1,5 +1,7 @@
 # Riferimento di Configurazione
 
+> **Traduzione storica**: questa guida non include tutte le modifiche attuali. Consultare la [configurazione inglese aggiornata](../enUS/CONFIG.md) per i requisiti Redis e i limiti di aggiornamento.
+
 Questo documento dettaglia tutte le opzioni di configurazione per Stargate.
 
 ## Indice
