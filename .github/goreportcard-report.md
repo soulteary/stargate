@@ -4,7 +4,7 @@
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 67 |
+| Files | 90 |
 | Issues | 0 |
 
 ## Checks
@@ -13,8 +13,8 @@
 | ----- | ----- |
 | gofmt | 100% |
 | go_vet | 100% |
-| gocyclo | 100% |
 | ineffassign | 100% |
+| gocyclo | 100% |
 | license | 100% |
 | misspell | 100% |
 
