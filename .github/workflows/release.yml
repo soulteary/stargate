@@ -177,10 +177,11 @@ jobs:
           exit 1
 
       - name: Run tests with coverage gate
+        env:
+          STARGATE_TEST_REDIS_ADDR: 127.0.0.1:6379
         run: |
           go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
-          total=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub(/%/, "", $3); print $3}')
-          awk -v total="$total" 'BEGIN { if (total < 70) { printf "coverage %.1f%% is below 70%%\n", total; exit 1 } }'
+          sh .github/scripts/check-coverage.sh coverage.out
 
       - name: Stop integration-test Redis
         if: always()

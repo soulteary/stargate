@@ -75,30 +75,33 @@ type redisRateLimitStore struct {
 	fallback *memoryRateLimitStore
 }
 
-func (s *redisRateLimitStore) Incr(ctx context.Context, key string, window time.Duration) (int, time.Duration, error) {
-	redisKey := s.prefix + key
+// Increment and expiry must commit together. PTTL distinguishes a live window
+// with less than one second left from a counter that has no expiry.
+var incrementRateLimit = redis.NewScript(`
+local remaining = redis.call('PTTL', KEYS[1])
+if remaining == -2 then
+    redis.call('SET', KEYS[1], 1, 'PX', ARGV[1])
+    return {1, tonumber(ARGV[1])}
+end
+if remaining < 0 then
+    redis.call('PEXPIRE', KEYS[1], ARGV[1])
+    remaining = tonumber(ARGV[1])
+end
+local count = redis.call('INCR', KEYS[1])
+return {count, remaining}
+`)
 
-	// INCR and TTL travel together so the common path costs one round trip.
-	pipeline := s.client.Pipeline()
-	incr := pipeline.Incr(ctx, redisKey)
-	ttl := pipeline.TTL(ctx, redisKey)
-	if _, err := pipeline.Exec(ctx); err != nil {
+func (s *redisRateLimitStore) Incr(ctx context.Context, key string, window time.Duration) (int, time.Duration, error) {
+	milliseconds := window.Milliseconds()
+	if milliseconds < 1 {
+		milliseconds = 1
+	}
+	result, err := incrementRateLimit.Run(ctx, s.client, []string{s.prefix + key}, milliseconds).Int64Slice()
+	if err != nil {
 		count, retryAfter, _ := s.fallback.Incr(ctx, key, window)
 		return count, retryAfter, err
 	}
-
-	count := int(incr.Val())
-	remaining := ttl.Val()
-	// A counter without an expiry is either the first request of a window or a
-	// key whose EXPIRE was lost; both need the window (re)armed, otherwise the
-	// count would never reset.
-	if remaining <= 0 {
-		if err := s.client.Expire(ctx, redisKey, window).Err(); err != nil {
-			return count, window, err
-		}
-		remaining = window
-	}
-	return count, remaining, nil
+	return int(result[0]), time.Duration(result[1]) * time.Millisecond, nil
 }
 
 var (
