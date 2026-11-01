@@ -305,65 +305,83 @@ func TestSendVerifyCodeAPI_Success(t *testing.T) {
 
 // TestSendVerifyCodeAPI_IdempotencyKeyPassthrough verifies that Idempotency-Key request header is forwarded to Herald.
 func TestSendVerifyCodeAPI_IdempotencyKeyPassthrough(t *testing.T) {
-	setupSendVerifyCodeBaseEnv(t)
-	t.Setenv("HERALD_ENABLED", "true")
-	t.Setenv("WARDEN_ENABLED", "true")
+	for _, tc := range []struct {
+		name, apiKey, hmacSecret, keyID, signatureVersion string
+	}{
+		{name: "api_key", apiKey: "stargate-api-key"},
+		{name: "hmac_v3", hmacSecret: "stargate-test-hmac-secret-32-bytes", keyID: "stargate-test", signatureVersion: "v3"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			setupSendVerifyCodeBaseEnv(t)
+			t.Setenv("HERALD_ENABLED", "true")
+			t.Setenv("HERALD_API_KEY", tc.apiKey)
+			t.Setenv("HERALD_HMAC_SECRET", tc.hmacSecret)
+			t.Setenv("HERALD_HMAC_KEY_ID", tc.keyID)
+			t.Setenv("WARDEN_ENABLED", "true")
 
-	wardenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		user := struct {
-			Phone  string `json:"phone"`
-			Mail   string `json:"mail"`
-			UserID string `json:"user_id"`
-			Status string `json:"status"`
-		}{
-			Phone:  "13800138000",
-			Mail:   "user@example.com",
-			UserID: "",
-			Status: "active",
-		}
-		_ = json.NewEncoder(w).Encode(user)
-	}))
-	defer wardenServer.Close()
+			wardenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				user := struct {
+					Phone  string `json:"phone"`
+					Mail   string `json:"mail"`
+					UserID string `json:"user_id"`
+					Status string `json:"status"`
+				}{
+					Phone:  "13800138000",
+					Mail:   "user@example.com",
+					UserID: "",
+					Status: "active",
+				}
+				_ = json.NewEncoder(w).Encode(user)
+			}))
+			defer wardenServer.Close()
 
-	var receivedIdempotencyKey string
-	heraldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/otp/challenges" {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		}
-		receivedIdempotencyKey = r.Header.Get("Idempotency-Key")
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(herald.CreateChallengeResponse{
-			ChallengeID:  "ch-idem",
-			ExpiresIn:    300,
-			NextResendIn: 60,
+			var receivedIdempotencyKey, receivedSignatureVersion, receivedKeyID, receivedAPIKey string
+			heraldServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/v1/otp/challenges" {
+					w.WriteHeader(http.StatusNotFound)
+					return
+				}
+				receivedIdempotencyKey = r.Header.Get("Idempotency-Key")
+				receivedSignatureVersion = r.Header.Get("X-Signature-Version")
+				receivedKeyID = r.Header.Get("X-Key-Id")
+				receivedAPIKey = r.Header.Get("X-API-Key")
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(herald.CreateChallengeResponse{
+					ChallengeID:  "ch-idem",
+					ExpiresIn:    300,
+					NextResendIn: 60,
+				})
+			}))
+			defer heraldServer.Close()
+
+			t.Setenv("WARDEN_URL", wardenServer.URL)
+			t.Setenv("HERALD_URL", heraldServer.URL)
+			auth.ResetWardenClientForTesting()
+			resetHeraldClientForTesting()
+			testLog := testLoggerSendVerifyCode()
+			err := config.Initialize(testLog)
+			testza.AssertNoError(t, err)
+			testza.AssertNoError(t, auth.InitWardenClient(testLog))
+			testza.AssertNoError(t, InitHeraldClient(testLog))
+
+			app := fiber.New()
+			app.Post("/_send_verify_code", SendVerifyCodeAPI())
+
+			idemKey := "req-uuid-12345"
+			req := httptest.NewRequest("POST", "/_send_verify_code", strings.NewReader("phone=13800138000"))
+			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			req.Header.Set("Accept", "application/json")
+			req.Header.Set("Idempotency-Key", idemKey)
+
+			resp, err := app.Test(req)
+			testza.AssertNoError(t, err)
+			testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
+			testza.AssertEqual(t, idemKey, receivedIdempotencyKey, "Idempotency-Key should be forwarded to Herald")
+			testza.AssertEqual(t, tc.signatureVersion, receivedSignatureVersion, "HMAC-enabled requests must use the header-bound v3 contract")
+			testza.AssertEqual(t, tc.keyID, receivedKeyID)
+			testza.AssertEqual(t, tc.apiKey, receivedAPIKey)
 		})
-	}))
-	defer heraldServer.Close()
-
-	t.Setenv("WARDEN_URL", wardenServer.URL)
-	t.Setenv("HERALD_URL", heraldServer.URL)
-	auth.ResetWardenClientForTesting()
-	resetHeraldClientForTesting()
-	testLog := testLoggerSendVerifyCode()
-	err := config.Initialize(testLog)
-	testza.AssertNoError(t, err)
-	testza.AssertNoError(t, auth.InitWardenClient(testLog))
-	testza.AssertNoError(t, InitHeraldClient(testLog))
-
-	app := fiber.New()
-	app.Post("/_send_verify_code", SendVerifyCodeAPI())
-
-	idemKey := "req-uuid-12345"
-	req := httptest.NewRequest("POST", "/_send_verify_code", strings.NewReader("phone=13800138000"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Idempotency-Key", idemKey)
-
-	resp, err := app.Test(req)
-	testza.AssertNoError(t, err)
-	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
-	testza.AssertEqual(t, idemKey, receivedIdempotencyKey, "Idempotency-Key should be forwarded to Herald")
+	}
 }
 
 // TestSendVerifyCodeAPI_LocaleFromConfig verifies getLocaleFromConfig is used when Accept-Language is not set.
