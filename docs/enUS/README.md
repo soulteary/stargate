@@ -45,14 +45,14 @@ Welcome to the Stargate Forward Auth Service documentation.
 ### Getting Started
 
 1. Read [README.md](../../README.md) to understand the project
-2. Check the [Quick Start](../../README.md#quick-start) section
-3. Refer to [Configuration](../../README.md#configuration) to configure the service
+2. Check the [Quick Start](../../README.md#-quick-start) section
+3. Refer to [Configuration](../../README.md#-basic-configuration) to configure the service
 
 ### Developers
 
 1. Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand the architecture
 2. Check [API.md](API.md) to understand the API interfaces
-3. Refer to [Development Guide](../../README.md#development-guide) for development
+3. Refer to [Development Guide](CONTRIBUTING.md) for development
 
 ### Operations
 
@@ -95,7 +95,7 @@ stargate/
 ### API Related
 
 - API endpoint list: [API.md](API.md)
-- Authentication flow: [API.md#authentication-flow-examples](API.md#authentication-flow-examples)
+- Authentication flow: [API.md#authentication-flows](API.md#authentication-flows)
 - Error handling: [API.md#error-response-format](API.md#error-response-format)
 
 ### Deployment Related

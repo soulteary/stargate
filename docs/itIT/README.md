@@ -44,14 +44,14 @@ Benvenuto nella documentazione del servizio Stargate Forward Auth.
 ### Per Iniziare
 
 1. Leggi [README.itIT.md](../../README.itIT.md) per comprendere il progetto
-2. Controlla la sezione [Quick Start](../../README.itIT.md#quick-start)
-3. Fai riferimento a [Configurazione](../../README.itIT.md#configurazione) per configurare il servizio
+2. Controlla la sezione [Quick Start](../../README.itIT.md#-avvio-rapido)
+3. Fai riferimento a [Configurazione](../../README.itIT.md#-configurazione-di-base) per configurare il servizio
 
 ### Sviluppatori
 
 1. Leggi [ARCHITECTURE.md](ARCHITECTURE.md) per comprendere l'architettura
 2. Controlla [API.md](API.md) per comprendere le interfacce API
-3. Fai riferimento alla [Guida allo Sviluppo](../../README.itIT.md#guida-allo-sviluppo) per lo sviluppo
+3. Fai riferimento alla [Guida allo Sviluppo](CONTRIBUTING.md) per lo sviluppo
 
 ### Operazioni
 
@@ -97,14 +97,14 @@ stargate/
 ### Configurazione
 
 - Configurazione delle variabili d'ambiente : [CONFIG.md](CONFIG.md)
-- Configurazione della password : [CONFIG.md#configurazione-della-password](CONFIG.md#configurazione-della-password)
+- Configurazione della password : [CONFIG.md#configurazione-password](CONFIG.md#configurazione-password)
 - Esempi di configurazione : [CONFIG.md#esempi-di-configurazione](CONFIG.md#esempi-di-configurazione)
 
 ### API
 
 - Elenco degli endpoint API : [API.md](API.md)
-- Flusso di autenticazione : [API.md#esempi-di-flusso-di-autenticazione](API.md#esempi-di-flusso-di-autenticazione)
-- Gestione degli errori : [API.md#formato-di-risposta-di-errore](API.md#formato-di-risposta-di-errore)
+- Flusso di autenticazione : [API.md#esempi-flusso-autenticazione](API.md#esempi-flusso-autenticazione)
+- Gestione degli errori : [API.md#formato-risposta-errore](API.md#formato-risposta-errore)
 
 ### Deployment
 

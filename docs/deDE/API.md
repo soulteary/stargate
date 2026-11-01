@@ -10,7 +10,7 @@ Beim Upgrade von v0.12.0 zuerst den [Migrationsleitfaden für v1.0.0](MIGRATION_
 - [Anmeldungs-Endpunkt](#anmeldungs-endpunkt)
 - [Abmelde-Endpunkt](#abmelde-endpunkt)
 - [Sitzungsaustausch-Endpunkt](#sitzungsaustausch-endpunkt)
-- [Gesundheitsprüfungs-Endpunkt](#gesundheitsprüfungs-endpunkt)
+- [Gesundheitsprüfungs-Endpunkt](#gesundheitsprüfungs-endpunkte)
 - [Root-Endpunkt](#root-endpunkt)
 
 ## Authentifizierungsprüfungs-Endpunkt

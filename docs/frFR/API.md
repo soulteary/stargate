@@ -11,7 +11,7 @@ Pour une mise à niveau depuis v0.12.0, consultez d'abord le [guide de migration
 - [Point de Terminaison d'Envoi de Code de Vérification](#point-de-terminaison-denvoi-de-code-de-vérification)
 - [Point de Terminaison de Déconnexion](#point-de-terminaison-de-déconnexion)
 - [Point de Terminaison d'Échange de Session](#point-de-terminaison-déchange-de-session)
-- [Point de Terminaison de Vérification de Santé](#point-de-terminaison-de-vérification-de-santé)
+- [Point de Terminaison de Vérification de Santé](#points-de-terminaison-de-santé)
 - [Point de Terminaison Racine](#point-de-terminaison-racine)
 
 ## Point de Terminaison de Vérification d'Authentification

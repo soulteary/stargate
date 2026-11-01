@@ -6,13 +6,13 @@ Thank you for your interest in the Stargate project! We welcome all forms of con
 
 ## 📋 Table of Contents
 
-- [How to Contribute](#how-to-contribute)
-- [Development Environment Setup](#development-environment-setup)
-- [Code Standards](#code-standards)
-- [Commit Standards](#commit-standards)
-- [Pull Request Process](#pull-request-process)
-- [Bug Reports and Feature Requests](#bug-reports-and-feature-requests)
-- [Traefik Integration Development](#traefik-integration-development)
+- [How to Contribute](#-how-to-contribute)
+- [Development Environment Setup](#-development-environment-setup)
+- [Code Standards](#-code-standards)
+- [Commit Standards](#-commit-standards)
+- [Pull Request Process](#-pull-request-process)
+- [Bug Reports and Feature Requests](#-bug-reports-and-feature-requests)
+- [Traefik Integration Development](#-traefik-integration-development)
 
 ## 🚀 How to Contribute
 
@@ -195,7 +195,7 @@ Before submitting a Pull Request, please ensure:
 - [ ] Code is formatted (`go fmt ./...`)
 - [ ] Necessary tests are added
 - [ ] Related documentation is updated
-- [ ] Commit message follows [Commit Standards](#commit-standards)
+- [ ] Commit message follows [Commit Standards](#-commit-standards)
 - [ ] Code passes lint checks
 - [ ] Traefik integration tested (if applicable)
 - [ ] Warden/Herald integration tested (if applicable)

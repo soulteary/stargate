@@ -10,7 +10,7 @@ Per aggiornare da v0.12.0, leggere prima la [guida alla migrazione v1.0.0](MIGRA
 - [Endpoint Login](#endpoint-login)
 - [Endpoint Logout](#endpoint-logout)
 - [Endpoint Scambio Sessione](#endpoint-scambio-sessione)
-- [Endpoint Verifica Salute](#endpoint-verifica-salute)
+- [Endpoint Verifica Salute](#endpoint-di-salute)
 - [Endpoint Root](#endpoint-root)
 
 ## Endpoint Verifica Autenticazione
