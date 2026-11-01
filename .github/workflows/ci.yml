@@ -156,3 +156,38 @@ jobs:
           retention-days: 14
     permissions:
       contents: read
+
+  release-packaging:
+    name: Release packaging / ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    permissions:
+      contents: read
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build release binary
+        env:
+          GOOS: linux
+          GOARCH: ${{ matrix.arch }}
+          CGO_ENABLED: '0'
+        run: |
+          mkdir -p dist
+          go build -trimpath -ldflags '-s -w' -o "dist/stargate-linux-${GOARCH}" ./src/cmd/stargate
+      - name: Build release image
+        run: docker build --pull -f docker/release.Dockerfile -t stargate:packaging-check .
+      - name: Verify packaged binary and hardened runtime
+        run: bash .github/scripts/test-release-image.sh stargate:packaging-check dist/stargate-linux-${{ matrix.arch }}
