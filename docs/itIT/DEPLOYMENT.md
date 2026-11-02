@@ -178,7 +178,7 @@ Usare l'esempio separato seguente solo quando Traefik è già in esecuzione su u
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.6
+    image: ghcr.io/soulteary/stargate:1.2.7
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -267,7 +267,7 @@ Modificare `docker-compose.yml` e modificare le variabili d'ambiente:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.6
+    image: ghcr.io/soulteary/stargate:1.2.7
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -291,7 +291,7 @@ Configurare Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.6
+    image: ghcr.io/soulteary/stargate:1.2.7
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
