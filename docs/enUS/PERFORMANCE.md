@@ -82,6 +82,23 @@ is repeatable; elimination of the historical warm latency penalty is not proven.
 The independent PR runner provides a separate measurement, not a replacement for
 these samples.
 
+## Independent PR runner
+
+[PR #226 CI](https://github.com/soulteary/stargate/actions/runs/41377728981) compares
+baseline `7f7c0b1` and clean head `1181ebe` with the same Go 1.27.3/Redis 8.2.1
+setup. Linux arm64 uses four vCPUs, 16,324,144 KiB and kernel
+`7.0.0-1017-azure`. It retains all 48 samples from twelve AB/BA rounds of 5,000
+operations per case, plus separate profiles.
+
+Warm medians are 140,379/135,891 ns/op (about 7,124/7,359 ops/s), with paired
+ratio 0.971 and descriptive interval 0.959–0.989. Cold medians are
+149,388/146,372.5 ns/op (about 6,694/6,832 ops/s), ratio 0.977 and interval
+0.973–0.985. Both candidate paths are faster in 10/12 rounds. Allocations match
+the final VM comparison: warm 16/10 and 487/368 B/op; cold 17/11 and 517/405 B/op.
+This runner shows a small latency gain, while the local intervals include no
+change. Neither establishes elimination of the historical warm penalty. Absolute
+times from different hosts are not comparable.
+
 ## Repeatable Linux comparison
 
 Use an isolated Redis 8.2.1 instance and Go 1.27.3 on Linux. Never point benchmarks

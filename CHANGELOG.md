@@ -2,6 +2,91 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
+## [1.2.7] - 2026-11-02
+
+### Redis limiter changes
+
+- Decode the unchanged Lua reply directly for native Redis Client, ClusterClient
+  and Ring instances. Warm allocations fall from 16 to 10 and 487 to 368 B/op;
+  cold allocations fall from 17 to 11 and 517 to 405 B/op. Custom adapters keep
+  Script.Run and their Eval/EvalSha overrides. Both commands retain explicit
+  cluster key routing.
+- Reject malformed script reply lengths before indexing. An empty reply injected
+  after a miniredis counter commit previously panicked; it now returns an error,
+  retains the committed count and keeps the existing bounded local fallback.
+  This synthetic reliability case is not an authentication-bypass finding.
+- Add a scoped, reproducible Linux arm64 PR comparison with precompiled binaries,
+  alternating order, raw samples, command statistics and separate allocation
+  profiles. Functional checks and the 95% coverage requirement remain intact.
+
+### Measurements and verification
+
+- Go 1.27.3, Redis 8.2.1, 12 AB/BA rounds, 5,000 serial operations per warm/cold
+  counter case. Script loading is outside timing; these are store operations,
+  not end-to-end authentication requests.
+- Independent Linux arm64 CI: four vCPUs, 16,324,144 KiB, kernel
+  7.0.0-1017-azure. Warm medians 140,379 -> 135,891 ns/op, about
+  7,124 -> 7,359 ops/s; paired ratio 0.971 (descriptive 95% bootstrap interval
+  0.959–0.989). Cold medians 149,388 -> 146,372.5 ns/op, about
+  6,694 -> 6,832 ops/s; ratio 0.977 (0.973–0.985). Both paths were faster in
+  10/12 rounds. [Raw CI run](https://github.com/soulteary/stargate/actions/runs/41377728981).
+- Local Linux arm64 VM: five vCPUs, 5,609,476 KiB, kernel 7.0.9-205.fc44.aarch64.
+  Warm medians 94,740.5 -> 89,073.5 ns/op; paired ratio 0.963 (0.917–1.027).
+  Cold medians 92,483 -> 92,419 ns/op; ratio 1.001 (0.942–1.032). Allocation
+  reductions match CI. Local latency intervals include no change. An earlier
+  contended prototype batch is retained without a latency claim. These results
+  do not prove that the previously observed ~16% warm penalty is eliminated;
+  the atomic Lua execution cost remains. Do not compare absolute times across
+  the VM and CI. See the [performance guide](docs/enUS/PERFORMANCE.md).
+- Linux race unit suite: 521 top-level passes, 9 skips, 0 failures;
+  2138/2247 statements (95.1491%). Real Redis full suite: 528 passes,
+  2 existing skips, 0 failures; 2139/2247 (95.1936%). Each also passes
+  307 subtests. Seven unit skips require services; two existing empty-session-ID
+  harness scenarios remain skipped in both suites, with helper behavior tested
+  directly. Vet, golangci-lint 2.14.0, module integrity, repository contracts and
+  Linux amd64/arm64 builds pass. PR Windows startup and packaging checks pass.
+- Real Redis covers concurrent counts, final-millisecond expiry, ACL rejection,
+  generic/native RESP2/RESP3 mixing and a committed write with an acknowledgement
+  fault injected afterward. That fault disables client retries to inspect the
+  application boundary; it is not an actual network-loss experiment. Two
+  miniredis destinations verify cluster routing, not production cluster failover.
+
+### Compatibility, upgrade and rollback
+
+- Lua bytes and SHA-1 77b796d33596742046596a01e3b879c9d1b19715, integer counters,
+  millisecond expiry, key prefixes, ACL commands, HTTP/configuration fields and
+  metric names/labels are unchanged. Creation and expiry remain atomic. Only
+  NOSCRIPT permits an application-level EVAL fallback; uncertain outcomes stay
+  errors. Existing per-replica fallback and underlying client retries are unchanged.
+- Native process hooks receive *redis.IntSliceCmd instead of *redis.Cmd for limiter
+  scripts. Embedders with concrete-type assertions must update hooks to accept
+  redis.Cmder or the typed command before rollout. Adapter overrides remain intact.
+- No data migration, record removal, new persistent volume or Redis upgrade is
+  needed. Mixed v1.2.6/v1.2.7 limiter instances are compatible. Rolling back to
+  v1.2.6 is compatible with limiter data but loses this decoder/guard and the
+  module-graph pin below; assess that separately. Do not downgrade separately
+  deployed providers as part of this rollback.
+- The v1.2.6 stable Warden-ID/session-review requirements are inherited, not new
+  fixes here. Older published versions reintroduce those security/reliability
+  defects; already-rebound historical sessions still require operator review and
+  revocation/expiry under that guide.
+
+### Earlier main-branch work first included in this release
+
+- Include the already merged herald-totp v1.2.6 indirect module-graph pin (#225).
+  Herald v1.3.13 and Warden v1.4.4 SDK imports/versions remain unchanged. This pin
+  does not upgrade a separately deployed Herald/TOTP service.
+- Publish the deployment-guide corrections from #224: current runtime descriptions,
+  provider ports/data sources, matching templates/assets for standalone binaries,
+  and corrected client-side examples. These document existing behavior. Retain
+  existing provider data/volumes and use the versioned upstream deployment guides;
+  no provider-data migration or deletion is performed.
+- Compose validation examples discard resolved configuration stdout. Existing
+  logs are not rewritten. If actual credentials were captured, restrict access,
+  apply retention/cleanup to logs and exported copies, and rotate exposed
+  credentials. English/Chinese guides are current; other partially updated guides
+  remain explicitly historical and link to the English guide.
+
 ## [1.2.6] - 2026-11-02
 
 ### Fixed in this maintenance review

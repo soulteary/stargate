@@ -178,7 +178,7 @@ Traefik が共有の外部 Docker ネットワークですでに動作してい�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.6
+    image: ghcr.io/soulteary/stargate:1.2.7
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -267,7 +267,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.6
+    image: ghcr.io/soulteary/stargate:1.2.7
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -291,7 +291,7 @@ Stargate は Traefik と統合するように設計されており、Forward Aut
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.6
+    image: ghcr.io/soulteary/stargate:1.2.7
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
