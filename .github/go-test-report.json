@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 523,
-    "passed": 516,
+    "total": 530,
+    "passed": 521,
     "failed": 0,
-    "skipped": 7
+    "skipped": 9
   },
   "coverage": {
-    "covered_statements": 2121,
-    "total_statements": 2229,
+    "covered_statements": 2138,
+    "total_statements": 2247,
     "percentage": 95.15,
     "threshold": 95
   },
@@ -44,9 +44,9 @@
     {
       "name": "src/internal/handlers",
       "status": "pass",
-      "tests": 252,
+      "tests": 259,
       "failed": 0,
-      "coverage": 95.13
+      "coverage": 95.12
     },
     {
       "name": "src/internal/i18n",
