@@ -15,6 +15,8 @@ Stargate Forward Auth Service のドキュメントへようこそ。
 
 ### 詳細ドキュメント
 
+- **[PERFORMANCE.md](../enUS/PERFORMANCE.md)** - Redis rate-limit measurements (English)
+
 - **[API.md](API.md)** - 完全な API エンドポイントドキュメント
   - 認証チェックエンドポイント
   - ログインとログアウトエンドポイント

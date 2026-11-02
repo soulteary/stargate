@@ -16,6 +16,8 @@
 
 ### 详细文档
 
+- **[PERFORMANCE.md](PERFORMANCE.md)** - Redis 限流测量、复现方法与限制
+
 - **[API.md](API.md)** - 完整的 API 端点文档
   - 认证检查端点
   - 登录和登出端点

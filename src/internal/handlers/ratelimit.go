@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -77,7 +78,7 @@ type redisRateLimitStore struct {
 
 // Increment and expiry must commit together. PTTL distinguishes a live window
 // with less than one second left from a counter that has no expiry.
-var incrementRateLimit = redis.NewScript(`
+const incrementRateLimitSource = `
 local remaining = redis.call('PTTL', KEYS[1])
 if remaining == -2 then
     redis.call('SET', KEYS[1], 1, 'PX', ARGV[1])
@@ -89,19 +90,59 @@ if remaining < 0 then
 end
 local count = redis.call('INCR', KEYS[1])
 return {count, remaining}
-`)
+`
+
+var incrementRateLimit = redis.NewScript(incrementRateLimitSource)
 
 func (s *redisRateLimitStore) Incr(ctx context.Context, key string, window time.Duration) (int, time.Duration, error) {
 	milliseconds := window.Milliseconds()
 	if milliseconds < 1 {
 		milliseconds = 1
 	}
-	result, err := incrementRateLimit.Run(ctx, s.client, []string{s.prefix + key}, milliseconds).Int64Slice()
+	result, err := s.increment(ctx, s.prefix+key, milliseconds)
+	if err == nil && len(result) != 2 {
+		err = errors.New("unexpected rate-limit script reply length")
+	}
 	if err != nil {
 		count, retryAfter, _ := s.fallback.Incr(ctx, key, window)
 		return count, retryAfter, err
 	}
 	return int(result[0]), time.Duration(result[1]) * time.Millisecond, nil
+}
+
+// A typed reply avoids generic RESP integers and a second slice conversion.
+// Custom adapters retain the standard Script.Run path and their overrides.
+func (s *redisRateLimitStore) increment(ctx context.Context, key string, milliseconds int64) ([]int64, error) {
+	var processor interface {
+		Process(context.Context, redis.Cmder) error
+	}
+	switch client := s.client.(type) {
+	case *redis.Client:
+		processor = client
+	case *redis.ClusterClient:
+		processor = client
+	case *redis.Ring:
+		processor = client
+	default:
+		// Adapters can override Eval/EvalSha for policy or instrumentation. Do not
+		// bypass those methods even if a wrapped client's Process is promoted.
+		return incrementRateLimit.Run(ctx, s.client, []string{key}, milliseconds).Int64Slice()
+	}
+	cmd := redis.NewIntSliceCmd(ctx, "evalsha", incrementRateLimit.Hash(), 1, key, milliseconds)
+	cmd.SetFirstKeyPos(3)
+	if err := processor.Process(ctx, cmd); err != nil {
+		if !errors.Is(err, redis.ErrNoScript) && !redis.HasErrorPrefix(err, "NOSCRIPT") {
+			return nil, err
+		}
+		// NOSCRIPT proves the operation did not run. No application retry is made
+		// for timeouts, lost acknowledgements, or other uncertain outcomes.
+		cmd = redis.NewIntSliceCmd(ctx, "eval", incrementRateLimitSource, 1, key, milliseconds)
+		cmd.SetFirstKeyPos(3)
+		if err := processor.Process(ctx, cmd); err != nil {
+			return nil, err
+		}
+	}
+	return cmd.Result()
 }
 
 var (

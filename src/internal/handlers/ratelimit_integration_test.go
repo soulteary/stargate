@@ -130,3 +130,63 @@ func BenchmarkRedisRateLimit(b *testing.B) {
 		})
 	}
 }
+
+func TestRedisRateLimitRealMixedReplyPaths(t *testing.T) {
+	store := realRateLimitStore(t)
+	admin := store.client.(*redis.Client)
+	ctx := context.Background()
+	generic := &redisRateLimitStore{client: struct{ redis.Cmdable }{admin}, prefix: store.prefix, fallback: newMemoryRateLimitStore()}
+	// A generic adapter (the pre-optimization path) and native RESP2/RESP3 clients
+	// must share the same integer counter, script digest and expiring window.
+	count, _, err := generic.Incr(ctx, "mixed", time.Minute)
+	if err != nil || count != 1 {
+		t.Fatalf("generic count=%d err=%v", count, err)
+	}
+	for i, protocol := range []int{2, 3} {
+		client := redis.NewClient(&redis.Options{Addr: admin.Options().Addr, Protocol: protocol, MaxRetries: -1})
+		t.Cleanup(func() { _ = client.Close() })
+		native := &redisRateLimitStore{client: client, prefix: store.prefix, fallback: newMemoryRateLimitStore()}
+		count, ttl, err := native.Incr(ctx, "mixed", time.Minute)
+		if err != nil || count != i+2 || ttl <= 0 || ttl > time.Minute {
+			t.Fatalf("RESP%d count=%d ttl=%s err=%v", protocol, count, ttl, err)
+		}
+	}
+	count, _, err = generic.Incr(ctx, "mixed", time.Minute)
+	if err != nil || count != 4 {
+		t.Fatalf("generic resumed count=%d err=%v", count, err)
+	}
+}
+
+func TestRedisRateLimitRealDeniedIncrementDoesNotResetCounter(t *testing.T) {
+	store := realRateLimitStore(t)
+	admin := store.client.(*redis.Client)
+	ctx := context.Background()
+	user := fmt.Sprintf("stargate-rate-limit-%d", time.Now().UnixNano())
+	const password = "local-test-only-rate-limit"
+	if err := admin.ACLSetUser(ctx, user, "on", ">"+password, "~"+store.prefix+"*", "+eval", "+evalsha", "+pttl", "+set", "+pexpire", "+hello", "+client", "+ping").Err(); err != nil {
+		t.Fatal(err)
+	}
+	client := redis.NewClient(&redis.Options{Addr: admin.Options().Addr, Username: user, Password: password, MaxRetries: -1})
+	t.Cleanup(func() {
+		_ = client.Close()
+		if err := admin.ACLDelUser(ctx, user).Err(); err != nil {
+			t.Error(err)
+		}
+	})
+	if err := admin.Set(ctx, store.prefix+"denied", "7", time.Minute).Err(); err != nil {
+		t.Fatal(err)
+	}
+	restricted := &redisRateLimitStore{client: client, prefix: store.prefix, fallback: newMemoryRateLimitStore()}
+	for expected := 1; expected <= 2; expected++ {
+		count, _, err := restricted.Incr(ctx, "denied", time.Minute)
+		if err == nil || count != expected {
+			t.Fatalf("denied increment count=%d err=%v", count, err)
+		}
+		if value := admin.Get(ctx, store.prefix+"denied").Val(); value != "7" {
+			t.Fatalf("denied increment changed count to %s", value)
+		}
+		if ttl := admin.PTTL(ctx, store.prefix+"denied").Val(); ttl <= 0 || ttl > time.Minute {
+			t.Fatalf("invalid retained window: %s", ttl)
+		}
+	}
+}
