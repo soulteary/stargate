@@ -53,12 +53,34 @@ around 88 microseconds, demonstrating substantial transport/scheduling cost.
 The atomic script contributes server overhead; returning to the historical
 pipeline would reintroduce the expiry and uncertain-write defects.
 
-The first optimization comparison encountered VM load averages around 15 and
+An early prototype comparison encountered VM load averages around 15 and
 above on five vCPUs, with concurrent compiler/package work. Its latency samples
 are retained, but do not establish an improvement or regression. Across those
-samples the native warm path consistently reduced allocations from 16 to 12 and
+samples the prototype warm path consistently reduced allocations from 16 to 12 and
 about 487 to 400 B/op; cold allocations changed from 17 to 13 and about 518 to
 438 B/op. Allocation reduction alone does not prove lower end-to-end latency.
+
+## Final implementation on an idle VM
+
+After the VM returned to about 94% idle with a 0.09 one-minute load average,
+another complete twelve-round comparison used baseline `7f7c0b1` and candidate
+`0d9e2b1`, both with the post-#225 dependency graph. The candidate is the runtime
+implementation in this PR; subsequent documentation commits do not change Go
+code. Both binaries were precompiled; all 48 warm/cold measurements are retained.
+
+Warm allocations fell from 16 to 10 (37.5%), and 487 to 368 B/op (24.4%). Warm
+median latency was 94,740.5 versus 89,073.5 ns/op, implying about 10,555 versus
+11,227 serial operations/second. The paired latency-ratio median was 0.963,
+with a descriptive 95% bootstrap interval of 0.917–1.027. This does not establish
+a stable latency improvement. The candidate was slower in 5/12 paired rounds.
+
+Cold allocations fell from 17 to 11 and 517 to 405 B/op. Median latency was
+92,483 versus 92,419 ns/op (about 10,813 versus 10,820 serial operations/second).
+The paired ratio was 1.001, interval 0.942–1.032, with 6/12 slower rounds. Cold
+latency is effectively unchanged within this noise. The allocation improvement
+is repeatable; elimination of the historical warm latency penalty is not proven.
+The independent PR runner provides a separate measurement, not a replacement for
+these samples.
 
 ## Repeatable Linux comparison
 
