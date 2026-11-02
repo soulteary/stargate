@@ -67,6 +67,7 @@ require (
 	github.com/prometheus/common v0.73.1 // indirect
 	github.com/prometheus/procfs v0.23.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
+	github.com/soulteary/herald-totp v1.2.6 // indirect
 	github.com/soulteary/http-kit/v2 v2.1.0 // indirect
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
