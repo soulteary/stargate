@@ -19,6 +19,8 @@ jobs:
     name: Documentation, format, lint, and unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      redis_changed: ${{ steps.changes.outputs.redis }}
     steps:
       - name: Check out code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,6 +41,11 @@ jobs:
             esac
           done < <(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
           echo "code=$code_changed" >> "$GITHUB_OUTPUT"
+          redis_changed=false
+          if ! git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- 'src/internal/handlers/ratelimit*' .github/scripts/benchmark-redis.py .github/workflows/ci.yml; then
+            redis_changed=true
+          fi
+          echo "redis=$redis_changed" >> "$GITHUB_OUTPUT"
 
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
@@ -216,3 +223,41 @@ jobs:
         run: docker build --pull -f docker/release.Dockerfile -t stargate:packaging-check .
       - name: Verify packaged binary and hardened runtime
         run: bash .github/scripts/test-release-image.sh stargate:packaging-check dist/stargate-linux-${{ matrix.arch }}
+
+  redis-performance:
+    needs: pr-checks
+    if: needs.pr-checks.outputs.redis_changed == 'true'
+    name: Redis performance / arm64
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    services:
+      redis:
+        image: redis:8.2.1-alpine3.22
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Compare precompiled revisions against the same Redis
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          STARGATE_TEST_REDIS_ADDR: 127.0.0.1:6379
+        run: python3 .github/scripts/benchmark-redis.py --baseline "$BASE_SHA" --output "$RUNNER_TEMP/redis-performance"
+      - name: Upload raw performance measurements
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: redis-performance-arm64-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/redis-performance
+          retention-days: 30

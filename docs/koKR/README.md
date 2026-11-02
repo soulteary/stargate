@@ -15,6 +15,8 @@ Stargate Forward Auth Service 문서에 오신 것을 환영합니다.
 
 ### 상세 문서
 
+- **[PERFORMANCE.md](../enUS/PERFORMANCE.md)** - Redis rate-limit measurements (English)
+
 - **[API.md](API.md)** - 완전한 API 엔드포인트 문서
   - 인증 확인 엔드포인트
   - 로그인 및 로그아웃 엔드포인트

@@ -16,6 +16,8 @@ Welcome to the Stargate Forward Auth Service documentation.
 
 ### Detailed Documents
 
+- **[PERFORMANCE.md](PERFORMANCE.md)** - Redis limiter measurements, reproduction and limits
+
 - **[API.md](API.md)** - Complete API endpoint documentation
   - Authentication check endpoints
   - Login and logout endpoints
