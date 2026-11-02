@@ -30,7 +30,9 @@ This is a malformed-reply reliability test, not an authentication-bypass finding
 
 The VM matches the earlier investigation: Linux arm64, kernel
 `7.0.9-205.fc44.aarch64`, Go 1.27.3, Redis 8.2.1, five vCPUs and 5,609,476 KiB
-reported memory. Both binaries are compiled before timing. They use the same
+reported memory. A cold case creates new counter keys; a warm case reuses a live
+key. Script loading occurs before timing. These are store-level operations, not
+end-to-end authentication requests. Both binaries are compiled before timing. They use the same
 benchmark, dependencies, Redis and loopback TCP settings. Historical comparisons
 replace only `ratelimit.go` with the pre-atomic implementation from `a55659a`;
 that implementation is a diagnostic control, never a production rollback target.
