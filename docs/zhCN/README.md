@@ -16,6 +16,8 @@
 
 ### 详细文档
 
+- **[VERIFIED_EMAIL.md](VERIFIED_EMAIL.md)** - 可信邮箱证据、有效期与代理集成
+
 - **[PERFORMANCE.md](PERFORMANCE.md)** - Redis 限流测量、复现方法与限制
 
 - **[API.md](API.md)** - 完整的 API 端点文档
