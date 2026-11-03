@@ -30,6 +30,8 @@ func init() {
 
 	// Add English translations
 	bundle.AddTranslations(kit.LangEN, map[string]string{
+		"label.phone_number":  "Phone number",
+		"label.email_address": "Email address",
 		// Error messages
 		"error.auth_required":           "Authentication required",
 		"error.invalid_password":        "Invalid password",
@@ -82,6 +84,8 @@ func init() {
 
 	// Add Chinese translations
 	bundle.AddTranslations(kit.LangZH, map[string]string{
+		"label.phone_number":  "手机号",
+		"label.email_address": "邮箱地址",
 		// Error messages
 		"error.auth_required":           "需要身份验证",
 		"error.invalid_password":        "密码无效",

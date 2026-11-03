@@ -47,7 +47,7 @@
           {{end}}
           <input type="hidden" name="auth_method" value="warden">
           <div class="form-group">
-            <label for="phone" class="sr-only">Phone or Email</label>
+            <label for="phone" class="sr-only">{{if .PhoneLabel}}{{.PhoneLabel}}{{else}}Phone number{{end}}</label>
             <input
               type="text"
               id="phone"
@@ -55,6 +55,7 @@
               placeholder="Phone number"
               autocomplete="tel"
             >
+            <label for="mail" class="sr-only">{{if .MailLabel}}{{.MailLabel}}{{else}}Email address{{end}}</label>
             <input
               type="email"
               id="mail"

@@ -311,8 +311,20 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 		"HeraldTOTPEnabled":    config.HeraldTOTPEnabled.ToBool(),
 		"LoginSMSEnabled":      config.LoginSMSEnabled.ToBool(),
 		"LoginEmailEnabled":    config.LoginEmailEnabled.ToBool(),
+		"PhoneLabel":           translatedLoginIdentifierLabel(ctx, "label.phone_number"),
+		"MailLabel":            translatedLoginIdentifierLabel(ctx, "label.email_address"),
 		"Debug":                config.Debug.ToBool(),
 	})
+}
+
+// Templates also render without locale middleware in embedded callers/tests.
+// Use the existing English bundle rather than exposing an untranslated key.
+func translatedLoginIdentifierLabel(ctx fiber.Ctx, key string) string {
+	label := i18n.T(ctx, key)
+	if label == key {
+		return i18n.TStatic(key)
+	}
+	return label
 }
 
 // LoginRoute handles GET requests to /_login for displaying the login page.
