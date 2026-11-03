@@ -16,6 +16,8 @@ Welcome to the Stargate Forward Auth Service documentation.
 
 ### Detailed Documents
 
+- **[VERIFIED_EMAIL.md](VERIFIED_EMAIL.md)** - Trusted email evidence, lifetime and proxy integration
+
 - **[PERFORMANCE.md](PERFORMANCE.md)** - Redis limiter measurements, reproduction and limits
 
 - **[API.md](API.md)** - Complete API endpoint documentation

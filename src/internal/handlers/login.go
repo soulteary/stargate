@@ -351,6 +351,8 @@ type loginIdentity struct {
 	userMail       string
 	verifyRespAMR  []string
 	wardenUserInfo *warden.AllowListUser
+	verifiedEmail  string
+	verifiedAt     int64
 }
 
 func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx context.Context, loginSpan trace.Span) (bool, error) {
@@ -521,6 +523,7 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 		auditlog.LogLogin(ctx.Context(), auditContext.UserID, "warden", ctx.IP(), false, "user_id_mismatch")
 		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
 	}
+	identity.recordVerifiedEmail(challengeID, auditContext, time.Now())
 
 	// Store AMR (Authentication Method Reference) from Herald response for later use
 	if len(verifyResp.AMR) > 0 {
@@ -646,6 +649,7 @@ func authenticatePasswordLogin(ctx fiber.Ctx, password string) (bool, error) {
 }
 
 func storeLoginIdentity(sess *session.Session, authMethod string, identity *loginIdentity) {
+	clearVerifiedEmail(sess)
 	// Set user information to session for warden authentication before authenticating
 	if authMethod != "warden" {
 		return
@@ -696,6 +700,7 @@ func storeLoginIdentity(sess *session.Session, authMethod string, identity *logi
 	if len(identity.verifyRespAMR) > 0 {
 		sess.Set("user_amr", identity.verifyRespAMR)
 	}
+	storeVerifiedEmail(sess, identity)
 }
 
 func completeLoginResponse(ctx fiber.Ctx, sess *session.Session, sessionGetter SessionGetter) error {

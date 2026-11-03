@@ -50,6 +50,13 @@ func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (b
 		return false, errors.New("session refresh identity does not match; sign in again")
 	}
 	sess.Set("user_id", user.UserID)
+	// Losing or changing the verified address invalidates the evidence
+	// permanently; changing it back later cannot resurrect the old proof.
+	oldEmail, oldValid := canonicalEvidenceEmail(mail)
+	newEmail, newValid := canonicalEvidenceEmail(user.Mail)
+	if !oldValid || !newValid || oldEmail != newEmail {
+		clearVerifiedEmail(sess)
+	}
 	sess.Set("user_mail", user.Mail)
 	sess.Set("user_phone", user.Phone)
 	sess.Set("user_scope", user.Scope)

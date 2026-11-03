@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"crypto/subtle"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
@@ -95,6 +96,10 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 	}
 
 	return func(ctx fiber.Ctx) error {
+		// Never reflect a client-provided verification declaration, including on
+		// authentication failures. Only our successfully checked session can set it.
+		ctx.Request().Header.Del(verifiedEmailHeader)
+		ctx.Response().Header.Del(verifiedEmailHeader)
 		trustedIdentity := sanitizeTrustedIdentityHeaders(ctx)
 		// Tracing publishes its span through Fiber's standard Context/SetContext
 		// API; when tracing is disabled this still carries the request deadline.
@@ -169,6 +174,7 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 
 		// Set authentication headers
 		handler.SetAuthHeaders(faCtx, result)
+		setVerifiedEmailHeader(ctx, sess, result, time.Now())
 
 		recordForwardAuthResult(forwardAuthSpan, result)
 
