@@ -303,6 +303,9 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `WARDEN_TLS_CLIENT_KEY_FILE` | Pfad | leer | mTLS-Clientschlüssel |
 | `WARDEN_TLS_SERVER_NAME` | String | leer | Erwarteter TLS-Servername |
 | `WARDEN_CACHE_TTL` | Sekunden | 300 | Warden-Cache-Laufzeit |
+| `WARDEN_SOURCE_MAX_AGE` | Dauer | 0s | Maximales Alter der Warden-Quelldaten; 0s deaktiviert die Prüfung |
+| `WARDEN_SOURCE_CLOCK_SKEW` | Dauer | 0s | Tolerierte Zeitabweichung; kleiner als das maximale Alter |
+| `METRICS_API_KEY` | Geheimnis | leer | Separater Bearer-Schlüssel für /metrics, mindestens 32 Bytes |
 | `HERALD_ENABLED` | true/false | false | Herald-Integration |
 | `HERALD_URL` | URL | leer | Herald-Endpunkt |
 | `HERALD_API_KEY` | Geheimnis | leer | API-Key-Authentifizierung |
@@ -454,3 +457,19 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## Legacy-Authentifizierung per Passwort-Header
 
 Die `Stargate-Password`-Authentifizierung ist standardmäßig deaktiviert. Aktivieren Sie sie nur für vertrauenswürdige Legacy-Clients mit `PASSWORD_HEADER_AUTH_ENABLED=true`. Verwenden Sie HTTPS und Rate Limits und entfernen Sie den Header im Reverse Proxy, bevor die Anfrage an den Backend-Dienst weitergeleitet wird.
+
+## Quellenalter und Monitoring
+
+`WARDEN_SOURCE_MAX_AGE=0s` bleibt aus Kompatibilitätsgründen der Standard.
+Ein positiver Wert erfordert Warden-Snapshot-Metadaten v1 und
+`AUTH_REFRESH_ENABLED=true`. `WARDEN_SOURCE_CLOCK_SKEW` wird von der Gültigkeit
+abgezogen. Abgelaufene Quelldaten werden auch bei noch gültigen Sitzungen erneut
+geprüft; bei Quellenfehlern wird der Zugriff mit HTTP 503 abgelehnt.
+
+`/metrics` liefert ohne `METRICS_API_KEY` HTTP 404. Vor dem Update einen separaten,
+zufälligen Schlüssel mit mindestens 32 Bytes einrichten und den Scraper auf
+`Authorization: Bearer <secret>` umstellen. Keine Anmelde- oder Dienstschlüssel
+wiederverwenden. Für Metadaten zwischen Hosts verifiziertes HTTPS verwenden;
+HTTP setzt ein vertrauenswürdiges, isoliertes lokales Netz voraus.
+Die vollständigen Regeln und Migrationshinweise stehen in der
+[englischen Konfigurationsreferenz](../enUS/CONFIG.md#source-freshness-and-scrape-credentials).

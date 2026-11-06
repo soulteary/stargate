@@ -76,6 +76,9 @@ services:
 | `HEADER_AUTH_SHARED_SECRET` | 至少 32 个字符的密钥字符串 | 空 | 启用请求头认证时为是 |
 | `HEADER_AUTH_SECRET_HEADER` | HTTP 头名称 | X-Stargate-Header-Auth | 否 |
 | `WARDEN_CACHE_TTL` | String | 300 | 否 |
+| `WARDEN_SOURCE_MAX_AGE` | duration | 0s | 否 |
+| `WARDEN_SOURCE_CLOCK_SKEW` | duration | 0s | 否 |
+| `METRICS_API_KEY` | secret | 空（指标关闭） | 否 |
 | `HERALD_ENABLED` | true/false | false | 否 |
 | `HERALD_URL` | String | 空 | 否 |
 | `HERALD_API_KEY` | String | 空 | 否 |
@@ -1302,3 +1305,20 @@ HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 所有可配置请求头名称必须是合法的 HTTP Field Name，且不能复用路由、认证、身份或 Hop-by-hop 请求头。尤其不能把共享密钥请求头配置成 `X-Forwarded-Uri`、`Stargate-Password`、`X-User-Phone` 或 `X-User-Mail`；Stargate 会在启动时拒绝这些组合。
 
 这三个请求头都属于信任边界输入：必须使用 HTTPS 和高强度共享密钥，并让边缘代理先删除客户端传入的 `X-User-Phone`、`X-User-Mail` 以及由 `HEADER_AUTH_SECRET_HEADER` 指定名称的请求头，再写入代理自己的值。切勿把该模式直接暴露给不受信任的客户端。
+
+## 来源新鲜度与监控迁移
+
+`WARDEN_SOURCE_MAX_AGE` 默认 `0s`，保留对旧 Warden 的兼容。
+设置正数时，Warden 必须支持快照元数据 v1，并启用 `AUTH_REFRESH_ENABLED=true`。
+例如目录每 15–30 秒刷新时，可以从 `90s` 最大年龄和 `1s` 时钟容差开始验证。
+`WARDEN_SOURCE_CLOCK_SKEW` 会从来源截止时间中扣除，不能大于或等于最大年龄。
+会话到达来源截止时间后必须重新查询，修改年龄或时钟容差也会触发重验。
+来源故障返回 HTTP 503，保留会话但不延长授权；确认停用、删除或稳定用户 ID
+变化时会使会话失效。元数据没有独立签名，跨主机通信应使用验证证书的 HTTPS；
+明文 HTTP 只适用于可信、隔离的本地网络。
+
+未配置 `METRICS_API_KEY` 时，`/metrics` 返回 HTTP 404。升级前应生成至少
+32 字节的独立随机密钥，并让监控系统发送 `Authorization: Bearer <secret>`。
+不能复用配置中的服务、会话凭据或明文登录密码；散列登录密码也不应复用。
+同时在网络或反向代理限制指标入口。完整行为见
+[英文配置参考](../enUS/CONFIG.md#source-freshness-and-scrape-credentials)。

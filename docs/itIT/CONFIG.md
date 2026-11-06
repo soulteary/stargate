@@ -303,6 +303,9 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `WARDEN_TLS_CLIENT_KEY_FILE` | percorso | vuoto | Chiave client mTLS |
 | `WARDEN_TLS_SERVER_NAME` | stringa | vuoto | Nome server TLS atteso |
 | `WARDEN_CACHE_TTL` | secondi | 300 | Durata cache Warden |
+| `WARDEN_SOURCE_MAX_AGE` | durata | 0s | Età massima dei dati Warden; 0s disabilita il controllo |
+| `WARDEN_SOURCE_CLOCK_SKEW` | durata | 0s | Tolleranza dell’orologio, inferiore all’età massima |
+| `METRICS_API_KEY` | segreto | vuoto | Chiave Bearer separata per /metrics, almeno 32 byte |
 | `HERALD_ENABLED` | true/false | false | Integrazione Herald |
 | `HERALD_URL` | URL | vuoto | Endpoint Herald |
 | `HERALD_API_KEY` | segreto | vuoto | Autenticazione API key |
@@ -454,3 +457,19 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## Autenticazione legacy tramite header password
 
 L'autenticazione `Stargate-Password` è disabilitata per impostazione predefinita. Abilitarla solo per client legacy attendibili con `PASSWORD_HEADER_AUTH_ENABLED=true`. Usare HTTPS, applicare limiti di frequenza e rimuovere l'header nel reverse proxy prima di inoltrare la richiesta al backend.
+
+## Validità della fonte e monitoraggio
+
+`WARDEN_SOURCE_MAX_AGE=0s` resta il valore predefinito per compatibilità.
+Un valore positivo richiede i metadati Warden v1 e
+`AUTH_REFRESH_ENABLED=true`. `WARDEN_SOURCE_CLOCK_SKEW` viene sottratto alla
+validità. Le sessioni non estendono una fonte scaduta; gli errori della fonte
+impediscono l’accesso con HTTP 503.
+
+Senza `METRICS_API_KEY`, `/metrics` restituisce HTTP 404. Prima dell’aggiornamento,
+configurare una chiave casuale separata di almeno 32 byte e il relativo scraper con
+`Authorization: Bearer <secret>`. Non riutilizzare credenziali di servizio o di
+accesso. Tra host usare HTTPS con verifica del certificato; HTTP richiede una
+rete locale isolata e attendibile.
+Per le regole complete e la migrazione consultare la
+[guida inglese](../enUS/CONFIG.md#source-freshness-and-scrape-credentials).
