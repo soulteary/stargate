@@ -117,8 +117,8 @@ github.com/soulteary/forwardauth-kit/v3 v3.0.5 h1:qLs+MB3IGzVtx/tcdvTwSUOLPK4WT6
 github.com/soulteary/forwardauth-kit/v3 v3.0.5/go.mod h1:jiU+v9NZj2BPa+2d4dBJN2UcsRkm5pm1BBBueSFWvGU=
 github.com/soulteary/health-kit/v4 v4.0.5 h1:7rjlst/T8p3Qz5O5mZiDmUwvhZNOLF/H1ihkanmSCEo=
 github.com/soulteary/health-kit/v4 v4.0.5/go.mod h1:5NvaIZIFFeheVRvWGfZKeZUWyOGsVexxJ4kyhiSgt1M=
-github.com/soulteary/herald v1.3.14-0.20261106121638-0bc272d7de64 h1:MBf+irX2bWh3Dkw8AL8XKF2q0nfVkGkxRQPCUr/ubpI=
-github.com/soulteary/herald v1.3.14-0.20261106121638-0bc272d7de64/go.mod h1:uZXB49WEDo/wbCa9Aqf1K8Aso/dRZcej3Dw0n3bh1WA=
+github.com/soulteary/herald v1.3.14-0.20261106125956-90f039e6b3ac h1:0wnQDfvhjCr2fzTWr+DP7Ry4o/M0w+85FSsH5HxE/8Y=
+github.com/soulteary/herald v1.3.14-0.20261106125956-90f039e6b3ac/go.mod h1:gV6el9RgGP/h2t8wd5NeVXwsBrVSkfkDW4daa2L/tyA=
 github.com/soulteary/http-kit/v2 v2.1.0 h1:BmHQ1ZnPPINkloYiug8YmmbVBL3aeEBY3Y4I095sQjk=
 github.com/soulteary/http-kit/v2 v2.1.0/go.mod h1:bRSSQY7HnhohsmMGHtTKO8ZgW2STgogp1X/D0LVYmWs=
 github.com/soulteary/i18n-kit/v4 v4.0.4 h1:CoIgaBeBJg+b0kduyZJiAC8EsimScnFgGGXYTEP6+KQ=
@@ -139,8 +139,8 @@ github.com/soulteary/tracing-kit/v2 v2.0.3 h1:AHewuFNAL3yXnw+wjlKgYPCfa7ky30JsXn
 github.com/soulteary/tracing-kit/v2 v2.0.3/go.mod h1:A5ByuWDLVk+uxUpObqKj0ikxb6m3NN8dM+te1CLFmfg=
 github.com/soulteary/version-kit/v4 v4.0.3 h1:TxU5B9sCmYx8+POnjJUKtv5xDZAJJnUNbOzGpjOSkic=
 github.com/soulteary/version-kit/v4 v4.0.3/go.mod h1:3gPOkuGbm0AStsO9iAQ7BXXgnNmIwkZslSpYxyrgF/w=
-github.com/soulteary/warden v1.5.1-0.20261106114434-d24650ac7b1f h1:DQwhBNVbsYtgu5SXpYWc39sJ5jYznBU9nbqSk5lB/iU=
-github.com/soulteary/warden v1.5.1-0.20261106114434-d24650ac7b1f/go.mod h1:WMDLv68QvkIe8hPPtY+1Ob+bJ58J8AxRto4Z73+Wkx0=
+github.com/soulteary/warden v1.5.1-0.20261106124848-3ce93370df1d h1:V2IRY9g9ywBRSMnIE5yqheXl3aYweV12Ev9DXVasEEg=
+github.com/soulteary/warden v1.5.1-0.20261106124848-3ce93370df1d/go.mod h1:WMDLv68QvkIe8hPPtY+1Ob+bJ58J8AxRto4Z73+Wkx0=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
