@@ -582,25 +582,18 @@ func TestCreateApp_LoginWorksWithoutRedis(t *testing.T) {
 	testza.AssertNotNil(t, sessionCookie, "login should have issued a session cookie")
 }
 
-// TestSetupSessionStoreRedisKeyPrefix pins the Redis key layout that sessions
-// are stored under.
-//
-// session-kit v3 moved Redis storage out of the root package into redisstore,
-// and setupSessionStore now builds the Redis client itself rather than letting
-// the kit build one and handing it back. The prefix rules survived that move -
-// a configured prefix is used as given, an empty one falls back to "session:",
-// and one without a trailing colon gets one - and they decide whether an
-// existing deployment still finds its sessions after a rolling restart, so
-// they are asserted against a real Redis rather than inferred.
+// TestSetupSessionStoreRedisKeyPrefix verifies the new revocable namespace.
+// Existing ordinary sessions intentionally do not migrate into it: older
+// instances must not write records that bypass atomic revocation.
 func TestSetupSessionStoreRedisKeyPrefix(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
 		prefix string
 		want   string
 	}{
-		{name: "configured prefix is used as given", prefix: "stargate:session:", want: "stargate:session:"},
-		{name: "empty prefix falls back to session:", prefix: "", want: "session:"},
-		{name: "prefix without trailing colon gets one", prefix: "noColon", want: "noColon:"},
+		{name: "configured prefix is used as given", prefix: "stargate:session:", want: "stargate:session:revocable:v1:"},
+		{name: "empty prefix falls back to session:", prefix: "", want: "session:revocable:v1:"},
+		{name: "prefix without trailing colon gets one", prefix: "noColon", want: "noColon:revocable:v1:"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			redisServer := miniredis.RunT(t)

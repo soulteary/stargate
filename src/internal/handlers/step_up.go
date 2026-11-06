@@ -130,6 +130,9 @@ func StepUpRoute(store *session.Store) func(c fiber.Ctx) error {
 		if !auth.IsAuthenticated(sess) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
 		}
+		if allowed, err := authorizeSensitiveSession(ctx, sess); !allowed {
+			return err
+		}
 		callback := safeStepUpCallback(ctx.Query("callback"))
 		callbackHost, _ := ValidateCallbackHost(ctx.Query("callback_host"))
 		callbackProto := strings.ToLower(strings.TrimSpace(ctx.Query("callback_proto")))
@@ -149,6 +152,9 @@ func StepUpAPI(store *session.Store) func(c fiber.Ctx) error {
 		defer sess.Release()
 		if !auth.IsAuthenticated(sess) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
+		}
+		if allowed, err := authorizeSensitiveSession(ctx, sess); !allowed {
+			return err
 		}
 		if !auth.CheckPassword(ctx.FormValue("password")) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "additional authentication failed")

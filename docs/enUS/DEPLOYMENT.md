@@ -771,3 +771,34 @@ docker rm -f stargate
 docker rename stargate-previous stargate
 docker start stargate
 ```
+
+## Revocable session migration
+
+This version stores sessions under `<SESSION_STORAGE_REDIS_KEY_PREFIX>revocable:v1:`
+(the base prefix is normalized to end in `:`). Existing sessions and in-flight SSO
+tickets from the ordinary namespace require a new login. Deploy all gateway
+instances with this version; do not configure an older instance to write into the
+new namespace. Leave ordinary records to expire instead of copying them.
+
+Session identifiers now carry an absolute 24-hour deadline. Logout atomically
+marks the identifier revoked until that deadline; an older request cannot restore
+it by saving its authenticated snapshot afterward. Session writes and revocation
+markers cannot extend the identifier deadline. Keep Redis and application clocks
+synchronized, and allow the dedicated session keyspace's `EVAL`, `TIME`, `GET`,
+`SET`, and `DEL` operations. This adds an absolute limit to the former idle timeout.
+
+Factor enrollment, confirmation, revocation, and step-up now recheck Warden
+identity before proceeding, even when background authorization refresh is
+configured off. A directory/source failure returns 503 without performing the
+factor operation. Confirmed disabled, deleted, or reassigned identities fail with
+401. Password-only sessions continue to use their configured local credentials.
+
+Rate-limit buckets use the registered method and route, so case variants and
+trailing slashes share the same quota. Distinct registered endpoints retain
+independent quotas.
+
+Atomic revocation applies to the same identifier. Never rotate an old authenticated
+snapshot into a new ID as a substitute for reauthentication: obtain fresh
+credential proof first, then clear/reset identity data before issuing a new
+authenticated session. Anonymous logout only clears the browser cookie and does
+not allocate a revocation marker for a never-stored identifier.

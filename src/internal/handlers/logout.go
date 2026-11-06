@@ -3,6 +3,8 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/soulteary/stargate/src/internal/config"
+	"time"
 
 	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
@@ -47,6 +49,12 @@ func logoutHandler(ctx fiber.Ctx, sessionGetter SessionGetter, unauthenticator U
 		return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 	}
 	defer sess.Release()
+	// A missing or unknown cookie creates an anonymous identifier. Revoking
+	// that never-stored identifier would allocate a tombstone for every probe.
+	if sess.Fresh() && !auth.IsAuthenticated(sess) {
+		ctx.Cookie(&fiber.Cookie{Name: auth.SessionCookieName, Value: "", Path: "/", Domain: config.CookieDomain.String(), Expires: time.Unix(1, 0), MaxAge: -1, Secure: config.CookieSecure.ToBool(), HTTPOnly: true, SameSite: "Lax"})
+		return ctx.SendString("Logged out")
+	}
 
 	// Get user ID from session for audit logging
 	var userID string

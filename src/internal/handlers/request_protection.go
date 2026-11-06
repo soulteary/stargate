@@ -150,7 +150,9 @@ func endpointRateLimit(limit func() int) fiber.Handler {
 			return ctx.Next()
 		}
 
-		exceeded, remaining, retryAfter := consumeRateLimit(ctx, ctx.IP()+":"+ctx.Path(), max)
+		// Route identity is fixed by registration. The raw request spelling can
+		// vary by case or trailing slash while Fiber still matches this endpoint.
+		exceeded, remaining, retryAfter := consumeRateLimit(ctx, ctx.IP()+":"+ctx.Route().Method+":"+ctx.Route().Path, max)
 		ctx.Set(xRateLimitLimit, strconv.Itoa(max))
 		ctx.Set(xRateLimitRemaining, strconv.Itoa(remaining))
 		ctx.Set(xRateLimitReset, retryAfterSeconds(retryAfter))

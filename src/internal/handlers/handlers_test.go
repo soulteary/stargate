@@ -314,7 +314,10 @@ func TestLoginAPI_WardenUnavailable(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	// The test directory is unreachable.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
+	defer server.Close()
+	t.Setenv("WARDEN_URL", server.URL)
+	// A directory failure must not be treated as a missing account.
 	auth.ResetWardenClientForTesting()
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
@@ -1303,6 +1306,7 @@ func TestLogoutRoute_UnauthenticateError(t *testing.T) {
 	store := setupTestStore()
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
+	testza.AssertNoError(t, auth.Authenticate(sess))
 
 	mockSessionGetter := &MockSessionGetter{
 		GetFunc: func(ctx fiber.Ctx) (*session.Session, error) {
