@@ -1,11 +1,11 @@
 # Go Report Card
 
-**Grade: A+** (100.0%)
+**Grade: A+** (99.4%)
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 92 |
-| Issues | 0 |
+| Files | 106 |
+| Issues | 5 |
 
 ## Checks
 
@@ -14,11 +14,24 @@
 | gofmt | 100% |
 | go_vet | 100% |
 | ineffassign | 100% |
-| gocyclo | 100% |
+| gocyclo | 95% |
 | license | 100% |
 | misspell | 100% |
 
-No issues found. Nice work!
+## Issues
+
+### gocyclo
+
+- `src/internal/auth/auth.go`
+  - Line 338: cyclomatic complexity 19 for function LookupUserInfo
+- `src/internal/handlers/verified_email.go`
+  - Line 34: cyclomatic complexity 29 for function canonicalEvidenceEmail
+- `src/internal/handlers/auth_refresh.go`
+  - Line 24: cyclomatic complexity 25 for function refreshDirectoryAuthorization
+- `src/internal/handlers/check.go`
+  - Line 92: cyclomatic complexity 24 for function CheckRoute
+- `src/internal/handlers/login_identifier_labels_test.go`
+  - Line 18: cyclomatic complexity 23 for function TestWardenLoginIdentifierLabelsMatchTheirRenderedFields
 
 ---
 
