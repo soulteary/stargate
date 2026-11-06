@@ -303,6 +303,9 @@ PORT=8080
 | `WARDEN_TLS_CLIENT_KEY_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 키 |
 | `WARDEN_TLS_SERVER_NAME` | 문자열 | 비어 있음 | 예상 TLS 서버 이름 |
 | `WARDEN_CACHE_TTL` | 초 | 300 | Warden 캐시 시간 |
+| `WARDEN_SOURCE_MAX_AGE` | 기간 | 0s | Warden 원본 데이터의 최대 경과 시간; 0s는 검사 비활성화 |
+| `WARDEN_SOURCE_CLOCK_SKEW` | 기간 | 0s | 허용 시계 오차; 최대 경과 시간보다 작아야 함 |
+| `METRICS_API_KEY` | 비밀 값 | 비어 있음 | /metrics 전용 Bearer 키; 32바이트 이상 |
 | `HERALD_ENABLED` | true/false | false | Herald 연동 |
 | `HERALD_URL` | URL | 비어 있음 | Herald 엔드포인트 |
 | `HERALD_API_KEY` | 비밀값 | 비어 있음 | API 키 인증 |
@@ -454,3 +457,19 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## 레거시 비밀번호 헤더 인증
 
 `Stargate-Password` 인증은 기본적으로 비활성화됩니다. 신뢰할 수 있는 레거시 클라이언트에만 `PASSWORD_HEADER_AUTH_ENABLED=true`로 활성화하세요. HTTPS와 요청 속도 제한을 사용하고, 백엔드로 전달하기 전에 리버스 프록시에서 이 헤더를 제거하세요.
+
+## 원본 데이터 유효성 및 모니터링
+
+호환성을 위해 `WARDEN_SOURCE_MAX_AGE`의 기본값은 `0s`입니다.
+양수를 설정하려면 Warden 메타데이터 v1과 `AUTH_REFRESH_ENABLED=true`가
+필요합니다. `WARDEN_SOURCE_CLOCK_SKEW`는 유효 기간에서 차감됩니다.
+세션이 원본 데이터의 유효 기간을 연장하지 않으며, 원본 장애가 발생하면
+HTTP 503으로 접근을 거부합니다.
+
+`METRICS_API_KEY`가 없으면 `/metrics`는 HTTP 404를 반환합니다.
+업데이트 전에 32바이트 이상의 별도 무작위 키를 설정하고 모니터링 클라이언트가
+`Authorization: Bearer <secret>`를 전송하도록 구성하세요. 서비스 키나 로그인
+비밀번호를 재사용하지 마세요. 호스트 간 통신에는 인증서를 검증하는 HTTPS를
+사용하세요. HTTP는 신뢰할 수 있는 격리된 로컬 네트워크를 전제로 합니다.
+전체 규칙과 이전 절차는
+[영문 설정 문서](../enUS/CONFIG.md#source-freshness-and-scrape-credentials)를 참조하세요.

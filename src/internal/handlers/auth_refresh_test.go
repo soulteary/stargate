@@ -45,8 +45,8 @@ func TestAuthRefreshRejectsMissingOrDisabledUser(t *testing.T) {
 	defer app.ReleaseCtx(ctx)
 	sess, err = store.Get(ctx)
 	testza.AssertNoError(t, err)
-	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
-		return &warden.AllowListUser{Status: "disabled"}
+	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
+		return &warden.AllowListUser{Status: "disabled"}, time.Time{}, nil
 	}
 
 	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
@@ -67,9 +67,9 @@ func TestAuthRefreshPreservesSessionWhenRequestDeadlineExpires(t *testing.T) {
 	sess.Set("auth_refreshed_at", time.Now().Add(-time.Minute).Unix())
 	testza.AssertNoError(t, auth.Authenticate(sess))
 
-	lookupRefreshUser = func(ctx context.Context, _, _ string) *warden.AllowListUser {
+	lookupRefreshUser = func(ctx context.Context, _, _ string) (*warden.AllowListUser, time.Time, error) {
 		<-ctx.Done()
-		return nil
+		return nil, time.Time{}, nil
 	}
 	requestCtx, cancel := context.WithTimeout(context.Background(), time.Nanosecond)
 	defer cancel()
@@ -100,14 +100,14 @@ func TestAuthRefreshReplacesRevokedAuthorization(t *testing.T) {
 	defer app.ReleaseCtx(ctx)
 	sess, err = store.Get(ctx)
 	testza.AssertNoError(t, err)
-	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
+	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
 		return &warden.AllowListUser{
 			UserID: "user-1",
 			Mail:   "active@example.com",
 			Status: "active",
 			Scope:  []string{"read"},
 			Role:   "viewer",
-		}
+		}, time.Time{}, nil
 	}
 
 	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
@@ -125,9 +125,9 @@ func TestAuthRefreshSkipsAnonymousSession(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	lookupCalled := false
-	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
+	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
 		lookupCalled = true
-		return nil
+		return nil, time.Time{}, nil
 	}
 
 	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
@@ -167,9 +167,9 @@ func TestAuthRefreshSkipsPasswordSessionInMixedDeployment(t *testing.T) {
 	testza.AssertNoError(t, auth.Authenticate(sess))
 
 	lookupCalled := false
-	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
+	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
 		lookupCalled = true
-		return nil
+		return nil, time.Time{}, nil
 	}
 	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
 	testza.AssertNoError(t, err)

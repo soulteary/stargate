@@ -175,6 +175,13 @@ func validateCallbackHostList(variable *EnvVariable) error {
 }
 
 func validateStrictSettings() error {
+	if err := validateSourceFreshnessSettings(); err != nil {
+		return err
+	}
+	if err := validateMetricsCredential(); err != nil {
+		return err
+	}
+
 	if err := validateAuthHostAndCookieDomain(); err != nil {
 		return err
 	}
@@ -265,6 +272,58 @@ func validateRedisSettings() error {
 	}
 	if SessionStorageEnabled.ToBool() && strings.TrimSpace(SessionStorageRedisAddr.Value) == "" {
 		return strictValidationError(&SessionStorageRedisAddr, "must be set when Redis session storage is enabled")
+	}
+	return nil
+}
+
+func validateSourceFreshnessSettings() error {
+	parse := func(v *EnvVariable) (time.Duration, error) {
+		if v.Value == "" {
+			return 0, nil
+		}
+		d, err := time.ParseDuration(v.Value)
+		if err != nil || d < 0 {
+			return 0, strictValidationError(v, "must be a non-negative Go duration")
+		}
+		return d, nil
+	}
+	maxAge, err := parse(&WardenSourceMaxAge)
+	if err != nil {
+		return err
+	}
+	skew, err := parse(&WardenSourceClockSkew)
+	if err != nil {
+		return err
+	}
+	if skew > 0 && (maxAge == 0 || skew >= maxAge) {
+		return strictValidationError(&WardenSourceClockSkew, "must be zero when freshness is disabled and smaller than WARDEN_SOURCE_MAX_AGE otherwise")
+	}
+	if maxAge > 0 && WardenEnabled.ToBool() && !AuthRefreshEnabled.ToBool() {
+		return strictValidationError(&AuthRefreshEnabled, "must be enabled with WARDEN_SOURCE_MAX_AGE")
+	}
+	return nil
+}
+
+func validateMetricsCredential() error {
+	key := MetricsAPIKey.Value
+	if key == "" {
+		return nil
+	}
+	if len(key) < 32 {
+		return strictValidationError(&MetricsAPIKey, "must contain at least 32 bytes")
+	}
+	for _, secret := range []string{WardenAPIKey.Value, WardenHMACSecret.Value, HeraldAPIKey.Value, HeraldHMACSecret.Value, HeaderAuthSharedSecret.Value, SessionExchangeSecret.Value} {
+		if key == secret {
+			return strictValidationError(&MetricsAPIKey, "must not reuse a service or session credential")
+		}
+	}
+	algorithm, passwords, ok := ParsePasswords(Passwords.Value)
+	if ok && algorithm == "plaintext" {
+		for _, password := range passwords {
+			if key == password {
+				return strictValidationError(&MetricsAPIKey, "must not reuse a login password")
+			}
+		}
 	}
 	return nil
 }

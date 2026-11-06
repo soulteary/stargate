@@ -128,8 +128,8 @@ func TestVerifiedEmailIsClearedByIdentityReplacementAndDirectoryChange(t *testin
 	defer sess.Release()
 	seedVerifiedEmail(t, sess, time.Now())
 	require.NoError(t, auth.Authenticate(sess))
-	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
-		return &warden.AllowListUser{UserID: "user-1", Mail: "changed@example.com", Status: "active"}
+	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
+		return &warden.AllowListUser{UserID: "user-1", Mail: "changed@example.com", Status: "active"}, time.Time{}, nil
 	}
 	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
 	require.NoError(t, err)
@@ -139,8 +139,8 @@ func TestVerifiedEmailIsClearedByIdentityReplacementAndDirectoryChange(t *testin
 	}
 	// A later refresh restoring the old email must not restore the old proof.
 	sess.Delete("auth_refreshed_at")
-	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
-		return &warden.AllowListUser{UserID: "user-1", Mail: "alice@example.com", Status: "active"}
+	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
+		return &warden.AllowListUser{UserID: "user-1", Mail: "alice@example.com", Status: "active"}, time.Time{}, nil
 	}
 	_, err = refreshAuthorizationIfNeeded(context.Background(), sess)
 	require.NoError(t, err)

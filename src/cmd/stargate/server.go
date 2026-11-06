@@ -263,7 +263,7 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	app.Get(RouteStepUp, handlers.StepUpRoute(store))
 	app.Post(RouteStepUp, sameOrigin, handlers.LoginRateLimit(), handlers.StepUpAPI(store))
 	// Prometheus metrics endpoint
-	app.Get("/metrics", metricsfiber.HandlerFor(metrics.Registry))
+	app.Get("/metrics", handlers.MetricsAuth(), metricsfiber.HandlerFor(metrics.Registry))
 
 	// Register log level endpoint
 	loggerfiber.RegisterLevelEndpoint(app, "/log/level", loggerfiber.LevelHandlerConfig{

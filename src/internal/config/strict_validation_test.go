@@ -250,3 +250,66 @@ func TestValidateStrictSettingsRejectsInvalidRateLimitWindow(t *testing.T) {
 		testza.AssertEqual(t, RateLimitWindow.Name, err.(*ValidationError).KeyName)
 	}
 }
+
+func TestSourceFreshnessConfigurationRejectsAmbiguousBounds(t *testing.T) {
+	previousMax, previousSkew, previousEnabled, previousRefresh, previousMetrics := WardenSourceMaxAge.Value, WardenSourceClockSkew.Value, WardenEnabled.Value, AuthRefreshEnabled.Value, MetricsAPIKey.Value
+	t.Cleanup(func() {
+		WardenSourceMaxAge.Value = previousMax
+		WardenSourceClockSkew.Value = previousSkew
+		WardenEnabled.Value = previousEnabled
+		AuthRefreshEnabled.Value = previousRefresh
+		MetricsAPIKey.Value = previousMetrics
+	})
+	cases := []struct {
+		max, skew, enabled, refresh string
+		valid                       bool
+	}{
+		{"", "", "false", "false", true}, {"0s", "0s", "true", "true", true}, {"90s", "1s", "true", "true", true},
+		{"bad", "0s", "true", "true", false}, {"-1s", "0s", "true", "true", false}, {"90s", "bad", "true", "true", false}, {"90s", "-1s", "true", "true", false},
+		{"0s", "1s", "true", "true", false}, {"1s", "1s", "true", "true", false}, {"90s", "0s", "true", "false", false},
+	}
+	for _, tc := range cases {
+		WardenSourceMaxAge.Value = tc.max
+		WardenSourceClockSkew.Value = tc.skew
+		WardenEnabled.Value = tc.enabled
+		AuthRefreshEnabled.Value = tc.refresh
+		err := validateSourceFreshnessSettings()
+		if tc.valid {
+			testza.AssertNoError(t, err)
+		} else {
+			testza.AssertNotNil(t, err)
+		}
+	}
+	setValidStrictTestValues(t)
+	WardenSourceMaxAge.Value = "0s"
+	WardenSourceClockSkew.Value = "0s"
+	MetricsAPIKey.Value = "short"
+	testza.AssertNotNil(t, validateStrictSettings())
+	MetricsAPIKey.Value = "01234567890123456789012345678901"
+	testza.AssertNoError(t, validateStrictSettings())
+}
+
+func TestMetricsCredentialCannotReuseApplicationSecrets(t *testing.T) {
+	variables := []*EnvVariable{&MetricsAPIKey, &WardenAPIKey, &WardenHMACSecret, &HeraldAPIKey, &HeraldHMACSecret, &HeaderAuthSharedSecret, &SessionExchangeSecret, &Passwords}
+	old := make([]string, len(variables))
+	for i, v := range variables {
+		old[i] = v.Value
+		v.Value = ""
+	}
+	t.Cleanup(func() {
+		for i, v := range variables {
+			v.Value = old[i]
+		}
+	})
+	key := "01234567890123456789012345678901"
+	MetricsAPIKey.Value = key
+	for _, v := range variables[1 : len(variables)-1] {
+		v.Value = key
+		testza.AssertNotNil(t, validateMetricsCredential())
+		v.Value = ""
+	}
+	Passwords.Value = "plaintext:" + key
+	testza.AssertNotNil(t, validateMetricsCredential())
+	Passwords.Value = "plaintext:different-password"
+	testza.AssertNoError(t, validateMetricsCredential())
+}

@@ -303,6 +303,9 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `WARDEN_TLS_CLIENT_KEY_FILE` | chemin | vide | Clé client mTLS |
 | `WARDEN_TLS_SERVER_NAME` | chaîne | vide | Nom de serveur TLS attendu |
 | `WARDEN_CACHE_TTL` | secondes | 300 | Durée du cache Warden |
+| `WARDEN_SOURCE_MAX_AGE` | durée | 0s | Âge maximal de la source Warden ; 0s désactive le contrôle |
+| `WARDEN_SOURCE_CLOCK_SKEW` | durée | 0s | Tolérance d’horloge, inférieure à l’âge maximal |
+| `METRICS_API_KEY` | secret | vide | Clé Bearer distincte pour /metrics, au moins 32 octets |
 | `HERALD_ENABLED` | true/false | false | Intégration Herald |
 | `HERALD_URL` | URL | vide | Point de terminaison Herald |
 | `HERALD_API_KEY` | secret | vide | Authentification par clé API |
@@ -454,3 +457,19 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## Authentification historique par en-tête de mot de passe
 
 L'authentification `Stargate-Password` est désactivée par défaut. Activez-la uniquement pour un client historique de confiance avec `PASSWORD_HEADER_AUTH_ENABLED=true`. Utilisez HTTPS, appliquez une limitation de débit et supprimez cet en-tête dans le proxy avant de transmettre la requête au service backend.
+
+## Fraîcheur de la source et supervision
+
+`WARDEN_SOURCE_MAX_AGE=0s` reste la valeur par défaut pour la compatibilité.
+Une valeur positive exige les métadonnées Warden v1 et
+`AUTH_REFRESH_ENABLED=true`. `WARDEN_SOURCE_CLOCK_SKEW` est soustrait à la durée
+valide. Une session ne prolonge pas une source expirée ; une erreur de source
+refuse la requête avec HTTP 503.
+
+Sans `METRICS_API_KEY`, `/metrics` renvoie HTTP 404. Avant la mise à jour,
+configurer une clé aléatoire distincte d’au moins 32 octets et le scraper avec
+`Authorization: Bearer <secret>`. Ne pas réutiliser une clé de service ou un mot
+de passe de connexion. Entre hôtes, utiliser HTTPS avec vérification du certificat ;
+HTTP suppose un réseau local isolé et de confiance.
+Les règles détaillées et la migration sont décrites dans la
+[référence anglaise](../enUS/CONFIG.md#source-freshness-and-scrape-credentials).

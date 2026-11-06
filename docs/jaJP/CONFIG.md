@@ -303,6 +303,9 @@ PORT=8080
 | `WARDEN_TLS_CLIENT_KEY_FILE` | パス | 空 | mTLS クライアント鍵 |
 | `WARDEN_TLS_SERVER_NAME` | 文字列 | 空 | 期待する TLS サーバー名 |
 | `WARDEN_CACHE_TTL` | 秒 | 300 | Warden キャッシュ時間 |
+| `WARDEN_SOURCE_MAX_AGE` | 期間 | 0s | Warden ソースの最大経過時間。0s で検証を無効化 |
+| `WARDEN_SOURCE_CLOCK_SKEW` | 期間 | 0s | 許容する時刻差。最大経過時間未満 |
+| `METRICS_API_KEY` | シークレット | 空 | /metrics 専用 Bearer キー。32 バイト以上 |
 | `HERALD_ENABLED` | true/false | false | Herald 連携 |
 | `HERALD_URL` | URL | 空 | Herald エンドポイント |
 | `HERALD_API_KEY` | 秘密値 | 空 | API キー認証 |
@@ -454,3 +457,19 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## レガシー・パスワードヘッダー認証
 
 `Stargate-Password` 認証はデフォルトで無効です。信頼できるレガシークライアントに限り `PASSWORD_HEADER_AUTH_ENABLED=true` で有効化してください。HTTPS とレート制限を使用し、バックエンドへ転送する前にリバースプロキシでこのヘッダーを削除してください。
+
+## ソースの鮮度と監視
+
+互換性のため、`WARDEN_SOURCE_MAX_AGE` の既定値は `0s` です。
+正の値を設定する場合、Warden のメタデータ v1 と
+`AUTH_REFRESH_ENABLED=true` が必要です。`WARDEN_SOURCE_CLOCK_SKEW` は
+有効期限から差し引かれます。セッションはソースの有効期限を延長しません。
+ソースの障害時には HTTP 503 でアクセスを拒否します。
+
+`METRICS_API_KEY` が未設定の場合、`/metrics` は HTTP 404 を返します。
+更新前に、32 バイト以上の専用ランダムキーを設定し、監視クライアントから
+`Authorization: Bearer <secret>` を送信してください。サービスキーや
+ログインパスワードを再利用しないでください。ホスト間の通信には証明書を
+検証する HTTPS を使ってください。HTTP は信頼できる隔離されたローカル
+ネットワークを前提とします。詳細な仕様と移行手順は
+[英語の設定リファレンス](../enUS/CONFIG.md#source-freshness-and-scrape-credentials)を参照してください。
