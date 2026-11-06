@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -41,12 +42,19 @@ func setupTestRedis(t *testing.T) *redis.Client {
 		t.Skip("requires Redis integration service")
 	}
 
+	addr := os.Getenv("STARGATE_TEST_REDIS_ADDR")
+	if addr == "" {
+		addr = "localhost:6379"
+	}
 	cfg := client.DefaultConfig().
-		WithAddr("localhost:6379").
+		WithAddr(addr).
 		WithDB(14) // Use DB 14 for integration testing
 
 	redisClient, err := client.NewClient(cfg)
 	if err != nil {
+		if os.Getenv("STARGATE_TEST_REDIS_ADDR") != "" {
+			t.Fatalf("configured integration Redis is unavailable: %v", err)
+		}
 		t.Skipf("Skipping integration test: Redis not available: %v", err)
 	}
 
@@ -193,8 +201,12 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 			return
 		}
 
-		// Store user_id for verification
-		_ = testCache.Set(ctx, "user_id:"+challengeID, req.UserID, 5*time.Minute)
+		// Persist the issued identity; verification must compare expected fields
+		// against stored creation data, rather than echoing client expectations.
+		if err := testCache.Set(ctx, "binding:"+challengeID, req, 5*time.Minute); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -205,7 +217,7 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 	})
 
 	// Mock verify challenge
-	mux.HandleFunc("/v1/otp/verifications", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/v2/otp/verifications", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
@@ -223,8 +235,11 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 		}
 
 		var req struct {
-			ChallengeID string `json:"challenge_id"`
-			Code        string `json:"code"`
+			ChallengeID     string `json:"challenge_id"`
+			Code            string `json:"code"`
+			ExpectedUserID  string `json:"expected_user_id"`
+			ExpectedPurpose string `json:"expected_purpose"`
+			ExpectedChannel string `json:"expected_channel"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			w.WriteHeader(http.StatusBadRequest)
@@ -260,21 +275,35 @@ func setupHeraldMockServer(t *testing.T, redisClient *redis.Client) *httptest.Se
 			return
 		}
 
-		// Get user_id from Redis using redis-kit cache
-		var userID string
-		if err := testCache.Get(ctx, "user_id:"+req.ChallengeID, &userID); err != nil {
-			// Fallback to default if not found
-			userID = "test-user-123"
+		var binding struct {
+			UserID  string `json:"user_id"`
+			Purpose string `json:"purpose"`
+			Channel string `json:"channel"`
+		}
+		if err := testCache.Get(ctx, "binding:"+req.ChallengeID, &binding); err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		if req.ExpectedUserID == "" || req.ExpectedUserID != binding.UserID ||
+			req.ExpectedPurpose != "login" || req.ExpectedPurpose != binding.Purpose ||
+			req.ExpectedChannel == "" || req.ExpectedChannel != binding.Channel {
+			t.Errorf("unexpected bound verification fields: %+v; issued %+v", req, binding)
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "reason": "context_mismatch"})
+			return
 		}
 
 		// Return success response with 200 status code
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]interface{}{
-			"ok":        true,
-			"user_id":   userID,
-			"amr":       []string{"otp"},
-			"issued_at": time.Now().Unix(),
+			"ok":           true,
+			"user_id":      binding.UserID,
+			"challenge_id": req.ChallengeID,
+			"purpose":      binding.Purpose,
+			"channel":      binding.Channel,
+			"amr":          []string{"otp"},
+			"issued_at":    time.Now().Unix(),
 		})
 	})
 
@@ -403,6 +432,9 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 	auth.ResetWardenClientForTesting()
 	testza.AssertNoError(t, auth.InitWardenClient(testLoggerE2E()))
 	testza.AssertNoError(t, InitHeraldClient(testLoggerE2E()))
+	previousContextStore := getChallengeContextStore()
+	SetChallengeContextStore(NewChallengeContextStore(redisClient))
+	t.Cleanup(func() { SetChallengeContextStore(previousContextStore) })
 
 	// Create Stargate app
 	store := session.NewStore(session.Config{
