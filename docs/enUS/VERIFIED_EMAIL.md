@@ -31,8 +31,10 @@ login; see the [session migration](DEPLOYMENT.md#revocable-session-migration).
 
 SMS, TOTP, shared-password login, password-header authentication, trusted identity
 headers, a listed directory email and generic `otp`/`email` AMR do not create this
-evidence. Missing/unavailable challenge context does not break an otherwise valid
-existing login flow, but cannot produce `true`.
+evidence. OTP login requires trusted challenge context matching the current directory
+subject and contact. Missing context rejects OTP login; an unavailable context
+backend returns 503. Password and TOTP login do not create email evidence. See
+the [bound login upgrade rules](DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback).
 
 Directory revocation still follows existing authorization-refresh settings and
 their effective lookup/cache window. This feature does not make revocation

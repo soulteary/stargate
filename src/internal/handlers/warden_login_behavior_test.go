@@ -28,13 +28,14 @@ func TestWardenLoginBindsCanonicalProviderIdentity(t *testing.T) {
 		}
 	})
 	canonical := warden.AllowListUser{UserID: "user-1", Mail: "canonical@example.com", Phone: "13800138000", Status: "active", Name: "Test User", Role: "viewer", Scope: []string{"read"}}
+	seedLoginChallengeBinding(t, "challenge-1", "user-1", "email", canonical.Mail)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Path == "/user" {
 			_ = json.NewEncoder(w).Encode(canonical)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(herald.VerifyChallengeResponse{OK: true, UserID: "user-1", AMR: []string{"otp", "email"}})
+		_ = json.NewEncoder(w).Encode(herald.VerifyChallengeV2Response{OK: true, UserID: "user-1", ChallengeID: "challenge-1", Purpose: "login", Channel: "email", AMR: []string{"otp", "email"}})
 	}))
 	defer server.Close()
 	config.WardenEnabled.Value = "true"

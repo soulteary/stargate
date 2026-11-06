@@ -70,9 +70,9 @@ func TestChallengeVerificationPreservesIdentityAndAMR(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				require.Equal(t, "/v1/otp/verifications", r.URL.Path)
+				require.Equal(t, "/v2/otp/verifications", r.URL.Path)
 				w.Header().Set("Content-Type", "application/json")
-				require.NoError(t, json.NewEncoder(w).Encode(herald.VerifyChallengeResponse{OK: true, UserID: tc.userID, AMR: []string{"otp", "email"}}))
+				require.NoError(t, json.NewEncoder(w).Encode(herald.VerifyChallengeV2Response{OK: true, UserID: tc.userID, ChallengeID: "challenge-1", Purpose: "login", Channel: "email", AMR: []string{"otp", "email"}}))
 			}))
 			defer server.Close()
 			var err error
@@ -80,8 +80,8 @@ func TestChallengeVerificationPreservesIdentityAndAMR(t *testing.T) {
 			require.NoError(t, err)
 			app := fiber.New()
 			app.Post("/", func(ctx fiber.Ctx) error {
-				identity := &loginIdentity{userID: "user-1", wardenUserInfo: &warden.AllowListUser{UserID: "user-1"}}
-				ok, err := identity.verifyChallenge(ctx, ctx.Context(), challengeContext{}, false)
+				identity := &loginIdentity{userID: "user-1", wardenUserInfo: &warden.AllowListUser{UserID: "user-1", Mail: "alice@example.com"}}
+				ok, err := identity.verifyChallenge(ctx, ctx.Context(), challengeContext{ChallengeID: "challenge-1", UserID: "user-1", Channel: "email", Destination: "alice@example.com"}, false)
 				require.Equal(t, tc.ok, ok)
 				if !ok {
 					return err

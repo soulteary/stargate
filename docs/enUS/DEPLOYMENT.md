@@ -816,3 +816,47 @@ Previously issued tickets are rejected. Complete an in-progress login again afte
 ### Warden credential precedence
 
 When both `WARDEN_API_KEY` and `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` are configured, the updated SDK sends only HMAC credentials. It does not retry authentication with the API key. Configure matching HMAC credentials on Warden before upgrading this combination. For an API-key-only Warden deployment, remove both client HMAC settings and keep `WARDEN_API_KEY`. API-key-only authentication and mTLS remain supported; this change does not alter the server's authentication policy.
+
+
+## Bound login challenge upgrade and rollback
+
+OTP login now requires the gateway's trusted challenge context to match the
+current Warden user, selected channel and directory contact. The gateway sends
+Herald a `/v2/otp/verifications` request bound to that subject, the `login`
+purpose and channel, and checks those fields and the challenge ID in a successful
+response. There is no fallback to unbound `/v1/otp/verifications`. Configure a
+Herald server supporting the bound route before changing gateway traffic.
+
+Preserve the existing challenge-context Redis namespace and share it across all
+gateway replicas. Process-local context is suitable only for a single process:
+a restart or another replica cannot validate a challenge whose binding it never
+stored. Existing pending codes need no format conversion when their binding
+survives and the directory contact is unchanged. Missing bindings or changes to
+the user's current contact require a new login challenge. Email local parts and
+plus tags retain their identity; domain case and supported phone formatting are
+normalized without treating different contacts as equivalent.
+
+If Herald delivered a code but saving its binding fails, creation returns
+`503/binding_unavailable` without a challenge ID. Preserve and retry the original
+idempotency key after restoring the context backend; do not create a new key to
+bypass uncertain delivery. A conflicting stored binding also fails closed.
+
+Pause new code creation and drain in-flight login attempts while replacing all
+gateway instances. Older gateways retain unbound verification, so mixing them
+keeps the older acceptance path available. A rollback reintroduces that behavior;
+do not use rollback as a way to accept a rejected or unrelated-purpose code.
+Do not delete provider idempotency, nonce or audit state during either direction,
+and follow each backend's separate OTP/TOTP storage migration requirements.
+
+TOTP enrollment-confirmation quotas now propagate through Herald and Stargate as
+429 with fixed error fields. The local enrollment binding remains available for
+a later retry. Backend SDK pins alone do not upgrade the independently deployed
+TOTP service. Subject quotas are shared with enrollment start, so provision room
+for both steps and failed attempts; a subject limit of one cannot complete the
+flow before its hourly budget resets.
+
+The session-kit clock-bound fix changes only the future identifier plausibility
+check. It neither extends immutable deadlines nor permits saving a revoked
+identifier. Keep clocks synchronized. Older adapters can reject a session from a
+slightly ahead replica after rollback; leave the revocable namespace and absolute
+deadline enforcement intact rather than copying records into an older namespace.

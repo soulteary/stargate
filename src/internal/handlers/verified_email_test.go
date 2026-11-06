@@ -160,9 +160,9 @@ func TestVerifiedEmailLoginToForwardAuth(t *testing.T) {
 	}{
 		{"email", "email", "alice@EXAMPLE.COM", "user-1", "user-1", "true", 200},
 		{"sms AMR email is not proof", "sms", "13800138000", "user-1", "user-1", "false", 200},
-		{"different email", "email", "other@example.com", "user-1", "user-1", "false", 200},
-		{"different context subject", "email", "alice@example.com", "other", "user-1", "false", 200},
-		{"missing context", "", "", "", "user-1", "false", 200},
+		{"different email", "email", "other@example.com", "user-1", "user-1", "", 401},
+		{"different context subject", "email", "alice@example.com", "other", "user-1", "", 401},
+		{"missing context", "", "", "", "user-1", "", 401},
 		{"Herald subject mismatch", "email", "alice@example.com", "user-1", "other", "", 401},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -184,10 +184,10 @@ func TestVerifiedEmailLoginToForwardAuth(t *testing.T) {
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				if r.URL.Path == "/user" {
-					_ = json.NewEncoder(w).Encode(warden.AllowListUser{UserID: "user-1", Mail: "alice@example.com", Status: "active"})
+					_ = json.NewEncoder(w).Encode(warden.AllowListUser{UserID: "user-1", Mail: "alice@example.com", Phone: "13800138000", Status: "active"})
 					return
 				}
-				_ = json.NewEncoder(w).Encode(herald.VerifyChallengeResponse{OK: true, UserID: tc.responseSubject, AMR: []string{"otp", "email"}})
+				_ = json.NewEncoder(w).Encode(herald.VerifyChallengeV2Response{OK: true, UserID: tc.responseSubject, ChallengeID: "challenge-1", Purpose: "login", Channel: tc.channel, AMR: []string{"otp", "email"}})
 			}))
 			defer provider.Close()
 			config.WardenEnabled.Value, config.WardenURL.Value = "true", provider.URL

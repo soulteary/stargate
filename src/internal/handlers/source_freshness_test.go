@@ -256,7 +256,7 @@ func TestWardenLoginChecksSourceDeadlineAfterOTP(t *testing.T) {
 			_, _ = w.Write([]byte(`{"user_id":"u1","mail":"active@example.com","status":"active"}`))
 			return
 		}
-		_, _ = w.Write([]byte(`{"ok":true,"user_id":"u1","amr":["otp","email"]}`))
+		_, _ = w.Write([]byte(`{"ok":true,"user_id":"u1","challenge_id":"challenge-1","purpose":"login","channel":"email","amr":["otp","email"]}`))
 	}))
 	defer server.Close()
 	config.WardenEnabled.Value = "true"
@@ -277,6 +277,7 @@ func TestWardenLoginChecksSourceDeadlineAfterOTP(t *testing.T) {
 		status   int
 	}{{"expired after OTP", deadline, 503}, {"valid source", now, 200}} {
 		t.Run(tc.name, func(t *testing.T) {
+			seedLoginChallengeBinding(t, "challenge-1", "u1", "email", "active@example.com")
 			authorizationNow = func() time.Time { return tc.authTime }
 			store := setupTestStore()
 			ctx, app := createTestContext("POST", "/_login", map[string]string{"Host": "auth.example.com", "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"}, "auth_method=warden&mail=active@example.com&challenge_id=challenge-1&verify_code=123456")

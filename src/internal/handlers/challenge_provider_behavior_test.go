@@ -10,6 +10,7 @@ import (
 
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/warden/pkg/warden"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,7 +42,7 @@ func TestChallengeProviderFailureAndCommittedSuccess(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(tc.status)
-				_ = json.NewEncoder(w).Encode(herald.VerifyChallengeResponse{OK: tc.ok, Reason: tc.reason, UserID: "user-1"})
+				_ = json.NewEncoder(w).Encode(herald.VerifyChallengeV2Response{OK: tc.ok, Reason: tc.reason, UserID: "user-1", ChallengeID: "challenge-1", Purpose: "login", Channel: "email"})
 			}))
 			defer server.Close()
 			var err error
@@ -50,8 +51,8 @@ func TestChallengeProviderFailureAndCommittedSuccess(t *testing.T) {
 			SetChallengeContextStore(unavailableContextDelete{})
 			ctx, app := createTestContext("POST", "/_login", map[string]string{"Content-Type": "application/x-www-form-urlencoded"}, "challenge_id=challenge-1&verify_code=123456")
 			defer app.ReleaseCtx(ctx)
-			identity := &loginIdentity{userID: "user-1"}
-			ok, err := identity.verifyChallenge(ctx, context.Background(), challengeContext{ChallengeID: "challenge-1", UserID: "user-1"}, false)
+			identity := &loginIdentity{userID: "user-1", wardenUserInfo: &warden.AllowListUser{UserID: "user-1", Mail: "alice@example.com"}}
+			ok, err := identity.verifyChallenge(ctx, context.Background(), challengeContext{ChallengeID: "challenge-1", UserID: "user-1", Channel: "email", Destination: "alice@example.com"}, false)
 			require.NoError(t, err)
 			require.Equal(t, tc.ok, ok)
 			if !tc.ok {

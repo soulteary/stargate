@@ -4,6 +4,36 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Security
+
+- Bind OTP login to a gateway-issued challenge for the current Warden subject,
+  channel and directory contact. Use Herald's bound `/v2/otp/verifications`
+  request with expected subject, `login` purpose and channel, then check the
+  returned challenge identity. Missing or stale local bindings reject login;
+  unrelated-purpose codes are not consumed by the bound provider check.
+- Fail code creation closed when its trusted login binding cannot be persisted
+  or an idempotent response conflicts with the stored binding. A provider may
+  already have delivered the code; retain its original idempotency key.
+- Preserve TOTP confirmation quota errors as fixed `429/rate_limited` responses
+  instead of reporting an invalid code. Keep the enrollment binding for retry.
+
+### Dependencies and upgrade
+
+- Pin the merged session-kit clock-bound fix, Warden SDK log redaction, and
+  Herald/TOTP confirmation quota fixes using real Go pseudo-versions. Published
+  release tags remain unchanged; SDK updates do not deploy backend services.
+- Use a shared challenge-context store across gateway replicas. Old pending
+  challenges work only when their original binding survives and still matches
+  the directory contact. Otherwise restart the login flow; there is no legacy
+  verification fallback. Replace all gateway instances together, and preserve
+  unresolved provider idempotency records through upgrade and rollback.
+- The session clock tolerance only relaxes the future-deadline upper bound by
+  the smaller of one second and 1% of the lifetime; absolute expiry and atomic
+  revocation remain enforced. Rollback loses the new login binding checks and
+  can reject sessions issued by a slightly ahead replica. See the current
+  deployment guide before restoring older instances.
+
+
 ## [1.3.0] - 2026-11-07
 
 ### Security

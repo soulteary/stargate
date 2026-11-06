@@ -186,6 +186,7 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 
 		// Step 5: Create challenge via Herald
 		heraldCtx, heraldSpan := tracing.StartSpan(sendCodeCtx, "herald.create_challenge")
+		defer heraldSpan.End()
 		heraldSpan.SetAttributes(
 			attribute.String("herald.user_id", userID),
 			attribute.String("herald.channel", channel),
@@ -211,7 +212,6 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 		heraldDuration := time.Since(heraldStartTime)
 		if err != nil {
 			tracing.RecordError(heraldSpan, err)
-			heraldSpan.End()
 			log.Error().Err(err).Msg("Failed to create challenge")
 
 			return handleChallengeCreationError(ctx, err, userID, channel, destination)
@@ -220,14 +220,26 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 		// Log successful verification code send
 		metrics.RecordHeraldCall("create_challenge", "success", heraldDuration)
 		auditlog.LogVerifyCodeSend(ctx.Context(), userID, createResp.ChallengeID, channel, destination, ctx.IP(), true, "")
-		_, err = getChallengeContextStore().PutIfAbsent(ctx.Context(), challengeContext{
+		binding := challengeContext{
 			ChallengeID: createResp.ChallengeID,
 			UserID:      userID,
 			Channel:     channel,
 			Destination: destination,
-		}, challengeContextTTL(createResp.ExpiresIn))
+		}
+		stored, err := getChallengeContextStore().PutIfAbsent(ctx.Context(), binding, challengeContextTTL(createResp.ExpiresIn))
+		if err == nil && !stored {
+			var existing challengeContext
+			var found bool
+			existing, found, err = getChallengeContextStore().Get(ctx.Context(), createResp.ChallengeID)
+			if err == nil && (!found || existing.ChallengeID != binding.ChallengeID || existing.UserID != binding.UserID || existing.Channel != binding.Channel ||
+				!sameVerificationDestination(binding.Channel, existing.Destination, binding.Destination)) {
+				err = fmt.Errorf("verification context conflict")
+			}
+		}
 		if err != nil {
 			log.Error().Err(err).Str("challenge_id", createResp.ChallengeID).Msg("Failed to persist challenge audit context")
+			tracing.RecordError(heraldSpan, fmt.Errorf("verification context unavailable"))
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), "binding_unavailable")
 		}
 
 		heraldSpan.SetAttributes(
@@ -235,7 +247,6 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 			attribute.Int("herald.expires_in", createResp.ExpiresIn),
 			attribute.String("herald.result", "success"),
 		)
-		heraldSpan.End()
 
 		sendCodeSpan.SetAttributes(
 			attribute.String("auth.user_id", userID),
