@@ -284,11 +284,10 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 		// If callback exists, redirect to callback's _session_exchange endpoint
 		// If no callback, redirect to current host's root path
 		if callback != "" {
-			ticket, err := createSessionExchangeTicket(sessionID, callback)
+			redirectURL, err := sessionExchangeDestination(ctx, sessionID, callback)
 			if err != nil {
-				return SendErrorResponse(ctx, fiber.StatusInternalServerError, "session exchange is not configured")
+				return SendErrorResponse(ctx, fiber.StatusBadRequest, "invalid session exchange request")
 			}
-			redirectURL := fmt.Sprintf("%s://%s/_session_exchange?ticket=%s", proto, callback, ticket)
 			return ctx.Redirect().Status(fiber.StatusFound).To(redirectURL)
 		}
 		// When no callback, redirect to current host's root path
@@ -306,7 +305,16 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 	heraldEnabled := config.HeraldEnabled.ToBool()
 	otpEnabled := config.HeraldTOTPEnabled.ToBool()
 
+	stateToken := ""
+	if callback != "" {
+		_, raw, err := requestedExchangeState(ctx, callback)
+		if err != nil {
+			return SendErrorResponse(ctx, fiber.StatusBadRequest, "invalid session exchange request")
+		}
+		stateToken = raw
+	}
 	return ctx.Render(templateName, fiber.Map{
+		"ExchangeState":        stateToken,
 		"Callback":             callback,
 		"SessionID":            sess.ID(),
 		"Title":                config.LoginPageTitle.Value,
@@ -795,15 +803,10 @@ func redirectAfterLogin(ctx fiber.Ctx, sess *session.Session, sessionGetter Sess
 	if sessionID == "" {
 		return err
 	}
-	proto := GetForwardedProto(ctx)
-	if proto == "" {
-		proto = ctx.Scheme()
-	}
-	ticket, err := createSessionExchangeTicket(sessionID, callback)
+	redirectURL, err := sessionExchangeDestination(ctx, sessionID, callback)
 	if err != nil {
-		return SendErrorResponse(ctx, fiber.StatusInternalServerError, "session exchange is not configured")
+		return SendErrorResponse(ctx, fiber.StatusBadRequest, "invalid session exchange request")
 	}
-	redirectURL := fmt.Sprintf("%s://%s/_session_exchange?ticket=%s", proto, callback, ticket)
 	// When client accepts JSON (e.g. fetch with Accept: application/json), return 200 + redirect URL
 	// so the client can navigate; with redirect: 'manual', 302 Location is opaque and unreadable.
 	if strings.Contains(ctx.Get("Accept"), "application/json") {

@@ -24,6 +24,7 @@
 
         <!-- Form -->
         <form action="/_login" method="post" class="form">
+          {{if .ExchangeState}}<input type="hidden" name="exchange_state" value="{{.ExchangeState}}">{{end}}
           {{if .Callback}}
           <input type="hidden" name="callback" value="{{.Callback}}">
           {{end}}

@@ -450,12 +450,13 @@ func TestSessionShareRoute_WithTicket(t *testing.T) {
 	testza.AssertNoError(t, auth.Authenticate(sess))
 	sessionID := responseCookieValue(seedCtx, auth.SessionCookieName)
 	testza.AssertNotEqual(t, "", sessionID)
-	ticket, err := createSessionExchangeTicket(sessionID, "app.example.com")
+	ticket, err := createSessionExchangeTicket(sessionID, testExchangeState("app.example.com"))
 	testza.AssertNoError(t, err)
 	seedApp.ReleaseCtx(seedCtx)
 
 	handler := SessionShareRoute(store)
 	ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.com"}, "")
+	bindTestExchangeBrowser(ctx)
 	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
@@ -690,12 +691,13 @@ func TestSessionShareRoute_WithCookieDomain(t *testing.T) {
 	testza.AssertNoError(t, auth.Authenticate(sess))
 	sessionID := responseCookieValue(seedCtx, auth.SessionCookieName)
 	testza.AssertNotEqual(t, "", sessionID)
-	ticket, err := createSessionExchangeTicket(sessionID, "app.example.com")
+	ticket, err := createSessionExchangeTicket(sessionID, testExchangeState("app.example.com"))
 	testza.AssertNoError(t, err)
 	seedApp.ReleaseCtx(seedCtx)
 	handler := SessionShareRoute(store)
 
 	ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.com"}, "")
+	bindTestExchangeBrowser(ctx)
 	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
@@ -724,12 +726,13 @@ func TestSessionShareRoute_WithoutCookieDomain(t *testing.T) {
 	testza.AssertNoError(t, auth.Authenticate(sess))
 	sessionID := responseCookieValue(seedCtx, auth.SessionCookieName)
 	testza.AssertNotEqual(t, "", sessionID)
-	ticket, err := createSessionExchangeTicket(sessionID, "app.example.com")
+	ticket, err := createSessionExchangeTicket(sessionID, testExchangeState("app.example.com"))
 	testza.AssertNoError(t, err)
 	seedApp.ReleaseCtx(seedCtx)
 	handler := SessionShareRoute(store)
 
 	ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.com"}, "")
+	bindTestExchangeBrowser(ctx)
 	defer app.ReleaseCtx(ctx)
 
 	err = handler(ctx)
@@ -758,11 +761,12 @@ func TestSessionShareRouteUsesHostOnlyCookieAcrossRootDomains(t *testing.T) {
 	testza.AssertNoError(t, auth.Authenticate(sess))
 	sessionID := responseCookieValue(seedCtx, auth.SessionCookieName)
 	testza.AssertNotEqual(t, "", sessionID)
-	ticket, err := createSessionExchangeTicket(sessionID, "app.example.net")
+	ticket, err := createSessionExchangeTicket(sessionID, testExchangeState("app.example.net"))
 	testza.AssertNoError(t, err)
 	seedApp.ReleaseCtx(seedCtx)
 
 	ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.net"}, "")
+	bindTestExchangeBrowser(ctx)
 	defer app.ReleaseCtx(ctx)
 	testza.AssertNoError(t, SessionShareRoute(store)(ctx))
 	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
@@ -1045,6 +1049,7 @@ func TestLoginAPI_RedirectsToSessionExchange(t *testing.T) {
 		"Host":              "auth.example.com",
 	}, "password=test123&callback=app.example.com")
 	defer app.ReleaseCtx(ctx)
+	bindTestExchangeRequest(t, ctx, "app.example.com")
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
@@ -1059,7 +1064,7 @@ func TestLoginAPI_RedirectsToSessionExchange(t *testing.T) {
 
 	// Check redirect location format
 	location := string(ctx.Response().Header.Peek("Location"))
-	testza.AssertContains(t, location, "https://app.example.com/_session_exchange")
+	testza.AssertContains(t, location, "http://app.example.com/_session_exchange")
 	testza.AssertContains(t, location, "ticket=")
 	testza.AssertNotContains(t, location, "id=")
 }
@@ -1078,6 +1083,7 @@ func TestLoginAPIRotatesPreAuthenticationSession(t *testing.T) {
 		"X-Forwarded-Proto": "https",
 	}, "password=test123&callback=app.example.com")
 	defer app.ReleaseCtx(ctx)
+	bindTestExchangeRequest(t, ctx, "app.example.com")
 
 	preAuthSession, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
@@ -1092,7 +1098,7 @@ func TestLoginAPIRotatesPreAuthenticationSession(t *testing.T) {
 	location := string(ctx.Response().Header.Peek("Location"))
 	parts := strings.SplitN(location, "ticket=", 2)
 	testza.AssertEqual(t, 2, len(parts))
-	newSessionID, err := consumeSessionExchangeTicket(parts[1], "app.example.com")
+	newSessionID, err := consumeSessionExchangeTicket(parts[1], "app.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String())
 	testza.AssertNoError(t, err)
 	testza.AssertNotEqual(t, oldSessionID, newSessionID)
 }
@@ -1134,7 +1140,7 @@ func TestLoginAPI_WithCallback_AcceptJSON_Returns200WithRedirect(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertTrue(t, result.Success)
 	testza.AssertContains(t, result.Redirect, "app.example.com/_session_exchange")
-	testza.AssertContains(t, result.Redirect, "ticket=")
+	testza.AssertContains(t, result.Redirect, "start=1")
 	testza.AssertNotContains(t, result.Redirect, "id=")
 }
 

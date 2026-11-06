@@ -25,14 +25,14 @@ func TestSessionExchangeTicketReplayIsSharedThroughRedis(t *testing.T) {
 
 	firstReplica := NewSessionExchangeReplayStore(redisClient)
 	secondReplica := NewSessionExchangeReplayStore(redisClient)
-	ticket, err := createSessionExchangeTicket("shared-session-id", "app.example.com")
+	ticket, err := createSessionExchangeTicket("shared-session-id", testExchangeState("app.example.com"))
 	testza.AssertNoError(t, err)
 
-	sessionID, err := consumeSessionExchangeTicketWithStore(context.Background(), ticket, "app.example.com", firstReplica)
+	sessionID, err := consumeSessionExchangeTicketWithStore(context.Background(), ticket, "app.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String(), firstReplica)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "shared-session-id", sessionID)
 
-	_, err = consumeSessionExchangeTicketWithStore(context.Background(), ticket, "app.example.com", secondReplica)
+	_, err = consumeSessionExchangeTicketWithStore(context.Background(), ticket, "app.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String(), secondReplica)
 	testza.AssertNotNil(t, err)
 }
 
@@ -44,37 +44,37 @@ func (failingSessionExchangeReplayStore) Consume(context.Context, string, time.D
 
 func TestSessionExchangeTicketFailsClosedWhenReplayStoreFails(t *testing.T) {
 	setSessionExchangeSecret(t)
-	ticket, err := createSessionExchangeTicket("session-id", "app.example.com")
+	ticket, err := createSessionExchangeTicket("session-id", testExchangeState("app.example.com"))
 	testza.AssertNoError(t, err)
 
-	_, err = consumeSessionExchangeTicketWithStore(context.Background(), ticket, "app.example.com", failingSessionExchangeReplayStore{})
+	_, err = consumeSessionExchangeTicketWithStore(context.Background(), ticket, "app.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String(), failingSessionExchangeReplayStore{})
 	testza.AssertNotNil(t, err)
 }
 
 func TestSessionExchangeTicketIsOpaqueAndAudienceBound(t *testing.T) {
 	setSessionExchangeSecret(t)
-	ticket, err := createSessionExchangeTicket("sensitive-session-id", "app.example.com")
+	ticket, err := createSessionExchangeTicket("sensitive-session-id", testExchangeState("app.example.com"))
 	testza.AssertNoError(t, err)
 	testza.AssertFalse(t, strings.Contains(ticket, "sensitive-session-id"))
 
-	_, err = consumeSessionExchangeTicket(ticket, "other.example.com")
+	_, err = consumeSessionExchangeTicket(ticket, "other.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String())
 	testza.AssertNotNil(t, err)
 
-	sessionID, err := consumeSessionExchangeTicket(ticket, "app.example.com")
+	sessionID, err := consumeSessionExchangeTicket(ticket, "app.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String())
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "sensitive-session-id", sessionID)
 }
 
 func TestSessionExchangeTicketRejectsTamperingAndReplay(t *testing.T) {
 	setSessionExchangeSecret(t)
-	ticket, err := createSessionExchangeTicket("session-id", "app.example.com")
+	ticket, err := createSessionExchangeTicket("session-id", testExchangeState("app.example.com"))
 	testza.AssertNoError(t, err)
 
-	_, err = consumeSessionExchangeTicket(ticket+"A", "app.example.com")
+	_, err = consumeSessionExchangeTicket(ticket+"A", "app.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String())
 	testza.AssertNotNil(t, err)
 
-	_, err = consumeSessionExchangeTicket(ticket, "app.example.com")
+	_, err = consumeSessionExchangeTicket(ticket, "app.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String())
 	testza.AssertNoError(t, err)
-	_, err = consumeSessionExchangeTicket(ticket, "app.example.com")
+	_, err = consumeSessionExchangeTicket(ticket, "app.example.com", testExchangeNonce, "http", config.SessionExchangeRedirectPath.String())
 	testza.AssertNotNil(t, err)
 }
