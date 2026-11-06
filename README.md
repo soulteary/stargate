@@ -10,6 +10,10 @@
 
 Stargate is a lightweight Forward Auth service that centralizes authentication at the reverse-proxy boundary. It integrates with Traefik and exposes password, session, Warden, and Herald-backed authentication flows for protected services.
 
+## Architecture
+
+![Stargate architecture](.github/architecture.gif)
+
 ## 🌐 Multi-language Documentation
 
 - [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)
@@ -63,6 +67,7 @@ Stargate is perfect for:
 
 ## 📋 Table of Contents
 
+- [Architecture](#architecture)
 - [Quick Start](#-quick-start)
 - [Documentation](#-documentation)
 - [Basic Configuration](#-basic-configuration)
