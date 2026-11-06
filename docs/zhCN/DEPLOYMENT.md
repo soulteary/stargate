@@ -911,7 +911,10 @@ OTP 登录必须携带网关保存的可信 challenge 上下文，并匹配 Ward
 `login` 用途和渠道，成功后再核对返回的 challenge ID 及这些字段。不回退到
 无上下文约束的旧验证接口；切换前先确认 Herald 支持该绑定路由。
 
-所有网关副本必须共享已有的 challenge-context Redis 命名空间。内存上下文仅
+所有网关副本必须共享已有的 challenge-context Redis 命名空间。设置
+`SESSION_STORAGE_ENABLED=true`，为每个副本配置同一 Redis 数据库和
+`SESSION_STORAGE_REDIS_KEY_PREFIX` 的会话 Redis 连接。只有该 Redis client
+初始化后，服务才安装 Redis 上下文存储，否则仍使用进程内存。内存上下文仅
 适用于单进程，重启或其他副本无法验证自己未保存的绑定。旧 pending 记录的
 格式无需转换，但必须保留原绑定且目录联系方式未变；缺少绑定或联系方式
 变化时需要重新发起登录。邮箱本地部分和 plus tag 保持精确身份，域名大小写

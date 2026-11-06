@@ -828,7 +828,11 @@ response. There is no fallback to unbound `/v1/otp/verifications`. Configure a
 Herald server supporting the bound route before changing gateway traffic.
 
 Preserve the existing challenge-context Redis namespace and share it across all
-gateway replicas. Process-local context is suitable only for a single process:
+gateway replicas. Set `SESSION_STORAGE_ENABLED=true` and configure the session
+Redis connection on every replica, using the same Redis database and
+`SESSION_STORAGE_REDIS_KEY_PREFIX`. The server installs Redis-backed challenge
+context only when that Redis client is initialized; without it, context remains
+process-local. Process-local context is suitable only for a single process:
 a restart or another replica cannot validate a challenge whose binding it never
 stored. Existing pending codes need no format conversion when their binding
 survives and the directory contact is unchanged. Missing bindings or changes to
