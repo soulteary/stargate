@@ -896,3 +896,7 @@ TOTP 注册、确认、撤销和 step-up 操作会在执行前重新查询 Warde
 生产环境必须使用 HTTPS 和 `COOKIE_SECURE=true`。随机 Cookie 使用 `__Host-` 前缀且不设置 Domain，目标站点之间不能共享。HTTP 开发环境在 `COOKIE_SECURE=false` 时使用无前缀 Cookie，仅适用于受信任的本地开发网络。参与交换的副本须配置相同的 `SESSION_EXCHANGE_SECRET`，多副本部署须使用共享 Redis 防重放存储。
 
 旧版票据不再接受。请统一升级所有副本后重新完成尚未结束的登录，滚动升级期间不要混用新旧交换处理器。客户端不能指定最终返回地址或随机值，最终地址始终是配置的同源路径。同一浏览器并行登录同一目标站点可能覆盖待处理的随机 Cookie，此时需重新开始其中一次登录。
+
+### Warden 凭据优先级
+
+同时配置 `WARDEN_API_KEY` 和 `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` 时，新版 SDK 只发送 HMAC 凭据，不会改用 API key 重试认证。使用该组合升级前，请先在 Warden 服务端配置匹配的 HMAC 凭据。若服务端只启用 API key，请移除客户端的两个 HMAC 配置并保留 `WARDEN_API_KEY`。API-key-only 和 mTLS 仍受支持，服务端认证策略没有改变。

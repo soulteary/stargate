@@ -810,3 +810,7 @@ Cross-domain login now starts a handshake on the destination's `/_session_exchan
 Production deployments must use HTTPS with `COOKIE_SECURE=true`. Nonce cookies use the `__Host-` prefix, have no Domain attribute, and cannot be shared across destinations. HTTP development uses an unprefixed cookie with `COOKIE_SECURE=false`; use this only on a trusted local development network. Keep `SESSION_EXCHANGE_SECRET` equal across participating replicas and configure a shared Redis replay store for multiple replicas.
 
 Previously issued tickets are rejected. Complete an in-progress login again after upgrading all replicas; do not mix old and new exchange handlers during a rolling upgrade. Caller-provided return URLs and nonce values are not accepted. The final landing remains the configured same-origin path. Parallel exchanges to the same destination may replace the pending nonce and require restarting one login.
+
+### Warden credential precedence
+
+When both `WARDEN_API_KEY` and `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` are configured, the updated SDK sends only HMAC credentials. It does not retry authentication with the API key. Configure matching HMAC credentials on Warden before upgrading this combination. For an API-key-only Warden deployment, remove both client HMAC settings and keep `WARDEN_API_KEY`. API-key-only authentication and mTLS remain supported; this change does not alter the server's authentication policy.

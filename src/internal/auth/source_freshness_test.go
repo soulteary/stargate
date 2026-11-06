@@ -150,8 +150,9 @@ func TestStrictWardenLookupNegotiatesAndPreservesSourceDeadline(t *testing.T) {
 	status := 200
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "v1", r.Header.Get("Warden-Snapshot-Metadata"))
-		require.Equal(t, "test-key", r.Header.Get("X-API-Key"))
 		if r.TLS == nil {
+			require.Empty(t, r.Header.Get("X-API-Key"), "HMAC must take precedence over the configured API key")
+			require.Empty(t, r.Header.Get("Authorization"))
 			require.Equal(t, "test-id", r.Header.Get("X-Key-Id"))
 			path := r.URL.EscapedPath()
 			if r.URL.RawQuery != "" {
@@ -162,6 +163,9 @@ func TestStrictWardenLookupNegotiatesAndPreservesSourceDeadline(t *testing.T) {
 			mac := hmac.New(sha256.New, []byte("test-signing-secret"))
 			_, _ = mac.Write([]byte(canonical))
 			require.Equal(t, hex.EncodeToString(mac.Sum(nil)), r.Header.Get("X-Signature"))
+		} else {
+			// The direct TLS transport probe below uses API-key authentication.
+			require.Equal(t, "test-key", r.Header.Get("X-API-Key"))
 		}
 		for k, v := range headers {
 			w.Header()[k] = v
