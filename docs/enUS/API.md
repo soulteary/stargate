@@ -375,51 +375,13 @@ Re-verifies the password and records successful step-up authentication in the se
 
 ### `GET /_session_exchange`
 
-Used for cross-domain session sharing. Redeems a short-lived encrypted ticket, verifies that its session is authenticated, sets the cookie, and redirects to the root path.
+Starts or completes browser-bound cross-domain session exchange. Without a ticket or target nonce cookie, it creates a host-only nonce cookie and redirects to the auth host with a sealed `exchange_state`. The login form carries this state through authentication. Direct auth-host login with a callback first redirects here to start the same handshake.
 
-This endpoint is primarily used to share authentication sessions across multiple domains/subdomains. After a user logs in on one domain, this endpoint can be used to set the session cookie on another domain.
+A returned `ticket` is accepted only when it matches this browser's nonce cookie, destination audience and scheme, and configured `SESSION_EXCHANGE_REDIRECT_PATH`. It is encrypted, valid for at most two minutes, and consumed once across replicas when Redis is configured. The referenced session must still be authenticated. Older unbound ticket formats are rejected.
 
-#### Query Parameters
+Successful completion sets `stargate_session_id`, clears the pending nonce cookie, and redirects to the configured same-origin landing path. `COOKIE_DOMAIN` applies only if the destination is within that domain; other allowed domains receive a host-only session cookie. Invalid, expired, replayed, or mismatched tickets return `401 Unauthorized`; invalid targets or insecure requests with secure-cookie mode return `400 Bad Request`.
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `ticket` | String | Yes | Encrypted, audience-bound exchange ticket returned by login |
-
-#### Response
-
-**Success Response (302 Redirect)**
-
-```
-HTTP/1.1 302 Found
-Location: /
-Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Domain=<cookie_domain>; Expires=<expiry>
-```
-
-**Failure Response**
-
-| Status Code | Description | Response Body |
-|-------------|-------------|---------------|
-| `400 Bad Request` | Missing ticket | Error message |
-| `401 Unauthorized` | Invalid, expired, replayed, or misdirected ticket | Error message |
-
-#### Cookie Domain
-
-If the `COOKIE_DOMAIN` environment variable is configured, the cookie will be set to the specified domain, enabling cross-subdomain sharing.
-
-#### Example
-
-```bash
-# Redeem the ticket returned by the login response
-curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
-```
-
-**Typical Usage Scenario:**
-
-1. User logs in at `auth.example.com`
-2. After successful login, redirects to `app.example.com/_session_exchange?ticket=<opaque_ticket>`
-3. Session cookie is set to the `.example.com` domain (if `COOKIE_DOMAIN=.example.com` is configured)
-4. Redirects to `app.example.com/`
-5. User can use this session across all `*.example.com` subdomains
+Open this endpoint in the same browser that completes login, for example `https://app.example.com/_session_exchange?start=1`. A standalone ticket URL without that browser's nonce cannot import the session. See [deployment guidance](DEPLOYMENT.md#browser-bound-session-exchange) for cookie and migration requirements.
 
 ## TOTP Endpoints
 

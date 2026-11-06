@@ -802,3 +802,11 @@ snapshot into a new ID as a substitute for reauthentication: obtain fresh
 credential proof first, then clear/reset identity data before issuing a new
 authenticated session. Anonymous logout only clears the browser cookie and does
 not allocate a revocation marker for a never-stored identifier.
+
+### Browser-bound session exchange
+
+Cross-domain login now starts a handshake on the destination's `/_session_exchange` endpoint. The destination creates a ten-minute host-only, HttpOnly, SameSite=Lax nonce cookie. Its sealed request binds the destination origin, the configured `SESSION_EXCHANGE_REDIRECT_PATH`, and the nonce hash. The auth host issues a two-minute single-use ticket bound to that request; the destination checks its own cookie before importing the session. Direct login with a callback automatically visits the destination to establish this binding. Existing proxy routing for `/_session_exchange` remains required on each allowed destination.
+
+Production deployments must use HTTPS with `COOKIE_SECURE=true`. Nonce cookies use the `__Host-` prefix, have no Domain attribute, and cannot be shared across destinations. HTTP development uses an unprefixed cookie with `COOKIE_SECURE=false`; use this only on a trusted local development network. Keep `SESSION_EXCHANGE_SECRET` equal across participating replicas and configure a shared Redis replay store for multiple replicas.
+
+Previously issued tickets are rejected. Complete an in-progress login again after upgrading all replicas; do not mix old and new exchange handlers during a rolling upgrade. Caller-provided return URLs and nonce values are not accepted. The final landing remains the configured same-origin path. Parallel exchanges to the same destination may replace the pending nonce and require restarting one login.

@@ -42,6 +42,7 @@
 
         <!-- Form -->
         <form action="/_login" method="post" class="form" id="loginForm">
+          {{if .ExchangeState}}<input type="hidden" name="exchange_state" value="{{.ExchangeState}}">{{end}}
           {{if .Callback}}
           <input type="hidden" name="callback" value="{{.Callback}}">
           {{end}}
@@ -142,6 +143,7 @@
           <span style="height: 1px; background: #e5e7eb; flex: 1;"></span>
         </div>
         <form action="/_login" method="post" class="form" id="passwordLoginForm">
+          {{if .ExchangeState}}<input type="hidden" name="exchange_state" value="{{.ExchangeState}}">{{end}}
           {{if .Callback}}
           <input type="hidden" name="callback" value="{{.Callback}}">
           {{end}}

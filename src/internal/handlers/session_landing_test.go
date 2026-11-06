@@ -26,12 +26,13 @@ func TestSessionExchangeUsesConfiguredLandingAfterVerifiedTicket(t *testing.T) {
 				t.Fatal(err)
 			}
 			id := responseCookieValue(seed, auth.SessionCookieName)
-			ticket, err := createSessionExchangeTicket(id, "app.example.com")
+			ticket, err := createSessionExchangeTicket(id, testExchangeState("app.example.com"))
 			seedApp.ReleaseCtx(seed)
 			if err != nil {
 				t.Fatal(err)
 			}
 			ctx, app := createTestContext("GET", "/_session_exchange?ticket="+ticket+"&next=https://evil.example/", map[string]string{"Host": "app.example.com"}, "")
+			bindTestExchangeBrowser(ctx)
 			defer app.ReleaseCtx(ctx)
 			if err := SessionShareRoute(store)(ctx); err != nil {
 				t.Fatal(err)
@@ -43,6 +44,7 @@ func TestSessionExchangeUsesConfiguredLandingAfterVerifiedTicket(t *testing.T) {
 				t.Fatal("verified exchange must establish the callback session")
 			}
 			replay, replayApp := createTestContext("GET", "/_session_exchange?ticket="+ticket, map[string]string{"Host": "app.example.com"}, "")
+			bindTestExchangeBrowser(replay)
 			defer replayApp.ReleaseCtx(replay)
 			if err := SessionShareRoute(store)(replay); err != nil {
 				t.Fatal(err)

@@ -375,51 +375,13 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 ### `GET /_session_exchange`
 
-用于跨域会话共享。端点会兑换短时加密票据，确认对应会话已认证，设置 Cookie 后重定向到根路径。
+启动或完成绑定当前浏览器的跨域会话交换。缺少票据或目标随机 Cookie 时，端点生成仅限当前主机的随机 Cookie，携带加密的 `exchange_state` 重定向到认证站点；登录表单会保留该状态。直接在认证站点登录并指定回调时，也先访问此端点建立绑定。
 
-此端点主要用于在多个域名/子域名之间共享认证会话。当用户在一个域名登录后，可以通过此端点将会话 Cookie 设置到另一个域名。
+返回的 `ticket` 必须匹配该浏览器的随机 Cookie、目标域名和协议，以及配置的 `SESSION_EXCHANGE_REDIRECT_PATH`。票据经过加密、有效期最多两分钟，并在配置 Redis 时跨副本保证一次性使用；关联会话仍须处于已认证状态。旧版无浏览器绑定的票据不再接受。
 
-#### 查询参数
+成功后设置 `stargate_session_id`、清除待处理随机 Cookie，并跳转至配置的同源路径。只有目标属于 `COOKIE_DOMAIN` 时才设置该 Domain，否则使用仅限目标主机的会话 Cookie。无效、过期、重放或绑定不匹配的票据返回 `401 Unauthorized`；无效目标或安全 Cookie 模式下的 HTTP 请求返回 `400 Bad Request`。
 
-| 参数 | 类型 | 必需 | 说明 |
-|------|------|------|------|
-| `ticket` | String | 是 | 登录接口返回的加密、绑定目标域名的交换票据 |
-
-#### 响应
-
-**成功响应（302 Redirect）**
-
-```
-HTTP/1.1 302 Found
-Location: /
-Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Domain=<cookie_domain>; Expires=<expiry>
-```
-
-**失败响应**
-
-| 状态码 | 说明 | 响应体 |
-|--------|------|--------|
-| `400 Bad Request` | 缺少票据 | 错误消息 |
-| `401 Unauthorized` | 票据无效、过期、已重放或目标域名不匹配 | 错误消息 |
-
-#### Cookie 域名
-
-如果配置了 `COOKIE_DOMAIN` 环境变量，Cookie 会设置到指定的域名，从而实现跨子域名共享。
-
-#### 示例
-
-```bash
-# 兑换登录响应返回的票据
-curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
-```
-
-**典型使用场景：**
-
-1. 用户在 `auth.example.com` 登录
-2. 登录成功后，重定向到 `app.example.com/_session_exchange?ticket=<opaque_ticket>`
-3. 会话 Cookie 被设置到 `.example.com` 域名（如果配置了 `COOKIE_DOMAIN=.example.com`）
-4. 重定向到 `app.example.com/`
-5. 用户可以在所有 `*.example.com` 子域名下使用该会话
+请在同一浏览器中打开目标端点并完成登录，例如 `https://app.example.com/_session_exchange?start=1`。单独传递票据链接而没有该浏览器的随机 Cookie，不能导入会话。Cookie 与升级要求见 [部署说明](DEPLOYMENT.md)。
 
 ## TOTP 端点
 

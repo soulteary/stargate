@@ -4,12 +4,9 @@ import (
 	"context"
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/url"
 	"strings"
 	"sync"
@@ -72,9 +69,13 @@ func NewSessionExchangeReplayStore(client redis.Cmdable) SessionExchangeReplaySt
 }
 
 type sessionExchangeClaims struct {
-	SessionID string `json:"sid"`
-	Audience  string `json:"aud"`
-	ExpiresAt int64  `json:"exp"`
+	SessionID    string `json:"sid"`
+	Audience     string `json:"aud"`
+	ExpiresAt    int64  `json:"exp"`
+	Version      int    `json:"version"`
+	Challenge    string `json:"challenge"`
+	RedirectPath string `json:"return"`
+	Proto        string `json:"proto"`
 }
 
 func sessionExchangeAEAD() (cipher.AEAD, error) {
@@ -106,55 +107,32 @@ func normalizeExchangeAudience(raw string) string {
 	return strings.ToLower(strings.TrimSuffix(parsed.Host, "."))
 }
 
-func createSessionExchangeTicket(sessionID, audience string) (string, error) {
-	audience = normalizeExchangeAudience(audience)
-	if sessionID == "" || audience == "" {
+func createSessionExchangeTicket(sessionID string, state exchangeStateClaims) (string, error) {
+	if sessionID == "" || !validExchangeState(state) {
 		return "", errors.New("invalid session exchange claims")
 	}
-	aead, err := sessionExchangeAEAD()
-	if err != nil {
-		return "", err
+	expires := time.Now().Add(sessionExchangeTicketTTL).Unix()
+	if state.ExpiresAt < expires {
+		expires = state.ExpiresAt
 	}
-	claims, err := json.Marshal(sessionExchangeClaims{
-		SessionID: sessionID,
-		Audience:  audience,
-		ExpiresAt: time.Now().Add(sessionExchangeTicketTTL).Unix(),
-	})
-	if err != nil {
-		return "", err
-	}
-	nonce := make([]byte, aead.NonceSize())
-	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return "", err
-	}
-	sealed := aead.Seal(nil, nonce, claims, nil)
-	return base64.RawURLEncoding.EncodeToString(append(nonce, sealed...)), nil
+	return sealExchangeValue(sessionExchangeClaims{SessionID: sessionID, Audience: state.Audience, ExpiresAt: expires, Version: 2, Challenge: state.Challenge, RedirectPath: state.RedirectPath, Proto: state.Proto}, exchangeTicketAAD)
 }
 
-func consumeSessionExchangeTicket(token, audience string) (string, error) {
-	return consumeSessionExchangeTicketWithStore(context.Background(), token, audience, defaultSessionExchangeReplayStore)
+func consumeSessionExchangeTicket(token, audience, nonce, proto, landing string) (string, error) {
+	return consumeSessionExchangeTicketWithStore(context.Background(), token, audience, nonce, proto, landing, defaultSessionExchangeReplayStore)
 }
 
-func consumeSessionExchangeTicketWithStore(ctx context.Context, token, audience string, replayStore SessionExchangeReplayStore) (string, error) {
+func consumeSessionExchangeTicketWithStore(ctx context.Context, token, audience, nonce, proto, landing string, replayStore SessionExchangeReplayStore) (string, error) {
 	audience = normalizeExchangeAudience(audience)
 	if token == "" || audience == "" {
 		return "", errors.New("invalid session exchange ticket")
 	}
-	aead, err := sessionExchangeAEAD()
-	if err != nil {
-		return "", err
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(token)
-	if err != nil || len(payload) <= aead.NonceSize() {
-		return "", errors.New("invalid session exchange ticket")
-	}
-	claimsJSON, err := aead.Open(nil, payload[:aead.NonceSize()], payload[aead.NonceSize():], nil)
-	if err != nil {
-		return "", errors.New("invalid session exchange ticket")
-	}
 	var claims sessionExchangeClaims
-	if err := json.Unmarshal(claimsJSON, &claims); err != nil {
+	if err := openExchangeValue(token, exchangeTicketAAD, &claims); err != nil {
 		return "", errors.New("invalid session exchange ticket")
+	}
+	if claims.Version != 2 || claims.Challenge == "" || claims.Challenge != exchangeChallenge(nonce) || claims.Proto != proto || claims.RedirectPath != landing {
+		return "", errors.New("session exchange browser binding mismatch")
 	}
 	remaining := time.Until(time.Unix(claims.ExpiresAt, 0))
 	if claims.SessionID == "" || claims.Audience != audience || remaining <= 0 {

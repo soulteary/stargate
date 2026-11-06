@@ -10,7 +10,6 @@ import (
 	sessionfiber "github.com/soulteary/session-kit/v3/fiberadapter"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
-	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
 // SessionShareRoute handles GET requests to /_session_exchange for cross-domain session sharing.
@@ -33,10 +32,13 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 		}
 		ticket := ctx.Query("ticket")
 		if ticket == "" {
-			return SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.missing_session_id"))
+			return startSessionExchange(ctx)
+		}
+		if exchangeNonceCookie(ctx) == "" {
+			return startSessionExchange(ctx)
 		}
 		targetHost := GetForwardedHost(ctx)
-		sessionID, err := consumeSessionExchangeTicketWithStore(ctx.Context(), ticket, targetHost, replayStore)
+		sessionID, err := consumeSessionExchangeTicketWithStore(ctx.Context(), ticket, targetHost, exchangeNonceCookie(ctx), GetForwardedProto(ctx), landingPath, replayStore)
 		if err != nil {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "invalid session exchange ticket")
 		}
@@ -67,6 +69,7 @@ func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeRepl
 		// adapter builds the *fiber.Cookie that ctx.Cookie needs.
 		cookie := sessionfiber.Cookie(sessionConfig, sessionID)
 		ctx.Cookie(cookie)
+		setExchangeCookie(ctx, false, "", true)
 
 		return ctx.Redirect().Status(fiber.StatusFound).To(landingPath)
 	}
