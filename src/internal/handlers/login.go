@@ -443,6 +443,9 @@ func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx contex
 
 	// Step 4: Verify code via Herald (if not using OTP)
 	if !useOTP {
+		if err != nil {
+			return false, SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "verification context is unavailable")
+		}
 		return identity.verifyChallenge(ctx, loginCtx, auditContext, otpEnabled)
 	}
 	if otpEnabled && useOTP {
@@ -482,10 +485,16 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 		return false, SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.herald_unavailable"))
 	}
 
-	verifyReq := &herald.VerifyChallengeRequest{
-		ChallengeID: challengeID,
-		Code:        verifyCode,
-		ClientIP:    ctx.IP(),
+	if !identity.matchesLoginChallenge(challengeID, auditContext) {
+		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
+	}
+	verifyReq := &herald.VerifyChallengeV2Request{
+		ChallengeID:     challengeID,
+		Code:            verifyCode,
+		ClientIP:        ctx.IP(),
+		ExpectedUserID:  identity.userID,
+		ExpectedPurpose: "login",
+		ExpectedChannel: auditContext.Channel,
 	}
 
 	// Start span for Herald verify challenge
@@ -495,7 +504,13 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 	)
 
 	startTime := time.Now()
-	verifyResp, err := heraldClient.VerifyChallenge(heraldCtx, verifyReq)
+	boundResp, err := heraldClient.VerifyChallengeV2(heraldCtx, verifyReq)
+	var verifyResp *herald.VerifyChallengeResponse
+	if boundResp != nil {
+		verifyResp = &herald.VerifyChallengeResponse{OK: boundResp.OK, UserID: boundResp.UserID,
+			AMR: boundResp.AMR, IssuedAt: boundResp.IssuedAt, Reason: boundResp.Reason,
+			RemainingAttempts: boundResp.RemainingAttempts}
+	}
 	duration := time.Since(startTime)
 	if err != nil {
 		tracing.RecordError(heraldSpan, err)
@@ -506,6 +521,10 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 		return false, handleChallengeVerificationError(ctx, err, verifyResp, auditContext, otpEnabled)
 	}
 
+	if verifyResp == nil {
+		heraldSpan.End()
+		return false, SendErrorResponse(ctx, fiber.StatusBadGateway, "invalid verification response")
+	}
 	if !verifyResp.OK {
 		heraldSpan.SetAttributes(
 			attribute.String("herald.result", "failure"),
@@ -523,6 +542,12 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 		// Provide detailed error message based on reason
 		errorMsg := verificationFailureMessage(ctx, verifyResp, reason)
 		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
+	}
+	if boundResp.ChallengeID != challengeID || boundResp.UserID != identity.userID ||
+		boundResp.Purpose != "login" || boundResp.Channel != auditContext.Channel {
+		heraldSpan.End()
+		metrics.RecordHeraldCall("verify_challenge", "failure", duration)
+		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
 	}
 
 	// Log successful verification

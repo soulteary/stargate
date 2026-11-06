@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"html/template"
 	"time"
 
@@ -157,6 +158,10 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 		})
 		if err != nil {
 			log.Warn().Err(err).Str("enroll_id", enrollID).Msg("TOTP enroll confirm failed")
+			var providerError *herald.HeraldError
+			if errors.As(err, &providerError) && providerError.StatusCode == fiber.StatusTooManyRequests {
+				return ctx.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{"ok": false, "error": "rate_limited"})
+			}
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "invalid_code"})
 		}
 		if confirmResp == nil {

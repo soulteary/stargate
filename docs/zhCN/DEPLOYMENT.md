@@ -902,3 +902,36 @@ TOTP 注册、确认、撤销和 step-up 操作会在执行前重新查询 Warde
 ### Warden 凭据优先级
 
 同时配置 `WARDEN_API_KEY` 和 `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` 时，新版 SDK 只发送 HMAC 凭据，不会改用 API key 重试认证。使用该组合升级前，请先在 Warden 服务端配置匹配的 HMAC 凭据。若服务端只启用 API key，请移除客户端的两个 HMAC 配置并保留 `WARDEN_API_KEY`。API-key-only 和 mTLS 仍受支持，服务端认证策略没有改变。
+
+
+## 登录验证码绑定升级与回滚
+
+OTP 登录必须携带网关保存的可信 challenge 上下文，并匹配 Warden 当前主体、
+发送渠道与目录联系方式。网关使用 `/v2/otp/verifications`，声明预期主体、
+`login` 用途和渠道，成功后再核对返回的 challenge ID 及这些字段。不回退到
+无上下文约束的旧验证接口；切换前先确认 Herald 支持该绑定路由。
+
+所有网关副本必须共享已有的 challenge-context Redis 命名空间。设置
+`SESSION_STORAGE_ENABLED=true`，为每个副本配置同一 Redis 数据库和
+`SESSION_STORAGE_REDIS_KEY_PREFIX` 的会话 Redis 连接。只有该 Redis client
+初始化后，服务才安装 Redis 上下文存储，否则仍使用进程内存。内存上下文仅
+适用于单进程，重启或其他副本无法验证自己未保存的绑定。旧 pending 记录的
+格式无需转换，但必须保留原绑定且目录联系方式未变；缺少绑定或联系方式
+变化时需要重新发起登录。邮箱本地部分和 plus tag 保持精确身份，域名大小写
+及支持的手机号格式可规范化，但不将不同联系方式视为等同。
+
+若 Herald 已发送验证码而网关保存绑定失败，创建返回
+`503/binding_unavailable`，不返回 challenge ID。恢复后使用原幂等键重试，
+不要改用新键绕过不确定的发送状态。已存绑定冲突同样拒绝请求。
+
+替换所有网关前暂停新发送、排空登录请求。旧网关仍允许旧验证路径，混合部署
+会保留旧行为；回滚也会重新引入该风险，不应靠回滚接受用途不符的验证码。
+升级和回滚都保留 provider 幂等、nonce 与审计状态，并遵守后端各自的数据
+迁移规则。
+
+TOTP 注册确认限流经 Herald 和 Stargate 保留为 429 及固定错误字段，网关保留
+注册绑定供稍后重试。升级 SDK 不等于部署新的 TOTP 服务；subject 预算与注册
+开始共用，应覆盖两个步骤和错误尝试。每小时仅一次的配额无法在同一窗口内
+完成注册。session-kit 的时钟修复只放宽未来期限合理性上界，不延长绝对期限、
+不允许撤销后写回。继续同步时钟；回滚旧 adapter 可能拒绝时钟略快副本签发的
+会话，应保留可撤销命名空间及期限检查，不把记录复制到旧命名空间。

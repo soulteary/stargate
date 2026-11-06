@@ -51,6 +51,7 @@ func TestTOTPEnrollmentProviderFailuresPreserveBinding(t *testing.T) {
 		want    int
 	}{
 		{"provider rejects code", 400, map[string]any{"error": "invalid_code"}, 400},
+		{"provider limits confirmation", 429, map[string]any{"reason": "rate_limited", "detail": "private-provider-detail"}, 429},
 		{"wrong subject", 200, herald.TOTPEnrollConfirmResponse{Subject: "other-user", TotpEnabled: true}, 502},
 		{"not enabled", 200, herald.TOTPEnrollConfirmResponse{Subject: "user-1"}, 502},
 		{"confirmed", 200, herald.TOTPEnrollConfirmResponse{Subject: "user-1", TotpEnabled: true, BackupCodes: []string{"test-recovery-code"}}, 200},
@@ -69,6 +70,14 @@ func TestTOTPEnrollmentProviderFailuresPreserveBinding(t *testing.T) {
 			ctx := authenticatedTOTPContext(t, store, "/totp/enroll/confirm", "enroll_id=enroll-1&code=123456")
 			require.NoError(t, TOTPEnrollConfirmAPI(store)(ctx))
 			require.Equal(t, tc.want, ctx.Response().StatusCode())
+			if tc.want == 429 {
+				require.Contains(t, string(ctx.Response().Body()), "rate_limited")
+				require.NotContains(t, string(ctx.Response().Body()), "private-provider-detail")
+				sess, getErr := store.Get(ctx)
+				require.NoError(t, getErr)
+				require.Equal(t, "enroll-1", sess.Get(totpEnrollmentIDKey))
+				sess.Release()
+			}
 			if tc.want == 200 {
 				require.Contains(t, string(ctx.Response().Body()), "test-recovery-code")
 			} else {
