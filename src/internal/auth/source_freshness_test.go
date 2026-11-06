@@ -65,11 +65,11 @@ func TestSourceDeadlineRequiresCompleteCurrentEvidence(t *testing.T) {
 	h := freshnessHeaders(now)
 	deadline, err := transport.sourceDeadline(h)
 	require.NoError(t, err)
-	require.Equal(t, now.Add(59*time.Second), deadline)
+	require.WithinDuration(t, now.Add(59*time.Second), deadline, 0)
 	h.Set("Warden-Snapshot-Valid-Until", now.Add(10*time.Second).Format(time.RFC3339Nano))
 	deadline, err = transport.sourceDeadline(h)
 	require.NoError(t, err)
-	require.Equal(t, now.Add(9*time.Second), deadline)
+	require.WithinDuration(t, now.Add(9*time.Second), deadline, 0)
 }
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -122,7 +122,7 @@ func TestFreshnessTransportRejectsRedirectOriginsAndInvalidEvidence(t *testing.T
 		req = req.WithContext(context.WithValue(context.Background(), sourceEvidenceKey{}, evidence))
 		_, err = transport.RoundTrip(req)
 		require.NoError(t, err)
-		require.Equal(t, now.Add(30*time.Second), evidence.deadline())
+		require.WithinDuration(t, now.Add(30*time.Second), evidence.deadline(), 0)
 	}
 }
 
@@ -179,7 +179,7 @@ func TestStrictWardenLookupNegotiatesAndPreservesSourceDeadline(t *testing.T) {
 	user, deadline, err := LookupUserInfo(context.Background(), "", "active@example.com")
 	require.NoError(t, err)
 	require.Equal(t, "u1", user.UserID)
-	require.Equal(t, now.Add(59*time.Second), deadline)
+	require.WithinDuration(t, now.Add(59*time.Second), deadline, 0)
 	status = 404
 	_, _, err = LookupUserInfo(context.Background(), "", "active@example.com")
 	require.ErrorIs(t, err, ErrUserUnavailable)
