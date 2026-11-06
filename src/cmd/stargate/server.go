@@ -15,7 +15,6 @@ import (
 	fibersession "github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/gofiber/fiber/v3/middleware/static"
 	"github.com/gofiber/template/html/v3"
-	"github.com/gofiber/utils/v2"
 	"github.com/redis/go-redis/v9"
 	health "github.com/soulteary/health-kit/v4"
 	healthfiber "github.com/soulteary/health-kit/v4/fiberadapter"
@@ -144,14 +143,14 @@ func setupSessionStore() (*fibersession.Store, *redis.Client) {
 			log.Fatal().Err(fmt.Errorf("failed to create Redis client: %w", err)).Msg("Failed to initialize Redis session storage")
 		}
 		redisClient = client
-		sessionStorage = sessionredis.New(client, config.SessionStorageRedisKeyPrefix.Value)
+		sessionStorage = sessionredis.New(client, revocableSessionPrefix(config.SessionStorageRedisKeyPrefix.Value))
 		log.Info().Msg("Session storage configured to use Redis")
 	} else {
 		// Use in-memory storage
 		sessionStorage, err = session.NewStorageFromEnv(
 			false, // redisEnabled
 			"", "", 0,
-			"session:",
+			revocableSessionPrefix("session:"),
 		)
 		if err != nil {
 			log.Fatal().Err(err).Msg("Failed to initialize memory session storage")
@@ -161,12 +160,24 @@ func setupSessionStore() (*fibersession.Store, *redis.Client) {
 
 	// Create session Manager and get Fiber session config
 	sessionManager := session.NewManager(sessionStorage, sessionConfig)
-	fiberConfig := sessionfiber.SessionConfig(sessionManager)
-
-	// Set KeyGenerator (not provided by session-kit's SessionConfig)
-	fiberConfig.KeyGenerator = utils.UUID
+	fiberConfig, err := sessionfiber.RevocableSessionConfig(sessionManager)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to configure revocable session storage")
+	}
 
 	return fibersession.NewStore(fiberConfig), redisClient
+}
+
+// A separate namespace prevents older rolling-deployment writers from restoring
+// records after the revocable backend has marked their identifiers as logged out.
+func revocableSessionPrefix(base string) string {
+	if base == "" {
+		base = "session:"
+	}
+	if !strings.HasSuffix(base, ":") {
+		base += ":"
+	}
+	return base + "revocable:v1:"
 }
 
 // setupHealthChecker creates a health check aggregator with all dependencies

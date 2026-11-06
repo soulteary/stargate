@@ -119,8 +119,6 @@ github.com/soulteary/health-kit/v4 v4.0.5 h1:7rjlst/T8p3Qz5O5mZiDmUwvhZNOLF/H1ih
 github.com/soulteary/health-kit/v4 v4.0.5/go.mod h1:5NvaIZIFFeheVRvWGfZKeZUWyOGsVexxJ4kyhiSgt1M=
 github.com/soulteary/herald v1.3.13 h1:G6fpxAH4ZtWFW2ojVsdHPTCGMEmpVr0JXys3lTMmOJY=
 github.com/soulteary/herald v1.3.13/go.mod h1:WFoAxiXKmNEKhI5BFNyysZNPXWuS3Tcv8w94XXhW7Zk=
-github.com/soulteary/herald-totp v1.2.6 h1:GT0i0XqEJ4kU55CPzKEucA+HtWjwsWL+1h7OItZaHVw=
-github.com/soulteary/herald-totp v1.2.6/go.mod h1:xi52awUfejHSJ+tolnWjLAlTV5SUCphOry7JorJ/vp8=
 github.com/soulteary/http-kit/v2 v2.1.0 h1:BmHQ1ZnPPINkloYiug8YmmbVBL3aeEBY3Y4I095sQjk=
 github.com/soulteary/http-kit/v2 v2.1.0/go.mod h1:bRSSQY7HnhohsmMGHtTKO8ZgW2STgogp1X/D0LVYmWs=
 github.com/soulteary/i18n-kit/v4 v4.0.4 h1:CoIgaBeBJg+b0kduyZJiAC8EsimScnFgGGXYTEP6+KQ=
@@ -135,14 +133,14 @@ github.com/soulteary/redis-kit v1.8.1 h1:9BCtZNqH3N4CO38ZNMCrvBxTlKAjOFqcLvh7gK5
 github.com/soulteary/redis-kit v1.8.1/go.mod h1:k/lvXA9ecjKhSvNJrGlQ7K0ijp727OYfecG1Mxadv5A=
 github.com/soulteary/secure-kit/v2 v2.1.3 h1:dbSrMWLVT/wtpZQ85pzDgXP4A/xBS1lBIc0N3wItNNU=
 github.com/soulteary/secure-kit/v2 v2.1.3/go.mod h1:rXDBmpxphyWsBumofdWZxSh/ryVPrdhV7gN6Y3C+yL4=
-github.com/soulteary/session-kit/v3 v3.1.4 h1:1tkO4Wv4zT0T/DDTGbkahkQWac0eJJKh0Nde4NtrGDw=
-github.com/soulteary/session-kit/v3 v3.1.4/go.mod h1:jsmlEiGfRwkNy0mpQHY/38WswHAPXin6Kxh2lezE8J0=
+github.com/soulteary/session-kit/v3 v3.1.5-0.20261106115243-1fa34c651215 h1:GFnSEWnqNgInZuG56F8VmaS9X2XqBKfKhUPoW8aukcQ=
+github.com/soulteary/session-kit/v3 v3.1.5-0.20261106115243-1fa34c651215/go.mod h1:jsmlEiGfRwkNy0mpQHY/38WswHAPXin6Kxh2lezE8J0=
 github.com/soulteary/tracing-kit/v2 v2.0.3 h1:AHewuFNAL3yXnw+wjlKgYPCfa7ky30JsXnNbIYYwZ6s=
 github.com/soulteary/tracing-kit/v2 v2.0.3/go.mod h1:A5ByuWDLVk+uxUpObqKj0ikxb6m3NN8dM+te1CLFmfg=
 github.com/soulteary/version-kit/v4 v4.0.3 h1:TxU5B9sCmYx8+POnjJUKtv5xDZAJJnUNbOzGpjOSkic=
 github.com/soulteary/version-kit/v4 v4.0.3/go.mod h1:3gPOkuGbm0AStsO9iAQ7BXXgnNmIwkZslSpYxyrgF/w=
-github.com/soulteary/warden v1.4.4 h1:D+x28Qi5f97dBTnozvqLNiIey9bPXamVgRTvYr+38A0=
-github.com/soulteary/warden v1.4.4/go.mod h1:+B3ZyWF2I1wE+9ZzujWNl2nXpoyJpkBzRXnW37ayIZE=
+github.com/soulteary/warden v1.5.1-0.20261106114434-d24650ac7b1f h1:DQwhBNVbsYtgu5SXpYWc39sJ5jYznBU9nbqSk5lB/iU=
+github.com/soulteary/warden v1.5.1-0.20261106114434-d24650ac7b1f/go.mod h1:WMDLv68QvkIe8hPPtY+1Ob+bJ58J8AxRto4Z73+Wkx0=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=

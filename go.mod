@@ -24,10 +24,10 @@ require (
 	github.com/soulteary/middleware-kit/v3 v3.0.4
 	github.com/soulteary/redis-kit v1.8.1
 	github.com/soulteary/secure-kit/v2 v2.1.3
-	github.com/soulteary/session-kit/v3 v3.1.4
+	github.com/soulteary/session-kit/v3 v3.1.5-0.20261106115243-1fa34c651215
 	github.com/soulteary/tracing-kit/v2 v2.0.3
 	github.com/soulteary/version-kit/v4 v4.0.3
-	github.com/soulteary/warden v1.4.4
+	github.com/soulteary/warden v1.5.1-0.20261106114434-d24650ac7b1f
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasthttp v1.77.0
 	go.opentelemetry.io/otel v1.47.0
@@ -67,7 +67,6 @@ require (
 	github.com/prometheus/common v0.73.1 // indirect
 	github.com/prometheus/procfs v0.23.0 // indirect
 	github.com/sergi/go-diff v1.4.0 // indirect
-	github.com/soulteary/herald-totp v1.2.6 // indirect
 	github.com/soulteary/http-kit/v2 v2.1.0 // indirect
 	github.com/tinylib/msgp v1.6.5 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect

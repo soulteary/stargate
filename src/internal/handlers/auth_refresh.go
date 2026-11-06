@@ -18,13 +18,17 @@ var authorizationNow = time.Now
 var errAuthorizationUnavailable = errors.New("directory authorization is unavailable")
 
 func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (bool, error) {
+	return refreshDirectoryAuthorization(ctx, sess, false)
+}
+
+func refreshDirectoryAuthorization(ctx context.Context, sess *session.Session, force bool) (bool, error) {
 	// Authorization refresh only applies to authenticated Warden sessions. In
 	// particular, an anonymous request must continue through the normal
 	// ForwardAuth flow so that HTML clients are redirected to login.
-	if (!config.AuthRefreshEnabled.ToBool() && config.WardenSourceMaxAge.ToDuration() <= 0) || !config.WardenEnabled.ToBool() || !auth.IsAuthenticated(sess) {
+	if !config.WardenEnabled.ToBool() || !auth.IsAuthenticated(sess) || !wardenSessionUsesDirectory(sess) {
 		return false, nil
 	}
-	if !wardenSessionNeedsRefresh(sess) {
+	if !force && ((!config.AuthRefreshEnabled.ToBool() && config.WardenSourceMaxAge.ToDuration() <= 0) || !wardenSessionNeedsRefresh(sess)) {
 		return false, nil
 	}
 	phone, _ := sess.Get("user_phone").(string)
