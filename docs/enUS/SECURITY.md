@@ -256,3 +256,12 @@ Forward-auth protects only requests that actually pass through the configured re
 - Allow backend traffic only from the reverse proxy network or security group.
 - Remove client-supplied identity and credential headers before proxying; allow only the values produced by the trusted authentication path.
 - Expose Stargate health and metrics endpoints only to the intended operational network.
+
+
+### Source age and monitoring migration
+
+For revocation-sensitive deployments, enable `WARDEN_SOURCE_MAX_AGE` with a Warden
+server supporting snapshot metadata v1 and enforce source freshness on Warden as
+well. A five-minute session refresh does not bound the age of the underlying
+directory. See [the configuration reference](CONFIG.md#source-freshness-and-scrape-credentials)
+for the new source checks and separate `/metrics` bearer credential.

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"net/http"
@@ -197,6 +198,12 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 
 	storeLoginIdentity(sess, authMethod, identity)
 
+	// Do not issue a session from directory evidence that expired during OTP
+	// verification or session preparation.
+	if authMethod == "warden" && config.WardenSourceMaxAge.ToDuration() > 0 && (identity.wardenValidUntil.IsZero() || !authorizationNow().Before(identity.wardenValidUntil)) {
+		return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
+	}
+
 	// Authenticate and save session (this will save all session data including user info)
 	err = authenticator.Authenticate(sess)
 	if err != nil {
@@ -346,13 +353,14 @@ func LoginRoute(store *session.Store) func(c fiber.Ctx) error {
 // Verification code sending is now handled by the Herald service via the login flow.
 
 type loginIdentity struct {
-	userID         string
-	userPhone      string
-	userMail       string
-	verifyRespAMR  []string
-	wardenUserInfo *warden.AllowListUser
-	verifiedEmail  string
-	verifiedAt     int64
+	userID           string
+	userPhone        string
+	userMail         string
+	verifyRespAMR    []string
+	wardenUserInfo   *warden.AllowListUser
+	wardenValidUntil time.Time
+	verifiedEmail    string
+	verifiedAt       int64
 }
 
 func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx context.Context, loginSpan trace.Span) (bool, error) {
@@ -383,8 +391,13 @@ func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx contex
 
 	// Step 1: Get complete user information from Warden (includes status check)
 	wardenStartTime := time.Now()
-	userInfo := auth.GetUserInfo(wardenCtx, identity.userPhone, identity.userMail)
+	userInfo, validUntil, lookupErr := auth.LookupUserInfo(wardenCtx, identity.userPhone, identity.userMail)
+	identity.wardenValidUntil = validUntil
 	wardenDuration := time.Since(wardenStartTime)
+	if lookupErr != nil && !errors.Is(lookupErr, auth.ErrUserUnavailable) {
+		wardenSpan.End()
+		return false, SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
+	}
 	if userInfo == nil {
 		wardenSpan.SetAttributes(attribute.Bool("warden.user_found", false))
 		wardenSpan.End()
@@ -650,6 +663,12 @@ func authenticatePasswordLogin(ctx fiber.Ctx, password string) (bool, error) {
 
 func storeLoginIdentity(sess *session.Session, authMethod string, identity *loginIdentity) {
 	clearVerifiedEmail(sess)
+	sess.Delete("warden_source_valid_until")
+	sess.Delete("warden_source_policy")
+	if !identity.wardenValidUntil.IsZero() {
+		sess.Set("warden_source_valid_until", identity.wardenValidUntil.UnixNano())
+		sess.Set("warden_source_policy", wardenSourcePolicy())
+	}
 	// Set user information to session for warden authentication before authenticating
 	if authMethod != "warden" {
 		return

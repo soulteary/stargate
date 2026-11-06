@@ -76,6 +76,9 @@ Below are all environment variables used in code. "Required" means the service w
 | `HEADER_AUTH_SHARED_SECRET` | Secret string (at least 32 characters) | empty | Yes when header auth enabled |
 | `HEADER_AUTH_SECRET_HEADER` | HTTP header name | X-Stargate-Header-Auth | No |
 | `WARDEN_CACHE_TTL` | String | 300 | No |
+| `WARDEN_SOURCE_MAX_AGE` | duration | 0s (compatibility) | No |
+| `WARDEN_SOURCE_CLOCK_SKEW` | duration | 0s | No |
+| `METRICS_API_KEY` | secret | empty (metrics disabled) | No |
 | `HERALD_ENABLED` | true/false | false | No |
 | `HERALD_URL` | String | empty | No |
 | `HERALD_API_KEY` | String | empty | No |
@@ -1312,3 +1315,37 @@ The proxy sends `X-User-Phone` or `X-User-Mail` together with the configured sec
 Configured header names must be valid HTTP field names and must not reuse routing, authentication, identity, or hop-by-hop headers. In particular, do not configure the shared-secret header as `X-Forwarded-Uri`, `Stargate-Password`, `X-User-Phone`, or `X-User-Mail`; Stargate rejects these combinations at startup.
 
 Treat all three headers as trust-boundary inputs: use HTTPS, generate a strong shared secret, and configure the edge proxy to remove any client-supplied `X-User-Phone`, `X-User-Mail`, and header named by `HEADER_AUTH_SECRET_HEADER` before adding its own. Never expose this mode directly to untrusted clients.
+
+
+## Source freshness and scrape credentials
+
+Set `WARDEN_SOURCE_MAX_AGE` to a positive duration to require negotiated Warden
+snapshot metadata on every directory lookup. For example, use `90s` with
+`WARDEN_SOURCE_CLOCK_SKEW=1s` when the directory refreshes every 15–30 seconds.
+Choose values from the measured update interval and the required revocation bound.
+Warden must support `Warden-Snapshot-Metadata: v1`; older servers fail closed when
+this option is enabled. The default `0s` retains compatibility with older Warden
+versions and does not bound source age.
+
+The source deadline is the earlier of Warden's deadline and the source success
+time plus `WARDEN_SOURCE_MAX_AGE`, minus the clock allowance. Sessions retain that
+deadline and refresh when either it or `AUTH_REFRESH_INTERVAL` expires. Enabling
+source checks requires `AUTH_REFRESH_ENABLED=true`. Existing Warden sessions
+without a deadline revalidate on their next ForwardAuth request. Changing either
+source-age setting also revalidates sessions created under the previous policy. Source errors
+return HTTP 503 without destroying the session or extending its authorization;
+confirmed missing/disabled identities and changed stable user IDs invalidate it.
+Trusted-header authentication performs a fresh directory lookup for each request.
+Snapshot metadata is not signed. Use verified HTTPS for cross-host calls;
+plaintext HTTP requires a trusted, isolated local network. Metadata from an
+untrusted HTTP intermediary cannot establish source freshness.
+
+This uses a metadata-checking transport with the existing SDK; no SDK cache TTL
+is treated as evidence of source freshness.
+
+`/metrics` now returns HTTP 404 unless `METRICS_API_KEY` is configured. Supply a
+random secret of at least 32 bytes and configure the scraper to send
+`Authorization: Bearer <secret>`. Scrape credentials are independent of login,
+Warden and Herald credentials. Reusing configured service/session keys or plaintext login passwords
+is rejected at startup; never reuse a hashed login password either. Restrict this path at the network or proxy layer as
+well. Existing anonymous scrapers must be updated before deploying this change.

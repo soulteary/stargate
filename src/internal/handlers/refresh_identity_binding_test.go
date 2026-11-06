@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
@@ -25,14 +26,15 @@ func TestAuthorizationRefreshCannotRebindReassignedContact(t *testing.T) {
 	sess.Set("user_mail", "reassigned@example.com")
 	sess.Set("user_role", "viewer")
 	require.NoError(t, auth.Authenticate(sess))
-	lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
-		return &warden.AllowListUser{UserID: "new-owner", Mail: "reassigned@example.com", Status: "active", Role: "admin"}
+	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
+		return &warden.AllowListUser{UserID: "new-owner", Mail: "reassigned@example.com", Status: "active", Role: "admin"}, time.Time{}, nil
 	}
 	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
 	require.Error(t, err)
 	require.False(t, refreshed)
-	require.Equal(t, "original-user", sess.Get("user_id"))
-	require.Equal(t, "viewer", sess.Get("user_role"))
+	require.False(t, auth.IsAuthenticated(sess))
+	require.Nil(t, sess.Get("user_id"))
+	require.Nil(t, sess.Get("user_role"))
 }
 
 func TestAuthorizationRefreshRequiresStableIdentityForLegacySessions(t *testing.T) {
@@ -56,8 +58,8 @@ func TestAuthorizationRefreshRequiresStableIdentityForLegacySessions(t *testing.
 			sess.Set("user_mail", "user@example.com")
 			// Missing auth_method models a legacy Warden session.
 			require.NoError(t, auth.Authenticate(sess))
-			lookupRefreshUser = func(context.Context, string, string) *warden.AllowListUser {
-				return &warden.AllowListUser{UserID: tc.provider, Mail: "user@example.com", Status: "active", Role: "viewer"}
+			lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
+				return &warden.AllowListUser{UserID: tc.provider, Mail: "user@example.com", Status: "active", Role: "viewer"}, time.Time{}, nil
 			}
 			refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
 			require.Equal(t, tc.allow, refreshed)
@@ -66,7 +68,8 @@ func TestAuthorizationRefreshRequiresStableIdentityForLegacySessions(t *testing.
 				require.Equal(t, "viewer", sess.Get("user_role"))
 			} else {
 				require.Error(t, err)
-				require.Equal(t, tc.bound, sess.Get("user_id"))
+				require.False(t, auth.IsAuthenticated(sess))
+				require.Nil(t, sess.Get("user_id"))
 			}
 		})
 	}

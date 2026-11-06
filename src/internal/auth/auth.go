@@ -4,7 +4,9 @@ package auth
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 	"sync"
@@ -173,7 +175,17 @@ func InitWardenClient(l *logger.Logger) error {
 			wardenClientInitErr = fmt.Errorf("configure Warden TLS: %w", err)
 			return
 		}
-		if tlsConfig != nil {
+		if config.WardenSourceMaxAge.ToDuration() > 0 {
+			base := http.DefaultTransport.(*http.Transport).Clone()
+			base.TLSClientConfig = tlsConfig
+			wrapped := &sourceFreshnessTransport{base: base, origin: wardenURL, maxAge: config.WardenSourceMaxAge.ToDuration(), skew: config.WardenSourceClockSkew.ToDuration(), now: time.Now}
+			// The SDK accepts a concrete Transport. Registered protocols let us check
+			// response metadata without changing its signing or decoding behavior.
+			transport := &http.Transport{}
+			transport.RegisterProtocol("http", wrapped)
+			transport.RegisterProtocol("https", wrapped)
+			opts = opts.WithTransport(transport)
+		} else if tlsConfig != nil {
 			opts = opts.WithTLSConfig(tlsConfig)
 		}
 
@@ -310,78 +322,71 @@ func CheckUserInList(ctx context.Context, phone, mail string) bool {
 	return exists
 }
 
-// GetUserInfo fetches complete user information from Warden by phone or mail.
-//
-// Returns the user information if found and active, nil otherwise.
-// If Warden is not enabled or client is not initialized, returns nil.
+// ErrUserUnavailable distinguishes a confirmed missing/disabled identity from
+// dependency failures. Only the former invalidates an authenticated session.
+var ErrUserUnavailable = errors.New("warden identity is missing or inactive")
+
+// GetUserInfo returns an active directory identity or nil. Call LookupUserInfo
+// when dependency failures must be distinguished from revoked identities.
 func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser {
-	if !config.WardenEnabled.ToBool() {
-		log.Debug().Msg("Warden is not enabled, skipping user info fetch")
-		return nil
-	}
+	user, _, _ := LookupUserInfo(ctx, phone, mail)
+	return user
+}
 
-	client := getWardenClient()
-	if client == nil {
-		log.Warn().Msg("Warden client is not initialized, cannot get user info. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
-		return nil
+// LookupUserInfo returns a directory identity and, when configured, the exact
+// source deadline checked for that lookup. Failures never extend a deadline.
+func LookupUserInfo(ctx context.Context, phone, mail string) (*warden.AllowListUser, time.Time, error) {
+	if !config.WardenEnabled.ToBool() || getWardenClient() == nil {
+		return nil, time.Time{}, errors.New("warden client is unavailable")
 	}
-
-	// Ensure we have a valid context
 	if ctx == nil {
 		ctx = context.Background()
 	} else {
 		ctx = safeContext(ctx)
 	}
-
-	// Normalize input (phone: strip spaces/dashes; mail: trim + lowercase)
+	evidence := &sourceEvidence{}
+	ctx = context.WithValue(ctx, sourceEvidenceKey{}, evidence)
 	phone = NormalizePhone(phone)
 	mail = strings.TrimSpace(strings.ToLower(mail))
-
 	if phone == "" && mail == "" {
-		log.Debug().Msg("GetUserInfo called with both phone and mail empty")
-		return nil
+		return nil, time.Time{}, ErrUserUnavailable
 	}
-
-	log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("Fetching user info from Warden")
-
-	var (
-		user *warden.AllowListUser
-		err  error
-	)
-
+	client := getWardenClient()
+	lookup := func(phone, mail string) (*warden.AllowListUser, error) {
+		user, err := client.GetUserByIdentifier(ctx, phone, mail, "")
+		// The SDK consumes the body before returning. Evidence can expire while
+		// reading it, including a 404 body; check before classifying revocation.
+		if config.WardenSourceMaxAge.ToDuration() > 0 && evidence.expired() {
+			return nil, errSourceEvidence
+		}
+		return user, err
+	}
+	var user *warden.AllowListUser
+	var err error
 	if phone != "" {
-		user, err = client.GetUserByIdentifier(ctx, phone, "", "")
-		if err != nil {
-			if sdkErr, ok := err.(*warden.Error); ok && sdkErr.Code == warden.ErrCodeNotFound && mail != "" {
-				log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("User not found by phone, falling back to mail")
-				user, err = client.GetUserByIdentifier(ctx, "", mail, "")
-			} else {
-				log.Debug().Err(err).Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("Failed to get user info from Warden")
-				return nil
-			}
+		user, err = lookup(phone, "")
+		var sdkErr *warden.Error
+		if errors.As(err, &sdkErr) && sdkErr.Code == warden.ErrCodeNotFound && mail != "" {
+			user, err = lookup("", mail)
 		}
 	} else {
-		user, err = client.GetUserByIdentifier(ctx, "", mail, "")
+		user, err = lookup("", mail)
 	}
-
 	if err != nil {
-		log.Debug().Err(err).Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("Failed to get user info from Warden")
-		return nil
+		var sdkErr *warden.Error
+		if errors.As(err, &sdkErr) && sdkErr.Code == warden.ErrCodeNotFound {
+			return nil, time.Time{}, ErrUserUnavailable
+		}
+		return nil, time.Time{}, errors.New("warden lookup failed")
 	}
-
-	if user == nil {
-		log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("User not found in Warden")
-		return nil
+	if user == nil || !user.IsActive() {
+		return nil, time.Time{}, ErrUserUnavailable
 	}
-
-	// Check if user is active
-	if !user.IsActive() {
-		log.Warn().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Str("status", user.Status).Msg("User status is not active")
-		return nil
+	deadline := evidence.deadline()
+	if config.WardenSourceMaxAge.ToDuration() > 0 && evidence.expired() {
+		return nil, time.Time{}, errors.New("warden source freshness unavailable")
 	}
-
-	log.Debug().Str("user_id", user.UserID).Str("phone", secure.MaskPhone(user.Phone)).Str("mail", secure.MaskEmail(user.Mail)).Str("status", user.Status).Msg("Fetched user info from Warden")
-	return user
+	return user, deadline, nil
 }
 
 // Note: SendVerifyCode and VerifyCode functions have been removed.

@@ -309,12 +309,12 @@ func TestLoginAPI_WardenNoIdentifier(t *testing.T) {
 	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
 }
 
-// TestLoginAPI_WardenUserNotFound ensures warden auth returns 401 when GetUserInfo returns nil.
-func TestLoginAPI_WardenUserNotFound(t *testing.T) {
+// Directory outages are unavailable, not evidence that an identity was removed.
+func TestLoginAPI_WardenUnavailable(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
-	// No WARDEN_URL so InitWardenClient will not have a real client; GetUserInfo returns nil
+	// The test directory is unreachable.
 	auth.ResetWardenClientForTesting()
 	err := config.Initialize(testLogger())
 	testza.AssertNoError(t, err)
@@ -330,7 +330,7 @@ func TestLoginAPI_WardenUserNotFound(t *testing.T) {
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
-	testza.AssertEqual(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
+	testza.AssertEqual(t, fiber.StatusServiceUnavailable, ctx.Response().StatusCode())
 }
 
 func TestLoginRoute_NotAuthenticated(t *testing.T) {

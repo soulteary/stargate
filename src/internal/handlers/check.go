@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"crypto/subtle"
+	"errors"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -40,15 +41,18 @@ func sanitizeTrustedIdentityHeaders(ctx fiber.Ctx) bool {
 	return trusted
 }
 
-var lookupTrustedHeaderUser = auth.GetUserInfo
+var lookupTrustedHeaderUser = auth.LookupUserInfo
 
-func trustedHeaderAuthResult(ctx context.Context, phone, mail string) (*forwardauth.AuthResult, error) {
+func trustedHeaderAuthResult(ctx context.Context, phone, mail string) (*forwardauth.AuthResult, time.Time, error) {
 	if phone == "" && mail == "" {
-		return nil, nil
+		return nil, time.Time{}, nil
 	}
-	userInfo := lookupTrustedHeaderUser(ctx, phone, mail)
+	userInfo, deadline, lookupErr := lookupTrustedHeaderUser(ctx, phone, mail)
+	if lookupErr != nil && !errors.Is(lookupErr, auth.ErrUserUnavailable) {
+		return nil, time.Time{}, errAuthorizationUnavailable
+	}
 	if userInfo == nil {
-		return nil, forwardauth.ErrUserNotFound
+		return nil, time.Time{}, forwardauth.ErrUserNotFound
 	}
 	return &forwardauth.AuthResult{
 		Authenticated: true,
@@ -59,7 +63,7 @@ func trustedHeaderAuthResult(ctx context.Context, phone, mail string) (*forwarda
 		Name:          userInfo.Name,
 		Scopes:        userInfo.Scope,
 		Role:          userInfo.Role,
-	}, nil
+	}, deadline, nil
 }
 
 func handleNotAuthenticated(ctx fiber.Ctx) error {
@@ -128,6 +132,9 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		if auth.IsAuthenticated(sess) {
 			refreshed, err = refreshAuthorizationIfNeeded(spanCtx, sess)
 			if err != nil {
+				if errors.Is(err, errAuthorizationUnavailable) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
+				}
 				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
 			}
 		}
@@ -143,9 +150,10 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		// identity headers. Otherwise resolve the trusted identity here with the
 		// active request context, before falling back to the session checker.
 		var result *forwardauth.AuthResult
+		var headerDeadline time.Time
 		passwordAttempt := config.PasswordHeaderAuthEnabled.ToBool() && ctx.Get("Stargate-Password") != ""
 		if trustedIdentity && !passwordAttempt {
-			result, err = trustedHeaderAuthResult(spanCtx, ctx.Get("X-User-Phone"), ctx.Get("X-User-Mail"))
+			result, headerDeadline, err = trustedHeaderAuthResult(spanCtx, ctx.Get("X-User-Phone"), ctx.Get("X-User-Mail"))
 			if result == nil && err == nil {
 				result, err = handler.Check(faCtx, faSess)
 			}
@@ -172,6 +180,15 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 			return stepUpErr
 		}
 
+		// Recheck after authentication: processing must not carry a session past
+		// the source deadline observed at the start of this request.
+		if result.AuthMethod == forwardauth.AuthMethodHeader && config.WardenSourceMaxAge.ToDuration() > 0 && (headerDeadline.IsZero() || !authorizationNow().Before(headerDeadline)) {
+			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
+		}
+		if result.AuthMethod == forwardauth.AuthMethodSession && wardenSessionSourceExpired(sess) {
+			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
+		}
+
 		// Set authentication headers
 		handler.SetAuthHeaders(faCtx, result)
 		setVerifiedEmailHeader(ctx, sess, result, time.Now())
@@ -184,6 +201,8 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 
 func handleForwardAuthFailure(ctx fiber.Ctx, handler *forwardauth.Handler, faCtx *fafiber.Context, err error) error {
 	switch err {
+	case errAuthorizationUnavailable:
+		return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
 	case forwardauth.ErrInvalidPassword:
 		if limited, limitErr := rateLimitPasswordHeaderFailure(ctx); limited || limitErr != nil {
 			return limitErr

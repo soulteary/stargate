@@ -23,16 +23,16 @@ func TestTrustedHeaderAuthResultUsesRequestDeadline(t *testing.T) {
 	t.Cleanup(func() { lookupTrustedHeaderUser = originalLookup })
 
 	var providerContext context.Context
-	lookupTrustedHeaderUser = func(ctx context.Context, phone, mail string) *warden.AllowListUser {
+	lookupTrustedHeaderUser = func(ctx context.Context, phone, mail string) (*warden.AllowListUser, time.Time, error) {
 		providerContext = ctx
 		<-ctx.Done()
-		return nil
+		return nil, time.Time{}, nil
 	}
 
 	app := fiber.New()
 	app.Use(requestcontext.Middleware(25 * time.Millisecond))
 	app.Get("/lookup", func(c fiber.Ctx) error {
-		result, err := trustedHeaderAuthResult(c.Context(), "13800138000", "")
+		result, _, err := trustedHeaderAuthResult(c.Context(), "13800138000", "")
 		testza.AssertNil(t, result)
 		testza.AssertEqual(t, forwardauth.ErrUserNotFound, err)
 		return c.SendStatus(fiber.StatusNoContent)

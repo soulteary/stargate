@@ -9,18 +9,19 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
-	"github.com/soulteary/warden/pkg/warden"
 )
 
-var lookupRefreshUser = func(ctx context.Context, phone, mail string) *warden.AllowListUser {
-	return auth.GetUserInfo(ctx, phone, mail)
-}
+var lookupRefreshUser = auth.LookupUserInfo
+
+var authorizationNow = time.Now
+
+var errAuthorizationUnavailable = errors.New("directory authorization is unavailable")
 
 func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (bool, error) {
 	// Authorization refresh only applies to authenticated Warden sessions. In
 	// particular, an anonymous request must continue through the normal
 	// ForwardAuth flow so that HTML clients are redirected to login.
-	if !config.AuthRefreshEnabled.ToBool() || !config.WardenEnabled.ToBool() || !auth.IsAuthenticated(sess) {
+	if (!config.AuthRefreshEnabled.ToBool() && config.WardenSourceMaxAge.ToDuration() <= 0) || !config.WardenEnabled.ToBool() || !auth.IsAuthenticated(sess) {
 		return false, nil
 	}
 	if !wardenSessionNeedsRefresh(sess) {
@@ -32,12 +33,15 @@ func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (b
 	if phone == "" && mail == "" {
 		return false, errors.New("session has no refresh identity")
 	}
-	user := lookupRefreshUser(ctx, phone, mail)
-	if user == nil && ctx.Err() != nil {
+	user, deadline, lookupErr := lookupRefreshUser(ctx, phone, mail)
+	if lookupErr != nil && !errors.Is(lookupErr, auth.ErrUserUnavailable) || user == nil && ctx.Err() != nil {
 		// A canceled or expired request does not prove that the Warden user was
 		// removed or disabled. Fail the current refresh closed, but preserve the
 		// authenticated session so a transient timeout does not log the user out.
-		return false, ctx.Err()
+		if ctx.Err() != nil {
+			return false, ctx.Err()
+		}
+		return false, errAuthorizationUnavailable
 	}
 	if user == nil || (user.Status != "" && !strings.EqualFold(user.Status, "active")) {
 		_ = auth.Unauthenticate(sess)
@@ -47,6 +51,7 @@ func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (b
 	// rebinding a session to a different stable directory identity.
 	boundUserID, _ := sess.Get("user_id").(string)
 	if boundUserID == "" || user.UserID == "" || boundUserID != user.UserID {
+		_ = auth.Unauthenticate(sess)
 		return false, errors.New("session refresh identity does not match; sign in again")
 	}
 	sess.Set("user_id", user.UserID)
@@ -64,20 +69,41 @@ func refreshAuthorizationIfNeeded(ctx context.Context, sess *session.Session) (b
 	sess.Set("user_name", user.Name)
 	sess.Set("user_status", user.Status)
 	sess.Set("auth_refreshed_at", time.Now().Unix())
+	if !deadline.IsZero() {
+		sess.Set("warden_source_valid_until", deadline.UnixNano())
+		sess.Set("warden_source_policy", wardenSourcePolicy())
+	} else {
+		sess.Delete("warden_source_valid_until")
+		sess.Delete("warden_source_policy")
+	}
 	return true, nil
 }
 
-func wardenSessionNeedsRefresh(sess *session.Session) bool {
+func wardenSessionUsesDirectory(sess *session.Session) bool {
 	method, _ := sess.Get("auth_method").(string)
 	phone, _ := sess.Get("user_phone").(string)
 	mail, _ := sess.Get("user_mail").(string)
-	if method != "warden" {
-		// Sessions created before auth_method was recorded can still be identified
-		// by their Warden identity. Explicit non-Warden sessions must never be sent
-		// through the global Warden refresh path.
-		if method != "" || (phone == "" && mail == "") {
-			return false
-		}
+	return method == "warden" || method == "" && (phone != "" || mail != "")
+}
+
+func wardenSourcePolicy() string {
+	return config.WardenSourceMaxAge.ToDuration().String() + ":" + config.WardenSourceClockSkew.ToDuration().String()
+}
+
+func wardenSessionSourceExpired(sess *session.Session) bool {
+	if config.WardenSourceMaxAge.ToDuration() <= 0 || !wardenSessionUsesDirectory(sess) {
+		return false
+	}
+	deadline, ok := sess.Get("warden_source_valid_until").(int64)
+	return !ok || sess.Get("warden_source_policy") != wardenSourcePolicy() || !authorizationNow().Before(time.Unix(0, deadline))
+}
+
+func wardenSessionNeedsRefresh(sess *session.Session) bool {
+	if !wardenSessionUsesDirectory(sess) {
+		return false
+	}
+	if wardenSessionSourceExpired(sess) {
+		return true
 	}
 	interval := config.AuthRefreshInterval.ToDuration()
 	if interval <= 0 {
