@@ -10,6 +10,8 @@
 
 Stargate 是一个轻量级前向认证服务，用于在反向代理边界集中处理认证。它可与 Traefik 集成，并为受保护服务提供密码、会话、Warden 和 Herald 认证流程。
 
+升级 v1.3.0 前需要核对会话和后端服务迁移。切换生产流量前，请阅读[发行说明](CHANGELOG.md)和[部署指南](docs/zhCN/DEPLOYMENT.md)。
+
 ## 🌐 多语言文档 / Multi-language Documentation
 
 - [English](README.md) | [中文](README.zhCN.md) | [Français](README.frFR.md) | [Italiano](README.itIT.md) | [日本語](README.jaJP.md) | [Deutsch](README.deDE.md) | [한국어](README.koKR.md)

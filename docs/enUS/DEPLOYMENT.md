@@ -2,6 +2,8 @@
 
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
+For v1.3.0, read the [session migration](#revocable-session-migration) and [release notes](../../CHANGELOG.md). Existing sessions require a new login; backend service upgrades and mixed-version SSO require coordination.
+
 Upgrading from v0.12.0? Read the [v1.0.0 migration guide](MIGRATION_V1.md) before changing production traffic.
 
 ## Table of Contents

@@ -19,12 +19,15 @@ subject, normalized email, verification timestamp, source
 ASCII local parts remain exact, including case and plus tags. Unsupported address
 forms receive no assertion. Evidence is not inferred from AMR.
 
-Evidence expires after 24 hours (the existing `SessionExpiration`), even if
-session access or authorization refresh extends the session. Each response checks
+Evidence expires after 24 hours (`SessionExpiration`); session access or
+authorization refresh cannot extend it or the session's absolute deadline.
+Each response checks
 the authenticated result's subject and current email. A directory refresh that
 changes/removes the email permanently deletes the evidence; changing back cannot
 resurrect it. Signing out destroys the session; a new login resets old identity
-state. Old sessions remain usable, but without evidence return `false`.
+state. Within the current revocable namespace, authenticated sessions without
+evidence return `false`. Sessions from the pre-v1.3.0 namespace require a new
+login; see the [session migration](DEPLOYMENT.md#revocable-session-migration).
 
 SMS, TOTP, shared-password login, password-header authentication, trusted identity
 headers, a listed directory email and generic `otp`/`email` AMR do not create this

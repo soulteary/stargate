@@ -2,6 +2,70 @@
 
 This file records user-visible changes. For upgrade steps and configuration examples, see the [v1.0.0 migration guide](docs/enUS/MIGRATION_V1.md).
 
+## [Unreleased]
+
+## [1.3.0] - 2026-11-07
+
+### Security
+
+- Prevent an in-flight authorization refresh from restoring an authenticated
+  session under the same identifier after logout. Revocation and writes are
+  atomic in memory and Redis, and identifiers have an absolute 24-hour deadline.
+- Recheck Warden authorization before TOTP enrollment, confirmation, revocation
+  and step-up, even when background refresh is disabled. Source failures return
+  503 without performing the factor operation; definitive identity revocation
+  returns 401.
+- Bind cross-domain exchange tickets to a destination-issued host-only browser
+  nonce, destination, scheme and configured landing path. Old tickets are not
+  accepted. Missing state starts a new handshake; mismatched state is rejected.
+- Use the registered method and route for authentication rate-limit buckets so
+  case and trailing-slash variants share their endpoint quota.
+- Add opt-in Warden source-age enforcement using negotiated snapshot metadata.
+  Source failures cannot extend the stored authorization deadline. This does not
+  make directory revocation instantaneous.
+- Require a separate metrics bearer credential. Without `METRICS_API_KEY`, the
+  metrics endpoint returns 404; upstream service credentials do not grant access.
+
+### Added
+
+- Return `X-Auth-Email-Verified` on successful ForwardAuth checks. A true value
+  requires a server-bound Herald email challenge for the same explicit Warden
+  subject and current email, with evidence no older than 24 hours. Other login
+  methods do not create that evidence. This proves current email control, not
+  historical ownership. See the [verified email guide](https://github.com/soulteary/stargate/blob/v1.3.0/docs/enUS/VERIFIED_EMAIL.md).
+
+### Dependencies
+
+- Pin session-kit/v3 v3.2.0, Warden v1.6.0 and Herald v1.4.0.
+  HMAC-authenticated Warden requests omit redundant API-key and bearer headers.
+  Updating these SDKs does not update deployed provider services.
+- Include the README architecture animation and project banner updates.
+
+### Upgrade and rollback
+
+- Replace all gateway instances together. Sessions in the old storage namespace
+  require a new login; do not copy records into the new revocable namespace.
+  The absolute 24-hour lifetime is additional to the former idle timeout.
+- Old SSO tickets require a restarted login. Keep production HTTPS and secure
+  host-only nonce cookies, consistent exchange secrets, shared Redis replay
+  storage and proxy routes for every allowed destination. Do not mix old and
+  new exchange handlers in the serving pool.
+- Configure a dedicated metrics credential and update scrape authorization.
+  Source-age enforcement remains opt-in and needs a Warden server supporting
+  metadata v1. Directory refresh frequency alone is not a freshness guarantee.
+- When both Warden client credential types are configured, enable matching HMAC
+  on Warden. For an API-key-only server, remove both client HMAC settings instead
+  of relying on API-key fallback.
+- Herald and herald-totp must be deployed as a compatible pair for upstream
+  HMAC v2. Follow their versioned OTP namespace, replay-store and recovery
+  instructions; do not downgrade independently deployed providers during a
+  gateway rollback. See the [deployment guide](https://github.com/soulteary/stargate/blob/v1.3.0/docs/enUS/DEPLOYMENT.md#revocable-session-migration).
+- A rollback loses these security fixes and does not translate new-format
+  sessions or tickets. Retained records in the former namespace may become
+  usable again when old code resumes. Revoke or retire that namespace, or wait
+  for its records to expire, before returning traffic to an older gateway.
+  Do not configure old code to read or write the new-format namespace.
+
 ## [1.2.7] - 2026-11-02
 
 ### Redis limiter changes
