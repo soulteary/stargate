@@ -369,19 +369,19 @@ Landing path on the callback origin after a verified session exchange. The defau
 
 ### `PORT`
 
-Service listening port (local development only). Managed by the config package along with other env-based options.
+Service listening port for native and container deployments. Managed by the config package along with other env-based options.
 
 | Attribute | Value |
 |-----------|-------|
 | **Type** | String |
 | **Required** | No |
-| **Default** | Empty (when empty, server uses default port `:80`) |
+| **Default** | Empty for a native binary (`:80`); official container images set `PORT=8080` |
 
 **Description:**
 
-- Only for local development environment
-- Usually not needed in Docker containers (uses default port 80)
-- Format: port number (e.g., `8080`) or `:port` (e.g., `:8080`)
+- Can be set in development or production deployments
+- Official container images listen on `8080` by default. Use a bare number such as `PORT=8080` for container overrides: the image healthcheck inserts it into a URL, so the native `:8080` form is unsuitable there.
+- Native binary format: port number (e.g., `8080`) or `:port` (e.g., `:8080`)
 
 **Example:**
 

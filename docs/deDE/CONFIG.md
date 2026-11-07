@@ -336,6 +336,8 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `RATE_LIMIT_VERIFICATION_MAX` | Ganzzahl | 5 | Verifizierungsanfragen pro Fenster und Client; 0 deaktiviert |
 | `RATE_LIMIT_WINDOW` | Dauer | `1m` | Festes Ratenbegrenzungsfenster |
 
+`PORT` gilt für Entwicklung und Produktion. Ohne Umgebungswert nutzt die native Binärdatei `:80`; offizielle Images setzen `PORT=8080`. In Containern nur eine Zahl verwenden, etwa `PORT=8080`: Der Healthcheck baut daraus eine URL, daher ist die native Schreibweise `:8080` dort ungeeignet.
+
 Warden verlangt HMAC-Key-ID und Secret gemeinsam. Bei Herald muss die Key-ID für einen Server mit `HERALD_HMAC_KEYS` explizit gesetzt sein; ein einzelnes `HMAC_SECRET` unterstützt den impliziten Standard. mTLS-Clientzertifikat und Schlüssel müssen für beide Dienste ein vollständiges Paar bilden.
 
 ## Passwort-Konfiguration
