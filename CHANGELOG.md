@@ -4,6 +4,14 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Fixed
+
+- Preserve retryable OTP verification failures as HTTP 503 for upstream server
+  errors and HTTP 409 for published verifier lock contention. Failed attempts
+  leave the challenge binding intact; no verification request is automatically
+  retried. The existing Herald SDK does not expose upstream retry headers, so
+  no `Retry-After` value is synthesized.
+
 ## [1.3.1] - 2026-11-07
 
 ### Security

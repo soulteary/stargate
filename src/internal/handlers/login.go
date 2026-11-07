@@ -653,7 +653,14 @@ func verificationFailureMessage(ctx fiber.Ctx, verifyResp *herald.VerifyChalleng
 
 func handleChallengeVerificationError(ctx fiber.Ctx, err error, verifyResp *herald.VerifyChallengeResponse, auditContext challengeContext, otpEnabled bool) error {
 	// Check if it's a connection error (Herald service unavailable)
-	if heraldErr, ok := err.(*herald.HeraldError); ok {
+	var heraldErr *herald.HeraldError
+	if errors.As(err, &heraldErr) {
+		if heraldErr.StatusCode >= http.StatusInternalServerError && heraldErr.StatusCode <= 599 {
+			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
+		}
+		if heraldErr.StatusCode == http.StatusConflict && heraldErr.Reason == "lock_contention" {
+			return SendErrorResponse(ctx, fiber.StatusConflict, i18n.T(ctx, "error.herald_unavailable_retry"))
+		}
 		if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
 			// Herald service is unavailable, suggest OTP fallback if enabled
 			if otpEnabled {
