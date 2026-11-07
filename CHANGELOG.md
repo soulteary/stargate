@@ -4,6 +4,8 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-11-07
+
 ### Security
 
 - Bind OTP login to a gateway-issued challenge for the current Warden subject,
@@ -16,12 +18,14 @@ This file records user-visible changes. For upgrade steps and configuration exam
   already have delivered the code; retain its original idempotency key.
 - Preserve TOTP confirmation quota errors as fixed `429/rate_limited` responses
   instead of reporting an invalid code. Keep the enrollment binding for retry.
+- Update Warden SDK diagnostics to omit raw transport errors, retry URLs and
+  response bodies when custom logging is enabled. Returned errors are unchanged.
 
 ### Dependencies and upgrade
 
-- Pin the merged session-kit clock-bound fix, Warden SDK log redaction, and
-  Herald/TOTP confirmation quota fixes using real Go pseudo-versions. Published
-  release tags remain unchanged; SDK updates do not deploy backend services.
+- Pin session-kit/v3 v3.2.1, Warden v1.6.1 and Herald v1.4.1, including
+  herald-totp/v2 v2.0.1 transitively. challenge-kit remains v1.11.0. These
+  SDK updates do not deploy independently running backend services.
 - Use a shared challenge-context store across gateway replicas. Old pending
   challenges work only when their original binding survives and still matches
   the directory contact. Otherwise restart the login flow; there is no legacy
@@ -439,3 +443,5 @@ Before publishing the first release candidate, replace `Unreleased` with the int
 [1.2.0]: https://github.com/soulteary/stargate/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/soulteary/stargate/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/soulteary/stargate/compare/v0.12.0...v1.0.0
+
+[1.3.1]: https://github.com/soulteary/stargate/compare/v1.3.0...v1.3.1

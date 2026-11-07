@@ -2,6 +2,8 @@
 
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
+For v1.3.1, upgrade herald-totp to v2.0.1, then Herald to v1.4.1, before following [bound login challenge upgrade and rollback](#bound-login-challenge-upgrade-and-rollback). Keep existing v1.3.0 revocable-session records, tombstones, configured lifetime and namespace; this patch does not require a session-format migration or renew an existing deadline.
+
 For v1.3.0, read the [session migration](#revocable-session-migration) and [release notes](../../CHANGELOG.md). Existing sessions require a new login; backend service upgrades and mixed-version SSO require coordination.
 
 Upgrading from v0.12.0? Read the [v1.0.0 migration guide](MIGRATION_V1.md) before changing production traffic.
