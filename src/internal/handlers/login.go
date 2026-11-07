@@ -58,7 +58,6 @@ func InitHeraldClient(l *logger.Logger) error {
 
 		opts := herald.DefaultOptions().
 			WithBaseURL(heraldURL).
-			WithAPIKey(config.HeraldAPIKey.String()).
 			WithTimeout(10 * time.Second)
 
 		// Add HMAC secret if configured (for service-to-service authentication)
@@ -68,6 +67,7 @@ func InitHeraldClient(l *logger.Logger) error {
 			opts = opts.WithHMACSecret(hmacSecret).WithKeyID(config.HeraldHMACKeyID.String())
 			log.Debug().Msg("Herald client will use HMAC authentication")
 		} else if config.HeraldAPIKey.String() != "" {
+			opts = opts.WithAPIKey(config.HeraldAPIKey.String())
 			log.Debug().Msg("Herald client will use API key authentication")
 		} else {
 			log.Warn().Msg("Neither HERALD_HMAC_SECRET nor HERALD_API_KEY is set. Herald client may not authenticate properly.")
