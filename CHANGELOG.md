@@ -4,6 +4,10 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Security
+
+- Configure the Herald SDK with HMAC credentials only when `HERALD_HMAC_SECRET` is set. Keep API-key-only deployments supported without sending the configured API key on signed requests.
+
 ## [1.3.2] - 2026-11-07
 
 ### Fixed

@@ -905,6 +905,8 @@ TOTP 注册、确认、撤销和 step-up 操作会在执行前重新查询 Warde
 
 ### Warden 凭据优先级
 
+`HERALD_HMAC_SECRET` 非空时，即使同时配置 `HERALD_API_KEY`，Stargate 也只向 Herald SDK 提供 HMAC 凭据。HMAC 认证失败后不会回退到 API key。Herald 服务端使用 `REQUEST_AUTH_MODE=api_key` 时，应留空 `HERALD_HMAC_SECRET` 并配置 `HERALD_API_KEY`。升级同时配置两类凭据的客户端前，需确认服务端接受对应 HMAC 凭据，或明确选择仅 API key 模式。
+
 同时配置 `WARDEN_API_KEY` 和 `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` 时，新版 SDK 只发送 HMAC 凭据，不会改用 API key 重试认证。使用该组合升级前，请先在 Warden 服务端配置匹配的 HMAC 凭据。若服务端只启用 API key，请移除客户端的两个 HMAC 配置并保留 `WARDEN_API_KEY`。API-key-only 和 mTLS 仍受支持，服务端认证策略没有改变。
 
 

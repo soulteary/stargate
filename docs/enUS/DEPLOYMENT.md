@@ -819,6 +819,8 @@ Previously issued tickets are rejected. Complete an in-progress login again afte
 
 ### Warden credential precedence
 
+When `HERALD_HMAC_SECRET` is nonempty, Stargate passes only HMAC credentials to the Herald SDK, even if `HERALD_API_KEY` is also set. Failed HMAC authentication does not fall back to the API key. For a Herald server using `REQUEST_AUTH_MODE=api_key`, leave `HERALD_HMAC_SECRET` empty and configure `HERALD_API_KEY`. Before upgrading a dual-configured client, ensure the server accepts its HMAC credentials or explicitly select API-key-only mode.
+
 When both `WARDEN_API_KEY` and `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` are configured, the updated SDK sends only HMAC credentials. It does not retry authentication with the API key. Configure matching HMAC credentials on Warden before upgrading this combination. For an API-key-only Warden deployment, remove both client HMAC settings and keep `WARDEN_API_KEY`. API-key-only authentication and mTLS remain supported; this change does not alter the server's authentication policy.
 
 
