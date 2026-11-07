@@ -336,7 +336,7 @@ PORT=8080
 | `RATE_LIMIT_VERIFICATION_MAX` | 정수 | 5 | 클라이언트별·윈도우별 인증 코드 요청 수. 0이면 비활성화 |
 | `RATE_LIMIT_WINDOW` | 기간 | `1m` | 레이트 리밋 고정 윈도우 |
 
-HMAC Key ID와 Secret은 함께 설정해야 합니다. mTLS 클라이언트 인증서와 키도 완전한 쌍이어야 하며, 불완전한 설정은 시작 실패로 처리됩니다.
+Warden의 HMAC Key ID와 Secret은 함께 설정합니다. Herald 서버가 `HERALD_HMAC_KEYS`를 사용하면 명시적 ID가 필요하지만 단일 `HMAC_SECRET`은 암시적 기본값을 지원합니다. 두 서비스 모두 mTLS 클라이언트 인증서와 키를 완전한 쌍으로 설정해야 합니다.
 
 ## 비밀번호 설정
 

@@ -75,7 +75,7 @@ WARDEN_API_KEY=your-api-key
 **部署要求：**
 - 需要 Redis（存储 challenge 和限流状态）
 - 提供 HTTP API 接口
-- 支持 HMAC 签名或 mTLS 认证（生产环境推荐）
+- 生产环境中，Herald 要求所选的 HMAC 或 API Key 请求凭据；可选 mTLS 叠加传输保护，不替代请求认证。
 
 **配置：**
 ```bash

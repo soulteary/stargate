@@ -650,7 +650,7 @@ HERALD_API_KEY=your-api-key-here
 
 #### Herald mTLS（可选）
 
-与 Herald 通信时使用 TLS 客户端证书认证时可配置以下项。与 API Key / HMAC 可同时存在，由客户端实现决定优先使用哪种认证。
+生产环境中，Herald 要求所选的 HMAC 或 API Key 请求凭据；可选 mTLS 叠加传输保护，不替代请求认证。
 
 #### `HERALD_TLS_CA_CERT_FILE`
 

@@ -336,7 +336,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `RATE_LIMIT_VERIFICATION_MAX` | intero | 5 | Richieste di verifica per finestra e per client; 0 disabilita |
 | `RATE_LIMIT_WINDOW` | durata | `1m` | Finestra fissa di limitazione |
 
-Key ID e secret HMAC devono essere impostati insieme. Anche certificato e chiave client mTLS devono essere configurati come coppia completa; in caso contrario l'avvio fallisce.
+Warden richiede ID e segreto HMAC insieme. Per Herald, impostare un ID esplicito se il server usa `HERALD_HMAC_KEYS`; un singolo `HMAC_SECRET` mantiene il valore implicito. Certificato e chiave client mTLS devono formare una coppia completa per entrambi i servizi.
 
 ## Configurazione Password
 

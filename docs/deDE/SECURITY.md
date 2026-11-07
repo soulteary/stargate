@@ -11,7 +11,7 @@ Dieses Dokument erläutert die Sicherheitsfunktionen von Stargate, die Sicherhei
 1. **Forward Auth-Schutz**: Zentralisierte Authentifizierungsschicht zum Schutz von Backend-Diensten
 2. **Mehrere Passwort-Algorithmen**: bcrypt sowie Plaintext nur für lokale Entwicklung; MD5 und ungesalzenes SHA-512 werden abgelehnt
 3. **Sichere Sitzungsverwaltung**: Cookie-basierte Sitzungen mit konfigurierbarer Domain und Ablaufzeit
-4. **Service-Integrationssicherheit**: Sichere Kommunikation mit Warden- und Herald-Diensten unter Verwendung von mTLS oder HMAC
+4. **Service-Integrationssicherheit**: In Produktion erfordert Herald die gewählten HMAC- oder API-Key-Anmeldedaten; optionales mTLS ergänzt den Transportschutz und ersetzt sie nicht. Warden behält seine eigene konfigurierte API-Key/HMAC/mTLS-Richtlinie.
 5. **Sitzungsfreigabe-Sicherheit**: Sicherer Mechanismus zum Austausch von Sitzungen zwischen Domains
 6. **Eingabevalidierung**: Strenge Validierung aller Eingabeparameter
 7. **Fehlerbehandlung**: Fehlermeldungen und sonstige Antwortdaten sind Endpunkt-spezifisch; `DEBUG` ist keine allgemeine Nichtoffenlegungsgarantie

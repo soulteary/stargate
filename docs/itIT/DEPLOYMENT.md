@@ -56,7 +56,7 @@ WARDEN_API_KEY=your-api-key
 **Requisiti di Deployment:**
 - Richiede Redis (memorizza challenge e stato limite velocità)
 - Fornisce interfaccia API HTTP
-- Supporta autenticazione firma HMAC o mTLS (raccomandato per produzione)
+- In produzione, Herald richiede le credenziali HMAC o API key selezionate; mTLS opzionale aggiunge protezione al trasporto e non le sostituisce.
 
 **Configurazione:**
 ```bash

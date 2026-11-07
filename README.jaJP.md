@@ -217,7 +217,7 @@ HERALD_API_KEY=your-api-key  # 開発環境
 - ✅ Traefik またはリバースプロキシ経由で HTTPS を有効化
 - ✅ サブドメイン間で適切なセッション管理のために `COOKIE_DOMAIN` を設定
 - ✅ 高度な機能が必要な場合、OTP認証のために Warden + Herald をオプションで統合
-- ✅ Stargate ↔ Herald/Warden 通信に HMAC 署名または mTLS を使用
+- ✅ 本番環境では、Herald は選択した HMAC または API key の要求認証を必要とします。任意の mTLS は追加の通信保護であり、要求認証を置き換えません。 Warden は個別に設定された API key/HMAC/mTLS ポリシーを使います。
 - ✅ 適切なログ記録と監視を設定
 - ✅ セキュリティパッチのために Stargate を最新バージョンに保つ
 

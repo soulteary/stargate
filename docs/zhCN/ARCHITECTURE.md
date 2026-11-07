@@ -242,7 +242,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 - 必须设置 `HERALD_API_KEY` 或 `HERALD_HMAC_SECRET` 之一
 
 **安全要求（生产环境）：**
-- 服务间通信推荐使用 HMAC 签名或 mTLS
+- 生产环境中，Herald 要求所选的 HMAC 或 API Key 请求凭据；可选 mTLS 叠加传输保护，不替代请求认证。 Warden 仍使用其独立配置的 API Key/HMAC/mTLS 策略。
 - 时间戳校验（防止重放攻击）
 - 请求签名验证
 
@@ -255,9 +255,8 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
    - 转发到 Stargate `/_auth` 端点
 
 2. **Stargate 检查认证**
-   - 优先检查 `Stargate-Password` 头（API 认证）
-   - 如果 Header 认证失败，检查 `stargate_session_id` Cookie（Web 认证）
-   - **仅校验 Session，不调用外部服务**（确保高性能）
+   - 密码请求头须显式启用。检查顺序为已启用的密码请求头、可信身份请求头、会话；共享密钥与代理要求见 [API.md](API.md)。
+   - 可信身份查询与 Warden 会话授权刷新可能调用 Warden。来源新鲜度可能要求在常规间隔前刷新；目录不可用时返回503，不将其当作账号删除。
 
 3. **认证成功**
    - 设置 `X-Forwarded-User` 头（或配置的用户头名称），值为用户信息
@@ -286,10 +285,9 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
      4. 如果以上都没有，且来源域名与认证服务域名不一致，则使用来源域名作为 callback
 
 3. **会话交换**
-   - 如果有 callback，重定向到 `{callback}/_session_exchange?ticket=<opaque_ticket>`
-   - `GET /_session_exchange?ticket=<opaque_ticket>`
-   - 设置会话 Cookie（如果配置了 `COOKIE_DOMAIN`，会设置到指定域名）
-   - 重定向到根路径 `/`
+   - 目标回调站点先通过 `/_session_exchange?start=1` 设置仅本主机的浏览器 nonce Cookie，再向认证站点返回封装的 `exchange_state`。直接在认证站点登录时也会在需要时启动同一握手。
+   - 认证完成后签发与该浏览器请求绑定、有效期两分钟且仅可使用一次的 ticket。兑换时须匹配目标 nonce Cookie、目标站点、协议与配置的落地路径。
+   - 仅当目标属于 `COOKIE_DOMAIN` 时设置该 Domain，否则设置仅本主机 Cookie。跳转至 `SESSION_EXCHANGE_REDIRECT_PATH`（默认 `/`）。浏览器流程及迁移要求见 [API.md](API.md)。
 
 ### Warden + Herald OTP 认证登录流程（可选）
 
@@ -312,13 +310,14 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
    - Herald 返回 ok + user_id (+ 可选 amr/认证强度)
 
 4. **创建会话**
-   - Stargate 签发 session（cookie/JWT）
+   - Stargate 创建服务端会话并设置不透明标识 Cookie，此流程不签发 JWT。
    - 如果启用了 Warden：从 Warden 获取用户信息并写入 session claims
    - 设置会话 Cookie
 
 5. **会话交换**
-   - 如果有 callback，重定向到 `{callback}/_session_exchange?ticket=<opaque_ticket>`
-   - 后续 forwardAuth 只校验 Stargate session，确保高性能
+   - 目标回调站点先通过 `/_session_exchange?start=1` 设置仅本主机的浏览器 nonce Cookie，再向认证站点返回封装的 `exchange_state`。直接在认证站点登录时也会在需要时启动同一握手。
+   - 认证完成后签发与该浏览器请求绑定、有效期两分钟且仅可使用一次的 ticket。兑换时须匹配目标 nonce Cookie、目标站点、协议与配置的落地路径。
+   - 仅当目标属于 `COOKIE_DOMAIN` 时设置该 Domain，否则设置仅本主机 Cookie。跳转至 `SESSION_EXCHANGE_REDIRECT_PATH`（默认 `/`）。浏览器流程及迁移要求见 [API.md](API.md)。
 
 ## 安全考虑
 
@@ -329,7 +328,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 - Cookie 路径设置为 `/`，允许在整个域名下使用
 - 会话过期时间：24 小时（`config.SessionExpiration`）
 - 支持自定义 Cookie 域名（用于跨域场景）
-- 会话 ID 使用 UUID 生成，确保唯一性和安全性
+- 可撤销会话标识由密码学随机部分和不可延长的绝对截止时间组成（`r1.<deadline>.<random>`），不是 UUID。
 
 ### 密码安全
 
@@ -413,10 +412,10 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 1. 用户输入标识（email/phone）→ Stargate
 2. Stargate → Warden：查询用户信息（HMAC/mTLS 保护）
 3. Warden → Stargate：返回 user_id、email、phone、status
-4. Stargate → Herald：创建 challenge（HMAC/mTLS 保护）
+4. Stargate → Herald：创建 challenge（HMAC/API key + optional mTLS 保护）
 5. Herald → Provider：发送验证码（SMS/Email）
 6. 用户输入验证码 → Stargate
-7. Stargate → Herald：验证码校验（HMAC/mTLS 保护）
+7. Stargate → Herald：验证码校验（HMAC/API key + optional mTLS 保护）
 8. Herald → Stargate：返回验证结果
 9. Stargate：创建 session → Redis
 
@@ -427,10 +426,10 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 
 ### 安全边界
 
-- **服务间通信**：使用 HMAC 签名或 mTLS 保护
+- 生产环境中，Herald 要求所选的 HMAC 或 API Key 请求凭据；可选 mTLS 叠加传输保护，不替代请求认证。 Warden 仍使用其独立配置的 API Key/HMAC/mTLS 策略。
 - **PII 保护**：敏感信息（email/phone）在日志中脱敏
 - **验证码安全**：Herald 只存储验证码 hash，不存储明文
-- **会话安全**：Session ID 使用 UUID，Cookie 使用 HttpOnly 和 SameSite
+- 服务端可撤销标识、HttpOnly 与 SameSite=Lax Cookie；绝对截止时间不滑动延长。
 - **时间戳校验**：HMAC 签名包含时间戳，防止重放攻击
 
 ## 未来改进方向

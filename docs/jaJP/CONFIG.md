@@ -336,7 +336,7 @@ PORT=8080
 | `RATE_LIMIT_VERIFICATION_MAX` | 整数 | 5 | クライアントごと・ウィンドウごとの認証コード要求数。0 で無効 |
 | `RATE_LIMIT_WINDOW` | 期間 | `1m` | レート制限の固定ウィンドウ |
 
-HMAC の Key ID と Secret は必ず同時に設定します。mTLS のクライアント証明書と鍵も完全なペアが必要で、不完全な設定では起動に失敗します。
+Warden の HMAC Key ID と Secret は同時に設定します。Herald サーバーが `HERALD_HMAC_KEYS` を使う場合は明示的な ID が必要ですが、単一の `HMAC_SECRET` は暗黙の既定値を利用できます。両サービスとも mTLS クライアント証明書と鍵は完全な組で設定します。
 
 ## パスワード設定
 

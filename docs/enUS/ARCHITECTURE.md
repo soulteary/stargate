@@ -242,7 +242,7 @@ When `HERALD_ENABLED=true`, Stargate can integrate with Herald service through H
 - Must set either `HERALD_API_KEY` or `HERALD_HMAC_SECRET`
 
 **Security Requirements (Production Environment):**
-- Inter-service communication recommended to use HMAC signature or mTLS
+- In production, Herald requires the selected HMAC or API-key request credentials; optional mTLS adds transport protection and does not replace them. Warden retains its own configured API-key/HMAC/mTLS policy.
 - Timestamp verification (prevent replay attacks)
 - Request signature verification
 
@@ -255,9 +255,8 @@ When `HERALD_ENABLED=true`, Stargate can integrate with Herald service through H
    - Forwards to Stargate `/_auth` endpoint
 
 2. **Stargate checks authentication**
-   - First checks `Stargate-Password` header (API authentication)
-   - If header authentication fails, checks `stargate_session_id` cookie (Web authentication)
-   - **Only verifies Session, does not call external services** (ensures high performance)
+   - Password headers are opt-in. Check order: enabled password header, trusted identity headers, then session; see [API.md](API.md) for the shared-secret and proxy requirements.
+   - Trusted identity lookup and Warden session authorization refresh can call Warden. Source freshness can force a refresh before the normal interval; an unavailable directory returns 503 without treating it as an account deletion.
 
 3. **Authentication succeeds**
    - Sets `X-Forwarded-User` header (or configured user header name) with user information
@@ -286,10 +285,9 @@ When `HERALD_ENABLED=true`, Stargate can integrate with Herald service through H
      4. If none of the above, and origin domain differs from authentication service domain, use origin domain as callback
 
 3. **Session exchange**
-   - If callback exists, redirects to `{callback}/_session_exchange?ticket=<opaque_ticket>`
-   - `GET /_session_exchange?ticket=<opaque_ticket>`
-   - Sets session cookie (if `COOKIE_DOMAIN` is configured, sets to specified domain)
-   - Redirects to root path `/`
+   - The callback origin first creates a host-only browser nonce cookie at `/_session_exchange?start=1` and returns sealed `exchange_state` to the auth host. Direct auth-host login bootstraps the same handshake when needed.
+   - After authentication, the auth host issues a two-minute single-use ticket bound to that browser request. Redemption requires the destination nonce cookie and matching audience, scheme and configured landing path.
+   - Set the session cookie with `COOKIE_DOMAIN` only if the target belongs to that domain; otherwise use a host-only cookie. Redirect to `SESSION_EXCHANGE_REDIRECT_PATH` (default `/`). See [API.md](API.md) for the browser flow and migration requirements.
 
 ### Warden + Herald OTP Authentication Login Flow (Optional)
 
@@ -312,13 +310,14 @@ When Warden and Herald integrations are enabled, OTP authentication can be used:
    - Herald returns ok + user_id (+ optional amr/authentication strength)
 
 4. **Create session**
-   - Stargate issues session (cookie/JWT)
+   - Stargate creates a server-side session and sets its opaque cookie identifier. It does not issue a JWT in this flow.
    - If Warden is enabled: Get user information from Warden and write to session claims
    - Set session cookie
 
 5. **Session exchange**
-   - If callback exists, redirects to `{callback}/_session_exchange?ticket=<opaque_ticket>`
-   - Subsequent forwardAuth only verifies Stargate session, ensuring high performance (unless authorization info refresh is needed)
+   - The callback origin first creates a host-only browser nonce cookie at `/_session_exchange?start=1` and returns sealed `exchange_state` to the auth host. Direct auth-host login bootstraps the same handshake when needed.
+   - After authentication, the auth host issues a two-minute single-use ticket bound to that browser request. Redemption requires the destination nonce cookie and matching audience, scheme and configured landing path.
+   - Set the session cookie with `COOKIE_DOMAIN` only if the target belongs to that domain; otherwise use a host-only cookie. Redirect to `SESSION_EXCHANGE_REDIRECT_PATH` (default `/`). See [API.md](API.md) for the browser flow and migration requirements.
 
 ## Security Considerations
 
@@ -329,7 +328,7 @@ When Warden and Herald integrations are enabled, OTP authentication can be used:
 - Cookie path is set to `/`, allowing use across the entire domain
 - Session expiration time: 24 hours (`config.SessionExpiration`)
 - Supports custom cookie domain (for cross-domain scenarios)
-- Session IDs are generated using UUID to ensure uniqueness and security
+- Revocable session identifiers contain a cryptographically random component and an immutable absolute deadline (`r1.<deadline>.<random>`); they are not UUIDs.
 
 ### Password Security
 
@@ -413,10 +412,10 @@ Modify the `internal/web/templates/login.html` template file.
 1. User enters identifier (email/phone) → Stargate
 2. Stargate → Warden: Query user information (protected by HMAC/mTLS)
 3. Warden → Stargate: Return user_id, email, phone, status
-4. Stargate → Herald: Create challenge (protected by HMAC/mTLS)
+4. Stargate → Herald: Create challenge (protected by HMAC/API key + optional mTLS)
 5. Herald → Provider: Send verification code (SMS/Email)
 6. User enters verification code → Stargate
-7. Stargate → Herald: Verify code (protected by HMAC/mTLS)
+7. Stargate → Herald: Verify code (protected by HMAC/API key + optional mTLS)
 8. Herald → Stargate: Return verification result
 9. Stargate: Create session → Redis
 
@@ -427,10 +426,10 @@ Modify the `internal/web/templates/login.html` template file.
 
 ### Security Boundaries
 
-- **Inter-Service Communication**: Protected by HMAC signature or mTLS
+- In production, Herald requires the selected HMAC or API-key request credentials; optional mTLS adds transport protection and does not replace them. Warden retains its own configured API-key/HMAC/mTLS policy.
 - **PII Protection**: Sensitive information (email/phone) is masked in logs
 - **Code Security**: Herald only stores code hash, not plaintext
-- **Session Security**: Session ID uses UUID, Cookie uses HttpOnly and SameSite
+- Revocable server-backed identifiers, HttpOnly cookies and SameSite=Lax; the absolute deadline does not slide.
 - **Timestamp Verification**: HMAC signature includes timestamp to prevent replay attacks
 
 ## Future Improvements

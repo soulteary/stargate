@@ -655,7 +655,7 @@ HERALD_API_KEY=your-api-key-here
 
 #### Herald mTLS (Optional)
 
-When using TLS client certificate authentication to Herald, the following options apply. Can be used alongside API Key / HMAC; client implementation decides precedence.
+In production, Herald requires the selected HMAC or API-key request credentials; optional mTLS adds transport protection and does not replace them.
 
 #### `HERALD_TLS_CA_CERT_FILE`
 

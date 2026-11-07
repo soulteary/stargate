@@ -9,7 +9,7 @@ This document explains Stargate's security features, security configuration, and
 1. **Forward Auth Protection**: Centralized authentication layer for protecting backend services
 2. **Password Verification**: Support for bcrypt and plaintext (local development only); MD5 and unsalted SHA-512 are rejected
 3. **Secure Session Management**: Cookie-based sessions with configurable domain and expiration
-4. **Service Integration Security**: Secure communication with Warden and Herald services using mTLS or HMAC
+4. **Service Integration Security**: In production, Herald requires the selected HMAC or API-key request credentials; optional mTLS adds transport protection and does not replace them. Warden retains its own configured API-key/HMAC/mTLS policy.
 5. **Session Sharing Security**: Secure cross-domain session exchange mechanism
 6. **Input Validation**: Strict validation of all input parameters
 7. **Error Handling**: Error messages and other response data are endpoint-specific; `DEBUG` is not a general non-disclosure guarantee
@@ -222,7 +222,7 @@ Stargate supports secure cross-domain session sharing:
 When using Herald integration for OTP authentication:
 
 - **Challenge-Based**: Uses challenge-verify model
-- **Secure Communication**: Uses mTLS or HMAC for Herald communication
+- In production, Herald requires the selected HMAC or API-key request credentials; optional mTLS adds transport protection and does not replace them.
 - **Rate Limiting**: Herald handles rate limiting
 - **Audit Logging**: Herald maintains audit logs
 

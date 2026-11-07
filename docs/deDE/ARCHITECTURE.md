@@ -197,7 +197,7 @@ Wenn `HERALD_ENABLED=true`, kann sich Stargate über den Herald-Client mit dem H
 - Muss entweder `HERALD_API_KEY` oder `HERALD_HMAC_SECRET` setzen
 
 **Sicherheitsanforderungen (Produktionsumgebung):**
-- Inter-Service-Kommunikation wird empfohlen, HMAC-Signatur oder mTLS zu verwenden
+- In Produktion erfordert Herald die gewählten HMAC- oder API-Key-Anmeldedaten; optionales mTLS ergänzt den Transportschutz und ersetzt sie nicht. Warden behält seine eigene konfigurierte API-Key/HMAC/mTLS-Richtlinie.
 - Zeitstempel-Verifizierung (verhindert Replay-Angriffe)
 - Anfrage-Signatur-Verifizierung
 
@@ -210,9 +210,8 @@ Wenn `HERALD_ENABLED=true`, kann sich Stargate über den Herald-Client mit dem H
    - Leitet an Stargate-Endpunkt `/_auth` weiter
 
 2. **Stargate überprüft die Authentifizierung**
-   - Überprüft zuerst den Header `Stargate-Password` (API-Authentifizierung)
-   - Wenn Header-Authentifizierung fehlschlägt, überprüft das Cookie `stargate_session_id` (Web-Authentifizierung)
-   - **Überprüft nur die Sitzung, ruft keine externen Services auf** (stellt hohe Leistung sicher)
+   - Passwort-Header sind optional. Reihenfolge: aktivierter Passwort-Header, vertrauenswürdige Identitäts-Header, Sitzung. Geheimnis- und Proxy-Anforderungen stehen in [API.md](API.md).
+   - Identitätsabfragen und die Autorisierungsaktualisierung von Warden-Sitzungen können Warden aufrufen. Die Quellfrist kann eine frühere Aktualisierung erzwingen; ein nicht verfügbares Verzeichnis ergibt 503 und gilt nicht als Kontolöschung.
 
 3. **Authentifizierung erfolgreich**
    - Setzt den Header `X-Forwarded-User` (oder den konfigurierten Benutzer-Header-Namen) mit Benutzerinformationen
@@ -241,10 +240,9 @@ Wenn `HERALD_ENABLED=true`, kann sich Stargate über den Herald-Client mit dem H
      4. Wenn keines der oben genannten vorhanden ist und die ursprüngliche Domain sich von der Authentifizierungsdienst-Domain unterscheidet, die ursprüngliche Domain als Callback verwenden
 
 3. **Sitzungsaustausch**
-   - Wenn Callback vorhanden ist, Weiterleitung zu `{callback}/_session_exchange?ticket=<opaque_ticket>`
-   - `GET /_session_exchange?ticket=<opaque_ticket>`
-   - Setzt das Sitzungs-Cookie (wenn `COOKIE_DOMAIN` konfiguriert ist, setzt auf die angegebene Domain)
-   - Weiterleitung zum Root-Pfad `/`
+   - Das Callback-Ziel erstellt zuerst über `/_session_exchange?start=1` ein Host-only-Nonce-Cookie und sendet versiegelten `exchange_state` zur Auth-Domain. Direkte Anmeldung startet bei Bedarf denselben Ablauf.
+   - Nach der Anmeldung wird ein zwei Minuten gültiges einmaliges Ticket an diese Browseranfrage gebunden. Einlösung erfordert das Ziel-Nonce-Cookie sowie passende Audience, Schema und konfigurierten Zielpfad.
+   - `COOKIE_DOMAIN` nur für Ziele innerhalb dieser Domain setzen, sonst ein Host-only-Cookie verwenden. Weiterleitung zu `SESSION_EXCHANGE_REDIRECT_PATH` (Standard `/`); siehe [API.md](API.md).
 
 ### Warden + Herald OTP-Authentifizierungs-Login-Ablauf (Optional)
 
@@ -267,13 +265,14 @@ Wenn Warden- und Herald-Integrationen aktiviert sind, kann OTP-Authentifizierung
    - Herald gibt ok + user_id (+ optionales amr/Authentifizierungsstärke) zurück
 
 4. **Sitzung erstellen**
-   - Stargate gibt Sitzung aus (Cookie/JWT)
+   - Stargate erstellt eine serverseitige Sitzung mit einer undurchsichtigen Cookie-Kennung, kein JWT.
    - Wenn Warden aktiviert ist : Ruft Benutzerinformationen von Warden ab und schreibt in Sitzungs-Claims
    - Setzt Sitzungs-Cookie
 
 5. **Sitzungsaustausch**
-   - Wenn Callback vorhanden ist, Weiterleitung zu `{callback}/_session_exchange?ticket=<opaque_ticket>`
-   - Nachfolgender forwardAuth überprüft nur Stargate-Sitzung, stellt hohe Leistung sicher
+   - Das Callback-Ziel erstellt zuerst über `/_session_exchange?start=1` ein Host-only-Nonce-Cookie und sendet versiegelten `exchange_state` zur Auth-Domain. Direkte Anmeldung startet bei Bedarf denselben Ablauf.
+   - Nach der Anmeldung wird ein zwei Minuten gültiges einmaliges Ticket an diese Browseranfrage gebunden. Einlösung erfordert das Ziel-Nonce-Cookie sowie passende Audience, Schema und konfigurierten Zielpfad.
+   - `COOKIE_DOMAIN` nur für Ziele innerhalb dieser Domain setzen, sonst ein Host-only-Cookie verwenden. Weiterleitung zu `SESSION_EXCHANGE_REDIRECT_PATH` (Standard `/`); siehe [API.md](API.md).
 
 ## Sicherheitsüberlegungen
 
@@ -284,7 +283,7 @@ Wenn Warden- und Herald-Integrationen aktiviert sind, kann OTP-Authentifizierung
 - Der Cookie-Pfad ist auf `/` gesetzt, ermöglicht die Verwendung auf der gesamten Domain
 - Sitzungsablaufzeit: 24 Stunden (`config.SessionExpiration`)
 - Unterstützt benutzerdefinierte Cookie-Domain (für Cross-Domain-Szenarien)
-- Sitzungs-IDs werden mit UUID generiert, um Einzigartigkeit und Sicherheit zu gewährleisten
+- Widerrufbare Kennungen enthalten kryptografischen Zufall und eine unveränderliche absolute Frist (`r1.<deadline>.<random>`), keine UUID.
 
 ### Passwortsicherheit
 
@@ -368,10 +367,10 @@ Template-Datei `internal/web/templates/login.html` ändern.
 1. Benutzer gibt Identifikator (E-Mail/Telefon) ein → Stargate
 2. Stargate → Warden: Benutzerinformationen abfragen (geschützt durch HMAC/mTLS)
 3. Warden → Stargate: Gibt user_id, E-Mail, Telefon, Status zurück
-4. Stargate → Herald: Challenge erstellen (geschützt durch HMAC/mTLS)
+4. Stargate → Herald: Challenge erstellen (geschützt durch HMAC/API key + optional mTLS)
 5. Herald → Provider: Verifizierungscode senden (SMS/E-Mail)
 6. Benutzer gibt Verifizierungscode ein → Stargate
-7. Stargate → Herald: Code überprüfen (geschützt durch HMAC/mTLS)
+7. Stargate → Herald: Code überprüfen (geschützt durch HMAC/API key + optional mTLS)
 8. Herald → Stargate: Gibt Verifizierungsergebnis zurück
 9. Stargate: Sitzung erstellen → Redis
 
@@ -382,10 +381,10 @@ Template-Datei `internal/web/templates/login.html` ändern.
 
 ### Sicherheitsgrenzen
 
-- **Inter-Service-Kommunikation**: Geschützt durch HMAC-Signatur oder mTLS
+- In Produktion erfordert Herald die gewählten HMAC- oder API-Key-Anmeldedaten; optionales mTLS ergänzt den Transportschutz und ersetzt sie nicht. Warden behält seine eigene konfigurierte API-Key/HMAC/mTLS-Richtlinie.
 - **PII-Schutz**: Sensible Informationen (E-Mail/Telefon) werden in Protokollen maskiert
 - **Code-Sicherheit**: Herald speichert nur Code-Hash, nicht Klartext
-- **Sitzungssicherheit**: Sitzungs-ID verwendet UUID, Cookie verwendet HttpOnly und SameSite
+- Widerrufbare serverseitige Kennungen, HttpOnly und SameSite=Lax; keine gleitende absolute Frist.
 - **Zeitstempel-Verifizierung**: HMAC-Signatur enthält Zeitstempel, um Replay-Angriffe zu verhindern
 
 ## Zukünftige Verbesserungen
