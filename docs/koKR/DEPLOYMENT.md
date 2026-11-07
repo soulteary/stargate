@@ -56,7 +56,7 @@ WARDEN_API_KEY=your-api-key
 **배포 요구 사항:**
 - Redis 필요 (챌린지 및 속도 제한 상태 저장)
 - HTTP API 인터페이스 제공
-- HMAC 서명 또는 mTLS 인증 지원 (프로덕션 환경에서 권장)
+- 프로덕션에서 Herald는 선택한 HMAC 또는 API key 요청 자격 증명을 요구합니다. 선택적 mTLS는 전송 보호를 추가하며 요청 인증을 대체하지 않습니다.
 
 **설정:**
 ```bash

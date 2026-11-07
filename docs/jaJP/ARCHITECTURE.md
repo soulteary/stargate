@@ -197,7 +197,7 @@ Stargateは認証機能を拡張するためのオプションサービス統合
 - `HERALD_API_KEY`または`HERALD_HMAC_SECRET`のいずれかを設定する必要があります
 
 **セキュリティ要件（本番環境）：**
-- サービス間通信はHMAC署名またはmTLSの使用を推奨
+- 本番環境では、Herald は選択した HMAC または API key の要求認証を必要とします。任意の mTLS は追加の通信保護であり、要求認証を置き換えません。 Warden は個別に設定された API key/HMAC/mTLS ポリシーを使います。
 - タイムスタンプ検証（リプレイ攻撃を防止）
 - リクエスト署名検証
 
@@ -210,9 +210,8 @@ Stargateは認証機能を拡張するためのオプションサービス統合
    - Stargateエンドポイント `/_auth` に転送
 
 2. **Stargateが認証を検証**
-   - まず `Stargate-Password` ヘッダーを確認（API認証）
-   - ヘッダー認証が失敗した場合、`stargate_session_id` Cookieを確認（Web認証）
-   - **セッションのみを検証し、外部サービスを呼び出さない**（高性能を保証）
+   - パスワードヘッダーは明示的な有効化が必要です。順序は有効なパスワードヘッダー、信頼された ID ヘッダー、セッションです。共有秘密とプロキシの要件は [API.md](API.md) を参照してください。
+   - ID 検索や Warden セッションの認可更新では Warden を呼び出す場合があります。ソースの期限で通常の間隔より早く更新する場合もあり、ディレクトリが利用不可なら503を返します。アカウント削除とは区別します。
 
 3. **認証成功**
    - `X-Forwarded-User` ヘッダー（または設定されたユーザーヘッダー名）にユーザー情報を設定
@@ -241,10 +240,9 @@ Stargateは認証機能を拡張するためのオプションサービス統合
      4. 上記のいずれもなく、元のドメインが認証サービスドメインと異なる場合、元のドメインをコールバックとして使用
 
 3. **セッション交換**
-   - コールバックが存在する場合、`{callback}/_session_exchange?ticket=<opaque_ticket>` にリダイレクト
-   - `GET /_session_exchange?ticket=<opaque_ticket>`
-   - セッションCookieを設定（`COOKIE_DOMAIN` が設定されている場合、指定されたドメインに設定）
-   - ルートパス `/` にリダイレクト
+   - 対象サイトはまず `/_session_exchange?start=1` で host-only nonce Cookie を作成し、封印した `exchange_state` を認証ホストへ返します。認証ホストでの直接ログインも必要に応じて同じ交換を開始します。
+   - 認証後、このブラウザー要求に結び付いた2分間有効の一度限りの ticket を発行します。引き換えには対象 nonce Cookie、対象、スキーム、設定されたパスの一致が必要です。
+   - 対象が `COOKIE_DOMAIN` に属する場合だけ Domain を設定し、それ以外は host-only Cookie を使います。`SESSION_EXCHANGE_REDIRECT_PATH`（既定 `/`）へ移動します。[API.md](API.md) を参照してください。
 
 ### Warden + Herald OTP認証ログインフロー（オプション）
 
@@ -267,13 +265,14 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
    - Heraldがok + user_id（+ オプションのamr/認証強度）を返す
 
 4. **セッション作成**
-   - Stargateがセッション（cookie/JWT）を発行
+   - Stargate はサーバー側セッションと不透明な識別 Cookie を作成します。このフローで JWT は発行しません。
    - Wardenが有効な場合：Wardenからユーザー情報を取得し、セッションクレームに書き込む
    - セッションCookieを設定
 
 5. **セッション交換**
-   - コールバックが存在する場合、`{callback}/_session_exchange?ticket=<opaque_ticket>` にリダイレクト
-   - 後続のforwardAuthはStargateセッションのみを検証し、高性能を保証
+   - 対象サイトはまず `/_session_exchange?start=1` で host-only nonce Cookie を作成し、封印した `exchange_state` を認証ホストへ返します。認証ホストでの直接ログインも必要に応じて同じ交換を開始します。
+   - 認証後、このブラウザー要求に結び付いた2分間有効の一度限りの ticket を発行します。引き換えには対象 nonce Cookie、対象、スキーム、設定されたパスの一致が必要です。
+   - 対象が `COOKIE_DOMAIN` に属する場合だけ Domain を設定し、それ以外は host-only Cookie を使います。`SESSION_EXCHANGE_REDIRECT_PATH`（既定 `/`）へ移動します。[API.md](API.md) を参照してください。
 
 ## セキュリティの考慮事項
 
@@ -284,7 +283,7 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
 - Cookie のパスは `/` に設定され、ドメイン全体で使用可能
 - セッションの有効期限: 24 時間 (`config.SessionExpiration`)
 - カスタム Cookie ドメインをサポート（クロスドメインシナリオ用）
-- セッション ID は UUID を使用して生成され、一意性とセキュリティを保証
+- 失効可能な識別子は暗号学的乱数と変更しない絶対期限（`r1.<deadline>.<random>`）を含み、UUID ではありません。
 
 ### パスワードセキュリティ
 
@@ -367,10 +366,10 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
 1. ユーザーが識別子（メール/電話）を入力 → Stargate
 2. Stargate → Warden：ユーザー情報をクエリ（HMAC/mTLSで保護）
 3. Warden → Stargate：user_id、メール、電話、ステータスを返す
-4. Stargate → Herald：チャレンジを作成（HMAC/mTLSで保護）
+4. Stargate → Herald：チャレンジを作成（HMAC/API key + optional mTLSで保護）
 5. Herald → プロバイダー：検証コードを送信（SMS/メール）
 6. ユーザーが検証コードを入力 → Stargate
-7. Stargate → Herald：コードを検証（HMAC/mTLSで保護）
+7. Stargate → Herald：コードを検証（HMAC/API key + optional mTLSで保護）
 8. Herald → Stargate：検証結果を返す
 9. Stargate：セッションを作成 → Redis
 
@@ -381,10 +380,10 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
 
 ### セキュリティ境界
 
-- **サービス間通信**：HMAC署名またはmTLSで保護
+- 本番環境では、Herald は選択した HMAC または API key の要求認証を必要とします。任意の mTLS は追加の通信保護であり、要求認証を置き換えません。 Warden は個別に設定された API key/HMAC/mTLS ポリシーを使います。
 - **PII保護**：機密情報（メール/電話）はログでマスクされます
 - **コードセキュリティ**：Heraldはコードハッシュのみを保存し、平文は保存しません
-- **セッションセキュリティ**：セッションIDはUUIDを使用し、CookieはHttpOnlyとSameSiteを使用
+- サーバー側の失効可能な識別子、HttpOnly と SameSite=Lax Cookie。絶対期限は延長しません。
 - **タイムスタンプ検証**：HMAC署名にはタイムスタンプが含まれ、リプレイ攻撃を防止
 
 ## 今後の改善

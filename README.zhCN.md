@@ -241,7 +241,7 @@ HERALD_HMAC_SECRET=your-herald-hmac-secret       # 生产环境
 - ✅ 通过 Traefik 或您的反向代理启用 HTTPS
 - ✅ 设置 `COOKIE_DOMAIN` 以在子域名间正确管理会话
 - ✅ 如需更高级功能，可选择集成 Warden + Herald 进行 OTP 认证
-- ✅ Stargate ↔ Herald/Warden 通信使用 HMAC 签名或 mTLS
+- ✅ 生产环境中，Herald 要求所选的 HMAC 或 API Key 请求凭据；可选 mTLS 叠加传输保护，不替代请求认证。 Warden 仍使用其独立配置的 API Key/HMAC/mTLS 策略。
 - ✅ 设置适当的日志记录和监控
 - ✅ 保持 Stargate 更新到最新版本
 

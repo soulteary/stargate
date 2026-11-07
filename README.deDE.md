@@ -217,7 +217,7 @@ Vor dem Bereitstellen in der Produktion:
 - ✅ Aktivieren Sie HTTPS über Traefik oder Ihren Reverse-Proxy
 - ✅ Setzen Sie `COOKIE_DOMAIN` für ordnungsgemäße Sitzungsverwaltung über Subdomains
 - ✅ Für erweiterte Funktionen optional Warden + Herald für OTP-Authentifizierung integrieren
-- ✅ Verwenden Sie HMAC-Signaturen oder mTLS für Stargate ↔ Herald/Warden-Kommunikation
+- ✅ In Produktion erfordert Herald die gewählten HMAC- oder API-Key-Anmeldedaten; optionales mTLS ergänzt den Transportschutz und ersetzt sie nicht. Warden behält seine eigene konfigurierte API-Key/HMAC/mTLS-Richtlinie.
 - ✅ Richten Sie angemessene Protokollierung und Überwachung ein
 - ✅ Halten Sie Stargate auf dem neuesten Stand
 

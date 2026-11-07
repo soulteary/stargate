@@ -11,7 +11,7 @@ Questo documento spiega le funzionalità di sicurezza di Stargate, la configuraz
 1. **Protezione Forward Auth**: Livello di autenticazione centralizzato per proteggere i servizi backend
 2. **Algoritmi di password multipli**: bcrypt e plaintext solo per sviluppo locale; MD5 e SHA-512 senza salt sono rifiutati
 3. **Gestione sicura delle sessioni**: Sessioni basate su Cookie con dominio e scadenza configurabili
-4. **Sicurezza dell'integrazione del servizio**: Comunicazione sicura con i servizi Warden e Herald utilizzando mTLS o HMAC
+4. **Sicurezza dell'integrazione del servizio**: In produzione, Herald richiede le credenziali HMAC o API key selezionate; mTLS opzionale aggiunge protezione al trasporto e non le sostituisce. Warden mantiene la propria policy API key/HMAC/mTLS.
 5. **Sicurezza della condivisione delle sessioni**: Meccanismo di scambio di sessioni cross-domain sicuro
 6. **Validazione degli input**: Validazione rigorosa di tutti i parametri di input
 7. **Gestione degli errori**: I messaggi di errore e gli altri dati di risposta dipendono dall'endpoint; `DEBUG` non è una garanzia generale di non divulgazione

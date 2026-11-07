@@ -197,7 +197,7 @@ Quando `HERALD_ENABLED=true`, Stargate può integrarsi con il servizio Herald tr
 - Deve essere impostato `HERALD_API_KEY` o `HERALD_HMAC_SECRET`
 
 **Requisiti di Sicurezza (Ambiente di Produzione):**
-- Comunicazione inter-servizio raccomandata per utilizzare firma HMAC o mTLS
+- In produzione, Herald richiede le credenziali HMAC o API key selezionate; mTLS opzionale aggiunge protezione al trasporto e non le sostituisce. Warden mantiene la propria policy API key/HMAC/mTLS.
 - Verifica timestamp (prevenire attacchi di replay)
 - Verifica firma richiesta
 
@@ -210,9 +210,8 @@ Quando `HERALD_ENABLED=true`, Stargate può integrarsi con il servizio Herald tr
    - Inoltra all'endpoint Stargate `/_auth`
 
 2. **Stargate verifica l'autenticazione**
-   - Verifica prima l'header `Stargate-Password` (autenticazione API)
-   - Se l'autenticazione header fallisce, verifica il cookie `stargate_session_id` (autenticazione Web)
-   - **Verifica solo la Sessione, non chiama servizi esterni** (garantisce alte prestazioni)
+   - Gli header password sono facoltativi. Ordine: password abilitata, identità attendibile, sessione. Vedere [API.md](API.md) per segreto condiviso e requisiti del proxy.
+   - Le ricerche di identità e l’aggiornamento delle autorizzazioni delle sessioni Warden possono chiamare Warden. La scadenza della fonte può imporre un aggiornamento anticipato; una directory non disponibile restituisce 503, non indica la cancellazione dell’account.
 
 3. **Autenticazione riuscita**
    - Imposta l'header `X-Forwarded-User` (o nome header utente configurato) con informazioni utente
@@ -241,10 +240,9 @@ Quando `HERALD_ENABLED=true`, Stargate può integrarsi con il servizio Herald tr
      4. Se nessuno dei precedenti, e il dominio di origine differisce dal dominio del servizio di autenticazione, utilizzare il dominio di origine come callback
 
 3. **Scambio sessione**
-   - Se il callback esiste, reindirizza a `{callback}/_session_exchange?ticket=<opaque_ticket>`
-   - `GET /_session_exchange?ticket=<opaque_ticket>`
-   - Imposta il cookie sessione (se `COOKIE_DOMAIN` è configurato, imposta al dominio specificato)
-   - Reindirizza al percorso root `/`
+   - La destinazione crea prima un cookie nonce host-only tramite `/_session_exchange?start=1`, poi restituisce un `exchange_state` sigillato all’host di autenticazione. Anche l’accesso diretto avvia questo scambio se necessario.
+   - Dopo l’autenticazione viene emesso un ticket monouso valido due minuti, legato a questa richiesta del browser. Il riscatto richiede il cookie nonce e destinazione, schema e percorso configurato corrispondenti.
+   - Applicare `COOKIE_DOMAIN` solo se la destinazione appartiene al dominio, altrimenti usare un cookie host-only. Reindirizzare a `SESSION_EXCHANGE_REDIRECT_PATH` (predefinito `/`); vedere [API.md](API.md).
 
 ### Flusso di Autenticazione OTP Warden + Herald (Opzionale)
 
@@ -267,13 +265,14 @@ Quando le integrazioni Warden e Herald sono abilitate, può essere utilizzata l'
    - Herald restituisce ok + user_id (+ amr/forza autenticazione opzionale)
 
 4. **Creazione sessione**
-   - Stargate emette sessione (cookie/JWT)
+   - Stargate crea una sessione lato server e un identificatore opaco nel cookie, non un JWT.
    - Se Warden è abilitato : Ottiene informazioni utente da Warden e scrive nei claims di sessione
    - Imposta cookie sessione
 
 5. **Scambio sessione**
-   - Se il callback esiste, reindirizza a `{callback}/_session_exchange?ticket=<opaque_ticket>`
-   - Il forwardAuth successivo verifica solo la sessione Stargate, garantendo alte prestazioni
+   - La destinazione crea prima un cookie nonce host-only tramite `/_session_exchange?start=1`, poi restituisce un `exchange_state` sigillato all’host di autenticazione. Anche l’accesso diretto avvia questo scambio se necessario.
+   - Dopo l’autenticazione viene emesso un ticket monouso valido due minuti, legato a questa richiesta del browser. Il riscatto richiede il cookie nonce e destinazione, schema e percorso configurato corrispondenti.
+   - Applicare `COOKIE_DOMAIN` solo se la destinazione appartiene al dominio, altrimenti usare un cookie host-only. Reindirizzare a `SESSION_EXCHANGE_REDIRECT_PATH` (predefinito `/`); vedere [API.md](API.md).
 
 ## Considerazioni di Sicurezza
 
@@ -284,7 +283,7 @@ Quando le integrazioni Warden e Herald sono abilitate, può essere utilizzata l'
 - Il percorso del cookie è impostato a `/`, permettendo l'uso su tutto il dominio
 - Tempo di scadenza sessione: 24 ore (`config.SessionExpiration`)
 - Supporta dominio cookie personalizzato (per scenari cross-domain)
-- Gli ID sessione sono generati utilizzando UUID per garantire unicità e sicurezza
+- Gli identificatori revocabili combinano casualità crittografica e una scadenza assoluta immutabile (`r1.<deadline>.<random>`), non un UUID.
 
 ### Sicurezza Password
 
@@ -367,10 +366,10 @@ Modificare il file template `internal/web/templates/login.html`.
 1. Utente inserisce identificatore (email/telefono) → Stargate
 2. Stargate → Warden: Query informazioni utente (protetto da HMAC/mTLS)
 3. Warden → Stargate: Ritorna user_id, email, telefono, stato
-4. Stargate → Herald: Crea challenge (protetto da HMAC/mTLS)
+4. Stargate → Herald: Crea challenge (protetto da HMAC/API key + optional mTLS)
 5. Herald → Provider: Invia codice verifica (SMS/Email)
 6. Utente inserisce codice verifica → Stargate
-7. Stargate → Herald: Verifica codice (protetto da HMAC/mTLS)
+7. Stargate → Herald: Verifica codice (protetto da HMAC/API key + optional mTLS)
 8. Herald → Stargate: Ritorna risultato verifica
 9. Stargate: Crea sessione → Redis
 
@@ -381,10 +380,10 @@ Modificare il file template `internal/web/templates/login.html`.
 
 ### Confini di Sicurezza
 
-- **Comunicazione Inter-Servizio**: Protetta da firma HMAC o mTLS
+- In produzione, Herald richiede le credenziali HMAC o API key selezionate; mTLS opzionale aggiunge protezione al trasporto e non le sostituisce. Warden mantiene la propria policy API key/HMAC/mTLS.
 - **Protezione PII**: Informazioni sensibili (email/telefono) sono mascherate nei log
 - **Sicurezza Codice**: Herald memorizza solo hash del codice, non testo in chiaro
-- **Sicurezza Sessione**: ID sessione utilizza UUID, Cookie utilizza HttpOnly e SameSite
+- Identificatori revocabili lato server, cookie HttpOnly e SameSite=Lax; scadenza assoluta non scorrevole.
 - **Verifica Timestamp**: Firma HMAC include timestamp per prevenire attacchi di replay
 
 ## Miglioramenti Futuri

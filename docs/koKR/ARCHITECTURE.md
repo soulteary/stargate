@@ -197,7 +197,7 @@ Stargate는 인증 기능을 확장하기 위한 선택적 서비스 통합을 �
 - `HERALD_API_KEY` 또는 `HERALD_HMAC_SECRET` 중 하나를 설정해야 합니다
 
 **보안 요구 사항 (프로덕션 환경):**
-- 서비스 간 통신은 HMAC 서명 또는 mTLS 사용 권장
+- 프로덕션에서 Herald는 선택한 HMAC 또는 API key 요청 자격 증명을 요구합니다. 선택적 mTLS는 전송 보호를 추가하며 요청 인증을 대체하지 않습니다. Warden은 별도로 설정된 API key/HMAC/mTLS 정책을 사용합니다.
 - 타임스탬프 검증 (재생 공격 방지)
 - 요청 서명 검증
 
@@ -210,9 +210,8 @@ Stargate는 인증 기능을 확장하기 위한 선택적 서비스 통합을 �
    - Stargate 엔드포인트 `/_auth`로 전달합니다
 
 2. **Stargate가 인증을 검증**
-   - 먼저 `Stargate-Password` 헤더를 확인합니다 (API 인증)
-   - 헤더 인증이 실패하면 `stargate_session_id` Cookie를 확인합니다 (웹 인증)
-   - **세션만 검증하며 외부 서비스를 호출하지 않습니다** (고성능 보장)
+   - 비밀번호 헤더는 명시적으로 활성화해야 합니다. 순서는 활성화된 비밀번호 헤더, 신뢰 ID 헤더, 세션입니다. 공유 비밀과 프록시 요구 사항은 [API.md](API.md)를 확인하세요.
+   - ID 조회와 Warden 세션 인가 갱신은 Warden을 호출할 수 있습니다. 소스 만료로 평소보다 빨리 갱신할 수 있으며 디렉터리가 불가하면503을 반환합니다. 계정 삭제와 구분합니다.
 
 3. **인증 성공**
    - `X-Forwarded-User` 헤더 (또는 구성된 사용자 헤더 이름)에 사용자 정보를 설정합니다
@@ -241,10 +240,9 @@ Stargate는 인증 기능을 확장하기 위한 선택적 서비스 통합을 �
      4. 위의 항목이 없고 원본 도메인이 인증 서비스 도메인과 다른 경우, 원본 도메인을 콜백으로 사용
 
 3. **세션 교환**
-   - 콜백이 있는 경우, `{callback}/_session_exchange?ticket=<opaque_ticket>`로 리디렉션합니다
-   - `GET /_session_exchange?ticket=<opaque_ticket>`
-   - 세션 Cookie를 설정합니다 (`COOKIE_DOMAIN`이 설정된 경우, 지정된 도메인에 설정)
-   - 루트 경로 `/`로 리디렉션합니다
+   - 대상 사이트가 먼저 `/_session_exchange?start=1`로 호스트 전용 nonce 쿠키를 만든 뒤 봉인된 `exchange_state`를 인증 호스트에 반환합니다. 인증 호스트의 직접 로그인도 필요하면 같은 교환을 시작합니다.
+   - 인증 후 이 브라우저 요청에 바인딩된2분 유효 일회용 ticket을 발급합니다. 교환에는 대상 nonce 쿠키, 대상, 스킴 및 설정된 경로가 일치해야 합니다.
+   - 대상이 `COOKIE_DOMAIN`에 속할 때만 Domain을 설정하고 아니면 호스트 전용 쿠키를 사용합니다. `SESSION_EXCHANGE_REDIRECT_PATH`(기본 `/`)로 이동합니다. [API.md](API.md)를 확인하세요.
 
 ### Warden + Herald OTP 인증 로그인 플로우 (선택 사항)
 
@@ -267,13 +265,14 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
    - Herald가 ok + user_id (+ 선택적 amr/인증 강도)를 반환합니다
 
 4. **세션 생성**
-   - Stargate가 세션(cookie/JWT)을 발급합니다
+   - Stargate는 서버 측 세션과 불투명한 식별 쿠키를 만들며 이 흐름에서 JWT를 발급하지 않습니다.
    - Warden이 활성화된 경우: Warden에서 사용자 정보를 가져와 세션 클레임에 씁니다
    - 세션 Cookie를 설정합니다
 
 5. **세션 교환**
-   - 콜백이 있는 경우, `{callback}/_session_exchange?ticket=<opaque_ticket>`로 리디렉션합니다
-   - 후속 forwardAuth는 Stargate 세션만 검증하여 고성능을 보장합니다
+   - 대상 사이트가 먼저 `/_session_exchange?start=1`로 호스트 전용 nonce 쿠키를 만든 뒤 봉인된 `exchange_state`를 인증 호스트에 반환합니다. 인증 호스트의 직접 로그인도 필요하면 같은 교환을 시작합니다.
+   - 인증 후 이 브라우저 요청에 바인딩된2분 유효 일회용 ticket을 발급합니다. 교환에는 대상 nonce 쿠키, 대상, 스킴 및 설정된 경로가 일치해야 합니다.
+   - 대상이 `COOKIE_DOMAIN`에 속할 때만 Domain을 설정하고 아니면 호스트 전용 쿠키를 사용합니다. `SESSION_EXCHANGE_REDIRECT_PATH`(기본 `/`)로 이동합니다. [API.md](API.md)를 확인하세요.
 
 ## 보안 고려 사항
 
@@ -284,7 +283,7 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
 - Cookie 경로는 `/`로 설정되어 전체 도메인에서 사용 가능
 - 세션 만료 시간: 24시간 (`config.SessionExpiration`)
 - 사용자 정의 Cookie 도메인 지원 (크로스 도메인 시나리오용)
-- 세션 ID는 UUID를 사용하여 생성되어 고유성과 보안 보장
+- 폐기 가능한 식별자는 암호학적 난수와 변경되지 않는 절대 만료(`r1.<deadline>.<random>`)를 포함하며 UUID가 아닙니다.
 
 ### 비밀번호 보안
 
@@ -367,10 +366,10 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
 1. 사용자가 식별자(이메일/전화) 입력 → Stargate
 2. Stargate → Warden: 사용자 정보 쿼리 (HMAC/mTLS로 보호)
 3. Warden → Stargate: user_id, 이메일, 전화, 상태 반환
-4. Stargate → Herald: 챌린지 생성 (HMAC/mTLS로 보호)
+4. Stargate → Herald: 챌린지 생성 (HMAC/API key + optional mTLS로 보호)
 5. Herald → 제공자: 인증 코드 전송 (SMS/이메일)
 6. 사용자가 인증 코드 입력 → Stargate
-7. Stargate → Herald: 코드 검증 (HMAC/mTLS로 보호)
+7. Stargate → Herald: 코드 검증 (HMAC/API key + optional mTLS로 보호)
 8. Herald → Stargate: 검증 결과 반환
 9. Stargate: 세션 생성 → Redis
 
@@ -381,10 +380,10 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
 
 ### 보안 경계
 
-- **서비스 간 통신**: HMAC 서명 또는 mTLS로 보호
+- 프로덕션에서 Herald는 선택한 HMAC 또는 API key 요청 자격 증명을 요구합니다. 선택적 mTLS는 전송 보호를 추가하며 요청 인증을 대체하지 않습니다. Warden은 별도로 설정된 API key/HMAC/mTLS 정책을 사용합니다.
 - **PII 보호**: 민감한 정보(이메일/전화)는 로그에서 마스킹됩니다
 - **코드 보안**: Herald는 코드 해시만 저장하고 평문은 저장하지 않습니다
-- **세션 보안**: 세션 ID는 UUID를 사용하고, Cookie는 HttpOnly와 SameSite를 사용합니다
+- 서버 측 폐기 가능한 식별자와 HttpOnly 및 SameSite=Lax 쿠키. 절대 만료는 연장하지 않습니다.
 - **타임스탬프 검증**: HMAC 서명에는 타임스탬프가 포함되어 재생 공격을 방지합니다
 
 ## 향후 개선 사항

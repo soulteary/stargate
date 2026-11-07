@@ -9,7 +9,7 @@
 1. **Forward Auth 保护**: 集中式认证层，用于保护后端服务
 2. **密码校验**: 支持 bcrypt 与 plaintext（仅限本地开发）；MD5 和未加盐 SHA-512 会被拒绝
 3. **安全会话管理**: 基于 Cookie 的会话，可配置域名和过期时间
-4. **服务集成安全**: 使用 mTLS 或 HMAC 与 Warden 和 Herald 服务进行安全通信
+4. **服务集成安全**: 生产环境中，Herald 要求所选的 HMAC 或 API Key 请求凭据；可选 mTLS 叠加传输保护，不替代请求认证。 Warden 仍使用其独立配置的 API Key/HMAC/mTLS 策略。
 5. **会话共享安全**: 安全的跨域会话交换机制
 6. **输入验证**: 严格验证所有输入参数
 7. **错误处理**: 错误消息和其他响应数据由各端点定义；`DEBUG` 不是通用的不披露保证
@@ -219,7 +219,7 @@ Stargate 支持安全的跨域会话共享：
 使用 Herald 集成进行 OTP 认证时：
 
 - **基于 Challenge**: 使用 challenge-verify 模型
-- **安全通信**: 使用 mTLS 或 HMAC 与 Herald 通信
+- 生产环境中，Herald 要求所选的 HMAC 或 API Key 请求凭据；可选 mTLS 叠加传输保护，不替代请求认证。
 - **限流**: Herald 处理限流
 - **审计日志**: Herald 维护审计日志
 

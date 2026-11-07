@@ -56,7 +56,7 @@ WARDEN_API_KEY=your-api-key
 **Bereitstellungsanforderungen:**
 - Erfordert Redis (speichert Challenges und Rate-Limit-Status)
 - Stellt HTTP-API-Schnittstelle bereit
-- Unterstützt HMAC-Signatur- oder mTLS-Authentifizierung (für Produktion empfohlen)
+- In Produktion erfordert Herald die gewählten HMAC- oder API-Key-Anmeldedaten; optionales mTLS ergänzt den Transportschutz und ersetzt sie nicht.
 
 **Konfiguration:**
 ```bash

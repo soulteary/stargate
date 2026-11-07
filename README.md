@@ -248,7 +248,7 @@ Before deploying to production:
 - ✅ Enable HTTPS via Traefik or your reverse proxy
 - ✅ Set `COOKIE_DOMAIN` for proper session management across subdomains
 - ✅ For advanced features, optionally integrate Warden + Herald for OTP authentication
-- ✅ Use HMAC signatures or mTLS for Stargate ↔ Herald/Warden communication
+- ✅ In production, Herald requires the selected HMAC or API-key request credentials; optional mTLS adds transport protection and does not replace them. Warden retains its own configured API-key/HMAC/mTLS policy.
 - ✅ Set up appropriate logging and monitoring
 - ✅ Keep Stargate updated to the latest version
 
