@@ -2,6 +2,8 @@
 
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
+For v1.3.2, see [OTP verification error handling](#otp-verification-error-handling-v132) for the 503/409 change and rollback behavior. Upgrade herald-totp v2.0.2, then Herald v1.4.2, before publishing the gateway update. Existing v1.3.1 records and session deadlines are preserved.
+
 For v1.3.1, upgrade herald-totp to v2.0.1, then Herald to v1.4.1, before following [bound login challenge upgrade and rollback](#bound-login-challenge-upgrade-and-rollback). Keep existing v1.3.0 revocable-session records, tombstones, configured lifetime and namespace; this patch does not require a session-format migration or renew an existing deadline.
 
 For v1.3.0, read the [session migration](#revocable-session-migration) and [release notes](../../CHANGELOG.md). Existing sessions require a new login; backend service upgrades and mixed-version SSO require coordination.
@@ -866,3 +868,28 @@ check. It neither extends immutable deadlines nor permits saving a revoked
 identifier. Keep clocks synchronized. Older adapters can reject a session from a
 slightly ahead replica after rollback; leave the revocable namespace and absolute
 deadline enforcement intact rather than copying records into an older namespace.
+
+## OTP verification error handling (v1.3.2)
+
+OTP login reports Herald server errors as 503 and its published
+`409/lock_contention` response as 409. Invalid credentials and mismatched
+challenge bindings retain their rejection behavior. This is an existing
+error-classification correction; proof validation is unchanged. The current SDK does not expose upstream retry headers;
+Stargate does not synthesize `Retry-After` or retry verification automatically.
+
+Keep the same Redis dataset and namespaces, pending gateway bindings, session
+records and revocation markers when upgrading from v1.3.1. No record conversion,
+new login, or session-deadline extension is required. Rolling replicas use the
+same records, though older replicas still classify these failures as 401.
+Clients must accept that status difference until the rollout finishes.
+
+For a provider failure known to occur before consumption, retrying after
+recovery can use the existing challenge. A failed response alone does not prove
+that verification was uncommitted: preserve state and reconcile uncertain
+results before restarting a flow. Follow the separate TOTP/Herald upgrade guides
+and retain provider audit, replay and idempotency records.
+
+A gateway rollback restores the earlier 401 classification. Keep the same
+records and deadlines, and do not independently downgrade provider services.
+Upgrades from releases before v1.3.1 still require their documented session and
+bound-challenge migrations.

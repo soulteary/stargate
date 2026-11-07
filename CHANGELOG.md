@@ -4,13 +4,37 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.3.2] - 2026-11-07
+
 ### Fixed
 
 - Preserve retryable OTP verification failures as HTTP 503 for upstream server
-  errors and HTTP 409 for published verifier lock contention. Failed attempts
-  leave the challenge binding intact; no verification request is automatically
+  errors and HTTP 409 for published verifier lock contention. Retryable failure
+  responses leave the gateway binding intact; no verification request is automatically
   retried. The existing Herald SDK does not expose upstream retry headers, so
   no `Retry-After` value is synthesized.
+
+### Dependencies and compatibility
+
+- Pin Herald v1.4.2, including herald-totp/v2 v2.0.2 transitively. Warden v1.6.1,
+  session-kit/v3 v3.2.1 and challenge-kit v1.11.0 remain unchanged. Update the TOTP
+  service, then Herald, before publishing the gateway upgrade; SDK pins do not
+  deploy these independent services.
+- This corrects an existing error-classification gap inherited by bound OTP
+  verification. Request formats, success payloads, proof validation and one-time
+  consumption rules are unchanged.
+- Preserve Redis data, gateway challenge bindings, revocation markers and the
+  current session namespace and deadlines. No schema or namespace migration or
+  reauthentication is required when upgrading from v1.3.1. Keep the v1.3.0 and
+  v1.3.1 migration requirements when upgrading from an older release.
+- Clients should handle 503 and the specific retryable 409 rather than treating
+  them as invalid codes. The gateway does not retry verification automatically.
+  A failed response may follow a committed provider operation; preserve pending
+  state and reconcile uncertain outcomes instead of assuming the code is unused.
+- Rolling v1.3.1/v1.3.2 replicas share the same record formats but differ in these
+  error statuses. Rollback restores the earlier 401 classification without
+  converting records or extending session deadlines. Do not independently
+  downgrade backend services as part of a gateway rollback.
 
 ## [1.3.1] - 2026-11-07
 
@@ -453,3 +477,5 @@ Before publishing the first release candidate, replace `Unreleased` with the int
 [1.0.0]: https://github.com/soulteary/stargate/compare/v0.12.0...v1.0.0
 
 [1.3.1]: https://github.com/soulteary/stargate/compare/v1.3.0...v1.3.1
+
+[1.3.2]: https://github.com/soulteary/stargate/compare/v1.3.1...v1.3.2
