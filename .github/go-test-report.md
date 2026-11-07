@@ -4,8 +4,8 @@
 
 | Metric | Value |
 | --- | --- |
-| Total | 568 |
-| Passed | 559 |
+| Total | 572 |
+| Passed | 563 |
 | Failed | 0 |
 | Skipped | 9 |
 | Coverage | 95.63% |
@@ -19,7 +19,7 @@
 | src/internal/auditlog | pass | 7 | 0 | 98.70% |
 | src/internal/auth | pass | 76 | 0 | 97.16% |
 | src/internal/config | pass | 76 | 0 | 97.38% |
-| src/internal/handlers | pass | 291 | 0 | 95.59% |
+| src/internal/handlers | pass | 295 | 0 | 95.58% |
 | src/internal/i18n | pass | 36 | 0 | 100.00% |
 | src/internal/metrics | pass | 7 | 0 | 100.00% |
 | src/internal/requestcontext | pass | 2 | 0 | 100.00% |
