@@ -2,6 +2,8 @@
 
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
+For v1.3.3, read [Herald credential selection](#herald-credential-selection-v133) before updating a client with both API-key and HMAC settings. First set and verify explicit key IDs on all existing callers, then upgrade Herald v1.4.3, followed by Stargate v1.3.3. This patch preserves Redis records and session deadlines.
+
 For v1.3.2, see [OTP verification error handling](#otp-verification-error-handling-v132) for the 503/409 change and rollback behavior. Upgrade herald-totp v2.0.2, then Herald v1.4.2, before publishing the gateway update. Existing v1.3.1 records and session deadlines are preserved.
 
 For v1.3.1, upgrade herald-totp to v2.0.1, then Herald to v1.4.1, before following [bound login challenge upgrade and rollback](#bound-login-challenge-upgrade-and-rollback). Keep existing v1.3.0 revocable-session records, tombstones, configured lifetime and namespace; this patch does not require a session-format migration or renew an existing deadline.
@@ -897,3 +899,26 @@ A gateway rollback restores the earlier 401 classification. Keep the same
 records and deadlines, and do not independently downgrade provider services.
 Upgrades from releases before v1.3.1 still require their documented session and
 bound-challenge migrations.
+
+## Herald credential selection (v1.3.3)
+
+Stargate selects HMAC when `HERALD_HMAC_SECRET` is nonempty and sends no
+`HERALD_API_KEY` on signed requests. Before upgrading any Herald verifier that uses a key map, configure and verify
+its existing key ID through `HERALD_HMAC_KEY_ID` on every current Stargate caller.
+Then upgrade Herald to v1.4.3, followed by the Stargate v1.3.3 binary. For `REQUEST_AUTH_MODE=api_key`, leave
+the client HMAC secret empty and keep its API key. A failed HMAC request is not
+retried with the API key. Deploy and verify Herald v1.4.3 before Stargate v1.3.3;
+updating the Go SDK dependency does not update the separate service.
+
+Keep shared Redis data, pending OTP bindings, replay markers and existing session
+namespaces and deadlines. No record-format migration, forced reauthentication or
+session renewal is required from v1.3.2. No OTP verification retry is automatic;
+503 and the specific lock-contention 409 retain their v1.3.2 meanings.
+
+Before rolling back, check the chosen authentication mode and active keys. An old
+gateway can send both configured credentials again; rollback does not restore a
+retired key or remove secrets from configuration. An old Herald service restores
+its old key-map selection behavior and may not support the new proxy key-ID
+configuration. Follow its rollback guidance, preserve state and verify the same
+login and TOTP flows before forwarding traffic. Retain the v1.3.0/v1.3.1 migration
+requirements for older deployments.

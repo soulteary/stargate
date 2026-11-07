@@ -4,9 +4,33 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.3.3] - 2026-11-07
+
 ### Security
 
 - Configure the Herald SDK with HMAC credentials only when `HERALD_HMAC_SECRET` is set. Keep API-key-only deployments supported without sending the configured API key on signed requests.
+
+### Dependencies and compatibility
+
+- Pin the verified formal Herald v1.4.3 release. Warden v1.6.1,
+  session-kit/v3 v3.2.1, herald-totp/v2 v2.0.2 and challenge-kit v1.11.0 remain
+  unchanged. SDK updates do not deploy the separate Herald service.
+- Before upgrading a Herald key-map verifier, set and verify the existing key
+  ID through `HERALD_HMAC_KEY_ID` on every current Stargate caller. Then upgrade
+  Herald to v1.4.3, followed by the Stargate v1.3.3 binary. Mapped-key verifiers
+  require an explicit wire key ID.
+  An empty HMAC secret selects API-key-only mode. A client configured with both
+  credentials no longer sends its API key on signed requests and does not retry
+  rejected HMAC requests with another credential.
+- Preserve shared Redis data, pending challenge bindings, revocation markers,
+  session namespaces and absolute deadlines. This patch changes no record schema,
+  OTP consumption rule or successful login format, and does not renew sessions.
+- Before rollback, review the authentication configuration. Rolling back to
+  v1.3.2 restores the older dual-credential request behavior; it does not remove
+  configured secrets or undo service-side key retirement. Restoring an older
+  Herald service also restores its older key-selection rules. Do not delete
+  replay or binding state to make a rollback pass, and keep the v1.3.0/v1.3.1
+  migration requirements when upgrading from older versions.
 
 ## [1.3.2] - 2026-11-07
 
@@ -483,3 +507,5 @@ Before publishing the first release candidate, replace `Unreleased` with the int
 [1.3.1]: https://github.com/soulteary/stargate/compare/v1.3.0...v1.3.1
 
 [1.3.2]: https://github.com/soulteary/stargate/compare/v1.3.1...v1.3.2
+
+[1.3.3]: https://github.com/soulteary/stargate/compare/v1.3.2...v1.3.3
