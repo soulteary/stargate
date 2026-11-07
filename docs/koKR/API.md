@@ -21,14 +21,17 @@ Traefik Forward Auth의 주요 인증 확인 엔드포인트. 이 엔드포인�
 
 #### 인증 방법
 
-Stargate는 다음 우선순위로 확인되는 두 가지 인증 방법을 지원합니다:
+Stargate는 다음 우선순위로 확인되는 세 가지 인증 방법을 지원합니다:
 
 1. **헤더 인증** (API 요청)
    - 요청 헤더: `Stargate-Password: <password>`
    - 기본적으로 비활성화됩니다. 신뢰할 수 있는 레거시 클라이언트에만 `PASSWORD_HEADER_AUTH_ENABLED=true`를 설정하세요.
    - API 요청, 자동화 스크립트 등에 적합합니다
 
-2. **Cookie 인증** (웹 요청)
+2. **신뢰할 수 있는 ID 헤더**
+   - `HEADER_AUTH_ENABLED=true`, Warden 및 `HEADER_AUTH_SECRET_HEADER`(기본 `X-Stargate-Header-Auth`)를 통한 일치하는 `HEADER_AUTH_SHARED_SECRET`이 필요합니다. `X-User-Phone` / `X-User-Mail`은 디렉터리에서 확인합니다. 프록시는 클라이언트의 ID 및 비밀 헤더를 덮어써야 하며 공유 비밀을 브라우저에 노출하면 안 됩니다.
+
+3. **Cookie 인증** (웹 요청)
    - Cookie: `stargate_session_id=<session_id>`
    - 브라우저를 통해 액세스하는 웹 애플리케이션에 적합합니다
 
@@ -37,6 +40,7 @@ Stargate는 다음 우선순위로 확인되는 두 가지 인증 방법을 지�
 | 헤더 | 타입 | 필수 | 설명 |
 |------|------|------|------|
 | `Stargate-Password` | String | 아니오 | API 요청용 비밀번호 인증 |
+| `X-User-Phone`, `X-User-Mail` | String | — | 선택적 신뢰 ID. 설정된 프록시 비밀 헤더가 필요 |
 | `Cookie` | String | 아니오 | `stargate_session_id`를 포함하는 세션 Cookie |
 | `Accept` | String | 아니오 | 요청 타입 (HTML/API)을 결정하는 데 사용 |
 
@@ -58,6 +62,7 @@ X-Forwarded-User: authenticated
 | 상태 코드 | 설명 | 응답 본문 |
 |-----------|------|-----------|
 | `401 Unauthorized` | 인증 실패 | 오류 메시지 (API 요청의 경우 JSON 형식) 또는 로그인 페이지로 리디렉션 (HTML 요청) |
+| `503 Service Unavailable` | 디렉터리 인가를 일시적으로 사용할 수 없음 | — |
 | `500 Internal Server Error` | 서버 오류 | 오류 메시지 |
 
 #### 요청 타입 처리
@@ -193,6 +198,8 @@ TOTP 방식에는 `HERALD_TOTP_ENABLED=true`와 이미 등록된 사용자가 �
 | `401 Unauthorized` | 잘못된 비밀번호, Warden 사용자 없음/비활성 또는 challenge/TOTP 검증 실패 | Accept 헤더에 따라 JSON/XML/텍스트 형식의 오류 메시지 |
 | `502 Bad Gateway` | Herald TOTP 상태 조회 실패 | 오류 메시지 |
 | `503 Service Unavailable` | Herald 검증 서비스를 사용할 수 없음 | 오류 메시지 |
+| `409 Conflict` | 검증기 잠금 경합. 코드를 자동 재시도하지 않음 | — |
+| `429 Too Many Requests` | 요청 제한 초과 | — |
 | `500 Internal Server Error` | 서버 오류 | 오류 메시지 |
 
 #### 예제
@@ -357,51 +364,13 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 ### `GET /_session_exchange`
 
-크로스 도메인 세션 공유에 사용됩니다. 수명이 짧고 대상 도메인에 바인딩된 암호화 티켓을 교환하고 인증된 세션을 확인한 뒤 Cookie를 설정하고 루트 경로로 리디렉션합니다.
+브라우저에 바인딩된 도메인 간 교환을 시작하거나 완료합니다. `ticket` 또는 nonce 쿠키가 없으면 대상 호스트 전용 HttpOnly 쿠키를 만들고 봉인된 `exchange_state`와 함께 로그인 호스트로 `302 Found` 리디렉션합니다. 시작할 때 ticket은 필요하지 않습니다.
 
-이 엔드포인트는 주로 여러 도메인/하위 도메인 간에 인증 세션을 공유하는 데 사용됩니다. 사용자가 한 도메인에 로그인한 후, 이 엔드포인트를 사용하여 다른 도메인에 세션 Cookie를 설정할 수 있습니다.
+반환된 ticket은 이 브라우저의 nonce 쿠키, 대상 오리진, 스킴 및 `SESSION_EXCHANGE_REDIRECT_PATH`와 일치해야 합니다. 유효 기간은 최대2분이며 한 번만 사용할 수 있습니다. 여러 복제본은 공유 Redis가 필요합니다. 브라우저에 바인딩되지 않은 이전 ticket 형식은 거부됩니다.
 
-#### 쿼리 매개변
+성공하면 `stargate_session_id`를 설정하고 nonce 쿠키를 지운 뒤 설정된 동일 오리진 경로로 이동합니다. `COOKIE_DOMAIN`은 대상이 해당 도메인에 속할 때만 적용되며 다른 허용 호스트는 host-only 쿠키를 받습니다. 잘못되거나 만료·재사용·불일치한 ticket은 `401`, 잘못된 대상 또는 secure 쿠키 설정에서 HTTP를 사용하면 `400`입니다.
 
-| 매개변수 | 타입 | 필수 | 설명 |
-|----------|------|------|------|
-| `ticket` | String | 예 | 로그인 후 반환되며 대상 도메인에 바인딩된 교환 티켓 |
-
-#### 응답
-
-**성공 응답 (302 Redirect)**
-
-```
-HTTP/1.1 302 Found
-Location: /
-Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Domain=<cookie_domain>; Expires=<expiry>
-```
-
-**실패 응답**
-
-| 상태 코드 | 설명 | 응답 본문 |
-|-----------|------|-----------|
-| `400 Bad Request` | 티켓 누락 | 오류 메시지 |
-| `401 Unauthorized` | 티켓이 유효하지 않거나 만료, 재사용 또는 다른 도메인용임 | 오류 메시지 |
-
-#### Cookie 도메인
-
-환경 변수 `COOKIE_DOMAIN`이 설정된 경우, Cookie는 지정된 도메인에 설정되어 크로스 하위 도메인 공유가 가능합니다.
-
-#### 예제
-
-```bash
-# 티켓이 바인딩된 콜백 도메인에서 교환
-curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
-```
-
-**일반적인 사용 시나리오:**
-
-1. 사용자가 `auth.example.com`에 로그인
-2. 로그인 성공 후, `app.example.com/_session_exchange?ticket=<opaque_ticket>`로 리디렉션
-3. 세션 Cookie가 `.example.com` 도메인에 설정됩니다 (`COOKIE_DOMAIN=.example.com`이 설정된 경우)
-4. `app.example.com/`로 리디렉션
-5. 사용자는 모든 하위 도메인 `*.example.com`에서 이 세션을 사용할 수 있습니다
+같은 브라우저에서 `https://app.example.com/_session_exchange?start=1`로 시작하세요. ticket URL만 사용하거나 해당 쿠키 없이 `curl`을 실행하면 세션을 가져올 수 없습니다. [마이그레이션 요구 사항](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)을 확인하세요.
 
 ## TOTP 엔드포인트
 
@@ -414,6 +383,8 @@ Herald와 Herald TOTP가 활성화된 경우 사용할 수 있습니다. 모든 
 ### `POST /totp/enroll`
 
 등록을 시작하고 TOTP 연결 페이지를 표시합니다. 최근 10분 이내의 로그인으로 생성된 세션이 필요합니다. 인증되지 않은 사용자는 `302 Found`로 `/_login`에 리디렉션되고 오래된 세션에는 `401 Unauthorized`가 반환됩니다.
+
+상위 TOTP 상태 조회 또는 등록 시작 실패는 `502 Bad Gateway`를 반환합니다.
 
 ### `POST /totp/enroll/confirm`
 
@@ -433,6 +404,8 @@ Herald와 Herald TOTP가 활성화된 경우 사용할 수 있습니다. 모든 
 #### 응답
 
 인증이 없거나 오래된 경우 `401 Unauthorized`를 반환하며 성공 JSON에는 한 번만 표시되는 백업 코드가 포함됩니다.
+
+확인 한도 초과는 `429 Too Many Requests`와 `rate_limited`를 반환하며 대기 중인 등록을 보존합니다. 잘못된 상위 응답은 `502`입니다. 코드를 자동 재시도하지 마세요.
 
 ### `GET /totp/revoke`
 

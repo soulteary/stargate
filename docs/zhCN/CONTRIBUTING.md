@@ -59,7 +59,7 @@ chmod +x start-local.sh
 # 或手动启动
 export AUTH_HOST=localhost
 export PASSWORDS='plaintext:test123'
-go run src/cmd/stargate/main.go
+go run ./src/cmd/stargate
 ```
 
 ### 使用 Traefik 进行测试
@@ -70,7 +70,7 @@ go run src/cmd/stargate/main.go
    ```bash
    export AUTH_HOST=auth.example.com
    export PASSWORDS='plaintext:test123'
-   go run src/cmd/stargate/main.go
+   go run ./src/cmd/stargate
    ```
 
 2. **配置 Traefik**（示例 `traefik.yml`）:

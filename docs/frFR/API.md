@@ -22,14 +22,17 @@ Le point de terminaison principal de vérification d'authentification pour Traef
 
 #### Méthodes d'Authentification
 
-Stargate supporte deux méthodes d'authentification, vérifiées dans l'ordre de priorité suivant :
+Stargate supporte trois méthodes d'authentification, vérifiées dans l'ordre de priorité suivant :
 
 1. **Authentification par En-tête** (requêtes API)
    - En-tête de requête : `Stargate-Password: <password>`
    - Désactivée par défaut. Définissez `PASSWORD_HEADER_AUTH_ENABLED=true` uniquement pour des clients historiques de confiance.
    - Adapté aux requêtes API, scripts d'automatisation, etc.
 
-2. **Authentification par Cookie** (requêtes Web)
+2. **En-têtes d’identité de confiance**
+   - Exige `HEADER_AUTH_ENABLED=true`, Warden et le bon `HEADER_AUTH_SHARED_SECRET` dans `HEADER_AUTH_SECRET_HEADER` (par défaut `X-Stargate-Header-Auth`). `X-User-Phone` / `X-User-Mail` sont vérifiés dans l’annuaire. Le proxy doit remplacer les en-têtes d’identité et de secret fournis par le client ; ne jamais exposer ce secret au navigateur.
+
+3. **Authentification par Cookie** (requêtes Web)
    - Cookie : `stargate_session_id=<session_id>`
    - Adapté aux applications Web accessibles via navigateurs
 
@@ -38,6 +41,7 @@ Stargate supporte deux méthodes d'authentification, vérifiées dans l'ordre de
 | En-tête | Type | Requis | Description |
 |---------|------|--------|-------------|
 | `Stargate-Password` | String | Non | Authentification par mot de passe pour les requêtes API |
+| `X-User-Phone`, `X-User-Mail` | String | — | Identité de confiance facultative ; exige l’en-tête secret du proxy configuré |
 | `Cookie` | String | Non | Cookie de session contenant `stargate_session_id` |
 | `Accept` | String | Non | Utilisé pour déterminer le type de requête (HTML/API) |
 
@@ -59,6 +63,7 @@ Le nom de l'en-tête utilisateur peut être configuré via la variable d'environ
 | Code de Statut | Description | Corps de Réponse |
 |----------------|-------------|-------------------|
 | `401 Unauthorized` | Authentification échouée | Message d'erreur (format JSON pour les requêtes API) ou redirection vers la page de connexion (requêtes HTML) |
+| `503 Service Unavailable` | Autorisation de l’annuaire temporairement indisponible | — |
 | `500 Internal Server Error` | Erreur serveur | Message d'erreur |
 
 #### Gestion du Type de Requête
@@ -194,6 +199,8 @@ La réponse varie selon qu'il y a un callback et le type de requête :
 | `401 Unauthorized` | Mot de passe incorrect, utilisateur Warden absent/inactif ou échec du challenge/TOTP | Message d'erreur au format JSON/XML/texte selon l'en-tête Accept |
 | `502 Bad Gateway` | Échec de la consultation du statut TOTP auprès de Herald | Message d'erreur |
 | `503 Service Unavailable` | Service de vérification Herald indisponible | Message d'erreur |
+| `409 Conflict` | Verrou du vérificateur occupé ; aucune nouvelle tentative automatique du code | — |
+| `429 Too Many Requests` | Limite de requêtes dépassée | — |
 | `500 Internal Server Error` | Erreur serveur | Message d'erreur |
 
 #### Exemples
@@ -358,51 +365,13 @@ Revérifie le mot de passe et enregistre l'authentification renforcée dans la s
 
 ### `GET /_session_exchange`
 
-Utilisé pour le partage de session cross-domain. Échange un ticket chiffré, de courte durée et lié au domaine cible, vérifie la session authentifiée, définit le cookie puis redirige vers le chemin racine.
+Démarre ou termine l’échange inter-domaines lié au navigateur. Sans `ticket` ou sans cookie nonce, la destination crée un cookie HttpOnly limité à cet hôte et redirige vers la connexion avec un `exchange_state` scellé (`302 Found`). Le ticket n’est pas nécessaire pour démarrer.
 
-Ce point de terminaison est principalement utilisé pour partager les sessions d'authentification entre plusieurs domaines/sous-domaines. Après qu'un utilisateur se connecte sur un domaine, ce point de terminaison peut être utilisé pour définir le cookie de session sur un autre domaine.
+Le ticket retourné doit correspondre au cookie nonce de ce navigateur, à la destination, au schéma et à `SESSION_EXCHANGE_REDIRECT_PATH`. Il reste valable au maximum deux minutes et n’est utilisable qu’une fois ; plusieurs répliques exigent Redis partagé. Les anciens tickets non liés sont rejetés.
 
-#### Paramètres de Requête
+Le succès définit `stargate_session_id`, efface le cookie nonce et redirige vers le chemin local configuré. `COOKIE_DOMAIN` ne s’applique qu’aux destinations de ce domaine ; les autres destinations autorisées reçoivent un cookie propre à l’hôte. Un ticket invalide, expiré, consommé ou non concordant donne `401` ; une destination invalide ou HTTP non sécurisé avec des cookies sécurisés donne `400`.
 
-| Paramètre | Type | Requis | Description |
-|-----------|------|--------|-------------|
-| `ticket` | String | Oui | Ticket d'échange lié au domaine cible et retourné après la connexion |
-
-#### Réponse
-
-**Réponse de Succès (302 Redirect)**
-
-```
-HTTP/1.1 302 Found
-Location: /
-Set-Cookie: stargate_session_id=<session_id>; Path=/; HttpOnly; SameSite=Lax; Domain=<cookie_domain>; Expires=<expiry>
-```
-
-**Réponse d'Échec**
-
-| Code de Statut | Description | Corps de Réponse |
-|----------------|-------------|-------------------|
-| `400 Bad Request` | Ticket manquant | Message d'erreur |
-| `401 Unauthorized` | Ticket invalide, expiré, rejoué ou destiné à un autre domaine | Message d'erreur |
-
-#### Domaine du Cookie
-
-Si la variable d'environnement `COOKIE_DOMAIN` est configurée, le cookie sera défini au domaine spécifié, permettant le partage cross-sous-domaine.
-
-#### Exemple
-
-```bash
-# Échanger le ticket sur le domaine de callback auquel il est lié
-curl "https://app.example.com/_session_exchange?ticket=<opaque_ticket>"
-```
-
-**Scénario d'Utilisation Typique :**
-
-1. L'utilisateur se connecte à `auth.example.com`
-2. Après connexion réussie, redirige vers `app.example.com/_session_exchange?ticket=<opaque_ticket>`
-3. Le cookie de session est défini au domaine `.example.com` (si `COOKIE_DOMAIN=.example.com` est configuré)
-4. Redirige vers `app.example.com/`
-5. L'utilisateur peut utiliser cette session sur tous les sous-domaines `*.example.com`
+Commencer dans le même navigateur : `https://app.example.com/_session_exchange?start=1`. Un lien contenant uniquement le ticket ou `curl` sans le cookie du navigateur ne peut pas importer la session. Voir les [conditions de migration](../enUS/DEPLOYMENT.md#browser-bound-session-exchange).
 
 ## Points de Terminaison TOTP
 
@@ -415,6 +384,8 @@ Affiche une page de confirmation sans créer d'état d'inscription. Nécessite u
 ### `POST /totp/enroll`
 
 Démarre l'inscription et affiche la page d'association TOTP. Nécessite une session créée par une connexion réussie au cours des 10 dernières minutes. Un utilisateur non authentifié est redirigé avec `302 Found` vers `/_login` ; une session plus ancienne reçoit `401 Unauthorized`.
+
+Les erreurs du statut TOTP ou du démarrage d’inscription en amont donnent `502 Bad Gateway`.
 
 ### `POST /totp/enroll/confirm`
 
@@ -434,6 +405,8 @@ Le formulaire doit contenir `enroll_id` et le `code` TOTP à six chiffres.
 #### Réponse
 
 Une authentification absente ou trop ancienne renvoie `401 Unauthorized` ; en cas de succès, la réponse JSON inclut les codes de secours affichés une seule fois.
+
+Le quota de confirmation donne `429 Too Many Requests` avec `rate_limited` ; l’inscription en attente est conservée. Une réponse invalide du fournisseur donne `502`. Ne pas réessayer un code automatiquement.
 
 ### `GET /totp/revoke`
 

@@ -93,7 +93,7 @@ func InitForwardAuthHandler(l *logger.Logger) {
 
 		// Header-based authentication (Warden)
 		// Trusted identity headers are checked in CheckRoute, where the active
-		// request context can be propagated to Warden. forwardauth-kit v2.1.0
+		// request context can be propagated to Warden. forwardauth-kit
 		// exposes context-free callbacks, so enabling its header checker here
 		// would detach Warden calls from the request deadline and handler cleanup.
 		HeaderAuthEnabled:   false,

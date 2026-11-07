@@ -13,11 +13,15 @@ import (
 )
 
 // SessionShareRoute handles GET requests to /_session_exchange for cross-domain session sharing.
-// It sets a session cookie and redirects to the configured same-origin landing path.
+// Without a ticket or browser nonce cookie, it starts a destination-issued
+// handshake. A returned ticket must match that cookie before it sets a session
+// cookie and redirects to the configured same-origin landing path.
 // This allows sessions to be shared across different domains/subdomains.
 //
 // Query parameters:
-//   - ticket: encrypted, short-lived, single-use session exchange ticket
+//   - ticket: optional encrypted, short-lived, single-use browser-bound ticket
+//
+// Cookie Domain is applied only when the destination belongs to the configured domain.
 //
 // Returns a Fiber handler function.
 func SessionShareRoute(store *session.Store, replayStores ...SessionExchangeReplayStore) func(c fiber.Ctx) error {

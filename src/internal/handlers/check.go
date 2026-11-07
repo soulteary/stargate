@@ -83,7 +83,8 @@ type SessionStoreForCheck interface {
 // It uses forwardauth-kit to handle authentication logic.
 //
 // On successful authentication, it sets the X-Forwarded-User header (or configured header name)
-// and returns 200 OK. On failure, it either redirects to login (HTML) or returns 401 (API).
+// and returns 200 OK. Authentication failures redirect to login (HTML) or return
+// 401 (API); unavailable directory authorization returns 503 without revoking the session.
 //
 // Parameters:
 //   - store: Session store (or mock implementing SessionStoreForCheck) for managing user sessions

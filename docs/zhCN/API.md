@@ -25,14 +25,17 @@ Traefik Forward Auth 的主要认证检查端点。此端点是 Stargate 的核�
 
 #### 认证方式
 
-Stargate 支持两种认证方式，按以下优先级检查：
+Stargate 支持三种认证方式，按以下优先级检查：
 
 1. **Header 认证**（API 请求）
    - 请求头：`Stargate-Password: <password>`
    - 默认关闭。仅为受信任的旧客户端设置 `PASSWORD_HEADER_AUTH_ENABLED=true`。
    - 适用于 API 请求、自动化脚本等场景
 
-2. **Cookie 认证**（Web 请求）
+2. **可信身份请求头**
+   - 要求 `HEADER_AUTH_ENABLED=true`、Warden，以及通过 `HEADER_AUTH_SECRET_HEADER`（默认 `X-Stargate-Header-Auth`）提供匹配的 `HEADER_AUTH_SHARED_SECRET`。`X-User-Phone` / `X-User-Mail` 必须经目录查询。代理须覆盖客户端身份及密钥请求头，不得把共享密钥暴露给浏览器。
+
+3. **Cookie 认证**（Web 请求）
    - Cookie：`stargate_session_id=<session_id>`
    - 适用于浏览器访问的 Web 应用
 
@@ -41,6 +44,7 @@ Stargate 支持两种认证方式，按以下优先级检查：
 | 请求头 | 类型 | 必需 | 说明 |
 |--------|------|------|------|
 | `Stargate-Password` | String | 否 | 用于 API 请求的密码认证 |
+| `X-User-Phone`, `X-User-Mail` | String | — | 可选可信身份，要求配置的代理密钥请求头 |
 | `Cookie` | String | 否 | 包含 `stargate_session_id` 的会话 Cookie |
 | `Accept` | String | 否 | 用于判断请求类型（HTML/API） |
 
@@ -62,6 +66,7 @@ X-Forwarded-User: authenticated
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
 | `401 Unauthorized` | 认证失败 | 错误消息（JSON 格式，API 请求）或重定向到登录页（HTML 请求） |
+| `503 Service Unavailable` | 目录授权暂时不可用 | — |
 | `500 Internal Server Error` | 服务器错误 | 错误消息 |
 
 #### 请求类型处理
@@ -197,6 +202,8 @@ TOTP 分支要求 `HERALD_TOTP_ENABLED=true` 且用户已经完成绑定；否�
 | `401 Unauthorized` | 密码错误、Warden 用户不存在/未激活，或 challenge/TOTP 验证失败 | 根据 Accept 头返回 JSON/XML/文本格式的错误消息 |
 | `502 Bad Gateway` | Herald TOTP 状态查询失败 | 错误消息 |
 | `503 Service Unavailable` | Herald 验证服务不可用 | 错误消息 |
+| `409 Conflict` | 验证器锁争用；不会自动重试验证码 | — |
+| `429 Too Many Requests` | 请求触发限流 | — |
 | `500 Internal Server Error` | 服务器错误 | 错误消息 |
 
 #### 示例
@@ -396,7 +403,9 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 启动绑定并展示 TOTP 页面。使用 POST 可避免跨站导航创建绑定状态。
 
 - **认证**：要求会话由最近 10 分钟内成功登录创建。未认证用户以 `302 Found` 重定向到 `/_login`，过期会话返回 `401 Unauthorized`。
-- **响应**：200 OK 返回绑定页 HTML；未认证时以 `302 Found` 跳转到 `/_login`；配置或 Herald 错误时 400/503。
+- **响应**：200 OK 返回绑定页 HTML；未认证时以 `302 Found` 跳转到 `/_login`；配置或 Herald 错误时 400/502/503。
+
+上游 TOTP 状态查询或注册启动错误返回 `502 Bad Gateway`。
 
 ### `POST /totp/enroll/confirm`
 
@@ -418,6 +427,8 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 #### 响应
 
 JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`；绑定状态无效或过期返回 `400 Bad Request`，缺少最近认证返回 `401 Unauthorized`。
+
+确认配额耗尽时返回 `429 Too Many Requests` 和 `rate_limited`，保留待确认绑定；无效的上游响应返回 `502`。不要自动重试验证码。
 
 ### `GET /totp/revoke`
 
