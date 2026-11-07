@@ -10,6 +10,8 @@
 
 Stargate 是一个轻量级前向认证服务，用于在反向代理边界集中处理认证。它可与 Traefik 集成，并为受保护服务提供密码、会话、Warden 和 Herald 认证流程。
 
+v1.3.3 配置 Herald HMAC secret 时只发送 HMAC 凭据。升级同时配置两类凭据的客户端前，请阅读[凭据选择与回滚说明](docs/zhCN/DEPLOYMENT.md)。
+
 v1.3.2 保留可重试 OTP 验证失败的 503/409 状态，不自动重试验证码。请参阅[升级与回滚说明](docs/zhCN/DEPLOYMENT.md)；原会话截止时间和记录格式不变。
 
 v1.3.1 的 OTP 登录要求网关共享可信绑定及 Herald 绑定验证。请阅读[升级与回滚说明](docs/zhCN/DEPLOYMENT.md)。v1.3.0 的可撤销会话继续遵守原有截止时间。
