@@ -422,7 +422,9 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 	t.Setenv("HERALD_ENABLED", "true")
 	t.Setenv("HERALD_URL", heraldServer.URL)
 	t.Setenv("HERALD_API_KEY", "test-api-key")
-	t.Setenv("HERALD_HMAC_SECRET", "test-hmac-secret")
+	// This mock authenticates API keys; HMAC is covered by the SDK signing tests.
+	t.Setenv("HERALD_HMAC_SECRET", "")
+	t.Setenv("HERALD_HMAC_KEY_ID", "")
 	t.Setenv("LANGUAGE", "zh")
 
 	err := config.Initialize(testLoggerE2E())
