@@ -25,14 +25,17 @@ The main authentication check endpoint for Traefik Forward Auth. This endpoint i
 
 #### Authentication Methods
 
-Stargate supports two authentication methods, checked in the following priority order:
+Stargate supports three authentication methods, checked in the following priority order:
 
 1. **Header Authentication** (API requests)
    - Request header: `Stargate-Password: <password>`
    - Disabled by default. Set `PASSWORD_HEADER_AUTH_ENABLED=true` only for trusted legacy clients.
    - Suitable for API requests, automation scripts, etc.
 
-2. **Cookie Authentication** (Web requests)
+2. **Trusted identity headers**
+   - Requires `HEADER_AUTH_ENABLED=true`, a matching `HEADER_AUTH_SHARED_SECRET` in `HEADER_AUTH_SECRET_HEADER` (default `X-Stargate-Header-Auth`), and Warden. `X-User-Phone` / `X-User-Mail` are resolved against the directory. The proxy must overwrite client-supplied identity and secret headers; never expose the shared secret to browsers.
+
+3. **Cookie Authentication** (Web requests)
    - Cookie: `stargate_session_id=<session_id>`
    - Suitable for web applications accessed via browsers
 
@@ -41,6 +44,7 @@ Stargate supports two authentication methods, checked in the following priority 
 | Header | Type | Required | Description |
 |--------|------|----------|-------------|
 | `Stargate-Password` | String | No | Password authentication for API requests |
+| `X-User-Phone`, `X-User-Mail` | String | — | Optional trusted identity; requires the configured proxy secret header |
 | `Cookie` | String | No | Session cookie containing `stargate_session_id` |
 | `Accept` | String | No | Used to determine request type (HTML/API) |
 
@@ -62,6 +66,7 @@ The user header name can be configured via the `USER_HEADER_NAME` environment va
 | Status Code | Description | Response Body |
 |-------------|-------------|---------------|
 | `401 Unauthorized` | Authentication failed | Error message (JSON format for API requests) or redirect to login page (HTML requests) |
+| `503 Service Unavailable` | Directory authorization temporarily unavailable | — |
 | `500 Internal Server Error` | Server error | Error message |
 
 #### Request Type Handling
@@ -197,6 +202,8 @@ The response varies depending on whether there is a callback and the request typ
 | `401 Unauthorized` | Incorrect password, absent/inactive Warden user, or failed challenge/TOTP verification | Error message in JSON/XML/text format based on Accept header |
 | `502 Bad Gateway` | Herald TOTP status lookup failed | Error message |
 | `503 Service Unavailable` | Herald verification service is unavailable | Error message |
+| `409 Conflict` | Published verifier lock contention; no automatic code retry | — |
+| `429 Too Many Requests` | Request rate limit exceeded | — |
 | `500 Internal Server Error` | Server error | Error message |
 
 #### Examples
@@ -396,7 +403,9 @@ Displays a confirmation page without creating enrollment state. It requires a se
 Starts enrollment and displays the TOTP bind page. POST prevents cross-site navigation from creating enrollment state.
 
 - **Authentication**: A session created by a successful login within the last 10 minutes. Unauthenticated users are redirected with `302 Found` to `/_login`; older sessions receive `401 Unauthorized`.
-- **Response**: 200 OK with enrollment page HTML; `302 Found` to `/_login` if not authenticated; or 400/503 on configuration or Herald errors.
+- **Response**: 200 OK with enrollment page HTML; `302 Found` to `/_login` if not authenticated; or 400/502/503 on configuration or Herald errors.
+
+Upstream TOTP status/start errors return `502 Bad Gateway`.
 
 ### `POST /totp/enroll/confirm`
 
@@ -418,6 +427,8 @@ The form must contain the `enroll_id` returned by the enrollment page and the 6-
 #### Response
 
 JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400 Bad Request`, and missing recent authentication returns `401 Unauthorized`.
+
+Confirmation quota returns `429 Too Many Requests` with `rate_limited`; pending enrollment is retained. An invalid provider response returns `502`. Do not automatically retry a code.
 
 ### `GET /totp/revoke`
 

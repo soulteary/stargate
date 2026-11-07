@@ -1,5 +1,7 @@
 # デプロイメントガイド
 
+現在のデプロイ例は v1.3.3 を使用します。v1.3 より前の環境を置き換える前に、[セッション移行](../enUS/DEPLOYMENT.md#revocable-session-migration)と[ブラウザーに結び付いた交換](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)を確認してください。全レプリカを調整し、必要な Redis 状態を保持して、移行に伴う再ログインを計画してください。
+
 > **過去の翻訳**: 現在の変更がすべて反映されているわけではありません。[最新の英語版](../enUS/DEPLOYMENT.md)を参照してください。
 
 このドキュメントは、Stargate Forward Auth サービスの詳細なデプロイメントガイドを提供します。
@@ -178,7 +180,7 @@ Traefik が共有の外部 Docker ネットワークですでに動作してい�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -267,7 +269,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -291,7 +293,7 @@ Stargate は Traefik と統合するように設計されており、Forward Aut
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

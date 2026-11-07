@@ -1,5 +1,7 @@
 # 部署指南
 
+当前部署示例使用 v1.3.3。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
+
 本文档提供 Stargate Forward Auth Service 的详细部署指南。
 
 v1.3.3 升级前请阅读[Herald 凭据选择](#herald-凭据选择-v133)，尤其是同时配置 API key 与 HMAC 的客户端。先为全部现有调用方配置并验证显式 key ID，再升级 Herald v1.4.3，最后升级 Stargate v1.3.3。此补丁保留 Redis 记录和会话截止时间。
@@ -201,7 +203,7 @@ CI 输出不会自动改写；若其中实际包含凭据，应限制访问，�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -254,7 +256,7 @@ networks:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
@@ -320,7 +322,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -344,7 +346,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

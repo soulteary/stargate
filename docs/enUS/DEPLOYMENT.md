@@ -1,5 +1,7 @@
 # Deployment Guide
 
+Current deployment examples use v1.3.3. Before replacing a pre-v1.3 deployment, read the [revocable-session migration](#revocable-session-migration) and [browser-bound session exchange](#browser-bound-session-exchange) requirements. Coordinate all replicas; preserve required Redis state and account for the documented fresh-login boundary.
+
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
 For v1.3.3, read [Herald credential selection](#herald-credential-selection-v133) before updating a client with both API-key and HMAC settings. First set and verify explicit key IDs on all existing callers, then upgrade Herald v1.4.3, followed by Stargate v1.3.3. This patch preserves Redis records and session deadlines.
@@ -206,7 +208,7 @@ Use the separate example below when Traefik already runs on a shared external Do
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -295,7 +297,7 @@ Edit `docker-compose.yml` and modify environment variables:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -319,7 +321,7 @@ Configure Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

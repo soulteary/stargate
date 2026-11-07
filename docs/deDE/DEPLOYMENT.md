@@ -1,5 +1,7 @@
 # Bereitstellungsanleitung
 
+Die aktuellen Beispiele verwenden v1.3.3. Vor dem Austausch einer Version vor v1.3 die [Sitzungsmigration](../enUS/DEPLOYMENT.md#revocable-session-migration) und den [browsergebundenen Austausch](../enUS/DEPLOYMENT.md#browser-bound-session-exchange) lesen. Alle Replikate koordinieren, Redis-Zustand erhalten und die erforderliche Neuanmeldung einplanen.
+
 > **Historische Übersetzung**: Dieser Leitfaden enthält nicht alle aktuellen Änderungen. Siehe den [aktuellen englischen Leitfaden](../enUS/DEPLOYMENT.md).
 
 Dieses Dokument bietet eine detaillierte Bereitstellungsanleitung für den Stargate Forward Auth-Dienst.
@@ -178,7 +180,7 @@ Verwenden Sie das folgende separate Beispiel nur, wenn Traefik bereits in einem 
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -267,7 +269,7 @@ Bearbeiten Sie `docker-compose.yml` und ändern Sie die Umgebungsvariablen:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -291,7 +293,7 @@ Konfigurieren Sie Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.2.7
+    image: ghcr.io/soulteary/stargate:1.3.3
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
