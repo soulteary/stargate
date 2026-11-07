@@ -336,6 +336,8 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `RATE_LIMIT_VERIFICATION_MAX` | entier | 5 | Demandes de vérification par fenêtre et par client ; 0 désactive |
 | `RATE_LIMIT_WINDOW` | durée | `1m` | Fenêtre fixe de limitation de débit |
 
+`PORT` s’applique au développement et à la production. Le binaire natif utilise `:80` sans valeur ; les images officielles définissent `PORT=8080`. Dans un conteneur, utiliser un nombre seul, par exemple `PORT=8080` : le contrôle de santé construit une URL, donc la forme native `:8080` ne convient pas.
+
 Warden exige l’identifiant et le secret HMAC ensemble. Pour Herald, fournir un identifiant explicite si le serveur utilise `HERALD_HMAC_KEYS` ; un seul `HMAC_SECRET` conserve le défaut implicite. Le certificat et la clé client mTLS doivent former une paire complète pour les deux services.
 
 ## Configuration du Mot de Passe
