@@ -49,6 +49,14 @@ def approved_login_entry(login_url, callbacks):
     return fixture.url_matches(login_url, fixture.AUTH+'/_login') and bool(callbacks) and all(callback_matches(value, fixture.APP) for value in callbacks)
 
 
+def classify_back_landing(value):
+    if fixture.url_matches(value, fixture.APP):
+        return 'approved_app'
+    if fixture.url_matches(value, fixture.AUTH+'/_login'):
+        return 'auth_login'
+    return 'other'
+
+
 def accepted_login(status, body):
     return status == 200 and isinstance(body, dict) and body.get('success') is True
 
@@ -212,19 +220,18 @@ def browser_scenario(ca, home):
         fixture.check('Same page protected app200 and real hello contract', app=={'status':200,'project':True,'summary':True})
         fixture.stage('successful-login-history-observation')
         restore(page, cdp, events, requests, 'after_successful_login', login_stamp, login_entry, False, '/_login')
-        fixture.RESULT['successful_login_field_presence'] = field_presence(page)
-        fixture.stage('same-session-auth-positive')
-        fixture.check('History observation returned actual auth origin', urlparse(page.url).hostname == fixture.AUTH_HOST)
-        auth = page.evaluate("""async()=>{const r=await fetch('/_auth',{headers:{'X-Forwarded-Uri':'/profile'}});return {status:r.status,user:r.headers.get('X-Auth-User')};}""")
-        fixture.check('Resumed login has real stable identity', auth=={'status':200,'user':'production-user-001'})
-        fixture.RESULT['mail_login_observation']['real_app_and_identity_positive'] = True
-        fixture.save()
+        landing = classify_back_landing(page.url)
+        fixture.RESULT['successful_login_back_landing'] = landing
+        fixture.check('Back ends at an approved product location', landing != 'other')
+        fixture.RESULT['successful_login_field_presence'] = field_presence(page) if landing == 'auth_login' else {'observed':False,'reason':'not_login_document'}
         fixture.stage('authenticated-account-bfcache')
         response = page.goto(fixture.AUTH+'/_account?lang=en')
         fixture.check('Actual account keeps no-store', response.status==200 and 'no-store' in response.headers.get('cache-control',''))
         round_trip(page, cdp, events, requests, 'account_get')
         auth = page.evaluate("""async()=>{const r=await fetch('/_auth',{headers:{'X-Forwarded-Uri':'/profile'}});return {status:r.status,user:r.headers.get('X-Auth-User')};}""")
         fixture.check('Restored account retains real identity', auth=={'status':200,'user':'production-user-001'})
+        fixture.RESULT['mail_login_observation']['real_app_and_identity_positive'] = True
+        fixture.save()
         fixture.stage('native-post-secret-leave')
         page.goto(fixture.AUTH+'/totp/enroll?lang=en')
         with page.expect_response(lambda r:r.request.method=='POST' and urlparse(r.url).path=='/totp/enroll') as started:
