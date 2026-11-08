@@ -13,9 +13,9 @@ import time
 import urllib.request
 from urllib.parse import parse_qs, urlparse
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Error as PlaywrightError
 from validate_inputs import validate, callback_matches, hello_text_url
-from diagnostics import smtp_signatures
+from diagnostics import smtp_signatures, post_history_cache_miss
 
 ROOT = Path.cwd()
 STATE = Path(os.environ["RUNNER_TEMP"]) / ("browser-" + secrets.token_hex(6))
@@ -250,13 +250,24 @@ def run_browser():
         del saved_text
         page.locator("#codesSaved").check()
         check("backup acknowledgement reveals continuation", page.locator("#savedHome").is_visible())
+        stage("optional-bfcache-history")
         page.goto(AUTH + "/_account?lang=en")
-        page.go_back()
-        if page.evaluate("window.__acceptanceRestored === true"):
-            check("actual BFCache clears recovery controls", page.locator("#backupCodesList li").count() == 0 and page.locator("#copyCodes").is_disabled() and page.locator("#downloadCodes").is_disabled() and page.locator("#codesSaved").is_disabled())
-        else:
-            RESULT["bfcache"] = "not exercised: Chromium restored by navigation/reload rather than BFCache"
-            save()
+        history_unavailable = False
+        try:
+            page.go_back()
+        except PlaywrightError as failure:
+            if not post_history_cache_miss(failure, PlaywrightError):
+                raise
+            history_unavailable = True
+            RESULT["bfcache"] = {"status": "not_exercised", "sentinel": "net::ERR_CACHE_MISS", "persisted": False}
+            page.goto(AUTH + "/_account?lang=en")
+        if not history_unavailable:
+            if page.evaluate("window.__acceptanceRestored === true"):
+                check("actual BFCache clears recovery controls", page.locator("#backupCodesList li").count() == 0 and page.locator("#copyCodes").is_disabled() and page.locator("#downloadCodes").is_disabled() and page.locator("#codesSaved").is_disabled())
+                RESULT["bfcache"] = {"status": "passed", "persisted": True}
+            else:
+                RESULT["bfcache"] = {"status": "not_exercised", "sentinel": "navigation_or_reload", "persisted": False}
+        save()
         logout(page)
         # Enrollment consumes current TOTP step; wait for next step rather than retry a consumed POST.
         stage("authenticator-login")

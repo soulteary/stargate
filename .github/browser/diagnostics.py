@@ -23,3 +23,8 @@ def smtp_signatures(raw):
         result["smtp_dial_failure_seen"] |= "SMTP dial failed:" in error
         result["authentication_failure_signature_seen"] |= "authentication failed:" in error
     return result
+
+
+def post_history_cache_miss(error, playwright_error_type):
+    """Only the specific Playwright POST-history sentinel permits a coverage gap."""
+    return isinstance(error, playwright_error_type) and "net::ERR_CACHE_MISS" in str(error)

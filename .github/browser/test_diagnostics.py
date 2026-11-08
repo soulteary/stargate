@@ -24,3 +24,14 @@ class Diagnostics(unittest.TestCase):
         raw = json.dumps({"error": "STARTTLS failed:" + "x"*9000}).encode()
         self.assertFalse(any(smtp_signatures(raw).values()))
         self.assertFalse(smtp_signatures(b'{"error":"x509: unrelated"}')["starttls_x509_failure_seen"])
+
+
+class PostHistory(unittest.TestCase):
+    def test_only_specific_playwright_error_allows_optional_gap(self):
+        from diagnostics import post_history_cache_miss
+        class PlaywrightError(Exception):
+            pass
+        self.assertTrue(post_history_cache_miss(PlaywrightError("Page.go_back: net::ERR_CACHE_MISS"), PlaywrightError))
+        for error in (Exception("net::ERR_CACHE_MISS"), PlaywrightError("timeout"),
+                      PlaywrightError("net::ERR_CONNECTION_REFUSED"), PlaywrightError("ERR_CACHE_MISS")):
+            self.assertFalse(post_history_cache_miss(error, PlaywrightError))
