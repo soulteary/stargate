@@ -5,6 +5,7 @@ executed or cryptographically verified here; the release publication gate owns
 image signature/provenance verification. No application is built by this job.
 """
 import base64
+from contextlib import contextmanager
 import hashlib
 import hmac
 import http.cookies
@@ -27,6 +28,7 @@ import urllib.request
 
 REPOS = {'warden': 'warden', 'herald': 'herald', 'totp': 'herald-totp', 'gateway': 'stargate'}
 ORDER = ['totp', 'warden', 'herald', 'gateway']
+ROTATION_SUBJECTS = ('chain-c@example.test', 'chain-d@example.test')
 MAX_DOWNLOAD = 160 * 1024 * 1024
 DEADLINE = None
 OUT = Path('compatibility-evidence').resolve()
@@ -424,6 +426,31 @@ def assert_session(snapshot, stage):
     browser_cookies = previous
 
 
+
+def directory_users():
+    return [{'user_id': 'chain-user-' + suffix, 'mail': 'chain-' + suffix + '@example.test',
+             'status': 'active', 'scope': ['read'], 'role': 'viewer'} for suffix in ('a', 'b', 'c', 'd')]
+
+
+@contextmanager
+def isolated_browser():
+    global browser_cookies
+    previous = browser_cookies
+    browser_cookies = {}
+    try:
+        yield
+    finally:
+        browser_cookies = previous
+
+
+def rotation_login(subject):
+    # Each independent credential case gets one recipient and one fresh browser.
+    # Preserve the pending USER_B browser and all server-side cooldown state.
+    with isolated_browser():
+        challenge, code = send(subject)
+        login(subject, challenge, code)
+
+
 def run(manifest):
     global browser_cookies
     paths = {phase: download_tuple(phase, manifest[phase]) for phase in ('old', 'new') if phase in manifest}
@@ -434,8 +461,7 @@ def run(manifest):
     if resp(['PING']) != 'PONG':
         raise AssertionError('real Redis unavailable')
     prefix = 'release-compat:' + secrets.token_hex(8) + ':'
-    users = [{'user_id': 'chain-user-' + suffix, 'mail': 'chain-' + suffix + '@example.test',
-              'status': 'active', 'scope': ['read'], 'role': 'viewer'} for suffix in ('a', 'b')]
+    users = directory_users()
     RUNTIME.mkdir(parents=True, exist_ok=True)
     (RUNTIME / 'users.json').write_text(json.dumps(users))
     env = environments(prefix)
@@ -544,8 +570,7 @@ def rotate_credentials(paths, templates, original_env, snapshot, code_tuple):
         start(name, paths[name], env[name], templates if name == 'gateway' else None)
     assert_session(snapshot, 'rotated caller configuration')
     # Real SDK traffic selects the rotated keys for all three legs.
-    proof, code = send('chain-a@example.test')
-    login('chain-a@example.test', proof, code)
+    rotation_login(ROTATION_SUBJECTS[0])
     status = expect('rotated Herald SDK reaches TOTP', request(herald, '/v1/totp/status?subject=chain-user-a', key=fresh['herald'][0]), 200)
     if not status['totp_enabled']:
         raise AssertionError('TOTP credential lost on key rotation')
@@ -555,8 +580,7 @@ def rotate_credentials(paths, templates, original_env, snapshot, code_tuple):
     for name, (base, path) in endpoints.items():
         expect(name + ' retired key with fresh timestamp rejected', request(base, path, key=old[name][0]), 401)
         expect(name + ' active key after retirement', request(base, path, key=fresh[name][0]), 200)
-    proof, code = send('chain-a@example.test')
-    login('chain-a@example.test', proof, code)
+    rotation_login(ROTATION_SUBJECTS[1])
     # Only an explicit configuration rollback restores the old keys. Merely
     # replacing an executable is never described as restoring retired secrets.
     env = {name: dict(values) for name, values in original_env.items()}
