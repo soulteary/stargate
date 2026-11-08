@@ -44,7 +44,8 @@ def dotenv(values):
         value = str(value)
         if any(c in value for c in '\n\r\x00'):
             raise ValueError(f'{key} must be a single line')
-        lines.append(key + "='" + value.replace('\\', '\\\\').replace("'", "\\'") + "'")
+        # Double-quoted dotenv values decode backslashes; $$ prevents interpolation.
+        lines.append(key + '=' + json.dumps(value, ensure_ascii=False).replace('$', '$$'))
     return '\n'.join(lines) + '\n'
 
 

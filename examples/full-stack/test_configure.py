@@ -34,10 +34,10 @@ class ConfigurationTests(unittest.TestCase):
     def test_local_delivery_and_nondefault_authorities(self):
         self.assertTrue(config.configure(self.args(), {}))
         text = (self.output / '.env').read_text()
-        self.assertIn("AUTH_AUTHORITY='auth.test.localhost:8088'", text)
-        self.assertIn("APP_AUTHORITY='hello.test.localhost:8088'", text)
-        self.assertIn("SMTP_HOST='mailpit'", text)
-        self.assertIn("COOKIE_SECURE='false'", text)
+        self.assertIn('AUTH_AUTHORITY="auth.test.localhost:8088"', text)
+        self.assertIn('APP_AUTHORITY="hello.test.localhost:8088"', text)
+        self.assertIn('SMTP_HOST="mailpit"', text)
+        self.assertIn('COOKIE_SECURE="false"', text)
         self.assertIn('compose.local.yml', text)
         self.assertEqual(stat.S_IMODE((self.output / '.env').stat().st_mode), 0o600)
         self.assertEqual(stat.S_IMODE((self.output / 'state').stat().st_mode), 0o700)
@@ -109,8 +109,8 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(context.return_value.load_cert_chain.call_count, 2)
             trust.assert_called_once_with(cafile=str(tls.resolve() / 'totp-ca.pem'))
         text = (self.output / '.env').read_text()
-        self.assertIn("COOKIE_SECURE='true'", text)
-        self.assertIn("AUTH_AUTHORITY='auth.example.com'", text)
+        self.assertIn('COOKIE_SECURE="true"', text)
+        self.assertIn('AUTH_AUTHORITY="auth.example.com"', text)
         self.assertIn('compose.production.yml', text)
         self.assertNotIn('compose.local.yml', text)
         routes = json.loads((self.output / 'state/routes.yml').read_text())
@@ -142,10 +142,25 @@ class ConfigurationTests(unittest.TestCase):
             config.configure(args, {})
 
     def test_dotenv_preserves_special_password_without_interpolation(self):
-        self.assertEqual(config.dotenv({'SMTP_PASSWORD': "a$bc 'quoted'\\tail"}),
-                         "SMTP_PASSWORD='a$bc \\'quoted\\'\\\\tail'\n")
+        values = ["a$bc 'quoted'\\tail", 'ending\\', '${UNSET_VARIABLE}', 'two$$literal']
+        for value in values:
+            encoded = config.dotenv({'SMTP_PASSWORD': value})
+            self.assertEqual(encoded, 'SMTP_PASSWORD=' + json.dumps(value).replace('$', '$$') + '\n')
         with self.assertRaises(ValueError):
             config.dotenv({'SMTP_PASSWORD': 'secret\nINJECTED=true'})
+        if shutil.which('docker'):
+            for index, value in enumerate(values):
+                output = Path(self.tmp.name) / ('credential-' + str(index))
+                output.mkdir()
+                (output / '.env').write_text(config.dotenv({'SMTP_PASSWORD': value}))
+                (output / 'compose.json').write_text(json.dumps({'services': {'probe': {
+                    'image': 'alpine', 'environment': {'SMTP_PASSWORD': '${SMTP_PASSWORD:?}'}}}}))
+                env = {key: os.environ[key] for key in ['PATH', 'HOME', 'DOCKER_CONFIG'] if key in os.environ}
+                result = subprocess.run(['docker', 'compose', '-f', 'compose.json', 'config', '--format', 'json'],
+                                        cwd=output, env=env, capture_output=True, timeout=30)
+                self.assertEqual(result.returncode, 0, 'Credential Compose parsing failed')
+                actual = json.loads(result.stdout)['services']['probe']['environment']['SMTP_PASSWORD']
+                self.assertIn(actual, [value, value.replace('$', '$$')])
 
     def test_actual_compose_rendering_local_modes(self):
         if not shutil.which('docker'):
