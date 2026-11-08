@@ -315,6 +315,8 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 	}
 	return ctx.Render(templateName, fiber.Map{
 		"ExchangeState":        stateToken,
+		"UILanguage":           authenticationUILanguage(ctx),
+		"SupportURL":           config.LoginSupportURL.String(),
 		"Callback":             callback,
 		"SessionID":            sess.ID(),
 		"Title":                config.LoginPageTitle.Value,
@@ -375,12 +377,12 @@ func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx contex
 	// 手机号规范化后校验格式（如系统自动填充 "138 0013 8000" 已去空格，此处校验是否为有效号码）
 	if identity.userPhone != "" && !auth.IsValidPhone(identity.userPhone) {
 		tracing.RecordError(loginSpan, fmt.Errorf("invalid phone format"))
-		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.invalid_phone_format"))
+		return false, SendAuthenticationError(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.invalid_phone_format"), "identifier_invalid")
 	}
 	// Check if at least one identifier is provided
 	if identity.userPhone == "" && identity.userMail == "" {
 		tracing.RecordError(loginSpan, fmt.Errorf("no identifier provided"))
-		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"))
+		return false, SendAuthenticationError(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.user_not_in_list"), "identifier_required")
 	}
 
 	// Start span for Warden get user info
@@ -414,7 +416,7 @@ func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx contex
 		metrics.RecordAuthRequest("warden", "failure")
 		log.Warn().Str("phone", secure.MaskPhone(identity.userPhone)).Str("mail", secure.MaskEmail(identity.userMail)).Msg("Warden authentication failed")
 		auditlog.LogLogin(ctx.Context(), "", "warden", ctx.IP(), false, "user_not_in_list")
-		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"))
+		return false, SendAuthenticationError(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.user_not_in_list"), "authentication_failed")
 	}
 	wardenSpan.SetAttributes(
 		attribute.Bool("warden.user_found", true),
@@ -477,7 +479,7 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 
 	// Verify challenge via Herald
 	if challengeID == "" || verifyCode == "" {
-		return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.verify_code_and_challenge_required"))
+		return false, SendAuthenticationError(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.verify_code_and_challenge_required"), "verification_required")
 	}
 
 	heraldClient := getHeraldClient()
@@ -541,7 +543,7 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 
 		// Provide detailed error message based on reason
 		errorMsg := verificationFailureMessage(ctx, verifyResp, reason)
-		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
+		return false, SendAuthenticationError(ctx, fiber.StatusUnauthorized, errorMsg, reason)
 	}
 	if boundResp.ChallengeID != challengeID || boundResp.UserID != identity.userID ||
 		boundResp.Purpose != "login" || boundResp.Channel != auditContext.Channel {
@@ -599,7 +601,7 @@ func (identity *loginIdentity) verifyTOTP(ctx fiber.Ctx, loginCtx context.Contex
 		if statusResp == nil || !statusResp.TotpEnabled {
 			metrics.RecordAuthRequest("warden_otp", "failure")
 			auditlog.LogLogin(ctx.Context(), identity.userID, "warden_otp", ctx.IP(), false, "totp_not_enrolled")
-			return false, SendErrorResponse(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.totp_not_enrolled"))
+			return false, SendAuthenticationError(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.totp_not_enrolled"), "totp_not_enrolled")
 		}
 		verifyReq := &herald.TOTPVerifyRequest{
 			Subject: identity.userID,
@@ -617,7 +619,7 @@ func (identity *loginIdentity) verifyTOTP(ctx fiber.Ctx, loginCtx context.Contex
 		}
 		metrics.RecordAuthRequest("warden_otp", "success")
 	} else {
-		return false, SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
+		return false, SendAuthenticationError(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), "service_unavailable")
 	}
 	return true, nil
 }
@@ -656,7 +658,7 @@ func handleChallengeVerificationError(ctx fiber.Ctx, err error, verifyResp *hera
 	var heraldErr *herald.HeraldError
 	if errors.As(err, &heraldErr) {
 		if heraldErr.StatusCode >= http.StatusInternalServerError && heraldErr.StatusCode <= 599 {
-			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
+			return SendAuthenticationError(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), "service_unavailable")
 		}
 		if heraldErr.StatusCode == http.StatusConflict && heraldErr.Reason == "lock_contention" {
 			return SendErrorResponse(ctx, fiber.StatusConflict, i18n.T(ctx, "error.herald_unavailable_retry"))
@@ -666,7 +668,7 @@ func handleChallengeVerificationError(ctx fiber.Ctx, err error, verifyResp *hera
 			if otpEnabled {
 				return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_use_otp"))
 			}
-			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"))
+			return SendAuthenticationError(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), "service_unavailable")
 		}
 		// Herald client returns (verifyResp, err) on 4xx; use verifyResp.Reason for user-facing message
 		if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
@@ -674,7 +676,7 @@ func handleChallengeVerificationError(ctx fiber.Ctx, err error, verifyResp *hera
 			reason := verifyResp.Reason
 			auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
 			errorMsg := verificationFailureMessage(ctx, verifyResp, reason)
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, errorMsg)
+			return SendAuthenticationError(ctx, fiber.StatusUnauthorized, errorMsg, reason)
 		}
 		// Real auth failure (e.g. bad HMAC), not verification failure
 		if heraldErr.StatusCode == http.StatusUnauthorized {
@@ -691,12 +693,12 @@ func authenticatePasswordLogin(ctx fiber.Ctx, password string) (bool, error) {
 	if password == "" {
 		metrics.RecordAuthRequest("password", "failure")
 		auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), false, "empty_password")
-		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
+		return false, SendAuthenticationError(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"), "authentication_failed")
 	}
 	if !auth.CheckPassword(password) {
 		metrics.RecordAuthRequest("password", "failure")
 		auditlog.LogLogin(ctx.Context(), "", "password", ctx.IP(), false, "invalid_password")
-		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"))
+		return false, SendAuthenticationError(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.invalid_password"), "authentication_failed")
 	}
 	return true, nil
 }

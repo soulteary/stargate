@@ -278,6 +278,19 @@ func IsHTMLRequest(ctx fiber.Ctx) bool {
 //
 // Returns an error if the response cannot be sent.
 func SendErrorResponse(ctx fiber.Ctx, statusCode int, message string) error {
+	return sendErrorResponse(ctx, statusCode, message, "")
+}
+
+// SendAuthenticationError adds a stable, allowlisted JSON reason. Other formats
+// and the existing numeric code remain unchanged.
+func SendAuthenticationError(ctx fiber.Ctx, statusCode int, message, reason string) error {
+	if !authenticationReasonAllowed(reason) {
+		reason = "authentication_failed"
+	}
+	return sendErrorResponse(ctx, statusCode, message, reason)
+}
+
+func sendErrorResponse(ctx fiber.Ctx, statusCode int, message, reason string) error {
 	acceptHeader := ctx.Get("Accept")
 	bestFormat := ""
 
@@ -297,10 +310,11 @@ func SendErrorResponse(ctx fiber.Ctx, statusCode int, message string) error {
 	switch bestFormat {
 	case "json":
 		ctx.Set("Content-Type", "application/json")
-		return ctx.Status(statusCode).JSON(fiber.Map{
-			"error": message,
-			"code":  statusCode,
-		}, fiber.MIMEApplicationJSON)
+		body := fiber.Map{"error": message, "code": statusCode}
+		if reason != "" {
+			body["reason"] = reason
+		}
+		return ctx.Status(statusCode).JSON(body, fiber.MIMEApplicationJSON)
 	case "xml":
 		ctx.Set("Content-Type", "application/xml")
 		return ctx.Status(statusCode).SendString(`<errors><error code="` + fmt.Sprintf("%d", statusCode) + `">` + message + `</error></errors>`)
