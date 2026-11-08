@@ -1,0 +1,29 @@
+{
+  "mode": "baseline",
+  "old": {
+    "warden": {
+      "version": "1.6.1",
+      "source": "27c6fa6c56991c0e9163a33a79a03988b18ae90c",
+      "sha256": "211533eeef3b9d232420cae579915c5914c680ffa10c5396fef518abaae6ac26",
+      "image": "ghcr.io/soulteary/warden@sha256:7e2be16efbeb9c9b4381d8f0462cf87f1a421875178517a72fc13548bf15f0ef"
+    },
+    "herald": {
+      "version": "1.4.3",
+      "source": "e0e64d4dcfad6c8e56d6bdbbaf70de4a09ae8080",
+      "sha256": "9f73b9b42cd7901f0aa3c8c49f35a75277b5a94b043205d93c5d253cf16d363a",
+      "image": "ghcr.io/soulteary/herald@sha256:593cbd96123db7fbcdd575c7bf1abc1641cc0c00ef03be771387e8eea579f48a"
+    },
+    "totp": {
+      "version": "2.0.2",
+      "source": "a1915323e8aadc8f7a14b05ea3afa48566863cbe",
+      "sha256": "76a3b80f1bc5dddd0d798aa6bc67fa2a287ba31c90391e3536048176a93362e1",
+      "image": "ghcr.io/soulteary/herald-totp@sha256:9b43c05d0ac90b11dd0465b8df711b6f9c928d44486b69b58a9232118df61334"
+    },
+    "gateway": {
+      "version": "1.3.3",
+      "source": "ae61c1aae9cff0f03f449f6c0d6690ea509dd778",
+      "sha256": "bff9131142f030f79b4875cf51cd5f17db6e3e2c5cbe63e6c4ec4b1cacaa071d",
+      "image": "ghcr.io/soulteary/stargate@sha256:6fd062159e965f79316ee1f0af001ffa9476054b0cc1c9f8b1a2ea0c49114181"
+    }
+  }
+}
