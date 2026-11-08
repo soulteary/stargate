@@ -4,6 +4,12 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Added
+
+- Add a scoped offline `doctor` command with explicit, bounded health checks and
+  redacted human/JSON output. Health results do not prove service authentication
+  or a working login; no active business probe is performed.
+
 ## [1.3.5] - 2026-11-08
 
 ### Fixed

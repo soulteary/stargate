@@ -121,6 +121,9 @@ func runApplicationWithApp(app *fiber.App) error {
 }
 
 func main() {
+	if handled, code := dispatchDoctor(os.Args[1:], os.Stdout, os.Stderr); handled {
+		os.Exit(code)
+	}
 	// Use runApplication to handle all initialization and server startup
 	// This allows the same logic to be tested via runApplication()
 	if err := runApplication(); err != nil {

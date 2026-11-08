@@ -1355,3 +1355,7 @@ well. Existing anonymous scrapers must be updated before deploying this change.
 ### `LOGIN_SUPPORT_URL`
 
 Optional HTTPS support link or one `mailto:help@example.com` mailbox. Empty hides the link. Userinfo, control characters and mailto headers are rejected.
+
+## Scoped deployment diagnostics
+
+Use [`stargate doctor`](DIAGNOSTICS.md) for explicit offline configuration inspection and optional health/readiness checks. Health success does not prove HMAC or a working login.
