@@ -234,6 +234,8 @@ def run_browser():
 
 def main():
     validate(os.environ)
+    RESULT["harness_checkout_sha"] = command(["git", "rev-parse", "HEAD"]).decode().strip()
+    RESULT["workflow_github_sha"] = os.environ.get("GITHUB_SHA", "")
     RESULT.update({key.lower(): os.environ[key] for key in ("FULLSTACK_REF", "GATEWAY_REF", "HERALD_IMAGE")})
     save()
     try:
