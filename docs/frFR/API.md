@@ -520,3 +520,8 @@ Les messages d'erreur supportent l'internationalisation, retournant des messages
 3. **Vérification du mot de passe** : Les mots de passe sont des valeurs opaques sensibles à la casse ; les espaces et la casse sont conservés
 4. **Support de plusieurs mots de passe** : Plusieurs mots de passe peuvent être configurés, tout mot de passe qui passe la vérification est acceptable
 5. **Sessions cross-domain** : Les destinations autorisées utilisent l’échange de session lié au navigateur décrit ci-dessus. `COOKIE_DOMAIN` est facultatif et partage les cookies uniquement dans ce domaine DNS ; les autres domaines autorisés reçoivent des cookies limités à l’hôte
+
+
+### `GET /_account`
+
+Page de gestion de session authentifiée avec liens TOTP et formulaire `POST /_logout` de même origine. Sans authentification, redirection vers `/_login` ; la fraîcheur de l’annuaire reste vérifiée. Ce GET ne démarre pas de configuration. Le point racine reste inchangé.

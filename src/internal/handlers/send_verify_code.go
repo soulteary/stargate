@@ -33,30 +33,6 @@ func sendVerifyCodeErrorJSON(ctx fiber.Ctx, statusCode int, message, reason stri
 	})
 }
 
-// getLocaleFromConfig converts language code to locale format
-// e.g., "en" -> "en-US", "zh" -> "zh-CN"
-func getLocaleFromConfig() string {
-	lang := strings.ToLower(config.Language.String())
-	switch lang {
-	case "zh":
-		return "zh-CN"
-	case "en":
-		return "en-US"
-	case "fr":
-		return "fr-FR"
-	case "it":
-		return "it-IT"
-	case "ja":
-		return "ja-JP"
-	case "de":
-		return "de-DE"
-	case "ko":
-		return "ko-KR"
-	default:
-		return "en-US"
-	}
-}
-
 // selectVerificationDestination resolves the same canonical Warden-backed
 // channel and destination for challenge creation and verification auditing.
 // Request identifiers are lookup inputs only and are never used as fallback
@@ -273,26 +249,22 @@ func verificationSelectionError(ctx fiber.Ctx, deliverVia, selectionReason strin
 }
 
 func verificationLocale(ctx fiber.Ctx) string {
-	// Step 4: Get locale from config or Accept-Language header
-	locale := getLocaleFromConfig()
-	acceptLang := ctx.Get("Accept-Language")
-	if acceptLang != "" {
-		// Parse Accept-Language header (simple parsing, takes first language)
-		// Format: "en-US,en;q=0.9" -> "en-US"
-		parts := strings.Split(acceptLang, ",")
-		if len(parts) > 0 {
-			langPart := strings.TrimSpace(parts[0])
-			// Remove quality value if present
-			if idx := strings.Index(langPart, ";"); idx >= 0 {
-				langPart = langPart[:idx]
-			}
-			if langPart != "" {
-				locale = langPart
-			}
-		}
+	switch authenticationUILanguage(ctx) {
+	case "zh":
+		return "zh-CN"
+	case "fr":
+		return "fr-FR"
+	case "de":
+		return "de-DE"
+	case "it":
+		return "it-IT"
+	case "ja":
+		return "ja-JP"
+	case "ko":
+		return "ko-KR"
+	default:
+		return "en-US"
 	}
-
-	return locale
 }
 
 func handleChallengeCreationError(ctx fiber.Ctx, err error, userID, channel, destination string) error {

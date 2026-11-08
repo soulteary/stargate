@@ -54,8 +54,13 @@ func TOTPRevokeRoute(store *session.Store) func(c fiber.Ctx) error {
 		if userID == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, "user_id not in session")
 		}
+		ctx.Set("Cache-Control", "no-store")
+		uiWords, uiJSON := authenticationUIData(ctx)
 		return ctx.Render("totp_revoke", fiber.Map{
 			"Title":             config.LoginPageTitle.Value,
+			"UI":                uiWords,
+			"PageTitle":         uiWords["revoke"],
+			"UIMessages":        uiJSON,
 			"UILanguage":        authenticationUILanguage(ctx),
 			"SupportURL":        config.LoginSupportURL.String(),
 			"FooterText":        config.LoginPageFooterText.Value,
