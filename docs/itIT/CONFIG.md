@@ -256,19 +256,19 @@ Percorso nella stessa origine dopo uno scambio di sessione verificato. Predefini
 
 ### `PORT`
 
-Porta di ascolto del servizio (solo sviluppo locale). Gestita dal package config insieme alle altre opzioni da variabili d'ambiente.
+Porta di ascolto del servizio per distribuzioni native e in container. Gestita dal package config insieme alle altre opzioni da variabili d'ambiente.
 
 | Attributo | Valore |
 |-----------|--------|
 | **Tipo** | String |
 | **Richiesto** | No |
-| **Predefinito** | Vuoto (se vuoto, il server usa la porta predefinita `:80`) |
+| **Predefinito** | Vuoto per il binario nativo (`:80`); le immagini ufficiali impostano `PORT=8080` |
 
 **Descrizione:**
 
-- Solo per ambiente di sviluppo locale
-- Generalmente non necessario nei container Docker (utilizza porta predefinita 80)
-- Formato: numero porta (es., `8080`) o `:port` (es., `:8080`)
+- Configurabile in sviluppo e in produzione
+- I container ufficiali usano `8080` per impostazione predefinita. Usare un numero senza prefisso, come `PORT=8080`, perché il controllo di integrità costruisce un URL.
+- Formato del binario nativo: numero porta (es., `8080`) o `:port` (es., `:8080`)
 
 **Esempio:**
 

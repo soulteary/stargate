@@ -256,19 +256,19 @@ Chemin de destination sur la même origine après un échange de session validé
 
 ### `PORT`
 
-Port d'écoute du service (développement local uniquement). Géré par le package config avec les autres options d'environnement.
+Port d'écoute du service pour les déploiements natifs et en conteneur. Géré par le package config avec les autres options d'environnement.
 
 | Attribut | Valeur |
 |----------|--------|
 | **Type** | String |
 | **Requis** | Non |
-| **Par Défaut** | Vide (si vide, le serveur utilise le port par défaut `:80`) |
+| **Par Défaut** | Vide pour le binaire natif (`:80`) ; les images officielles définissent `PORT=8080` |
 
 **Description :**
 
-- Uniquement pour l'environnement de développement local
-- Généralement non nécessaire dans les conteneurs Docker (utilise le port par défaut 80)
-- Format : numéro de port (par ex., `8080`) ou `:port` (par ex., `:8080`)
+- Configurable en développement et en production
+- Les conteneurs officiels utilisent `8080` par défaut. Utiliser un nombre seul, comme `PORT=8080`, car le contrôle de santé construit une URL.
+- Format du binaire natif : numéro de port (par ex., `8080`) ou `:port` (par ex., `:8080`)
 
 **Exemple :**
 

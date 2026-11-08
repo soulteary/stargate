@@ -256,19 +256,19 @@ Zielpfad innerhalb des Callback-Ursprungs nach einem verifizierten Sitzungsausta
 
 ### `PORT`
 
-Abhörport des Dienstes (nur für lokale Entwicklung). Wird wie andere Optionen über die config-Paket-Umgebungsvariablen geladen und validiert.
+Abhörport des Dienstes für native und Container-Bereitstellungen. Wird wie andere Optionen über die config-Paket-Umgebungsvariablen geladen und validiert.
 
 | Attribut | Wert |
 |----------|------|
 | **Typ** | String |
 | **Erforderlich** | Nein |
-| **Standard** | Leer (wenn leer, verwendet der Server den Standardport `:80`) |
+| **Standard** | Leer beim nativen Programm (`:80`); offizielle Container-Images setzen `PORT=8080` |
 
 **Beschreibung:**
 
-- Nur für lokale Entwicklungsumgebung
-- In Docker-Containern normalerweise nicht erforderlich (verwendet Standard-Port 80)
-- Format: Portnummer (z. B. `8080`) oder `:port` (z. B. `:8080`)
+- In Entwicklung und Produktion konfigurierbar
+- Offizielle Container verwenden standardmäßig `8080`. Für Überschreibungen nur eine Zahl wie `PORT=8080` verwenden, da der Healthcheck daraus eine URL erstellt.
+- Format beim nativen Programm: Portnummer (z. B. `8080`) oder `:port` (z. B. `:8080`)
 
 **Beispiel:**
 
