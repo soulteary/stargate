@@ -26,8 +26,11 @@ separately from all product source commits.
 
 The baseline starts the four real services, sends and verifies an OTP through
 Stargate and Herald, enrolls and verifies TOTP, and checks single consumption.
-Upgrade mode replaces TOTP, Warden, Herald, then Stargate; rollback reverses that
-order. Shared Redis, credentials, pending OTP bindings, enrolled credentials,
+Upgrade mode replaces only entries whose release identities change, in TOTP,
+Warden, Herald, then Stargate order; rollback reverses those changed entries.
+Unchanged upstream releases remain at their original versions. Configuration
+rotation may restart them, but those restarts are not version upgrades. Rotation
+runs after the last changed forward step (or on the baseline if no version changes). Shared Redis, credentials, pending OTP bindings, enrolled credentials,
 consumed challenges, backup-code consumption and session absolute deadlines are retained.
 Each successful OTP login must produce a revocable cookie and a ForwardAuth
 response for its expected directory identity, including the independent login
@@ -67,3 +70,51 @@ build metadata and process logs are uploaded even on failure. GitHub Actions
 removes the Redis service container and its network after the job. Failed
 verification must remain failed; do not replace formal artifacts with local
 application builds or weaken authentication assertions to obtain a pass.
+
+## Gateway authentication precedence comparison
+
+An optional top-level `"auth_precedence": true` runs a separate, version-specific
+HTTP profile after the normal pending OTP is consumed. It accepts only a legacy
+gateway v1.3.4 baseline or an upgrade from v1.3.4 to v1.3.5 with identical upstream
+release identities. Other versions and non-boolean flags are rejected before
+service execution. The v1.3.5 source, public binary checksum and immutable image
+reference must come from its completed publication gate; candidates are not used.
+
+The profile enables directory refresh at a one-second interval and a one-hour
+source freshness limit. Each case logs in a different synthetic recipient through
+real OTP HTTP calls and uses a separate browser cookie jar. After the refresh
+interval elapses, it stops only the owned Warden process or removes that case's A
+identity from the synthetic source while keeping B available. It never rewrites
+opaque sessions, inserts verification markers, flushes Redis or resets quotas.
+
+For v1.3.4, the known comparison is 503/401 when a stale cookie's directory lookup
+blocks valid password or trusted-header authentication. For v1.3.5, an independent
+valid password succeeds despite an unavailable or deleted cookie identity; a
+trusted B succeeds when A is deleted and B is still queryable. A whole-directory
+outage must still return 503 for trusted B. Every outage case first proves that
+a valid password without a cookie returns 200; trusted-header cases also verify
+a healthy, independent B before inducing failure. These controls prevent a
+misconfigured authentication fixture from being counted as known legacy behavior.
+Session-only requests retain 503/401,
+and an invalid password retains the existing fallback to a valid session. This
+browser-authentication fallback is distinct from service HMAC's no-fallback rule.
+
+Protected-path controls obtain a real session step-up through `POST /_step_up`
+while the directory is healthy, then require stateless password/trusted-header
+results to return 403 rather than borrowing that session's verification marker.
+Source data, process configurations and the caller's browser jar are restored in
+`finally`; normal process cleanup remains the outer harness's responsibility.
+Ordinary requests explicitly provide `/profile` as the trusted original URI;
+protected controls provide `/admin/settings`. Successful directory identities
+must match user, scopes and role; failures must publish none of those claims or
+the default forwarded-user header. Only non-secret case outcomes are added to
+the result records.
+
+The profile retains Herald's default five-create-calls-per-minute IP quota. Its
+redis-kit v1.8.1 limiter starts a fixed 60-second window on the first accepted
+call. The profile waits 61 seconds initially and after each four successful OTP
+sends, measured after the response. It does not retry 429 responses, increase
+limits or delete rate-limit records. Twenty old/new cases require at most 305
+seconds of planned pacing plus 42 seconds of deliberate refresh staleness; the
+existing 18-minute whole-run deadline still bounds downloads, startup and HTTP
+work. Slow infrastructure can fail that deadline rather than relax assertions.
