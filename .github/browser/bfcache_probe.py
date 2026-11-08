@@ -9,6 +9,7 @@ import time
 from urllib.parse import parse_qs, urlparse
 
 import production_tls as fixture
+from validate_inputs import callback_matches
 
 IGNORED_DEFAULTS = ['--disable-back-forward-cache', '--disable-prompt-on-repost']
 REASONS = {'BackForwardCacheDisabled', 'HTTPMethodNotGET', 'HTTPStatusNotOK', 'ErrorDocument',
@@ -22,6 +23,14 @@ REASONS = {'BackForwardCacheDisabled', 'HTTPMethodNotGET', 'HTTPStatusNotOK', 'E
            'ForwardCacheDisabled', 'NavigationCancelledWhileRestoring'}
 STAMP_SCRIPT = """window.__u11bf = {document:crypto.randomUUID(), shows:[]};
 addEventListener('pageshow', e => window.__u11bf.shows.push({persisted:e.persisted, trusted:e.isTrusted}));"""
+
+
+def approved_login_entry(login_url, callbacks):
+    return fixture.url_matches(login_url, fixture.AUTH+'/_login') and bool(callbacks) and all(callback_matches(value, fixture.APP) for value in callbacks)
+
+
+def accepted_login(status, body):
+    return status == 200 and isinstance(body, dict) and body.get('success') is True
 
 
 def safe_reasons(events):
@@ -131,7 +140,10 @@ def browser_scenario(ca, home):
         cdp.send('Page.enable')
         cdp.on('Page.backForwardCacheNotUsed', lambda event: events.append(event))
         fixture.stage('get-login-bfcache-calibration')
-        response = page.goto(fixture.AUTH+'/_login?lang=en')
+        response = page.goto(fixture.APP)
+        page.locator('#loginForm').wait_for()
+        callbacks = page.locator('input[name="callback"]').evaluate_all('els => els.map(el => el.value).filter(Boolean)')
+        fixture.check('Actual app entry retains approved callback', approved_login_entry(page.url, callbacks))
         fixture.check('Actual GET login keeps no-store', response.status == 200 and 'no-store' in response.headers.get('cache-control','') and response.request.method == 'GET')
         page.locator('#auth-mode').select_option('totp')
         page.locator('#otp_code').fill('123456')
@@ -150,7 +162,11 @@ def browser_scenario(ca, home):
         login_stamp = page.evaluate('window.__u11bf.document')
         history = cdp.send('Page.getNavigationHistory')
         login_entry = history['entries'][history['currentIndex']]['id']
-        page.locator('#loginForm [type=submit]').click()
+        with page.expect_response(lambda r:r.request.method=='POST' and urlparse(r.url).path=='/_login') as logged_in:
+            page.locator('#loginForm [type=submit]').click()
+        body = logged_in.value.json()
+        fixture.RESULT['mail_login_observation'] = {'status':logged_in.value.status, 'success':isinstance(body,dict) and body.get('success') is True}
+        fixture.check('Single real login POST accepted', accepted_login(logged_in.value.status, body))
         page.wait_for_url(lambda value: fixture.url_matches(value, fixture.APP))
         fixture.check('Actual mail authentication reaches app', fixture.url_matches(page.url, fixture.APP))
         fixture.stage('successful-login-history-observation')
