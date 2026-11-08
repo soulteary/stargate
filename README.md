@@ -113,6 +113,7 @@ without scheme, path or port). They configure both proxy routing and callback
 validation; ensure both names resolve to this machine. Do not change only
 `AUTH_HOST` inside the service. For HTTPS production or OTP/TOTP integration,
 follow the [deployment guide](docs/enUS/DEPLOYMENT.md).
+For a complete mail OTP or authenticator setup, use the [full-stack example](examples/full-stack/README.md).
 
 
 **Step 3:** Start the service

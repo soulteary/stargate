@@ -1,0 +1,186 @@
+name: stargate-example
+
+services:
+  traefik:
+    labels: {traefik.enable: 'false'}
+    image: traefik:v3.7.12
+    volumes:
+      - ${STATE_DIR:?run configure.py first}/routes.yml:/etc/traefik/dynamic/routes.yml:ro
+    networks: [edge]
+
+  stargate:
+    image: ghcr.io/soulteary/stargate:1.3.5@sha256:98ec7f90728b0b0a6271318d755baeb5295a581de29d36f03fa5f0f528d4107b
+    environment:
+      PORT: '8080'
+      AUTH_HOST: ${AUTH_AUTHORITY:?run configure.py first}
+      CALLBACK_ALLOWED_HOSTS: ${APP_AUTHORITY:?run configure.py first}
+      COOKIE_SECURE: ${COOKIE_SECURE:?run configure.py first}
+      SESSION_EXCHANGE_SECRET: ${SESSION_EXCHANGE_SECRET:?run configure.py first}
+      TRUSTED_PROXIES: ${EDGE_SUBNET:?run configure.py first}
+      PASSWORDS: ''
+      PASSWORD_HEADER_AUTH_ENABLED: 'false'
+      HEADER_AUTH_ENABLED: 'false'
+      WARDEN_ENABLED: 'true'
+      WARDEN_URL: http://warden:8081
+      WARDEN_HMAC_KEY_ID: stargate-directory
+      WARDEN_HMAC_SECRET: ${STARGATE_WARDEN_HMAC:?run configure.py first}
+      WARDEN_API_KEY: ''
+      WARDEN_SOURCE_MAX_AGE: 90s
+      WARDEN_SOURCE_CLOCK_SKEW: 1s
+      AUTH_REFRESH_ENABLED: 'true'
+      AUTH_REFRESH_INTERVAL: 30s
+      HERALD_ENABLED: 'true'
+      HERALD_URL: http://herald:8082
+      HERALD_HMAC_KEY_ID: stargate-otp
+      HERALD_HMAC_SECRET: ${STARGATE_HERALD_HMAC:?run configure.py first}
+      HERALD_API_KEY: ''
+      HERALD_TOTP_ENABLED: ${TOTP_ENABLED:?run configure.py first}
+      LOGIN_SMS_ENABLED: 'false'
+      LOGIN_EMAIL_ENABLED: 'true'
+      SESSION_STORAGE_ENABLED: 'true'
+      SESSION_STORAGE_REDIS_ADDR: redis:6379
+      SESSION_STORAGE_REDIS_PASSWORD: ${REDIS_PASSWORD:?run configure.py first}
+      SESSION_STORAGE_REDIS_KEY_PREFIX: 'stargate:session:'
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [edge, backend]
+    depends_on:
+      warden: {condition: service_healthy}
+      herald: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    labels: {traefik.enable: 'false'}
+
+  hello:
+    image: ghcr.io/soulteary/hello:2.3.0
+    command: [-listen, ':8080']
+    networks: [edge]
+    labels: {traefik.enable: 'false'}
+
+  warden:
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8081/health]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    labels: {traefik.enable: 'false'}
+    image: ghcr.io/soulteary/warden:1.6.2@sha256:077e9014afd8ba0497747a64d7c22aaad3bfca09ef9eae6d6a4eb87d32572649
+    environment:
+      PORT: '8081'
+      ENVIRONMENT: production
+      MERGE_MODE: ONLY_LOCAL
+      CONFIG: ''
+      DATA_FILE: /config/users.json
+      INTERVAL: '15'
+      SNAPSHOT_MAX_AGE: 60s
+      API_KEY: ''
+      WARDEN_HMAC_KEYS: '{"stargate-directory":"${STARGATE_WARDEN_HMAC:?run configure.py first}"}'
+      REDIS_ENABLED: 'true'
+      REDIS: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?run configure.py first}
+    volumes:
+      - ${STATE_DIR:?run configure.py first}/users.json:/config/users.json:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [backend]
+    depends_on:
+      redis: {condition: service_healthy}
+
+  herald:
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8082/readyz]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    labels: {traefik.enable: 'false'}
+    image: ghcr.io/soulteary/herald:1.4.4@sha256:a68ef6257c5262edb016c3ff2aa030307e30375db47b9c9d963be3b2e6dae4d5
+    environment:
+      PORT: ':8082'
+      ENVIRONMENT: production
+      REQUEST_AUTH_MODE: hmac_v2
+      HMAC_V1_ENABLED: 'false'
+      API_KEY: ''
+      HERALD_HMAC_KEYS: '{"stargate-otp":"${STARGATE_HERALD_HMAC:?run configure.py first}"}'
+      HERALD_IDEMPOTENCY_SECRET: ${HERALD_IDEMPOTENCY_SECRET:?run configure.py first}
+      HERALD_PII_PEPPER: ${HERALD_PII_PEPPER:?run configure.py first}
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?run configure.py first}
+      PROVIDER_FAILURE_POLICY: strict
+      SMTP_HOST: ${SMTP_HOST:?configure a real SMTP host}
+      SMTP_PORT: ${SMTP_PORT:?configure the SMTP port}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:?configure the sender address}
+      HERALD_TOTP_ENABLED: ${TOTP_ENABLED:?run configure.py first}
+      HERALD_TOTP_BASE_URL: http://totp:8084
+      HERALD_TOTP_API_KEY: ''
+      HERALD_TOTP_HMAC_SECRET: ${HERALD_TOTP_HMAC:?run configure.py first}
+      HERALD_TOTP_HMAC_KEY_ID: herald-totp
+      HERALD_TOTP_HMAC_SERVICE: herald
+    volumes: [audit_spool:/var/lib/herald/audit]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [backend, delivery]
+    depends_on:
+      redis: {condition: service_healthy}
+
+  totp:
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, http://127.0.0.1:8084/healthz]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+    labels: {traefik.enable: 'false'}
+    profiles: [totp]
+    image: ghcr.io/soulteary/herald-totp:2.0.3@sha256:5e1416a14bdab138301cd0ede8763d8e93202e46e06e64119001538e1f05bdb3
+    environment:
+      PORT: ':8084'
+      ENVIRONMENT: production
+      API_KEY: ''
+      HERALD_TOTP_HMAC_KEYS: '{"herald-totp":"${HERALD_TOTP_HMAC:?run configure.py first}"}'
+      HERALD_TOTP_ENCRYPTION_KEY: ${TOTP_ENCRYPTION_KEY:?run configure.py first}
+      REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?run configure.py first}
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [backend]
+    depends_on:
+      redis: {condition: service_healthy}
+
+  redis:
+    labels: {traefik.enable: 'false'}
+    image: redis@sha256:6a12a187547eb2eac4da4528f9d9787d69f3848e513480baedfd75e3b2ac393e
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?run configure.py first}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?run configure.py first}
+    command: [sh, -ec, 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    healthcheck:
+      test: [CMD-SHELL, 'redis-cli ping | grep -qx PONG']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    volumes: [redis_data:/data]
+    networks: [backend]
+
+volumes:
+  redis_data:
+  audit_spool:
+networks:
+  edge:
+    name: ${EDGE_NETWORK:?run configure.py first}
+    ipam:
+      config:
+        - subnet: ${EDGE_SUBNET:?run configure.py first}
+  backend:
+    internal: true
+  delivery:

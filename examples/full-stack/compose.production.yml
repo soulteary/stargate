@@ -1,0 +1,12 @@
+# Existing DNS and TLS certificates are prerequisites. No demo SMTP inbox.
+services:
+  traefik:
+    command:
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:443
+    ports:
+      - ${PUBLIC_PORT:?run configure.py first}:443
+    volumes:
+      - ${TLS_DIR:?set TLS_DIR}/tls.yml:/etc/traefik/dynamic/tls.yml:ro
+      - ${TLS_DIR:?set TLS_DIR}/cert.pem:/certs/cert.pem:ro
+      - ${TLS_DIR:?set TLS_DIR}/key.pem:/certs/key.pem:ro

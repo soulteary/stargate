@@ -86,7 +86,7 @@ git clone https://github.com/soulteary/stargate.git
 cd stargate
 ```
 
-**Passo 2:** Configura la tua autenticazione (modifica `docker-compose.yml`)
+**Passo 2:** Verifica la configurazione locale (nessuna modifica richiesta per i nomi DNS predefiniti)
 
 **Opzione A: Autenticazione Password (Semplice)**
 ```bash

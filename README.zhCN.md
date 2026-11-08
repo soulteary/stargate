@@ -105,6 +105,7 @@ docker compose config --quiet
 自定义域名时，在 `.env` 设置 `AUTH_HOSTNAME` 和 `APP_HOSTNAME`（不含协议、路径或端口），
 并确保两个域名均解析到本机。这两个值同时配置代理路由和回调校验，不要只修改服务内的
 `AUTH_HOST`。HTTPS 生产部署及 OTP/TOTP 接入请阅读[部署指南](docs/zhCN/DEPLOYMENT.md)。
+完整邮件 OTP 与验证器部署请使用[全栈示例](examples/full-stack/README.zhCN.md)。
 
 
 **步骤 3：** 启动服务

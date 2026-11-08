@@ -1,0 +1,13 @@
+services:
+  traefik:
+    command:
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --entrypoints.web.address=:80
+    ports:
+      - 127.0.0.1:${PUBLIC_PORT:?run configure.py first}:80
+  mailpit:
+    labels: {traefik.enable: 'false'}
+    image: axllent/mailpit:v1.33.1@sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce
+    ports:
+      - 127.0.0.1:${MAILBOX_PORT:?run configure.py first}:8025
+    networks: [delivery]

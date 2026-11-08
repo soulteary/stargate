@@ -1,0 +1,183 @@
+"""Offline safety and repeatability checks for the full-stack example setup."""
+import argparse
+import contextlib
+import importlib.util
+import io
+import json
+import os
+from pathlib import Path
+import stat
+import shutil
+import subprocess
+import tempfile
+import unittest
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location('example_configure', Path(__file__).with_name('configure.py'))
+config = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(config)
+
+
+class ConfigurationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.output = Path(self.tmp.name) / 'deployment'
+
+    def args(self, **values):
+        result = dict(output=str(self.output), environment='local', mode='mail', auth_host=None,
+                      app_host=None, port=None, mailbox_port=8025, project='stargate-example',
+                      subnet='172.31.86.0/24', email=None, user_id=None)
+        result.update(values)
+        return argparse.Namespace(**result)
+
+    def test_local_delivery_and_nondefault_authorities(self):
+        self.assertTrue(config.configure(self.args(), {}))
+        text = (self.output / '.env').read_text()
+        self.assertIn("AUTH_AUTHORITY='auth.test.localhost:8088'", text)
+        self.assertIn("APP_AUTHORITY='hello.test.localhost:8088'", text)
+        self.assertIn("SMTP_HOST='mailpit'", text)
+        self.assertIn("COOKIE_SECURE='false'", text)
+        self.assertIn('compose.local.yml', text)
+        self.assertEqual(stat.S_IMODE((self.output / '.env').stat().st_mode), 0o600)
+        self.assertEqual(stat.S_IMODE((self.output / 'state').stat().st_mode), 0o700)
+        users = json.loads((self.output / 'state/users.json').read_text())
+        self.assertEqual(users[0]['user_id'], 'demo-user-001')
+        self.assertEqual(users[0]['status'], 'active')
+
+    def test_repeat_retains_all_keys_and_identity(self):
+        args = self.args(mode='totp')
+        config.configure(args, {})
+        before = {p: p.read_bytes() for p in self.output.rglob('*') if p.is_file()}
+        with patch.object(config.secrets, 'token_hex', side_effect=AssertionError('must not rotate')):
+            self.assertFalse(config.configure(args, {}))
+        self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_distinct_keys_and_exact_encryption_key_bytes(self):
+        config.configure(self.args(), {})
+        text = (self.output / '.env').read_text()
+        values = dict(line.split('=', 1) for line in text.splitlines())
+        self.assertEqual(len(set(values[key] for key in config.SECRET_KEYS)), len(config.SECRET_KEYS))
+        self.assertEqual(len(values['TOTP_ENCRYPTION_KEY'][1:-1].encode()), 32)
+
+    def test_default_ports_have_no_authority_suffix(self):
+        self.assertEqual(config.authority('auth.example.test', 80, 80), 'auth.example.test')
+        self.assertEqual(config.authority('auth.example.test', 443, 443), 'auth.example.test')
+        self.assertEqual(config.authority('auth.example.test', 9443, 443), 'auth.example.test:9443')
+
+    def test_rejects_unsafe_or_ambiguous_hosts_before_writing(self):
+        for host in ['https://auth.example.test', 'auth.example.test:8080', 'a.test`) || Path(`/x',
+                     '127.0.0.1', 'a..test', '-a.test', 'a.test/path', 'a.test\nOTHER=value']:
+            with self.subTest(host=host), self.assertRaises(ValueError):
+                config.configure(self.args(auth_host=host), {})
+            self.assertFalse(self.output.exists())
+
+    def test_rejects_conflicting_ports_or_public_subnet(self):
+        for args in [self.args(port=8025), self.args(port=65536), self.args(subnet='8.8.8.0/24'),
+                     self.args(subnet='127.0.0.0/24'), self.args(auth_host='same.test', app_host='same.test')]:
+            with self.assertRaises(ValueError):
+                config.configure(args, {})
+            self.assertFalse(self.output.exists())
+
+    def test_partial_state_fails_without_overwrite(self):
+        self.output.mkdir()
+        (self.output / 'state').mkdir()
+        with self.assertRaisesRegex(ValueError, 'partial'):
+            config.configure(self.args(), {})
+        self.assertFalse((self.output / '.env').exists())
+
+    def test_production_requires_explicit_identity_and_provider(self):
+        with self.assertRaises(ValueError):
+            config.configure(self.args(environment='production'), {})
+        args = self.args(environment='production', auth_host='auth.example.com', app_host='app.example.com',
+                         email='real@example.com', user_id='stable-123')
+        with self.assertRaisesRegex(ValueError, 'SMTP_HOST'):
+            config.configure(args, {})
+        self.assertFalse(self.output.exists())
+
+    def test_production_configuration_is_tls_and_has_no_capture_service(self):
+        tls = Path(self.tmp.name) / 'tls'
+        tls.mkdir()
+        (tls / 'tls.yml').write_text('tls: {}')
+        env = dict(SMTP_HOST='smtp.example.com', SMTP_PORT='587', SMTP_FROM='sender@example.com',
+                   SMTP_USER='sender', SMTP_PASSWORD="synthetic$quote'password", TLS_DIR=str(tls))
+        args = self.args(environment='production', mode='totp', auth_host='auth.example.com',
+                         app_host='app.example.com', email='user@example.com', user_id='stable-001')
+        with patch.object(config.ssl, 'SSLContext') as context:
+            config.configure(args, env)
+            context.return_value.load_cert_chain.assert_called_once_with(tls.resolve() / 'cert.pem', tls.resolve() / 'key.pem')
+        text = (self.output / '.env').read_text()
+        self.assertIn("COOKIE_SECURE='true'", text)
+        self.assertIn("AUTH_AUTHORITY='auth.example.com'", text)
+        self.assertIn('compose.production.yml', text)
+        self.assertNotIn('compose.local.yml', text)
+        routes = json.loads((self.output / 'state/routes.yml').read_text())
+        self.assertTrue(all('tls' in router for router in routes['http']['routers'].values()))
+        if shutil.which('docker'):
+            child_env = {key: os.environ[key] for key in ['PATH', 'HOME', 'DOCKER_CONFIG'] if key in os.environ}
+            rendered = subprocess.run(['docker', 'compose', 'config', '--format', 'json'],
+                                      cwd=self.output, env=child_env, capture_output=True, timeout=30)
+            self.assertEqual(rendered.returncode, 0, 'Production Compose rendering failed')
+            services = json.loads(rendered.stdout)['services']
+            self.assertNotIn('mailpit', services)
+            self.assertEqual(services['stargate']['environment']['COOKIE_SECURE'], 'true')
+            self.assertEqual(services['traefik']['ports'][0]['target'], 443)
+            self.assertEqual(services['herald']['environment']['SMTP_HOST'], 'smtp.example.com')
+            # Compose config serializes literal dollars as $$ on some CLI versions.
+            self.assertIn(services['herald']['environment']['SMTP_PASSWORD'],
+                          [env['SMTP_PASSWORD'], env['SMTP_PASSWORD'].replace('$', '$$')])
+
+    def test_private_existing_file_is_required(self):
+        args = self.args()
+        config.configure(args, {})
+        (self.output / '.env').chmod(0o644)
+        with self.assertRaisesRegex(ValueError, '0600'):
+            config.configure(args, {})
+
+    def test_dotenv_preserves_special_password_without_interpolation(self):
+        self.assertEqual(config.dotenv({'SMTP_PASSWORD': "a$bc 'quoted'\\tail"}),
+                         "SMTP_PASSWORD='a$bc \\'quoted\\'\\\\tail'\n")
+        with self.assertRaises(ValueError):
+            config.dotenv({'SMTP_PASSWORD': 'secret\nINJECTED=true'})
+
+    def test_actual_compose_rendering_local_modes(self):
+        if not shutil.which('docker'):
+            self.skipTest('Docker Compose CLI is unavailable; CI supplies it')
+        for mode in ['mail', 'totp']:
+            self.output = Path(self.tmp.name) / mode
+            config.configure(self.args(mode=mode), {})
+            env = {key: os.environ[key] for key in ['PATH', 'HOME', 'DOCKER_CONFIG'] if key in os.environ}
+            command = subprocess.run(['docker', 'compose', 'config', '--format', 'json'],
+                                     cwd=self.output, env=env, capture_output=True, timeout=30)
+            # Never include rendered configuration (which contains secrets) in test diagnostics.
+            self.assertEqual(command.returncode, 0, 'Compose configuration rendering failed')
+            rendered = json.loads(command.stdout)
+            services = rendered['services']
+            self.assertTrue(all(service.get('labels', {}).get('traefik.enable') == 'false' for service in services.values()))
+            self.assertFalse(any('docker.sock' in str(volume) for service in services.values() for volume in service.get('volumes', [])))
+            gateway = services['stargate']['environment']
+            self.assertEqual(gateway['AUTH_HOST'], 'auth.test.localhost:8088')
+            self.assertEqual(gateway['CALLBACK_ALLOWED_HOSTS'], 'hello.test.localhost:8088')
+            self.assertEqual(gateway['HERALD_TOTP_ENABLED'], str(mode == 'totp').lower())
+            self.assertEqual('totp' in services, mode == 'totp')
+            self.assertEqual(services['herald']['environment']['PROVIDER_FAILURE_POLICY'], 'strict')
+            self.assertIn('--appendonly yes', ' '.join(services['redis']['command']))
+            self.assertEqual(services['mailpit']['ports'][0]['host_ip'], '127.0.0.1')
+            for service in ['warden', 'herald', 'redis']:
+                self.assertFalse(services[service].get('ports'))
+            self.assertEqual(json.loads(services['warden']['environment']['WARDEN_HMAC_KEYS'])['stargate-directory'], gateway['WARDEN_HMAC_SECRET'])
+            self.assertEqual(json.loads(services['herald']['environment']['HERALD_HMAC_KEYS'])['stargate-otp'], gateway['HERALD_HMAC_SECRET'])
+            self.assertEqual(services['herald']['environment']['HERALD_TOTP_HMAC_KEY_ID'], 'herald-totp')
+
+    def test_cli_does_not_print_generated_credentials(self):
+        output = io.StringIO()
+        with patch('sys.argv', ['configure.py', '--output', str(self.output)]), contextlib.redirect_stdout(output):
+            self.assertEqual(config.main(), 0)
+        env = (self.output / '.env').read_text()
+        for line in env.splitlines():
+            if line.startswith(tuple(config.SECRET_KEYS)):
+                self.assertNotIn(line.split('=', 1)[1][1:-1], output.getvalue())
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -86,7 +86,7 @@ git clone https://github.com/soulteary/stargate.git
 cd stargate
 ```
 
-**2단계:** 인증 구성(`docker-compose.yml` 편집)
+**2단계:** 로컬 데모 구성 확인(기본 DNS 이름은 변경할 필요 없음)
 
 **옵션 A: 비밀번호 인증(간단)**
 ```bash

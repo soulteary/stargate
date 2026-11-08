@@ -79,6 +79,9 @@ jobs:
           bash .github/scripts/test-start-local.sh
           sh .github/scripts/test-check-coverage.sh
 
+      - name: Check full-stack deployment examples
+        run: python3 -m unittest discover -s examples/full-stack -p 'test_*.py'
+
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
         run: |
