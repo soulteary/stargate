@@ -1,0 +1,82 @@
+name: Work IM bridge
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  work-im-bridge:
+    name: Work IM bridge / local provider
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      GOTOOLCHAIN: local
+    steps:
+      - name: Check out Stargate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out the reviewed Herald fixture
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: soulteary/herald
+          ref: 78d32f2ae9c91ea3ceaec2d2bf7be847fc823126
+          path: paired-herald
+          persist-credentials: false
+
+      - name: Verify the fixed paired source
+        run: |
+          test "$(git -C paired-herald rev-parse HEAD)" = 78d32f2ae9c91ea3ceaec2d2bf7be847fc823126
+          test -f paired-herald/internal/handlers/work_im_pilot_test.go
+
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: |
+            go.sum
+            paired-herald/go.sum
+
+      - name: Prefetch both public dependency graphs
+        run: |
+          go mod download
+          (cd paired-herald && go mod download)
+
+      # Only the prefetch step needs module-network access. The runner forces
+      # GOPROXY=off and passes an allowlisted environment to actual test children.
+      # Its provider is a loopback fixture; no deployment or DingTalk secrets
+      # are supplied, and a skipped paired test fails the runner.
+      - name: Run the actual local work-IM bridge
+        run: |
+          python3 -I -B .github/integration/run_work_im.py \
+            --stargate "$GITHUB_WORKSPACE" \
+            --herald "$GITHUB_WORKSPACE/paired-herald" \
+            --go "$(command -v go)" \
+            --go-cache "$(go env GOCACHE)" \
+            --output "$RUNNER_TEMP/work-im-bridge"
+
+      - name: Upload only regression results and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: work-im-bridge-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/work-im-bridge/result.json
+            ${{ runner.temp }}/work-im-bridge/*.stdout
+            ${{ runner.temp }}/work-im-bridge/*.stderr
+          if-no-files-found: error
+          retention-days: 14
