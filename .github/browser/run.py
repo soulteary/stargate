@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
 from validate_inputs import validate, callback_matches, hello_text_url
-from diagnostics import smtp_signatures, post_history_cache_miss
+from diagnostics import smtp_signatures, post_history_cache_miss, playwright_failure_category
 
 ROOT = Path.cwd()
 STATE = Path(os.environ["RUNNER_TEMP"]) / ("browser-" + secrets.token_hex(6))
@@ -126,6 +126,7 @@ def protected_app(page):
 
 
 def logout(page):
+    stage("account-logout")
     response = page.goto(AUTH + "/_account?lang=en")
     check("authenticated HTML is not cacheable", "no-store" in response.headers.get("cache-control", ""))
     denied = page.context.request.post(AUTH + "/_logout", headers={"Origin": "https://other.example"}, max_redirects=0)
@@ -181,6 +182,37 @@ def error_controls(context):
     page.close()
 
 
+def probe_bfcache(context, page, enrollment_posts, observe_enrollment):
+    stage("optional-bfcache-history")
+    page.goto(AUTH + "/_account?lang=en")
+    before = len(enrollment_posts)
+    try:
+        try:
+            page.go_back()
+        except PlaywrightError as failure:
+            if not post_history_cache_miss(failure, PlaywrightError):
+                raise
+            RESULT["bfcache"] = {"status": "not_exercised", "sentinel": "net::ERR_CACHE_MISS", "persisted": False}
+            stage("bfcache-cache-miss-close-page")
+            page.close()
+            stage("bfcache-cache-miss-new-tab")
+            page = context.new_page()
+            page.set_default_timeout(15000)
+            page.on("request", observe_enrollment)
+            stage("bfcache-cache-miss-account-get")
+            page.goto(AUTH + "/_account?lang=en")
+            return page
+        if page.evaluate("window.__acceptanceRestored === true"):
+            check("actual BFCache clears recovery controls", page.locator("#backupCodesList li").count() == 0 and page.locator("#copyCodes").is_disabled() and page.locator("#downloadCodes").is_disabled() and page.locator("#codesSaved").is_disabled())
+            RESULT["bfcache"] = {"status": "passed", "persisted": True}
+        else:
+            RESULT["bfcache"] = {"status": "not_exercised", "sentinel": "navigation_or_reload", "persisted": False}
+        return page
+    finally:
+        RESULT["enrollment_post_observation"] = {"before_history": before, "after_history": len(enrollment_posts), "history_delta": len(enrollment_posts) - before}
+        save()
+
+
 def run_browser():
     stage("chromium-authentication")
     with sync_playwright() as pw:
@@ -188,6 +220,11 @@ def run_browser():
         context = browser.new_context(accept_downloads=True)
         context.add_init_script("window.__acceptanceRestored = false; addEventListener('pageshow', event => { window.__acceptanceRestored = event.persisted; });")
         page = context.new_page()
+        enrollment_posts = []
+        def observe_enrollment(request):
+            if request.method == "POST" and urlparse(request.url).path == "/totp/enroll":
+                enrollment_posts.append(1)
+        page.on("request", observe_enrollment)
         page.set_default_timeout(15000)
         login_page(page)
         page.locator("#mail").fill("")
@@ -250,24 +287,7 @@ def run_browser():
         del saved_text
         page.locator("#codesSaved").check()
         check("backup acknowledgement reveals continuation", page.locator("#savedHome").is_visible())
-        stage("optional-bfcache-history")
-        page.goto(AUTH + "/_account?lang=en")
-        history_unavailable = False
-        try:
-            page.go_back()
-        except PlaywrightError as failure:
-            if not post_history_cache_miss(failure, PlaywrightError):
-                raise
-            history_unavailable = True
-            RESULT["bfcache"] = {"status": "not_exercised", "sentinel": "net::ERR_CACHE_MISS", "persisted": False}
-            page.goto(AUTH + "/_account?lang=en")
-        if not history_unavailable:
-            if page.evaluate("window.__acceptanceRestored === true"):
-                check("actual BFCache clears recovery controls", page.locator("#backupCodesList li").count() == 0 and page.locator("#copyCodes").is_disabled() and page.locator("#downloadCodes").is_disabled() and page.locator("#codesSaved").is_disabled())
-                RESULT["bfcache"] = {"status": "passed", "persisted": True}
-            else:
-                RESULT["bfcache"] = {"status": "not_exercised", "sentinel": "navigation_or_reload", "persisted": False}
-        save()
+        page = probe_bfcache(context, page, enrollment_posts, observe_enrollment)
         logout(page)
         # Enrollment consumes current TOTP step; wait for next step rather than retry a consumed POST.
         stage("authenticator-login")
@@ -341,6 +361,7 @@ def main():
         RESULT["status"] = "passed"
     except Exception as failure:
         RESULT["failure_type"] = type(failure).__name__
+        RESULT["browser_failure_category"] = playwright_failure_category(failure, PlaywrightError)
         RESULT["status"] = "failed"
         RESULT["service_health"] = health_summary()
         try:

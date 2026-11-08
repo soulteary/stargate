@@ -28,3 +28,16 @@ def smtp_signatures(raw):
 def post_history_cache_miss(error, playwright_error_type):
     """Only the specific Playwright POST-history sentinel permits a coverage gap."""
     return isinstance(error, playwright_error_type) and "net::ERR_CACHE_MISS" in str(error)
+
+
+def playwright_failure_category(error, playwright_error_type):
+    if not isinstance(error, playwright_error_type):
+        return "not_playwright"
+    for marker, category in (("net::ERR_CACHE_MISS", "post_history_cache_miss"),
+                             ("interrupted by another navigation", "navigation_interrupted"),
+                             ("net::ERR_ABORTED", "navigation_aborted"),
+                             ("Target page, context or browser has been closed", "target_closed"),
+                             ("Timeout", "timeout")):
+        if marker in str(error):
+            return category
+    return "other_playwright_error"

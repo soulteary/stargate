@@ -35,3 +35,45 @@ class PostHistory(unittest.TestCase):
         for error in (Exception("net::ERR_CACHE_MISS"), PlaywrightError("timeout"),
                       PlaywrightError("net::ERR_CONNECTION_REFUSED"), PlaywrightError("ERR_CACHE_MISS")):
             self.assertFalse(post_history_cache_miss(error, PlaywrightError))
+
+
+class RecoveryControlFlow(unittest.TestCase):
+    def test_non_cache_errors_are_rethrown_without_new_tab(self):
+        import importlib.util
+        import os
+        from pathlib import Path
+        import tempfile
+        import types
+        from unittest.mock import patch
+        class BrowserError(Exception):
+            pass
+        api = types.ModuleType("playwright.sync_api")
+        api.Error = BrowserError
+        api.sync_playwright = lambda: None
+        with tempfile.TemporaryDirectory() as temporary, patch.dict(os.environ, {"RUNNER_TEMP": temporary}), patch.dict("sys.modules", {"playwright": types.ModuleType("playwright"), "playwright.sync_api": api}):
+            spec = importlib.util.spec_from_file_location("browser_control_test", Path(__file__).parent / "run.py")
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            module.save = lambda: None
+            module.stage = lambda name: None
+            class Context:
+                def new_page(self):
+                    raise AssertionError("unrelated error opened a new tab")
+            for error in (BrowserError("timeout"), BrowserError("net::ERR_ABORTED"), Exception("net::ERR_CACHE_MISS")):
+                class Page:
+                    def goto(self, url):
+                        pass
+                    def go_back(self):
+                        raise error
+                with self.assertRaises(type(error)) as caught:
+                    module.probe_bfcache(Context(), Page(), [], lambda request: None)
+                self.assertIs(caught.exception, error)
+
+    def test_failure_category_never_echoes_input(self):
+        from diagnostics import playwright_failure_category
+        class BrowserError(Exception):
+            pass
+        secret = "private@example.test password cookie"
+        self.assertEqual(playwright_failure_category(BrowserError("interrupted by another navigation " + secret), BrowserError), "navigation_interrupted")
+        self.assertEqual(playwright_failure_category(BrowserError(secret), BrowserError), "other_playwright_error")
+        self.assertEqual(playwright_failure_category(Exception("net::ERR_CACHE_MISS " + secret), BrowserError), "not_playwright")
