@@ -27,6 +27,8 @@ OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 def check(name, condition):
     if not condition:
+        RESULT["failed_check"] = name
+        save()
         raise AssertionError(name)
     RESULT["checks"].append({"name": name, "status": "passed"})
     save()
@@ -172,6 +174,13 @@ def run_browser():
         page.locator("#deliver_via").select_option("email")
         with page.expect_response(lambda r: urlparse(r.url).path == "/_send_verify_code") as sent:
             page.locator("#sendCodeBtn").click()
+        RESULT["email_challenge_status"] = sent.value.status
+        try:
+            reason = sent.value.json().get("reason", "")
+        except Exception:
+            reason = ""
+        RESULT["email_challenge_reason"] = reason if reason in {"identifier_required", "identifier_invalid", "invalid", "rate_limited", "resend_cooldown", "service_unavailable", "connection_failed", "backend_unavailable", "user_not_in_list", "authentication_failed"} else "unknown"
+        stage("email-challenge-response")
         check("real email challenge accepted", sent.value.status == 200)
         error_controls(context)
         stage("smtp-email-login")
