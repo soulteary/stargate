@@ -21,10 +21,14 @@ cooldown. Optional timing is stripped from another **real 429** response only to
 exercise old-server UI compatibility; a separate intercepted disconnection
 checks ambiguous-result handling and absence of POST retry. These two browser
 transport fixtures are identified separately from actual backend success checks.
-Logout must use same-origin POST; cross-origin POST and GET are rejected.
+A natural 61-second quiet interval precedes consumed-code rejection, which must
+return 401; an unused-code positive control must then authenticate the expected
+user. A real BFCache restoration checks cleared save controls; a reload is recorded
+as not exercising BFCache. Logout must use same-origin POST; cross-origin POST and GET are rejected.
 Authenticated pages must return `Cache-Control: no-store`.
 
-Only a redacted outcome JSON is uploaded. No HAR, trace, video, screenshot,
+Only a redacted outcome JSON and the allowlisted `browser-account.png` are uploaded.
+The account screenshot is taken only after verifying no secret controls or synthetic email appear. No HAR, trace, video, secret-page screenshot,
 storage state, service log, email body, QR, code, password or cookie is uploaded.
 Recovery downloads stay in Playwright's temporary directory and disappear when
 the browser context closes. Failure messages are generic, including subprocess

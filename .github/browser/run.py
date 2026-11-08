@@ -37,6 +37,7 @@ def save():
 
 
 def stage(name):
+    print("Acceptance stage: " + name, flush=True)
     RESULT["stage"] = name
     save()
 
@@ -152,6 +153,7 @@ def run_browser():
     with sync_playwright() as pw:
         browser = pw.chromium.launch(args=["--host-resolver-rules=MAP *.test.localhost 127.0.0.1"])
         context = browser.new_context(accept_downloads=True)
+        context.add_init_script("window.__acceptanceRestored = false; addEventListener('pageshow', event => { window.__acceptanceRestored = event.persisted; });")
         page = context.new_page()
         page.set_default_timeout(15000)
         login_page(page)
@@ -159,9 +161,10 @@ def run_browser():
         page.locator("#loginForm [type=submit]").click()
         page.locator("#error-container.show").wait_for()
         check("empty identifier is explained", page.locator("#error-container").inner_text() == "Enter a phone number or email address." and page.locator("#phone").get_attribute("aria-invalid") == "true" and page.locator("#phone").evaluate("el => el === document.activeElement"))
+        stage("password-login")
         page.locator("#local_password").fill(os.environ["BROWSER_TEST_PASSWORD"])
         page.locator("#passwordLoginForm [type=submit]").click()
-        page.wait_for_url(lambda u: "/_login" not in u.path)
+        page.wait_for_url(lambda u: "/_login" not in urlparse(u).path)
         check("real password login", "/_login" not in urlparse(page.url).path)
         authenticated(page)
         logout(page)
@@ -171,6 +174,7 @@ def run_browser():
             page.locator("#sendCodeBtn").click()
         check("real email challenge accepted", sent.value.status == 200)
         error_controls(context)
+        stage("smtp-email-login")
         code = mailbox_code()
         page.locator("#verify_code").fill("000000" if code != "000000" else "000001")
         with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/_login") as wrong:
@@ -180,9 +184,14 @@ def run_browser():
         check("incorrect real email code is explained", page.locator("#error-container").inner_text() != "")
         page.locator("#verify_code").fill(code)
         page.locator("#loginForm [type=submit]").click()
-        page.wait_for_url(lambda u: "/_login" not in u.path)
+        page.wait_for_url(lambda u: "/_login" not in urlparse(u).path)
         check("real SMTP email OTP login", "/_login" not in urlparse(page.url).path)
         authenticated(page, "demo-user-001")
+        page.goto(AUTH + "/_account?lang=en")
+        check("account screenshot contains no secret controls", page.locator("input, #qrcode, #backupCodesList").count() == 0 and "demo@example.test" not in page.locator("body").inner_text())
+        page.screenshot(path="browser-account.png", full_page=True)
+        RESULT["screenshots"] = ["browser-account.png"]
+        stage("totp-enrollment")
         page.goto(AUTH + "/totp/enroll?lang=en")
         page.locator("[data-native-once] button").click()
         uri = page.locator("#qrcode").get_attribute("data-uri")
@@ -201,26 +210,39 @@ def run_browser():
         del saved_text
         page.locator("#codesSaved").check()
         check("backup acknowledgement reveals continuation", page.locator("#savedHome").is_visible())
+        page.goto(AUTH + "/_account?lang=en")
+        page.go_back()
+        if page.evaluate("window.__acceptanceRestored === true"):
+            check("actual BFCache clears recovery controls", page.locator("#backupCodesList li").count() == 0 and page.locator("#copyCodes").is_disabled() and page.locator("#downloadCodes").is_disabled() and page.locator("#codesSaved").is_disabled())
+        else:
+            RESULT["bfcache"] = "not exercised: Chromium restored by navigation/reload rather than BFCache"
+            save()
         logout(page)
         # Enrollment consumes current TOTP step; wait for next step rather than retry a consumed POST.
+        stage("authenticator-login")
         time.sleep(31 - (time.time() % 30))
         login_page(page)
         page.locator("#auth-mode").select_option("totp")
         page.locator("#otp_code").fill(totp(secret))
         page.locator("#loginForm [type=submit]").click()
-        page.wait_for_url(lambda u: "/_login" not in u.path)
+        page.wait_for_url(lambda u: "/_login" not in urlparse(u).path)
         check("real authenticator login", "/_login" not in urlparse(page.url).path)
         authenticated(page, "demo-user-001")
         logout(page)
         login_page(page)
+        stage("recovery-login-or-reuse")
         page.locator("#auth-mode").select_option("recovery")
         page.locator("#recovery_code").fill(codes[0])
         page.locator("#loginForm [type=submit]").click()
-        page.wait_for_url(lambda u: "/_login" not in u.path)
+        page.wait_for_url(lambda u: "/_login" not in urlparse(u).path)
         check("real backup recovery login", "/_login" not in urlparse(page.url).path)
         authenticated(page, "demo-user-001")
         logout(page)
+        # Let the real fixed login quota window expire; a429 cannot prove consumed-code rejection.
+        stage("natural-login-quota-expiry")
+        time.sleep(61)
         login_page(page)
+        stage("recovery-login-or-reuse")
         page.locator("#auth-mode").select_option("recovery")
         page.locator("#recovery_code").fill(codes[0])
         with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/_login") as reused:
@@ -228,6 +250,11 @@ def run_browser():
         check("used backup backend status", reused.value.status == 401)
         page.locator("#error-container.show").wait_for()
         check("used backup rejected by real backend", "/_login" in urlparse(page.url).path)
+        page.locator("#recovery_code").fill(codes[1])
+        page.locator("#loginForm [type=submit]").click()
+        page.wait_for_url(lambda u: "/_login" not in urlparse(u).path)
+        authenticated(page, "demo-user-001")
+        check("unused recovery positive control after rejection", "/_login" not in urlparse(page.url).path)
         context.close()
         browser.close()
 
@@ -261,7 +288,8 @@ def main():
         compose("up", "-d", "--build", "--wait", "--wait-timeout", "180")
         run_browser()
         RESULT["status"] = "passed"
-    except Exception:
+    except Exception as failure:
+        RESULT["failure_type"] = type(failure).__name__
         RESULT["status"] = "failed"
         RESULT["service_health"] = health_summary()
         RESULT["error"] = "Acceptance failed; raw errors, browser data and service logs intentionally withheld"

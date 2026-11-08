@@ -49,6 +49,14 @@ jobs:
       - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         with:
           python-version: '3.12'
+      - name: Resolve owned loopback hosts for browser and HTTP clients
+        run: |
+          printf '127.0.0.1 auth.test.localhost hello.test.localhost\n' | sudo tee -a /etc/hosts > /dev/null
+          python3 - <<'PYTHON'
+          import ipaddress, socket
+          for host in ("auth.test.localhost", "hello.test.localhost"):
+              assert all(ipaddress.ip_address(item[4][0]).is_loopback for item in socket.getaddrinfo(host, 8088))
+          PYTHON
       - name: Install Chromium test dependencies
         run: |
           python3 -m pip install playwright==1.56.0
@@ -73,5 +81,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: browser-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
-          path: browser-results.json
+          path: |
+            browser-results.json
+            browser-account.png
           if-no-files-found: error
