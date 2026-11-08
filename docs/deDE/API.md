@@ -519,3 +519,8 @@ Fehlermeldungen unterstützen Internationalisierung und geben je nach Umgebungsv
 3. **Passwort-Überprüfung**: Passwörter sind undurchsichtige, groß-/kleinschreibungssensitive Werte; Leerzeichen und Schreibweise bleiben erhalten
 4. **Unterstützung mehrerer Passwörter**: Mehrere Passwörter können konfiguriert werden, jedes Passwort, das die Überprüfung besteht, ist akzeptabel
 5. **Cross-Domain-Sitzungen**: Erlaubte Ziele verwenden den oben beschriebenen browsergebundenen Sitzungsaustausch. `COOKIE_DOMAIN` ist optional und teilt Cookies nur innerhalb dieser DNS-Domain; andere erlaubte Domains erhalten Host-only-Cookies
+
+
+### `GET /_account`
+
+Verwaltungsseite für angemeldete Sitzungen mit TOTP-Links und einem gleichursprünglichen `POST /_logout`-Formular. Ohne Anmeldung erfolgt eine Weiterleitung zu `/_login`; Verzeichnisaktualität wird weiter geprüft. Dieser GET startet keine Einrichtung; der Root-Endpunkt bleibt unverändert.
