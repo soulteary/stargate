@@ -97,6 +97,16 @@ class AuthPrecedenceTests(unittest.TestCase):
             original.module.login('chain-c@example.test', 'challenge', 'code', auth_headers={'X-Forwarded-Uri': '/profile'})
             self.assertEqual(request.call_args_list[-1], mock.call(original.module.gateway, '/_auth', opener=True, extra_headers={'X-Forwarded-Uri': '/profile'}))
 
+    def test_startup_failure_records_actual_health_without_changing_deadline(self):
+        module = original.module
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(module, 'OUT', Path(directory)), mock.patch.object(module, 'RUNTIME', Path(directory)), mock.patch.object(module, 'processes', {}), mock.patch.object(module, 'log_handles', []), mock.patch.object(module, 'events', []), mock.patch.object(module, 'save'), mock.patch.object(module.subprocess, 'Popen') as process, mock.patch.object(module.time, 'monotonic', side_effect=[0, 0, 36]), mock.patch.object(module.time, 'sleep'), mock.patch.object(module, 'request', return_value=(503, {'status': 'unhealthy'}, {})):
+            process.return_value.poll.return_value = None
+            with self.assertRaisesRegex(TimeoutError, 'herald health deadline exceeded'):
+                module.start('herald', '/never-executed-test-placeholder', {})
+            self.assertEqual(module.events[-1]['last_observation'], {'status': 503, 'health_summary': '{"status": "unhealthy"}'})
+            for handle in module.log_handles:
+                handle.close()
+
     def test_failed_actual_response_restores_browser_source_and_process_configuration(self):
         manifest = self.manifest()
         with tempfile.TemporaryDirectory() as directory:

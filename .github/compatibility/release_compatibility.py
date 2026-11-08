@@ -348,15 +348,23 @@ def start(service, path, env, templates=None):
     limit = time.monotonic() + budget(35)
     base = {'warden': warden, 'herald': herald, 'totp': totp, 'gateway': gateway}[service]
     endpoint = '/health' if service == 'warden' else '/healthz'
+    last_observation = None
     while time.monotonic() < limit:
         if processes[service].poll() is not None:
             raise RuntimeError(service + ' exited during startup')
         try:
-            if request(base, endpoint)[0] == 200:
+            response = request(base, endpoint)
+            if response[0] == 200:
                 return
-        except (OSError, urllib.error.URLError):
-            pass
+            # Only this fixture's unauthenticated loopback health response; no
+            # request headers, business payload or transport URL is recorded.
+            last_observation = {'status': response[0], 'health_summary': json.dumps(response[1])[:1024]}
+        except (OSError, urllib.error.URLError) as error:
+            last_observation = {'transport_error_type': type(error).__name__}
         time.sleep(.2)
+    events.append({'check': 'startup health deadline exceeded', 'service': service,
+                   'last_observation': last_observation})
+    save()
     raise TimeoutError(service + ' health deadline exceeded')
 
 
