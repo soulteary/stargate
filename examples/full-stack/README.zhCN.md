@@ -153,9 +153,10 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 
 旧配置缺少 `state/provider-ca.pem` 时会明确拒绝；初始化不会静默补文件或替换凭据。
 仅使用公开 SMTP 证书且未启用 TOTP 的生产邮件部署，可创建权限 0644 的空信任包，保持
-`HERALD_CA_FILE=""`，继续使用原有公开根证书。私有 SMTP 签发方只将公开 CA 证书放入该文件。
-启用 TOTP 时还应加入其公开签发 CA，保留已有 SMTP CA，并设置
-`HERALD_CA_FILE="/certs/provider-ca.pem"`。信任包中不得包含 CA 私钥。修改后重新创建 Herald，
+`HERALD_CA_FILE=""`，继续使用原有公开根证书。使用私有 SMTP 签发方时，只将公开 CA 证书放入该文件，
+并在既有私有 `.env` 中设置 `HERALD_CA_FILE="/certs/provider-ca.pem"`，未启用 TOTP 时也必须设置。
+仅挂载信任包不会使 TLS 验证自动使用它。启用 TOTP 时还应加入其公开签发 CA，
+保留已有 SMTP CA 及同一 `HERALD_CA_FILE` 设置。信任包中不得包含 CA 私钥。修改后重新创建 Herald，
 保留全部应用密钥和 Redis。生成的路径使用 JSON 双引号，字面量美元符以 `$$` 转义；
 手动编辑时填写绝对路径，不写 Shell 表达式。
 
