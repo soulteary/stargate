@@ -95,10 +95,6 @@ cd stargate
 docker compose config --quiet
 ```
 
-起動後、`http://hello.test.localhost` を開き、`test1234` または `test1337` で
-ログインして保護対象サービスに戻ることを確認します。このパスワードと
-`COOKIE_SECURE=false` はローカル HTTP デモ専用です。
-
 独自ドメインは `.env` の `AUTH_HOSTNAME` と `APP_HOSTNAME` に設定します
 （プロトコル、パス、ポートを含まない DNS 名）。両方をこのマシンに解決してください。
 プロキシのルートとコールバック検証を同時に設定するため、サービスの `AUTH_HOST` だけを
@@ -110,7 +106,12 @@ docker compose config --quiet
 docker compose up -d
 ```
 
-**これで完了です！** 認証サービスが実行されています。🎉
+`docker compose ps` で Stargate が正常になるまで待ってからデモを開いてください。準備できない場合はログを確認します。`up -d` の成功だけではログイン経路を確認できません。
+
+起動後、`http://hello.test.localhost` を開き、`test1234` または `test1337` で
+ログインして保護対象サービスに戻ることを確認します。このパスワードと
+`COOKIE_SECURE=false` はローカル HTTP デモ専用です。
+
 
 ### ローカル開発
 

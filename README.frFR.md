@@ -95,10 +95,6 @@ cd stargate
 docker compose config --quiet
 ```
 
-Après le démarrage, ouvrir `http://hello.test.localhost`, se connecter avec
-`test1234` ou `test1337`, puis vérifier le retour au service protégé. Ces mots de
-passe et `COOKIE_SECURE=false` sont réservés à cette démonstration HTTP locale.
-
 Définir `AUTH_HOSTNAME` et `APP_HOSTNAME` dans `.env` pour des domaines personnalisés
 (noms DNS sans protocole, chemin ni port), et faire résoudre les deux vers cette
 machine. Ces valeurs configurent les routes du proxy et les callbacks ensemble ;
@@ -111,7 +107,12 @@ ne pas modifier uniquement `AUTH_HOST`. Pour HTTPS et OTP/TOTP, consulter le
 docker compose up -d
 ```
 
-**C'est tout !** Votre service d'authentification est maintenant en cours d'exécution. 🎉
+Vérifier `docker compose ps` et attendre que Stargate soit sain avant d’ouvrir la démonstration. Sinon, consulter les journaux ; `up -d` seul ne prouve pas que la connexion fonctionne.
+
+Après le démarrage, ouvrir `http://hello.test.localhost`, se connecter avec
+`test1234` ou `test1337`, puis vérifier le retour au service protégé. Ces mots de
+passe et `COOKIE_SECURE=false` sont réservés à cette démonstration HTTP locale.
+
 
 ### Développement Local
 

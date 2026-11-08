@@ -99,9 +99,6 @@ cd stargate
 docker compose config --quiet
 ```
 
-启动后打开 `http://hello.test.localhost`，使用 `test1234` 或 `test1337` 登录，
-确认返回受保护的演示服务。这些密码和 `COOKIE_SECURE=false` 仅供本地 HTTP 演示使用。
-
 自定义域名时，在 `.env` 设置 `AUTH_HOSTNAME` 和 `APP_HOSTNAME`（不含协议、路径或端口），
 并确保两个域名均解析到本机。这两个值同时配置代理路由和回调校验，不要只修改服务内的
 `AUTH_HOST`。HTTPS 生产部署及 OTP/TOTP 接入请阅读[部署指南](docs/zhCN/DEPLOYMENT.md)。
@@ -113,7 +110,11 @@ docker compose config --quiet
 docker compose up -d
 ```
 
-**完成！** 您的认证服务现在已经在运行了。🎉
+先运行 `docker compose ps`，等待 Stargate 健康后再打开演示。若未就绪，请检查服务日志；`up -d` 成功不等于登录链路已可用。
+
+启动后打开 `http://hello.test.localhost`，使用 `test1234` 或 `test1337` 登录，
+确认返回受保护的演示服务。这些密码和 `COOKIE_SECURE=false` 仅供本地 HTTP 演示使用。
+
 
 ### 本地开发
 

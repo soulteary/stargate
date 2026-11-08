@@ -104,10 +104,6 @@ cd stargate
 docker compose config --quiet
 ```
 
-Open `http://hello.test.localhost`, sign in with `test1234` or `test1337`,
-and confirm that the browser returns to the protected demo. These credentials
-and `COOKIE_SECURE=false` are for this local HTTP example only.
-
 For custom domains, set `AUTH_HOSTNAME` and `APP_HOSTNAME` in `.env` (DNS names
 without scheme, path or port). They configure both proxy routing and callback
 validation; ensure both names resolve to this machine. Do not change only
@@ -121,9 +117,12 @@ For a complete mail OTP or authenticator setup, use the [full-stack example](exa
 docker compose up -d
 ```
 
-The bundled stack starts Traefik, Stargate, and the protected `soulteary/hello` demo on
-a Compose-managed network whose CIDR matches `TRUSTED_PROXIES`. Open
-`http://hello.test.localhost` to exercise the complete login flow.
+Check `docker compose ps` and wait for Stargate to become healthy before opening the demo. If it does not, inspect the service logs; `up -d` alone does not prove a working login.
+
+Open `http://hello.test.localhost`, sign in with `test1234` or `test1337`,
+and confirm that the browser returns to the protected demo. These credentials
+and `COOKIE_SECURE=false` are for this local HTTP example only.
+
 
 ### Local Development
 

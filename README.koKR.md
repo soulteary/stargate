@@ -95,9 +95,6 @@ cd stargate
 docker compose config --quiet
 ```
 
-시작 후 `http://hello.test.localhost`를 열고 `test1234` 또는 `test1337`로 로그인한 뒤
-보호된 서비스로 돌아오는지 확인하세요. 이 비밀번호와 `COOKIE_SECURE=false`는 로컬 HTTP 데모 전용입니다.
-
 사용자 도메인은 `.env`의 `AUTH_HOSTNAME`과 `APP_HOSTNAME`에 설정합니다
 (프로토콜, 경로, 포트가 없는 DNS 이름). 두 이름 모두 이 컴퓨터로 해석되어야 합니다.
 프록시 경로와 콜백 검증을 함께 설정하므로 서비스의 `AUTH_HOST`만 바꾸지 마세요.
@@ -109,7 +106,11 @@ HTTPS 및 OTP/TOTP는 [배포 가이드](docs/enUS/DEPLOYMENT.md)를 참고하�
 docker compose up -d
 ```
 
-**완료!** 인증 서비스가 이제 실행 중입니다. 🎉
+`docker compose ps`로 Stargate가 정상 상태가 될 때까지 기다린 뒤 데모를 여세요. 준비되지 않으면 로그를 확인하세요. `up -d` 성공만으로 로그인 경로가 검증되지는 않습니다.
+
+시작 후 `http://hello.test.localhost`를 열고 `test1234` 또는 `test1337`로 로그인한 뒤
+보호된 서비스로 돌아오는지 확인하세요. 이 비밀번호와 `COOKIE_SECURE=false`는 로컬 HTTP 데모 전용입니다.
+
 
 ### 로컬 개발
 

@@ -6,7 +6,7 @@ A pending login freezes the account and method until it completes. Requests are 
 
 Resend timers use only server-provided seconds. A response without valid timing information shows a general rate-limit message. Reaching zero permits another manual attempt, not a guarantee of delivery: other server limits may still apply. Reloading a page does not reset server counters.
 
-After TOTP setup succeeds, save the one-time backup-code list. Copying and downloading occur only on an explicit button click. Codes are not written to localStorage or sessionStorage; they remain sensitive in page memory until leaving. Leaving clears the rendered setup secrets; browser Back does not recover them or start another enrollment. If confirmation had an uncertain result or unsaved codes are lost, inspect account settings and contact your administrator rather than repeatedly starting setup.
+After TOTP setup succeeds, save the one-time backup-code list. Copying and downloading occur only on an explicit button click. Codes are not written to localStorage or sessionStorage; they remain sensitive in page memory until leaving. Leaving clears the rendered setup secrets. Browser Back may restore a page or display a cache or form-resubmission prompt; do not confirm a resubmission or automatically repeat enrollment. If confirmation had an uncertain result or unsaved codes are lost, open `/_account` with a GET request to inspect the current state and contact your administrator rather than repeatedly starting setup.
 
 Open `/_account` on the authentication host to manage the current session or use its same-origin POST logout button. Logout affects this browser session; it is not an all-device revocation feature. The root endpoint's existing plain-text behavior is unchanged.
 
