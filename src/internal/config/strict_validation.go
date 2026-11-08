@@ -67,16 +67,21 @@ func parseHostPort(raw string) (string, error) {
 }
 
 func validateAuthHostAndCookieDomain() error {
-	authHost, err := parseHostPort(AuthHost.Value)
+	return ValidateHostCookieDomain(AuthHost.Value, CookieDomain.Value)
+}
+
+// ValidateHostCookieDomain checks the startup host/cookie contract without changing configuration.
+func ValidateHostCookieDomain(host, cookie string) error {
+	authHost, err := parseHostPort(host)
 	if err != nil {
 		return err
 	}
 
-	rawDomain := strings.TrimSpace(CookieDomain.Value)
+	rawDomain := strings.TrimSpace(cookie)
 	if rawDomain == "" {
 		return nil
 	}
-	if rawDomain != CookieDomain.Value {
+	if rawDomain != cookie {
 		return strictValidationError(&CookieDomain, "must not contain surrounding whitespace")
 	}
 	domain := strings.ToLower(strings.TrimPrefix(rawDomain, "."))
@@ -191,10 +196,8 @@ func validateStrictSettings() error {
 	if HeaderAuthEnabled.ToBool() && len(HeaderAuthSharedSecret.Value) < 32 {
 		return strictValidationError(&HeaderAuthSharedSecret, "must contain at least 32 characters when trusted header authentication is enabled")
 	}
-	if strings.TrimSpace(CookieDomain.Value) != "" || strings.TrimSpace(CallbackAllowedHosts.Value) != "" {
-		if len(SessionExchangeSecret.Value) < 32 {
-			return strictValidationError(&SessionExchangeSecret, "must contain at least 32 characters when cross-domain callbacks are enabled")
-		}
+	if err := ValidateCrossDomainExchange(CookieDomain.Value, CallbackAllowedHosts.Value, SessionExchangeSecret.Value); err != nil {
+		return err
 	}
 	if err := validateCallbackHostList(&CallbackAllowedHosts); err != nil {
 		return err

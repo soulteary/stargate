@@ -1328,3 +1328,7 @@ HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 ### `LOGIN_SUPPORT_URL`
 
 可选的 HTTPS 求助链接，或单个 `mailto:help@example.com` 邮箱；为空时隐藏链接。不允许用户凭据、控制字符或邮件头参数。
+
+## 部署诊断
+
+可使用 [`stargate doctor`](DIAGNOSTICS.md) 进行离线配置检查或显式健康/就绪检查；健康通过不证明 HMAC 或实际登录可用。
