@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/gofiber/fiber/v3"
 	"go.opentelemetry.io/otel/attribute"
@@ -54,6 +55,15 @@ func selectVerificationDestination(userInfo *warden.AllowListUser, deliverVia st
 		return "", "", "channel_disabled"
 	}
 	if deliverVia == "dingtalk" {
+		if config.LoginDingtalkRequireUserID.ToBool() {
+			// The directory binding is one opaque userid, never a receiver list
+			// or a phone-number lookup. Reject CR/LF before trimming as well.
+			if canonicalDingTalkID == "" || strings.ContainsAny(userInfo.DingtalkUserID, ",\r\n") ||
+				strings.IndexFunc(canonicalDingTalkID, unicode.IsControl) >= 0 {
+				return "", "", "dingtalk_not_bound"
+			}
+			return "dingtalk", canonicalDingTalkID, ""
+		}
 		if canonicalDingTalkID != "" {
 			return "dingtalk", canonicalDingTalkID, ""
 		}

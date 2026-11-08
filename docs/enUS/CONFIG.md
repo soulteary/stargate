@@ -92,6 +92,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `HERALD_TOTP_ENABLED` | true/false | false | No |
 | `LOGIN_SMS_ENABLED` | true/false | true | No |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | No |
+| `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | No |
 | `SESSION_STORAGE_ENABLED` | true/false | false | No |
 | `SESSION_STORAGE_REDIS_ADDR` | String | localhost:6379 | No |
 | `SESSION_STORAGE_REDIS_PASSWORD` | String | empty | No |
@@ -535,6 +536,27 @@ Allow verification code login via SMS when Herald is enabled.
 ```bash
 LOGIN_SMS_ENABLED=false
 ```
+
+#### `LOGIN_DINGTALK_REQUIRE_USERID`
+
+**Default:** `false` (compatibility mode). With explicit DingTalk delivery,
+Stargate first uses the canonical Warden `dingtalk_userid`, then retains the
+existing canonical-phone fallback when this option is false.
+
+Set `true` to require an explicit Warden-managed userid binding. The value is
+trimmed and its opaque case is preserved. Missing/whitespace-only bindings,
+commas, CR/LF or remaining control characters return the existing
+`dingtalk_not_bound` response before any Herald request; they never fall back to
+phone or email. Numeric userid values are not guessed to be phone numbers.
+The same helper checks pending login bindings before verification: a former
+phone-derived or changed-contact binding is refused without consuming the code.
+This option does not expire, migrate or delete existing sessions or bindings.
+
+This is a destination constraint, not proof that an administrator verified the
+real person's mapping. It does not change native Warden active-status checks,
+directory-cache/session revocation boundaries, email-verification claims or
+application permissions. It does not turn DingTalk login into verified email.
+See [the isolated userid-only profile](DINGTALK_USERID_ONLY.md) before opting in.
 
 #### `LOGIN_EMAIL_ENABLED`
 

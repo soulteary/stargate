@@ -496,6 +496,13 @@ var (
 		PossibleValues: []string{"true", "false"},
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
+	// Opt-in: work-IM login requires an explicit trusted directory userid.
+	LoginDingtalkRequireUserID = EnvVariable{
+		Name:           "LOGIN_DINGTALK_REQUIRE_USERID",
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
 )
 
 // warnUnattributableRateLimits reports the configuration in which rate limits
@@ -570,7 +577,7 @@ func loadConfiguration() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
