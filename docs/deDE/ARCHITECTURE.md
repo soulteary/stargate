@@ -376,7 +376,7 @@ Template-Datei `internal/web/templates/login.html` ändern.
 
 **Datenfluss ForwardAuth (Hauptpfad):**
 1. Traefik → Stargate: Authentifizierungsprüfungsanfrage
-2. Stargate: Liest Sitzung aus Redis (oder analysiert aus Cookie)
+2. Stargate: Lädt die serverseitige Sitzung anhand der Cookie-Kennung aus Redis oder dem Prozessspeicher
 3. Stargate → Traefik: Gibt Authentifizierungsergebnis zurück (2xx oder 401/302)
 
 ### Sicherheitsgrenzen

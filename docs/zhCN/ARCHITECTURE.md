@@ -421,7 +421,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 
 **ForwardAuth 数据流（主链路）：**
 1. Traefik → Stargate：认证检查请求
-2. Stargate：从 Redis 读取 session（或从 Cookie 解析）
+2. Stargate：使用 Cookie 中的标识符，从 Redis 或进程内存加载服务端会话
 3. Stargate → Traefik：返回认证结果（2xx 或 401/302）
 
 ### 安全边界

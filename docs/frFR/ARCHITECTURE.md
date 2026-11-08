@@ -376,7 +376,7 @@ Modifier le fichier template `internal/web/templates/login.html`.
 
 **Flux de Données ForwardAuth (Chemin Principal) :**
 1. Traefik → Stargate : Requête de vérification d'authentification
-2. Stargate : Lit la session depuis Redis (ou analyse depuis Cookie)
+2. Stargate : Charge la session côté serveur depuis Redis ou la mémoire du processus avec l’identifiant du cookie
 3. Stargate → Traefik : Retourne le résultat d'authentification (2xx ou 401/302)
 
 ### Frontières de Sécurité

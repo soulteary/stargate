@@ -421,7 +421,7 @@ Modify the `internal/web/templates/login.html` template file.
 
 **ForwardAuth Data Flow (Main Path):**
 1. Traefik → Stargate: Authentication check request
-2. Stargate: Read session from Redis (or parse from Cookie)
+2. Stargate: Use the cookie identifier to load the server-side session from Redis or process memory
 3. Stargate → Traefik: Return authentication result (2xx or 401/302)
 
 ### Security Boundaries
