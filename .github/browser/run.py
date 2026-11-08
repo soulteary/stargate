@@ -318,11 +318,15 @@ def run_browser():
         page.locator("#recovery_code").fill(codes[0])
         with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/_login") as reused:
             page.locator("#loginForm [type=submit]").click()
+        RESULT["recovery_reuse_status"] = reused.value.status
         check("used backup backend status", reused.value.status == 401)
         page.locator("#error-container.show").wait_for()
         check("used backup rejected by real backend", "/_login" in urlparse(page.url).path)
         page.locator("#recovery_code").fill(codes[1])
-        page.locator("#loginForm [type=submit]").click()
+        with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/_login") as spare:
+            page.locator("#loginForm [type=submit]").click()
+        RESULT["spare_backup_status"] = spare.value.status
+        check("unused backup backend status", spare.value.status == 200)
         page.wait_for_url(lambda u: "/_login" not in urlparse(u).path)
         authenticated(page, "demo-user-001")
         check("unused recovery positive control after rejection", "/_login" not in urlparse(page.url).path)

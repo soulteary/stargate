@@ -20,14 +20,14 @@ on:
         type: string
 permissions:
   contents: read
+env:
+  FULLSTACK_REF: ${{ inputs.fullstack_ref || '4714f7420af283e9c5ec1715c687bb2513aaf373' }}
+  GATEWAY_REF: ${{ inputs.gateway_ref || '843e2301efb8d9dff35a67d26bc9755a33e45654' }}
+  HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:89eb2dba787b7d7a22a39b43ffb12118631b62ba6e8779d9bff8cc7c82f79765' }}
 jobs:
   chromium:
     runs-on: ubuntu-latest
     timeout-minutes: 25
-    env:
-      FULLSTACK_REF: ${{ inputs.fullstack_ref || '4714f7420af283e9c5ec1715c687bb2513aaf373' }}
-      GATEWAY_REF: ${{ inputs.gateway_ref || '843e2301efb8d9dff35a67d26bc9755a33e45654' }}
-      HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:89eb2dba787b7d7a22a39b43ffb12118631b62ba6e8779d9bff8cc7c82f79765' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -84,4 +84,58 @@ jobs:
           path: |
             browser-results.json
             browser-account.png
+          if-no-files-found: error
+
+  production_tls:
+    needs: chromium
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate immutable inputs and pure contracts
+        run: |
+          python3 .github/browser/validate_inputs.py
+          python3 -m unittest discover -s .github/browser -p 'test_*.py'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.FULLSTACK_REF }}
+          path: fullstack
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.GATEWAY_REF }}
+          path: gateway
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Install verified-browser test prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libnss3-tools
+          python3 -m pip install playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+      - name: Run isolated production TLS acceptance
+        run: |
+          set +e
+          python3 .github/browser/production_tls.py
+          result=$?
+          python3 - "$result" <<'PYTHON'
+          import json, pathlib, sys
+          path = pathlib.Path("production-tls-results.json")
+          data = json.loads(path.read_text())
+          data["process_exit_code"] = int(sys.argv[1])
+          if int(sys.argv[1]) != 0:
+              data["status"] = "failed"
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          PYTHON
+          exit "$result"
+      - name: Upload redacted production TLS result only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: production-tls-${{ github.run_id }}-${{ github.run_attempt }}
+          path: production-tls-results.json
           if-no-files-found: error

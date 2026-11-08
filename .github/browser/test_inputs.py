@@ -37,16 +37,21 @@ class CompletionRecord(unittest.TestCase):
         import sys
         import tempfile
         workflow = (Path(__file__).parents[1] / "workflows/browser-acceptance.yml").read_text()
-        block = workflow.rsplit("<<'PYTHON'\n", 1)[1].split("          PYTHON", 1)[0]
-        code = "\n".join(line[10:] for line in block.splitlines())
-        with tempfile.TemporaryDirectory() as temporary:
-            path = Path(temporary) / "browser-results.json"
-            for exit_code in (0, 1):
-                path.write_text('{"status":"passed"}')
-                subprocess.run([sys.executable, "-c", code, str(exit_code)], cwd=temporary, check=True)
-                result = json.loads(path.read_text())
-                self.assertEqual(result["process_exit_code"], exit_code)
-                self.assertEqual(result["status"], "passed" if exit_code == 0 else "failed")
+        import re
+        wrappers = [part.split("          PYTHON", 1)[0] for part in workflow.split("<<'PYTHON'\n")[1:] if 'data["process_exit_code"]' in part.split("          PYTHON", 1)[0]]
+        self.assertEqual(len(wrappers), 2)
+        for block in wrappers:
+            code = "\n".join(line[10:] for line in block.splitlines())
+            filename = re.search(r'path = pathlib.Path\("([a-z-]+\.json)"\)', code).group(1)
+            self.assertIn(filename, {"browser-results.json", "production-tls-results.json"})
+            with tempfile.TemporaryDirectory() as temporary:
+                path = Path(temporary) / filename
+                for exit_code in (0, 1):
+                    path.write_text('{"status":"passed"}')
+                    subprocess.run([sys.executable, "-c", code, str(exit_code)], cwd=temporary, check=True)
+                    result = json.loads(path.read_text())
+                    self.assertEqual(result["process_exit_code"], exit_code)
+                    self.assertEqual(result["status"], "passed" if exit_code == 0 else "failed")
 
 class BrowserURLPredicates(unittest.TestCase):
     def test_wait_url_predicates_accept_playwright_strings(self):
