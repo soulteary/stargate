@@ -4,6 +4,42 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.3.4] - 2026-11-08
+
+### Dependencies
+
+- Update secure-kit/v2 to v2.1.4 for Unicode code-point masking and safe bounds
+  handling. Non-ASCII masked log output can change; ASCII output is preserved.
+- Update audit-kit/v2 to v2.1.4, challenge-kit to v1.11.1, Warden to v1.6.2 and
+  Herald to v1.4.4, with herald-totp/v2 v2.0.3 in the resolved module graph.
+  session-kit/v3 remains v3.2.1. SDK updates do not deploy separate services.
+
+### Documentation
+
+- Align authentication, session storage, browser-bound exchange and port guidance
+  with the implemented interfaces across translated guides and current examples.
+- Add manual compatibility verification for formal service binaries using shared
+  Redis state, HMAC authentication and dependency-ordered upgrade/rollback.
+
+### Upgrade and rollback
+
+- Deploy the verified service releases before this gateway patch. Keep explicit
+  HMAC key IDs and the selected request-authentication mode; HMAC requests do not
+  fall back to an API key. Retain the v1.3.3 staged key-ID migration for older
+  deployments.
+- Preserve Redis records, pending challenge bindings, replay and revocation state,
+  session namespaces and absolute deadlines. No new storage schema or credential
+  migration is introduced by this dependency update. No OTP retry or session
+  renewal is automatic; existing 503 and lock-contention 409 semantics remain.
+- Rolling back to the verified v1.3.3 binary or image restores its compiled
+  masking behavior and dependency versions. Source consumers must restore their
+  pre-upgrade `go.mod` and `go.sum`, verify the effective `go list -m all` versions
+  and rebuild; downgrading a parent module alone may retain newer dependencies
+  under Go minimal version selection. Rollback does not rewrite prior logs,
+  recover removed keys or undo state
+  committed by a provider. Do not independently roll back provider services or
+  discard shared state; verify the selected credentials and login flows first.
+
 ## [1.3.3] - 2026-11-07
 
 ### Security
@@ -509,3 +545,5 @@ Before publishing the first release candidate, replace `Unreleased` with the int
 [1.3.2]: https://github.com/soulteary/stargate/compare/v1.3.1...v1.3.2
 
 [1.3.3]: https://github.com/soulteary/stargate/compare/v1.3.2...v1.3.3
+
+[1.3.4]: https://github.com/soulteary/stargate/compare/v1.3.3...v1.3.4

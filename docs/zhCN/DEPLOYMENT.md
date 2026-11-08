@@ -1,6 +1,9 @@
 # 部署指南
 
-当前部署示例使用 v1.3.3。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
+升级至 v1.3.4 前，请阅读[依赖补丁升级与回滚](#依赖补丁升级与回滚v134)。本次更新调整脱敏行为和依赖版本，保留既有会话与验证码状态。
+
+
+当前部署示例使用 v1.3.4。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
 
 本文档提供 Stargate Forward Auth Service 的详细部署指南。
 
@@ -203,7 +206,7 @@ CI 输出不会自动改写；若其中实际包含凭据，应限制访问，�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -256,7 +259,7 @@ networks:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
@@ -322,7 +325,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -346,7 +349,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -985,3 +988,23 @@ OTP 验证，503 及特定锁争用 409 的含义与 v1.3.2 一致。
 key-map 选择规则，且可能不支持新的代理 key-ID 配置。应遵循其回滚说明，保留
 状态，并在切换流量前验证相同的登录与 TOTP 流程。从更旧版本升级时仍须遵循
 v1.3.0/v1.3.1 的迁移要求。
+
+## 依赖补丁升级与回滚（v1.3.4）
+
+先部署已验证的 Warden v1.6.2 和 Herald v1.4.4 服务，并按 Herald 文档完成
+herald-totp v2.0.3 的升级，再升级 Stargate v1.3.4。更新网关 SDK 模块不会部署这些
+独立服务。既有 HMAC key ID、凭据优先级及不回退 API Key 的行为不变；较旧部署仍需
+遵循 v1.3.3 的分阶段 key ID 配置要求。
+
+secure-kit/v2 v2.1.4 按 Unicode 码点处理日志脱敏，并安全处理超大脱敏边界。
+非 ASCII 脱敏输出可能变化，既有 ASCII 输出保持不变。依赖精确脱敏字符串的日志消费端
+应确认兼容性。此次更新不改变登录证明或会话记录格式。
+
+混合版本升级期间，保留 Redis 记录、待验证 challenge 绑定、重放与注销标记、会话命名空间
+和绝对截止时间。本补丁不会续期会话或自动重试验证码。既有 503 和锁竞争 409 语义不变。
+
+回滚至 v1.3.3 前，确认当前凭据和提供方版本。已验证的旧二进制或镜像使用其编译时的依赖与脱敏行为。源码或 SDK 回滚应恢复升级前应用的
+`go.mod` 和 `go.sum`，检查 `go list -m all` 的实际版本后重新构建；仅降级父模块可能因 Go
+最小版本选择而保留较新的直接依赖或传递依赖下限。回滚不会重写既有日志、恢复已退役
+密钥或撤销已提交的验证码消费。保留共享状态，对不确定的提供方结果
+进行核对，不应独立降级提供方服务或删除重放记录。

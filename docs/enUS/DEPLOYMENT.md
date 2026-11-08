@@ -1,6 +1,9 @@
 # Deployment Guide
 
-Current deployment examples use v1.3.3. Before replacing a pre-v1.3 deployment, read the [revocable-session migration](#revocable-session-migration) and [browser-bound session exchange](#browser-bound-session-exchange) requirements. Coordinate all replicas; preserve required Redis state and account for the documented fresh-login boundary.
+For v1.3.4, read [dependency patch upgrade and rollback](#dependency-patch-upgrade-and-rollback-v134). The update changes masking behavior and dependency versions, while preserving existing session and verification state.
+
+
+Current deployment examples use v1.3.4. Before replacing a pre-v1.3 deployment, read the [revocable-session migration](#revocable-session-migration) and [browser-bound session exchange](#browser-bound-session-exchange) requirements. Coordinate all replicas; preserve required Redis state and account for the documented fresh-login boundary.
 
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
@@ -208,7 +211,7 @@ Use the separate example below when Traefik already runs on a shared external Do
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -297,7 +300,7 @@ Edit `docker-compose.yml` and modify environment variables:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -321,7 +324,7 @@ Configure Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -924,3 +927,31 @@ its old key-map selection behavior and may not support the new proxy key-ID
 configuration. Follow its rollback guidance, preserve state and verify the same
 login and TOTP flows before forwarding traffic. Retain the v1.3.0/v1.3.1 migration
 requirements for older deployments.
+
+## Dependency patch upgrade and rollback (v1.3.4)
+
+Deploy the verified Warden v1.6.2 and Herald v1.4.4 service releases, including
+Herald's documented herald-totp v2.0.3 rollout, before upgrading Stargate to
+v1.3.4. Updating the gateway SDK modules does not deploy these services. Existing
+HMAC key IDs, credential precedence and no-fallback behavior remain unchanged;
+follow the v1.3.3 staged key-ID guidance when upgrading older deployments.
+
+The secure-kit/v2 v2.1.4 update preserves Unicode code points in masked log text
+and handles oversized masking bounds safely. Non-ASCII masked output can change;
+existing ASCII output is preserved. Review log consumers that depend on exact
+masked strings. This does not change the login proof or session record format.
+
+Keep Redis records, pending challenge bindings, replay and revocation markers,
+session namespaces and absolute deadlines across mixed-version rollout. The
+patch does not renew sessions or automatically retry OTP verification. Existing
+503 and lock-contention 409 responses retain their meanings.
+
+Before rollback to v1.3.3, verify the active credentials and provider versions.
+The verified old binary or image restores its compiled dependency and masking
+behavior. For a source or SDK rollback, restore the pre-upgrade application
+`go.mod` and `go.sum`, check the effective `go list -m all` versions, then rebuild.
+A parent-module downgrade alone may retain newer direct pins or transitive
+minimums under Go minimal version selection. Rollback does not rewrite existing
+logs, restore retired keys or undo committed OTP consumption.
+Keep shared state and reconcile uncertain provider results. Do not independently
+downgrade provider services or discard replay records.
