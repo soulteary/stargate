@@ -98,7 +98,7 @@ services:
       retries: 12
       start_period: 10s
     labels: {traefik.enable: 'false'}
-    image: ghcr.io/soulteary/herald:1.4.4@sha256:a68ef6257c5262edb016c3ff2aa030307e30375db47b9c9d963be3b2e6dae4d5
+    image: ghcr.io/soulteary/herald:1.5.0@sha256:89eb2dba787b7d7a22a39b43ffb12118631b62ba6e8779d9bff8cc7c82f79765
     environment:
       PORT: ':8082'
       ENVIRONMENT: production

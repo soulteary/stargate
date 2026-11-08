@@ -1,7 +1,7 @@
 # Mail OTP and authenticator example
 
 This example builds Stargate from this checkout and connects the published Warden
-1.6.2, Herald 1.4.4 and herald-totp 2.0.3 services. It uses actual SMTP delivery, shared persistent
+1.6.2, Herald 1.5.0 and herald-totp 2.0.3 services. It uses actual SMTP delivery, shared persistent
 Redis, explicit HMAC key IDs and three independent service credentials. It does not expose a test-code endpoint. For a password-only
 local demo, use the [root quick start](../../README.md#-quick-start).
 
@@ -42,6 +42,25 @@ This generates separate DNS-only proxy rules and host:port callback authorities.
 Open `http://app.demo.localhost:9090` and `http://127.0.0.1:9025`. Port 80/443
 uses its canonical authority without a port suffix. `--subnet` can select an
 unused private /24 when the default edge network conflicts with a local network.
+
+### Shared-VM bind mounts on macOS
+
+The non-root service must be able to read its specific mounted public directory
+files. Some shared-VM filesystems deny access through a private host ancestor
+(such as a Documents directory), even when `users.json` itself is 0644. Check the
+actual container error; do not treat a timeout as a permission diagnosis.
+
+Do not relax `.env`, certificate-key or private-parent permissions. For the
+**synthetic local demo only**, an operator may stage only `state/users.json` and
+`state/routes.yml` in an owned temporary directory outside Documents, make that
+public-fixture parent 0755 and those two files 0644, and run Compose with an
+explicit `STATE_DIR` override pointing there. Keep the original private `.env`
+and every credential unchanged. Never copy real user data, `.env` or private
+keys into that public fixture directory. Verify the exact mounted files are
+readable before calling startup successful; record this as a local filesystem
+accommodation, not a production configuration default. Remove only the owned
+fixture directory after stopping its stack. Production should use an approved
+host/mount mechanism that preserves its access-control requirements.
 
 ## Add an authenticator
 
