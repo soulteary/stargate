@@ -5,6 +5,7 @@ executed or cryptographically verified here; the release publication gate owns
 image signature/provenance verification. No application is built by this job.
 """
 import base64
+import auth_precedence
 from contextlib import contextmanager
 import hashlib
 import hmac
@@ -48,7 +49,7 @@ result = {'status': 'in_progress', 'checks': events, 'production_access': False,
 
 
 def validate_manifest(value):
-    if not isinstance(value, dict) or set(value) not in ({'mode', 'old'}, {'mode', 'old', 'new'}):
+    if not isinstance(value, dict) or set(value) - {'mode', 'old', 'new', 'auth_precedence'} or not {'mode', 'old'} <= set(value):
         raise ValueError('manifest must contain only mode, old and optionally new')
     if value['mode'] not in ('baseline', 'upgrade') or ('new' in value) != (value['mode'] == 'upgrade'):
         raise ValueError('mode does not match old/new tuples')
@@ -65,7 +66,27 @@ def validate_manifest(value):
                         'sha256': r'[0-9a-f]{64}', 'image': r'ghcr\.io/soulteary/' + REPOS[service] + r'@sha256:[0-9a-f]{64}'}
             if any(not isinstance(item[k], str) or re.fullmatch(p, item[k]) is None for k, p in patterns.items()):
                 raise ValueError('invalid release identity')
+    auth_precedence.validate_profile(value)
+    changed_services(value)
     return value
+
+
+def changed_services(manifest):
+    if manifest['mode'] == 'baseline':
+        return []
+    changed = []
+    for service in ORDER:
+        old, new = manifest['old'][service], manifest['new'][service]
+        if old == new:
+            continue
+        if old['version'] == new['version']:
+            raise ValueError('same release version has conflicting identities')
+        changed.append(service)
+    return changed
+
+
+def rotate_after_stage(direction, service, changed):
+    return direction == 'upgrade' and bool(changed) and service == changed[-1]
 
 
 def budget(seconds=20):
@@ -265,8 +286,11 @@ def hmac_headers(secret,method,target,body,nonce_override=None,key_id_override=N
  return {'X-Signature-Version':version,'X-Signature':hmac.new(secret.encode(),canonical.encode(),hashlib.sha256).hexdigest(),'X-Timestamp':ts,'X-Nonce':nonce,'X-Service':service,'X-Key-Id':kid}
 
 
-def request(base,path,body=None,key=None,opener=None,nonce=None,key_id=None):
+def request(base,path,body=None,key=None,opener=None,nonce=None,key_id=None,extra_headers=None):
  headers={'Accept':'application/json'}
+ if extra_headers:
+  if set(extra_headers) - {'Stargate-Password','X-Stargate-Header-Auth','X-User-Mail','X-Forwarded-Uri','Origin'}:raise ValueError('unexpected observer header')
+  headers.update(extra_headers)
  data=None
  if body is not None:headers['Content-Type']='application/x-www-form-urlencoded' if isinstance(body,str) else 'application/json';data=body.encode() if isinstance(body,str) else json.dumps(body).encode()
  if key:headers.update(hmac_headers(key,'GET' if data is None else 'POST',path,data or b'',nonce,key_id))
@@ -390,13 +414,16 @@ def send(subject):
     return response['challenge_id'], code['code']
 
 
-def login(subject, challenge, code):
+def login(subject, challenge, code, auth_headers=None):
     response = expect('gateway verifies bound OTP', request(gateway, '/_login', urllib.parse.urlencode({
         'auth_method': 'warden', 'mail': subject, 'challenge_id': challenge, 'verify_code': code}), opener=True), 200)
     if not response['success']:
         raise AssertionError('OTP login rejected')
     session_token()
-    authenticated = request(gateway, '/_auth', opener=True)
+    auth_options = {'opener': True}
+    if auth_headers is not None:
+        auth_options['extra_headers'] = auth_headers
+    authenticated = request(gateway, '/_auth', **auth_options)
     expect('new login has a usable ForwardAuth session', authenticated, 200)
     expected_user = next(user['user_id'] for user in directory_users() if user['mail'] == subject)
     if authenticated[2].get('x-auth-user') != expected_user:
@@ -497,7 +524,7 @@ def assert_session(snapshot, stage):
 
 def directory_users():
     return [{'user_id': 'chain-user-' + suffix, 'mail': 'chain-' + suffix + '@example.test',
-             'status': 'active', 'scope': ['read'], 'role': 'viewer'} for suffix in ('a', 'b', 'c', 'd')]
+             'status': 'active', 'scope': ['read'], 'role': 'viewer'} for suffix in ('a', 'b', 'c', 'd')] + auth_precedence.users()
 
 
 @contextmanager
@@ -673,10 +700,12 @@ def run(manifest):
         raise AssertionError('pending binding absent')
     binding_deadline = time.time() + resp(['PTTL', binding_key], 1) / 1000
     result['pending_binding_deadline'] = binding_deadline
+    changed = changed_services(manifest)
+    result['version_transitions'] = {'changed_services': changed, 'unchanged_services': [s for s in ORDER if s not in changed]}
     stages = [('baseline', None, 'old')]
     if manifest['mode'] == 'upgrade':
-        stages += [('upgrade', service, 'new') for service in ORDER]
-        stages += [('rollback', service, 'old') for service in reversed(ORDER)]
+        stages += [('upgrade', service, 'new') for service in changed]
+        stages += [('rollback', service, 'old') for service in reversed(changed)]
     for direction, service, phase in stages:
         stage = direction + (' ' + service if service else '')
         seeds = [nonce_seed(name) for name in ('warden', 'herald', 'totp')]
@@ -711,10 +740,12 @@ def run(manifest):
         if binding_ttl <= 0 or time.time() + binding_ttl / 1000 > binding_deadline + 2:
             raise AssertionError('pending OTP binding lost or extended during rollout')
         events.append({'check': 'version stage', 'stage': stage, 'product_source': manifest[phase][service]['source'] if service else None})
-        if direction == 'upgrade' and service == 'gateway':
+        if rotate_after_stage(direction, service, changed):
             rotate_credentials(paths['new'], templates['new'], env, snapshot, 'new formal tuple')
-    if manifest['mode'] == 'baseline':
-        rotate_credentials(paths['old'], templates['old'], env, snapshot, 'old formal baseline tuple')
+    if not changed:
+        phase = 'old' if manifest['mode'] == 'baseline' else 'new'
+        rotate_credentials(paths[phase], templates[phase], env, snapshot,
+                           'old formal baseline tuple' if phase == 'old' else 'new formal tuple')
     assert_backup_unchanged(retained_backup, 'completed rollback and key configuration phases')
     consume_backup(spare_backup, prefix + 'backup-after-rollback', 'consume retained spare backup after rollback')
     after_backup = backup_state('chain-user-a')
@@ -729,6 +760,9 @@ def run(manifest):
     login('chain-b@example.test', pending_id, pending_code)
     if resp(['EXISTS', binding_key], 1) != 0:
         raise AssertionError('consumed binding not removed')
+    if manifest.get('auth_precedence') is True:
+        import sys
+        auth_precedence.run(sys.modules[__name__], manifest, paths, templates, env)
     result['status'] = 'passed'
     result['limits'] = ['No production traffic or real delivery provider.', 'Formal native binaries executed; OCI references/signatures handled separately.',
                         'Nonce checks use new seeds before each adjacent transition and freshly signed current timestamps, within positive TTL.',
