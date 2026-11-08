@@ -518,4 +518,4 @@ I messaggi di errore supportano l'internazionalizzazione, restituendo messaggi i
 2. **Sicurezza cookie**: Tutti i cookie sono impostati con i flag `HttpOnly` e `SameSite=Lax`
 3. **Verifica password**: Le password sono valori opachi e distinguono maiuscole, minuscole e spazi
 4. **Supporto più password**: Più password possono essere configurate, qualsiasi password che passa la verifica è accettabile
-5. **Sessioni cross-domain**: La variabile d'ambiente `COOKIE_DOMAIN` deve essere configurata per abilitare la condivisione sessione cross-domain
+5. **Sessioni cross-domain**: Le destinazioni consentite usano lo scambio di sessione legato al browser descritto sopra. `COOKIE_DOMAIN` è facoltativo e condivide i cookie solo nel dominio DNS configurato; gli altri domini consentiti ricevono cookie limitati al singolo host

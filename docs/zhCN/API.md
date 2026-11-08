@@ -533,17 +533,17 @@ curl http://auth.example.com/
 
 ### ForwardAuth 认证流程（主链路）
 
-**关键原则：forwardAuth 主链路只校验 session，不调用 Warden/Herald**
+**ForwardAuth 检查配置的认证方式。Warden 授权刷新和可信身份查询可能调用 Warden；此路径不会通过 Herald 校验验证码。**
 
 1. 用户访问受保护资源（如 `https://app.example.com/dashboard`）
 2. Traefik 拦截请求，转发到 `https://auth.example.com/_auth`
-3. Stargate **仅校验 Session**（从 Cookie 或 Redis 读取）
-   - **不调用 Warden**
-   - **不调用 Herald**
+3. Stargate 使用 Cookie 标识符加载服务端会话，或检查已配置的密码、可信身份请求头。Warden 会话可能需要刷新目录授权；目录证据不可用时返回 503。
 4. 如果已认证，设置 `X-Forwarded-User` 头并返回 200
 5. 如果未认证，重定向到登录页（HTML 请求）或返回 401（API 请求）
 
 ### 密码认证登录流程
+
+下方密码与 OTP 流程摘要使用上文的[浏览器绑定会话交换](#会话交换端点)；签发票据前必须先完成目标端的 nonce 握手。
 
 1. 用户访问受保护资源
 2. Traefik → Stargate `/_auth`：检查 session，未登录
@@ -566,10 +566,10 @@ curl http://auth.example.com/
 8. 用户输入验证码，提交 `POST /_login`（`auth_method=warden`）
 9. **Stargate → Herald**：verify(challenge_id, code)
 10. Herald 返回 ok + user_id (+ 可选 amr/认证强度)
-11. Stargate 签发 session（cookie/JWT），从 Warden 获取用户信息并写入 session claims
+11. Stargate 使用 Warden 用户信息创建服务端会话并设置不透明标识 Cookie，不签发 JWT
 12. 重定向到 `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 13. 会话 Cookie 被设置到 `app.example.com` 域名
-14. 用户再次访问受保护资源，forwardAuth **只校验 Stargate session**，不再触发 Warden/Herald
+14. 用户再次访问受保护资源，ForwardAuth 检查会话并在需要时刷新 Warden 授权，不会通过 Herald 重新校验验证码
 
 ### API 认证流程
 
@@ -586,4 +586,4 @@ curl http://auth.example.com/
 2. **Cookie 安全**：所有 Cookie 都设置了 `HttpOnly` 和 `SameSite=Lax` 标志
 3. **密码验证**：密码按不透明且区分大小写的原始值校验；不会移除空格或转换大小写
 4. **多密码支持**：可以配置多个密码，任一密码验证通过即可
-5. **跨域会话**：需要配置 `COOKIE_DOMAIN` 环境变量才能实现跨域会话共享
+5. **跨域会话**：允许的目标域名使用上文的浏览器绑定会话交换。`COOKIE_DOMAIN` 可选，仅用于在该 DNS 域内共享 Cookie；其他允许的域名使用仅限主机的 Cookie
