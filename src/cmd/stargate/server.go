@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -38,6 +40,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/requestcontext"
 	internal_tls "github.com/soulteary/stargate/src/internal/tlsconfig"
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
+	webresources "github.com/soulteary/stargate/src/internal/web"
 )
 
 // findFirstExistingPath returns the first path in candidates that exists, or defaultPath if none exist.
@@ -69,6 +72,9 @@ func findTemplatesPath() string {
 func setupTemplates() *html.Engine {
 	log.Debug().Msg("Initializing html templating")
 	templatesPath := findTemplatesPath()
+	if _, err := os.Stat(templatesPath); errors.Is(err, os.ErrNotExist) {
+		return html.NewFileSystem(http.FS(webresources.Templates()), ".html")
+	}
 	return html.New(templatesPath, ".html")
 }
 
@@ -308,6 +314,10 @@ func findFaviconPath() string {
 func setupStaticFiles(app *fiber.App) {
 	log.Debug().Msg("Registering static file server for assets")
 	assetsPath := findAssetsPath()
+	if _, err := os.Stat(assetsPath); errors.Is(err, os.ErrNotExist) {
+		app.Get("/assets*", static.New("", static.Config{FS: webresources.Assets()}))
+		return
+	}
 	app.Get("/assets*", static.New(assetsPath))
 }
 
@@ -388,8 +398,10 @@ func setupMiddleware(app *fiber.App) {
 		app.Use(favicon.New(favicon.Config{
 			File: faviconPath,
 		}))
+	} else if errors.Is(err, os.ErrNotExist) {
+		app.Use(favicon.New(favicon.Config{FileSystem: webresources.Assets(), File: "favicon.ico"}))
 	} else {
-		log.Debug().Str("path", faviconPath).Msg("Favicon file not found, skipping favicon middleware")
+		log.Debug().Msg("Favicon override is inaccessible; keeping its existing failure behavior")
 	}
 }
 
