@@ -140,6 +140,10 @@ func inspectPair(r *Report, id string, client, server map[string]string, prefix 
 	}
 	secret := client[prefix+"_HMAC_SECRET"]
 	api := client[prefix+"_API_KEY"]
+	if prefix == "WARDEN" && ((client["WARDEN_HMAC_KEY_ID"] != "") != (secret != "")) {
+		r.add(id, "fail", "Configure WARDEN_HMAC_KEY_ID and WARDEN_HMAC_SECRET together; incomplete HMAC credentials cannot use API-key comparison.")
+		return
+	}
 	if herald && server["REQUEST_AUTH_MODE"] == "api_key" && secret != "" {
 		r.add(id, "fail", "The client selects HMAC while Herald is configured for API-key authentication; select a matching mode.")
 		return

@@ -422,6 +422,8 @@ func TestCredentialModeBoundaries(t *testing.T) {
 		{"unsupported auth mode", "HERALD", true, map[string]string{"HERALD_HMAC_SECRET": "secret"}, map[string]string{"HERALD_HMAC_SECRET": "secret", "REQUEST_AUTH_MODE": "future"}, "unknown"},
 		{"missing HMAC", "HERALD", true, map[string]string{"HERALD_API_KEY": "api"}, map[string]string{"API_KEY": "api"}, "fail"},
 		{"API-only compatible", "HERALD", true, map[string]string{"HERALD_API_KEY": "api"}, map[string]string{"API_KEY": "api", "REQUEST_AUTH_MODE": "api_key"}, "pass"},
+		{"Warden missing secret", "WARDEN", false, map[string]string{"WARDEN_HMAC_KEY_ID": "gateway", "WARDEN_API_KEY": "api"}, map[string]string{"API_KEY": "api"}, "fail"},
+		{"Warden missing identity", "WARDEN", false, map[string]string{"WARDEN_HMAC_SECRET": "secret", "WARDEN_API_KEY": "api"}, map[string]string{"API_KEY": "api"}, "fail"},
 		{"API mismatch", "WARDEN", false, map[string]string{"WARDEN_API_KEY": "wrong"}, map[string]string{"API_KEY": "api"}, "fail"},
 		{"explicit TOTP ID", "HERALD_TOTP", false, map[string]string{"HERALD_TOTP_HMAC_SECRET": "secret", "HERALD_TOTP_HMAC_KEY_ID": "a"}, map[string]string{"HERALD_TOTP_HMAC_KEYS": `{"a":"secret","b":"other"}`}, "pass"},
 	} {
