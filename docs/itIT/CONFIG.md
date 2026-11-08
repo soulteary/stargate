@@ -475,3 +475,8 @@ accesso. Tra host usare HTTPS con verifica del certificato; HTTP richiede una
 rete locale isolata e attendibile.
 Per le regole complete e la migrazione consultare la
 [guida inglese](../enUS/CONFIG.md#source-freshness-and-scrape-credentials).
+
+
+### LOGIN_SUPPORT_URL
+
+Link HTTPS facoltativo o una sola casella `mailto:help@example.com`. Vuoto nasconde il link. Credenziali, caratteri di controllo e intestazioni mailto non sono consentiti.

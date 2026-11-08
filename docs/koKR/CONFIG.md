@@ -475,3 +475,8 @@ HTTP 503으로 접근을 거부합니다.
 사용하세요. HTTP는 신뢰할 수 있는 격리된 로컬 네트워크를 전제로 합니다.
 전체 규칙과 이전 절차는
 [영문 설정 문서](../enUS/CONFIG.md#source-freshness-and-scrape-credentials)를 참조하세요.
+
+
+### LOGIN_SUPPORT_URL
+
+선택적인 HTTPS 지원 링크 또는 단일 `mailto:help@example.com` 주소입니다. 비어 있으면 링크를 숨깁니다. 인증 정보, 제어 문자, mailto 헤더는 허용되지 않습니다.

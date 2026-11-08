@@ -1349,3 +1349,8 @@ random secret of at least 32 bytes and configure the scraper to send
 Warden and Herald credentials. Reusing configured service/session keys or plaintext login passwords
 is rejected at startup; never reuse a hashed login password either. Restrict this path at the network or proxy layer as
 well. Existing anonymous scrapers must be updated before deploying this change.
+
+
+### LOGIN_SUPPORT_URL
+
+Optional HTTPS support link or one `mailto:help@example.com` mailbox. Empty hides the link. Userinfo, control characters and mailto headers are rejected.

@@ -1322,3 +1322,8 @@ HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 不能复用配置中的服务、会话凭据或明文登录密码；散列登录密码也不应复用。
 同时在网络或反向代理限制指标入口。完整行为见
 [英文配置参考](../enUS/CONFIG.md#source-freshness-and-scrape-credentials)。
+
+
+### LOGIN_SUPPORT_URL
+
+可选的 HTTPS 求助链接，或单个 `mailto:help@example.com` 邮箱；为空时隐藏链接。不允许用户凭据、控制字符或邮件头参数。
