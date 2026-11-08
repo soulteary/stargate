@@ -92,6 +92,8 @@ def configure(args, environ=None):
                   COMPOSE_PROFILES='totp' if args.mode == 'totp' else '',
                   COMPOSE_PROJECT_NAME=args.project,
                   STATE_DIR=str(state), EDGE_NETWORK=args.project + '-edge', EDGE_SUBNET=str(subnet),
+                  STARGATE_SOURCE_DIR=str(HERE.parents[1]),
+                  STARGATE_IMAGE=args.project + '-stargate:local',
                   AUTH_HOSTNAME=auth, APP_HOSTNAME=app,
                   AUTH_AUTHORITY=authority(auth, selected_port, 443 if production else 80),
                   APP_AUTHORITY=authority(app, selected_port, 443 if production else 80),
@@ -105,6 +107,12 @@ def configure(args, environ=None):
             if not environ.get(key):
                 raise ValueError(f'production requires {key} in the environment')
             values[key] = environ[key]
+        image = environ.get('STARGATE_IMAGE', '')
+        if not re.fullmatch(r'[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}', image):
+            raise ValueError('production requires a tested STARGATE_IMAGE pinned by sha256 digest')
+        if image.endswith('sha256:98ec7f90728b0b0a6271318d755baeb5295a581de29d36f03fa5f0f528d4107b'):
+            raise ValueError('v1.3.5 does not contain the new account and recovery UI; select a tested newer image')
+        values['STARGATE_IMAGE'] = image
         port(values['SMTP_PORT'])
         tls_dir = Path(values['TLS_DIR']).resolve()
         # Validate the configured certificate/key pair before persisting any configuration.

@@ -1,8 +1,8 @@
 # 邮件验证码与验证器完整示例
 
-本示例连接正式发布的 Stargate 1.3.5、Warden 1.6.2、Herald 1.4.4 和
+本示例从当前源码目录构建 Stargate，连接正式发布的 Warden 1.6.2、Herald 1.4.4 和
 herald-totp 2.0.3，使用真实 SMTP 投递、持久 Redis、显式 HMAC key ID 及三条独立服务凭据。
-不构建应用、不提供读取验证码的测试接口。仅需密码演示时，请使用[根目录快速开始](../../README.zhCN.md#-快速开始)。
+不提供读取验证码的测试接口。仅需密码演示时，请使用[根目录快速开始](../../README.zhCN.md#-快速开始)。
 
 ## 本地邮件 OTP
 
@@ -14,7 +14,7 @@ herald-totp 2.0.3，使用真实 SMTP 投递、持久 Redis、显式 HMAC key ID
 cd examples/full-stack
 python3 configure.py --mode mail
 docker compose config --quiet
-docker compose up -d
+docker compose up -d --build
 ```
 
 打开 **http://hello.test.localhost:8088**，输入 `demo@example.test` 并发送邮件验证码，
@@ -22,9 +22,9 @@ docker compose up -d
 确认浏览器返回受保护的演示服务。邮件经过 Herald 的真实 SMTP 提供方，但由本地 Mailpit
 捕获，并非投递到外部邮箱。本例没有配置短信提供方。
 
-认证页为 `http://auth.test.localhost:8088/_login`。登出需要在认证域发起同源
-`POST /_logout`，不能用 GET 链接代替。使用浏览器登出操作或同源表单后，再访问受保护服务，
-确认需要重新认证。验收时不要清空 Redis 或删除卷。
+认证页为 `http://auth.test.localhost:8088/_login`。访问 **http://auth.test.localhost:8088/_account**，点击登出按钮，发起同源
+`POST /_logout`。再访问受保护服务，确认需要重新认证。不要清空 Redis 或删除卷。
+此账号页来自源码构建，不在旧版 v1.3.5 镜像中。
 
 初次生成前可指定其他域名和端口：
 
@@ -44,7 +44,8 @@ python3 configure.py --port 9090 --mailbox-port 9025 \
 先通过邮件 OTP 登录，再访问 `http://auth.test.localhost:8088/totp/enroll`，点击开始绑定，
 扫描二维码或在验证器中手动输入设置密钥，使用动态码确认。离开前妥善保存页面显示的备用码。
 
-登出后测试验证器登录，再测试一个备用码。已使用的备用码在新的登录 challenge 中仍应失败。
+登出后测试验证器登录，再用明确的恢复模式测试一个备用码。已使用的备用码在新的登录
+challenge 中仍应失败。新版恢复表单来自本源码目录，不在旧版 v1.3.5 镜像中。
 没有全局共享 TOTP 密钥；凭据绑定到稳定的 `demo-user-001` 账号 ID。修改邮箱不能顺便创建新 ID。
 
 ## 配置与持久化
@@ -79,7 +80,8 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 1. 在受保护目录准备 `cert.pem`、`key.pem`，将 `tls.yml.example` 复制为 `tls.yml`。
    私钥不得进入 Git。
 2. 在 Shell 环境设置 `SMTP_HOST`、`SMTP_PORT`、`SMTP_FROM`、`SMTP_USER`、`SMTP_PASSWORD`
-   和 `TLS_DIR`。不要在命令行参数或 Shell 历史中写密码。此模板要求认证 SMTP；使用其他
+   、`TLS_DIR` 和 `STARGATE_IMAGE`。`STARGATE_IMAGE` 必须是已验证、包含账号与恢复界面的
+   网关镜像 `@sha256:...` digest，不能只填写标签。不要在命令行参数或 Shell 历史中写密码。此模板要求认证 SMTP；使用其他
    已批准中继认证方式时，应明确调整模板。
 3. 从本示例目录初始化新的输出目录：
 
@@ -93,6 +95,9 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
    docker compose up -d
    ```
 
+生产覆盖文件不构建 Stargate。请从已审查源码单独构建和验证网关镜像，推送到已批准的镜像
+仓库后填写不可变 digest。不要替换为缺少新版账号与恢复界面的旧 v1.3.5 镜像。
+
 生成器在写入前校验证书/私钥配对及必填项，不代表已验证证书域名覆盖、SMTP 可投递性、备份质量或网络策略。
 这些要求须另行验收。生产 `COOKIE_SECURE=true`，代理通过 443 端口提供 TLS。
 打开 `https://app.example.com`，先验证受控邮箱的真实投递，再添加其他账号。
@@ -104,3 +109,13 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 进程健康不等于能登录。依次检查 DNS/端口、TLS 与 Cookie、准确的回调地址、Warden 稳定 ID/来源有效期、
 三条 HMAC key ID 配对、Redis、真实投递。不要通过关闭校验、切换 soft 投递或重置限流来让示例通过。
 参阅[部署指南](../../docs/zhCN/DEPLOYMENT.md)。
+
+## 源码身份与正式版本
+
+本地使用 `docker/Dockerfile` 构建当前源码，必须带 `--build`，更新源码后尤其如此。
+构建前记录 `git rev-parse HEAD` 和 `git status --short`，构建后用 `docker compose images`
+记录镜像 ID。有未提交修改时必须如实记录，不能将源码构建称为正式产物。
+三个后端镜像仍固定到正式版本及不可变 digest。
+
+旧版正式 Stargate v1.3.5 不含新版账号与恢复界面，本地流程使用源码构建。在合适的正式版本
+发布前，生产模板要求提供自行验证的不可变网关镜像。本例不会发布镜像或自动替用户选择新版本。

@@ -1,4 +1,8 @@
 services:
+  stargate:
+    build:
+      context: ${STARGATE_SOURCE_DIR:?run configure.py first}
+      dockerfile: docker/Dockerfile
   traefik:
     command:
       - --providers.file.directory=/etc/traefik/dynamic

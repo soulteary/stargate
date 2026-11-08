@@ -1,9 +1,8 @@
 # Mail OTP and authenticator example
 
-This example connects the published Stargate 1.3.5, Warden 1.6.2, Herald 1.4.4
-and herald-totp 2.0.3 services. It uses actual SMTP delivery, shared persistent
-Redis, explicit HMAC key IDs and three independent service credentials. It does
-not build an application or expose a test-code endpoint. For a password-only
+This example builds Stargate from this checkout and connects the published Warden
+1.6.2, Herald 1.4.4 and herald-totp 2.0.3 services. It uses actual SMTP delivery, shared persistent
+Redis, explicit HMAC key IDs and three independent service credentials. It does not expose a test-code endpoint. For a password-only
 local demo, use the [root quick start](../../README.md#-quick-start).
 
 ## Local mail OTP
@@ -16,7 +15,7 @@ not, add `127.0.0.1 auth.test.localhost hello.test.localhost` to your hosts file
 cd examples/full-stack
 python3 configure.py --mode mail
 docker compose config --quiet
-docker compose up -d
+docker compose up -d --build
 ```
 
 Open **http://hello.test.localhost:8088**. Enter `demo@example.test`, send the
@@ -26,9 +25,10 @@ The email goes through Herald's real SMTP provider. Mailpit captures it locally;
 this is not delivery to an external mailbox. No SMS provider is configured.
 
 Open `http://auth.test.localhost:8088/_login` to inspect the authentication page.
-Logout uses `POST /_logout` on the authentication host; use the browser logout
-control or a same-origin form, not a GET link. Confirm that the protected service
-requires authentication again. Do not clear Redis or remove volumes to test this.
+Visit **http://auth.test.localhost:8088/_account** and use its logout button, which
+submits a same-origin `POST /_logout`. Revisit the protected service and confirm
+it requires authentication again. Do not clear Redis or remove volumes. This
+account page comes from the source build; it is not in the old v1.3.5 image.
 
 For a different port or DNS names, choose them **before** initial configuration:
 
@@ -50,8 +50,10 @@ First log in by email OTP. Then open `http://auth.test.localhost:8088/totp/enrol
 choose Start enrollment, then scan the QR code or enter the setup key in your authenticator, and confirm using
 its dynamic code. Save the displayed backup codes privately before leaving.
 
-Log out and test the authenticator login option, then test one backup code. A
-used backup code must fail with a fresh login challenge. There is no initial
+Log out and test the authenticator login option, then use the explicit recovery
+mode to test one backup code. A used backup code must fail with a fresh login
+challenge. The revised recovery form comes from this source checkout, not the
+old v1.3.5 image. There is no initial
 shared TOTP secret: credentials belong to the stable `demo-user-001` account ID.
 Changing an email address must not silently create a new account ID.
 
@@ -96,7 +98,9 @@ replace Herald/TOTP request authentication.
 1. Place `cert.pem`, `key.pem` and a copy of `tls.yml.example` named `tls.yml` in
    a protected certificate directory. Keep the private key out of Git.
 2. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` and
-   `TLS_DIR` in the shell environment. Do not place a password in command-line
+   `TLS_DIR` and `STARGATE_IMAGE` in the shell environment. `STARGATE_IMAGE` must
+   identify a tested gateway image by `@sha256:...` digest, built from source that
+   contains the account and recovery UI. A repository tag alone is not accepted. Do not place a password in command-line
    arguments or shell history. This template requires authenticated SMTP; adapt
    it explicitly if your approved relay uses another authentication mechanism.
 3. From this directory, initialize a **new** output directory:
@@ -110,6 +114,11 @@ replace Herald/TOTP request authentication.
    docker compose config --quiet
    docker compose up -d
    ```
+
+The production override does not build Stargate. Build and verify your gateway
+image from the reviewed source separately, publish it to your approved registry,
+and set its immutable digest. Do not substitute the old v1.3.5 image, which lacks
+the account and revised recovery UI.
 
 The generator validates the certificate/key pair and required settings before
 writing. It does not prove certificate hostname coverage, SMTP deliverability,
@@ -130,3 +139,17 @@ Check DNS/port, TLS and Cookie transport, exact callback authority, Warden stabl
 ID/source freshness, all three HMAC key-ID pairs, Redis and actual delivery in that
 order. Do not disable verification, switch to soft delivery or reset quotas to
 make the example pass. See [deployment guidance](../../docs/enUS/DEPLOYMENT.md).
+
+## Source identity and published versions
+
+Local setup builds the checked-out Stargate source with `docker/Dockerfile`;
+`--build` is required, especially after pulling updates. Record `git rev-parse HEAD`
+and `git status --short` before building, then record the resulting image ID with
+`docker compose images`. A modified tree must be recorded as modified; never
+claim a source build is a published artifact. The three backend images remain
+pinned to published versions and immutable digests.
+
+The old published Stargate v1.3.5 does not contain the new account/recovery UI.
+Use the source build for this local walkthrough. Production requires your own
+tested immutable gateway image until a suitable formal release is available;
+this example does not publish or silently select one.

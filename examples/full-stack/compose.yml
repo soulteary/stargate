@@ -9,7 +9,7 @@ services:
     networks: [edge]
 
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.5@sha256:98ec7f90728b0b0a6271318d755baeb5295a581de29d36f03fa5f0f528d4107b
+    image: ${STARGATE_IMAGE:?run configure.py and select the tested gateway image}
     environment:
       PORT: '8080'
       AUTH_HOST: ${AUTH_AUTHORITY:?run configure.py first}

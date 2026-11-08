@@ -100,7 +100,8 @@ class ConfigurationTests(unittest.TestCase):
         tls.mkdir()
         (tls / 'tls.yml').write_text('tls: {}')
         env = dict(SMTP_HOST='smtp.example.com', SMTP_PORT='587', SMTP_FROM='sender@example.com',
-                   SMTP_USER='sender', SMTP_PASSWORD="synthetic$quote'password", TLS_DIR=str(tls))
+                   SMTP_USER='sender', SMTP_PASSWORD="synthetic$quote'password", TLS_DIR=str(tls),
+                   STARGATE_IMAGE='registry.example.com/stargate@sha256:' + 'a' * 64)
         args = self.args(environment='production', mode='totp', auth_host='auth.example.com',
                          app_host='app.example.com', email='user@example.com', user_id='stable-001')
         with patch.object(config.ssl, 'SSLContext') as context:
@@ -120,6 +121,7 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(rendered.returncode, 0, 'Production Compose rendering failed')
             services = json.loads(rendered.stdout)['services']
             self.assertNotIn('mailpit', services)
+            self.assertNotIn('build', services['stargate'])
             self.assertEqual(services['stargate']['environment']['COOKIE_SECURE'], 'true')
             self.assertEqual(services['traefik']['ports'][0]['target'], 443)
             self.assertEqual(services['herald']['environment']['SMTP_HOST'], 'smtp.example.com')
@@ -155,6 +157,8 @@ class ConfigurationTests(unittest.TestCase):
             services = rendered['services']
             self.assertTrue(all(service.get('labels', {}).get('traefik.enable') == 'false' for service in services.values()))
             self.assertFalse(any('docker.sock' in str(volume) for service in services.values() for volume in service.get('volumes', [])))
+            self.assertEqual(services['stargate']['image'], 'stargate-example-stargate:local')
+            self.assertEqual(Path(services['stargate']['build']['context']), config.HERE.parents[1])
             gateway = services['stargate']['environment']
             self.assertEqual(gateway['AUTH_HOST'], 'auth.test.localhost:8088')
             self.assertEqual(gateway['CALLBACK_ALLOWED_HOSTS'], 'hello.test.localhost:8088')
