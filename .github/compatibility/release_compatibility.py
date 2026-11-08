@@ -487,15 +487,24 @@ def assert_backup_unchanged(reference, stage):
 def consume_backup(code, challenge, label):
     body = expect(label, request(totp, '/v1/verify', {'subject': 'chain-user-a', 'code': code,
                   'challenge_id': challenge}, key_t), 200)
-    if not body['ok'] or 'backup_code' not in body['amr']:
+    if (body.get('ok') is not True or body.get('subject') != 'chain-user-a'
+            or len(body.get('amr', [])) != 2 or set(body['amr']) != {'totp', 'backup_code'}):
         raise AssertionError('backup verification did not use the backup-code branch')
 
 
 def rejected_backup(code, challenge, label, status, reason):
     body = expect(label, request(totp, '/v1/verify', {'subject': 'chain-user-a', 'code': code,
                   'challenge_id': challenge}, key_t), status)
-    if body['reason'] != reason:
+    if body.get('ok') is not False or body.get('reason') != reason:
         raise AssertionError('wrong backup rejection branch')
+
+
+
+def replay_marker_ttl(challenge):
+    ttl = resp(['PTTL', 'totp:ch_used:' + challenge])
+    if type(ttl) is not int or (ttl < 0 and ttl != -2):
+        raise AssertionError('unexpected persistent or invalid challenge replay marker')
+    return ttl
 
 
 def run(manifest):
@@ -587,13 +596,13 @@ def run(manifest):
         if resp(['EXISTS', 'totp:ch_used:' + fresh_backup_challenge]) != 0:
             raise AssertionError('failed backup reuse claimed a fresh challenge')
         assert_backup_unchanged(retained_backup, stage)
-        marker_ttl = resp(['PTTL', 'totp:ch_used:' + backup_challenge])
+        marker_ttl = replay_marker_ttl(backup_challenge)
         if marker_ttl > 0:
             rejected_backup(spare_backup, backup_challenge, 'same consumed challenge rejects spare backup ' + stage, 400, 'replay')
             assert_backup_unchanged(retained_backup, 'same-challenge rejection ' + stage)
         else:
             events.append({'check': 'same-challenge marker lifetime', 'stage': stage, 'marker_ttl_ms': marker_ttl,
-                           'scope': 'marker expired; durable fresh-challenge used-code rejection still checked'})
+                           'scope': 'marker missing or expiring; durable fresh-challenge used-code rejection still checked'})
         totp_replay = expect('consumed TOTP challenge rejected ' + stage, request(totp, '/v1/verify', totp_proof, key_t), 400)
         if totp_replay['reason'] != 'replay':
             raise AssertionError('wrong TOTP replay branch')

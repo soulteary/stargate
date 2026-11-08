@@ -143,5 +143,26 @@ class ManifestTests(unittest.TestCase):
         self.assertNotIn('private-synthetic-code', str(raised.exception))
 
 
+    def test_backup_response_requires_subject_strength_and_rejection_ok(self):
+        valid = {'ok': True, 'subject': 'chain-user-a', 'amr': ['totp', 'backup_code']}
+        invalid = [dict(valid, subject='another-user'), dict(valid, amr=['backup_code']), dict(valid, ok=False)]
+        for body in invalid:
+            with self.subTest(body=body), mock.patch.object(module, 'request'), mock.patch.object(module, 'expect', return_value=body):
+                with self.assertRaisesRegex(AssertionError, 'backup-code branch'):
+                    module.consume_backup('synthetic', 'challenge', 'verify')
+        with mock.patch.object(module, 'request'), mock.patch.object(module, 'expect', return_value={'ok': True, 'reason': 'invalid'}):
+            with self.assertRaisesRegex(AssertionError, 'rejection branch'):
+                module.rejected_backup('synthetic', 'challenge', 'reject', 401, 'invalid')
+
+    def test_replay_marker_cannot_be_permanent(self):
+        for ttl in (-1, -3):
+            with self.subTest(ttl=ttl), mock.patch.object(module, 'resp', return_value=ttl):
+                with self.assertRaisesRegex(AssertionError, 'persistent or invalid'):
+                    module.replay_marker_ttl('synthetic-challenge')
+        for ttl in (-2, 0, 300000):
+            with self.subTest(ttl=ttl), mock.patch.object(module, 'resp', return_value=ttl):
+                self.assertEqual(module.replay_marker_ttl('synthetic-challenge'), ttl)
+
+
 if __name__ == '__main__':
     unittest.main()
