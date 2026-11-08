@@ -507,6 +507,34 @@ def replay_marker_ttl(challenge):
     return ttl
 
 
+
+def observe_replay_marker(challenge):
+    before = time.monotonic()
+    ttl = replay_marker_ttl(challenge)
+    after = time.monotonic()
+    return ttl, before, after
+
+
+def capture_replay_window(challenge):
+    ttl, before, after = observe_replay_marker(challenge)
+    if ttl <= 0 or ttl > 300000:
+        raise AssertionError('initial backup challenge marker has no positive bounded TTL')
+    # Redis PTTL is rounded to milliseconds. The actual deadline lies within
+    # the request/reply interval, plus at most one millisecond of rounding.
+    return {'earliest_expiry': before + ttl / 1000,
+            'latest_expiry': after + (ttl + 1) / 1000, 'initial_ttl_ms': ttl}
+
+
+def retained_replay_marker(challenge, window):
+    ttl, before, after = observe_replay_marker(challenge)
+    if ttl <= 0:
+        if after < window['earliest_expiry']:
+            raise AssertionError('backup challenge replay marker disappeared before its original expiry')
+    elif before + ttl / 1000 > window['latest_expiry']:
+        raise AssertionError('backup challenge replay marker lifetime extended')
+    return ttl
+
+
 def run(manifest):
     global browser_cookies
     paths = {phase: download_tuple(phase, manifest[phase]) for phase in ('old', 'new') if phase in manifest}
@@ -546,6 +574,8 @@ def run(manifest):
     spare_index = next(i for i, entry in enumerate(before_backup[1]) if entry['code_hash'] == backup_hash(spare_backup))
     backup_challenge = prefix + 'backup-first'
     consume_backup(used_backup, backup_challenge, 'consume initial backup code')
+    backup_window = capture_replay_window(backup_challenge)
+    result['backup_replay_window'] = backup_window
     retained_backup = backup_state('chain-user-a')
     if retained_backup[2]['used_count'] != 1 or retained_backup[1][used_index]['used_at'] <= 0:
         raise AssertionError('initial backup consumption not persisted')
@@ -596,13 +626,13 @@ def run(manifest):
         if resp(['EXISTS', 'totp:ch_used:' + fresh_backup_challenge]) != 0:
             raise AssertionError('failed backup reuse claimed a fresh challenge')
         assert_backup_unchanged(retained_backup, stage)
-        marker_ttl = replay_marker_ttl(backup_challenge)
+        marker_ttl = retained_replay_marker(backup_challenge, backup_window)
         if marker_ttl > 0:
             rejected_backup(spare_backup, backup_challenge, 'same consumed challenge rejects spare backup ' + stage, 400, 'replay')
             assert_backup_unchanged(retained_backup, 'same-challenge rejection ' + stage)
         else:
             events.append({'check': 'same-challenge marker lifetime', 'stage': stage, 'marker_ttl_ms': marker_ttl,
-                           'scope': 'marker missing or expiring; durable fresh-challenge used-code rejection still checked'})
+                           'scope': 'original replay window elapsed; durable fresh-challenge used-code rejection still checked'})
         totp_replay = expect('consumed TOTP challenge rejected ' + stage, request(totp, '/v1/verify', totp_proof, key_t), 400)
         if totp_replay['reason'] != 'replay':
             raise AssertionError('wrong TOTP replay branch')

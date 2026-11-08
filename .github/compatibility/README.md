@@ -33,8 +33,9 @@ Backup checks use the actual persistent Redis array, preserve ordered hashes and
 used timestamps, reject a used code with a fresh challenge, then consume an
 unused code after rollback. Only counts, used timestamps and a whole-record
 fingerprint are recorded; raw backup codes and individual code hashes are not
-written to artifacts. Five-minute challenge replay markers are checked only
-while their actual TTL is positive. The existing normal quota profile remains
+written to artifacts. Five-minute challenge replay markers must exist immediately after consumption.
+Monotonic request/reply deadline bounds detect premature disappearance and
+lifetime extension; same-challenge checks stop only after the original expiry. The existing normal quota profile remains
 unchanged; no counters or cooldowns are cleared. Fresh HMAC
 nonces are accepted before each adjacent transition and re-signed with current
 timestamps afterwards; positive Redis marker TTLs and replay-specific evidence

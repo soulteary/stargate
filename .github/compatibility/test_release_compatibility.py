@@ -164,5 +164,30 @@ class ManifestTests(unittest.TestCase):
                 self.assertEqual(module.replay_marker_ttl('synthetic-challenge'), ttl)
 
 
+    def test_backup_marker_must_exist_immediately_after_consumption(self):
+        for ttl in (-2, 0):
+            with self.subTest(ttl=ttl), mock.patch.object(module, 'resp', return_value=ttl), mock.patch.object(module.time, 'monotonic', side_effect=[100, 100.01]):
+                with self.assertRaisesRegex(AssertionError, 'initial backup challenge marker'):
+                    module.capture_replay_window('challenge')
+        with mock.patch.object(module, 'resp', return_value=300000), mock.patch.object(module.time, 'monotonic', side_effect=[100, 100.01]):
+            window = module.capture_replay_window('challenge')
+        self.assertEqual(window['earliest_expiry'], 400)
+        self.assertAlmostEqual(window['latest_expiry'], 400.011)
+
+    def test_backup_marker_disappearance_and_extension_are_rejected(self):
+        window = {'earliest_expiry': 400, 'latest_expiry': 400.011, 'initial_ttl_ms': 300000}
+        for ttl in (-2, 0):
+            with self.subTest(ttl=ttl), mock.patch.object(module, 'resp', return_value=ttl), mock.patch.object(module.time, 'monotonic', side_effect=[200, 200.01]):
+                with self.assertRaisesRegex(AssertionError, 'disappeared'):
+                    module.retained_replay_marker('challenge', window)
+        with mock.patch.object(module, 'resp', return_value=250000), mock.patch.object(module.time, 'monotonic', side_effect=[200, 200.01]):
+            with self.assertRaisesRegex(AssertionError, 'extended'):
+                module.retained_replay_marker('challenge', window)
+        with mock.patch.object(module, 'resp', return_value=200000), mock.patch.object(module.time, 'monotonic', side_effect=[200, 200.01]):
+            self.assertEqual(module.retained_replay_marker('challenge', window), 200000)
+        with mock.patch.object(module, 'resp', return_value=-2), mock.patch.object(module.time, 'monotonic', side_effect=[401, 401.01]):
+            self.assertEqual(module.retained_replay_marker('challenge', window), -2)
+
+
 if __name__ == '__main__':
     unittest.main()
