@@ -136,7 +136,7 @@ def download_tuple(phase, entries):
                 raise ValueError('binary source metadata mismatch')
         if service == 'totp' and ('Version=' + entry['version'] not in info or 'Commit=' + entry['source'] not in info):
             raise ValueError('TOTP embedded version/source mismatch')
-        # Historical Herald binaries omit VCS/version build metadata. Their source
+        # Verified Herald 1.4.3 and 1.4.4 binaries omit VCS/version build metadata. Their source
         # binding is the pinned, separately verified asset hash plus formal tag.
         (directory / 'buildinfo.txt').write_text(info)
         (directory / 'checksums.txt').write_text(checksums)
@@ -260,7 +260,7 @@ def otp(secret):
 
 def expect(label, response, status):
     if response[0] != status:
-        raise AssertionError(f'{label}: HTTP {response[0]} expected {status}; {response[1]}')
+        raise AssertionError(f'{label}: HTTP {response[0]} expected {status}')
     events.append({'check': label, 'status': status})
     save()
     return response[1]
@@ -451,6 +451,90 @@ def rotation_login(subject):
         login(subject, challenge, code)
 
 
+
+def backup_hash(code):
+    return hashlib.sha256(code.strip().replace('-', '').upper().encode()).hexdigest()
+
+
+def backup_state(subject):
+    key = 'totp:backup:' + subject
+    raw = resp(['GET', key])
+    if not isinstance(raw, str):
+        raise AssertionError('backup state absent')
+    entries = json.loads(raw)
+    if not isinstance(entries, list) or len(entries) != 10:
+        raise AssertionError('unexpected backup entry count')
+    for entry in entries:
+        if (set(entry) != {'code_hash', 'used_at'} or re.fullmatch(r'[0-9a-f]{64}', entry['code_hash']) is None
+                or type(entry['used_at']) is not int or entry['used_at'] < 0):
+            raise AssertionError('invalid backup record')
+    ttl = resp(['PTTL', key])
+    if ttl != -1:
+        raise AssertionError('backup record must retain its persistent lifetime')
+    summary = {'entry_count': len(entries), 'used_count': sum(e['used_at'] > 0 for e in entries),
+               'used_at_by_index': [e['used_at'] for e in entries], 'record_sha256': hashlib.sha256(raw.encode()).hexdigest(),
+               'key_ttl_ms': ttl}
+    return raw, entries, summary
+
+
+def assert_backup_unchanged(reference, stage):
+    current = backup_state('chain-user-a')
+    if current[0] != reference[0]:
+        raise AssertionError('backup state mutated during ' + stage)
+    events.append({'check': 'backup state preserved', 'stage': stage, **current[2]})
+
+
+def consume_backup(code, challenge, label):
+    body = expect(label, request(totp, '/v1/verify', {'subject': 'chain-user-a', 'code': code,
+                  'challenge_id': challenge}, key_t), 200)
+    if (body.get('ok') is not True or body.get('subject') != 'chain-user-a'
+            or len(body.get('amr', [])) != 2 or set(body['amr']) != {'totp', 'backup_code'}):
+        raise AssertionError('backup verification did not use the backup-code branch')
+
+
+def rejected_backup(code, challenge, label, status, reason):
+    body = expect(label, request(totp, '/v1/verify', {'subject': 'chain-user-a', 'code': code,
+                  'challenge_id': challenge}, key_t), status)
+    if body.get('ok') is not False or body.get('reason') != reason:
+        raise AssertionError('wrong backup rejection branch')
+
+
+
+def replay_marker_ttl(challenge):
+    ttl = resp(['PTTL', 'totp:ch_used:' + challenge])
+    if type(ttl) is not int or (ttl < 0 and ttl != -2):
+        raise AssertionError('unexpected persistent or invalid challenge replay marker')
+    return ttl
+
+
+
+def observe_replay_marker(challenge):
+    before = time.monotonic()
+    ttl = replay_marker_ttl(challenge)
+    after = time.monotonic()
+    return ttl, before, after
+
+
+def capture_replay_window(challenge):
+    ttl, before, after = observe_replay_marker(challenge)
+    if ttl <= 0 or ttl > 300000:
+        raise AssertionError('initial backup challenge marker has no positive bounded TTL')
+    # Redis PTTL is rounded to milliseconds. The actual deadline lies within
+    # the request/reply interval, plus at most one millisecond of rounding.
+    return {'earliest_expiry': before + ttl / 1000,
+            'latest_expiry': after + (ttl + 1) / 1000, 'initial_ttl_ms': ttl}
+
+
+def retained_replay_marker(challenge, window):
+    ttl, before, after = observe_replay_marker(challenge)
+    if ttl <= 0:
+        if after < window['earliest_expiry']:
+            raise AssertionError('backup challenge replay marker disappeared before its original expiry')
+    elif before + ttl / 1000 > window['latest_expiry']:
+        raise AssertionError('backup challenge replay marker lifetime extended')
+    return ttl
+
+
 def run(manifest):
     global browser_cookies
     paths = {phase: download_tuple(phase, manifest[phase]) for phase in ('old', 'new') if phase in manifest}
@@ -479,6 +563,28 @@ def run(manifest):
                        {'enroll_id': enrollment['enroll_id'], 'code': otp(secret)}, key_h), 200)
     if not confirmed['totp_enabled']:
         raise AssertionError('credential not enabled')
+    codes = confirmed['backup_codes']
+    if len(codes) != 10 or not all(isinstance(code, str) for code in codes):
+        raise AssertionError('enrollment backup codes missing')
+    used_backup, spare_backup = codes[:2]
+    before_backup = backup_state('chain-user-a')
+    if before_backup[2]['used_count'] != 0:
+        raise AssertionError('new enrollment already contains consumed backups')
+    used_index = next(i for i, entry in enumerate(before_backup[1]) if entry['code_hash'] == backup_hash(used_backup))
+    spare_index = next(i for i, entry in enumerate(before_backup[1]) if entry['code_hash'] == backup_hash(spare_backup))
+    backup_challenge = prefix + 'backup-first'
+    consume_backup(used_backup, backup_challenge, 'consume initial backup code')
+    backup_window = capture_replay_window(backup_challenge)
+    result['backup_replay_window'] = backup_window
+    retained_backup = backup_state('chain-user-a')
+    if retained_backup[2]['used_count'] != 1 or retained_backup[1][used_index]['used_at'] <= 0:
+        raise AssertionError('initial backup consumption not persisted')
+    expected = [dict(entry) for entry in before_backup[1]]
+    expected[used_index]['used_at'] = retained_backup[1][used_index]['used_at']
+    if retained_backup[1] != expected:
+        raise AssertionError('initial backup consumption changed unrelated entries')
+    result['backup_state_before_rollout'] = retained_backup[2]
+    result['backup_quota_profile'] = {'subject_limit': 100, 'IP_limit': 1000, 'state_reset': False}
     # Enrollment confirmation consumes its TOTP counter. Use a fresh next-step
     # code to seed an explicit challenge replay marker that survives each stage.
     step = int(time.time()) // 30
@@ -515,6 +621,18 @@ def run(manifest):
         status = expect('TOTP credential survives ' + stage, request(herald, '/v1/totp/status?subject=chain-user-a', key=key_h), 200)
         if not status['totp_enabled']:
             raise AssertionError('credential lost')
+        fresh_backup_challenge = prefix + 'backup-reuse-' + stage.replace(' ', '-')
+        rejected_backup(used_backup, fresh_backup_challenge, 'used backup with fresh challenge ' + stage, 401, 'invalid')
+        if resp(['EXISTS', 'totp:ch_used:' + fresh_backup_challenge]) != 0:
+            raise AssertionError('failed backup reuse claimed a fresh challenge')
+        assert_backup_unchanged(retained_backup, stage)
+        marker_ttl = retained_replay_marker(backup_challenge, backup_window)
+        if marker_ttl > 0:
+            rejected_backup(spare_backup, backup_challenge, 'same consumed challenge rejects spare backup ' + stage, 400, 'replay')
+            assert_backup_unchanged(retained_backup, 'same-challenge rejection ' + stage)
+        else:
+            events.append({'check': 'same-challenge marker lifetime', 'stage': stage, 'marker_ttl_ms': marker_ttl,
+                           'scope': 'original replay window elapsed; durable fresh-challenge used-code rejection still checked'})
         totp_replay = expect('consumed TOTP challenge rejected ' + stage, request(totp, '/v1/verify', totp_proof, key_t), 400)
         if totp_replay['reason'] != 'replay':
             raise AssertionError('wrong TOTP replay branch')
@@ -529,6 +647,17 @@ def run(manifest):
             rotate_credentials(paths['new'], templates['new'], env, snapshot, 'new formal tuple')
     if manifest['mode'] == 'baseline':
         rotate_credentials(paths['old'], templates['old'], env, snapshot, 'old formal baseline tuple')
+    assert_backup_unchanged(retained_backup, 'completed rollback and key configuration phases')
+    consume_backup(spare_backup, prefix + 'backup-after-rollback', 'consume retained spare backup after rollback')
+    after_backup = backup_state('chain-user-a')
+    expected = [dict(entry) for entry in retained_backup[1]]
+    expected[spare_index]['used_at'] = after_backup[1][spare_index]['used_at']
+    if (after_backup[1] != expected or after_backup[2]['used_count'] != 2
+            or after_backup[1][spare_index]['used_at'] <= 0):
+        raise AssertionError('spare backup consumption changed unrelated state')
+    rejected_backup(spare_backup, prefix + 'backup-after-rollback-reuse', 'retained spare remains single-use', 401, 'invalid')
+    assert_backup_unchanged(after_backup, 'post-rollback spare reuse')
+    result['backup_state_after_rollback'] = after_backup[2]
     login('chain-b@example.test', pending_id, pending_code)
     if resp(['EXISTS', binding_key], 1) != 0:
         raise AssertionError('consumed binding not removed')

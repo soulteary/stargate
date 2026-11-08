@@ -111,5 +111,83 @@ class ManifestTests(unittest.TestCase):
             login.assert_called_once_with(module.ROTATION_SUBJECTS[0], 'challenge', '123456')
 
 
+    def test_backup_summary_redacts_codes_and_individual_hashes(self):
+        entries = [{'code_hash': format(i, '064x'), 'used_at': 123 if i == 0 else 0} for i in range(10)]
+        raw = json.dumps(entries)
+        with mock.patch.object(module, 'resp', side_effect=[raw, -1]) as redis:
+            stored, private_entries, summary = module.backup_state('synthetic-user')
+        self.assertEqual(stored, raw)
+        self.assertEqual(private_entries, entries)
+        self.assertEqual(summary['used_count'], 1)
+        self.assertEqual(summary['entry_count'], 10)
+        self.assertEqual(summary['key_ttl_ms'], -1)
+        self.assertNotIn('code_hash', json.dumps(summary))
+        self.assertNotIn(entries[1]['code_hash'], json.dumps(summary))
+        self.assertEqual(redis.call_args_list, [mock.call(['GET', 'totp:backup:synthetic-user']), mock.call(['PTTL', 'totp:backup:synthetic-user'])])
+
+    def test_backup_state_mutation_and_unexpected_expiry_fail_closed(self):
+        entries = [{'code_hash': format(i, '064x'), 'used_at': 0} for i in range(10)]
+        with mock.patch.object(module, 'resp', side_effect=[json.dumps(entries), 30000]):
+            with self.assertRaisesRegex(AssertionError, 'persistent lifetime'):
+                module.backup_state('synthetic-user')
+        with mock.patch.object(module, 'backup_state', return_value=('changed', entries, {})):
+            with self.assertRaisesRegex(AssertionError, 'mutated'):
+                module.assert_backup_unchanged(('original', entries, {}), 'upgrade')
+
+    def test_backup_hash_matches_case_and_separator_normalization(self):
+        self.assertEqual(module.backup_hash(' abcd-efgh '), module.backup_hash('ABCDEFGH'))
+
+    def test_unexpected_response_does_not_write_raw_backup_codes_to_error(self):
+        with self.assertRaises(AssertionError) as raised:
+            module.expect('enrollment', (201, {'backup_codes': ['private-synthetic-code']}, {}), 200)
+        self.assertNotIn('private-synthetic-code', str(raised.exception))
+
+
+    def test_backup_response_requires_subject_strength_and_rejection_ok(self):
+        valid = {'ok': True, 'subject': 'chain-user-a', 'amr': ['totp', 'backup_code']}
+        invalid = [dict(valid, subject='another-user'), dict(valid, amr=['backup_code']), dict(valid, ok=False)]
+        for body in invalid:
+            with self.subTest(body=body), mock.patch.object(module, 'request'), mock.patch.object(module, 'expect', return_value=body):
+                with self.assertRaisesRegex(AssertionError, 'backup-code branch'):
+                    module.consume_backup('synthetic', 'challenge', 'verify')
+        with mock.patch.object(module, 'request'), mock.patch.object(module, 'expect', return_value={'ok': True, 'reason': 'invalid'}):
+            with self.assertRaisesRegex(AssertionError, 'rejection branch'):
+                module.rejected_backup('synthetic', 'challenge', 'reject', 401, 'invalid')
+
+    def test_replay_marker_cannot_be_permanent(self):
+        for ttl in (-1, -3):
+            with self.subTest(ttl=ttl), mock.patch.object(module, 'resp', return_value=ttl):
+                with self.assertRaisesRegex(AssertionError, 'persistent or invalid'):
+                    module.replay_marker_ttl('synthetic-challenge')
+        for ttl in (-2, 0, 300000):
+            with self.subTest(ttl=ttl), mock.patch.object(module, 'resp', return_value=ttl):
+                self.assertEqual(module.replay_marker_ttl('synthetic-challenge'), ttl)
+
+
+    def test_backup_marker_must_exist_immediately_after_consumption(self):
+        for ttl in (-2, 0):
+            with self.subTest(ttl=ttl), mock.patch.object(module, 'resp', return_value=ttl), mock.patch.object(module.time, 'monotonic', side_effect=[100, 100.01]):
+                with self.assertRaisesRegex(AssertionError, 'initial backup challenge marker'):
+                    module.capture_replay_window('challenge')
+        with mock.patch.object(module, 'resp', return_value=300000), mock.patch.object(module.time, 'monotonic', side_effect=[100, 100.01]):
+            window = module.capture_replay_window('challenge')
+        self.assertEqual(window['earliest_expiry'], 400)
+        self.assertAlmostEqual(window['latest_expiry'], 400.011)
+
+    def test_backup_marker_disappearance_and_extension_are_rejected(self):
+        window = {'earliest_expiry': 400, 'latest_expiry': 400.011, 'initial_ttl_ms': 300000}
+        for ttl in (-2, 0):
+            with self.subTest(ttl=ttl), mock.patch.object(module, 'resp', return_value=ttl), mock.patch.object(module.time, 'monotonic', side_effect=[200, 200.01]):
+                with self.assertRaisesRegex(AssertionError, 'disappeared'):
+                    module.retained_replay_marker('challenge', window)
+        with mock.patch.object(module, 'resp', return_value=250000), mock.patch.object(module.time, 'monotonic', side_effect=[200, 200.01]):
+            with self.assertRaisesRegex(AssertionError, 'extended'):
+                module.retained_replay_marker('challenge', window)
+        with mock.patch.object(module, 'resp', return_value=200000), mock.patch.object(module.time, 'monotonic', side_effect=[200, 200.01]):
+            self.assertEqual(module.retained_replay_marker('challenge', window), 200000)
+        with mock.patch.object(module, 'resp', return_value=-2), mock.patch.object(module.time, 'monotonic', side_effect=[401, 401.01]):
+            self.assertEqual(module.retained_replay_marker('challenge', window), -2)
+
+
 if __name__ == '__main__':
     unittest.main()
