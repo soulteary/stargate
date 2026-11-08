@@ -189,5 +189,23 @@ class ManifestTests(unittest.TestCase):
             self.assertEqual(module.retained_replay_marker('challenge', window), -2)
 
 
+    def test_dependency_identity_text_is_not_binary_identity(self):
+        source = 'a' * 40
+        info = '\tdep\tgithub.com/go-logr/logr\tv1.4.4\th1:synthetic\n'
+        info += '\tbuild\t-ldflags=' + json.dumps('-X example.test/other.Version=1.4.4 -X example.test/other.Commit=' + source)
+        self.assertEqual(module.embedded_identity(info, 'herald', '1.4.4', source),
+                         {'embedded_version_present': False, 'embedded_source_present': False})
+
+    def test_main_module_and_explicit_version_flags_are_recognized(self):
+        source = 'a' * 40
+        info = '\tmod\tgithub.com/soulteary/stargate\tv1.3.4\t\n\tbuild\tvcs.revision=' + source
+        self.assertEqual(module.embedded_identity(info, 'gateway', '1.3.4', source),
+                         {'embedded_version_present': True, 'embedded_source_present': True})
+        self.assertFalse(module.embedded_identity(info, 'gateway', '1.3.40', source)['embedded_version_present'])
+        flags = "-s -w -X 'github.com/soulteary/version-kit/v4.Version=2.0.3' -X=github.com/soulteary/version-kit/v4.Commit=" + source
+        self.assertEqual(module.embedded_identity('\tbuild\t-ldflags=' + json.dumps(flags), 'totp', '2.0.3', source),
+                         {'embedded_version_present': True, 'embedded_source_present': True})
+
+
 if __name__ == '__main__':
     unittest.main()
