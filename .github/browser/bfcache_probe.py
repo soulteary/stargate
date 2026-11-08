@@ -42,6 +42,19 @@ def safe_experiment_failure(error):
         result['reason'] = 'json_decode_failed'
     elif 'Network.getResponseBody' in str(error):
         result['reason'] = 'cdp_response_body_read_failed'
+    else:
+        # Fixed browser error codes only; never preserve the message or URL.
+        codes = ('ERR_CONNECTION_REFUSED', 'ERR_CONNECTION_RESET', 'ERR_CONNECTION_CLOSED',
+                 'ERR_NAME_NOT_RESOLVED', 'ERR_CERT_AUTHORITY_INVALID', 'ERR_CERT_COMMON_NAME_INVALID',
+                 'ERR_CERT_DATE_INVALID', 'ERR_ABORTED', 'ERR_EMPTY_RESPONSE', 'ERR_CACHE_MISS',
+                 'ERR_TOO_MANY_REDIRECTS', 'ERR_HTTP_RESPONSE_CODE_FAILURE')
+        matched = [code for code in codes if 'net::'+code in str(error)]
+        if matched:
+            result['browser_error_codes'] = matched
+        if 'interrupted by another navigation' in str(error):
+            result['navigation_interrupted'] = True
+        if 'Target page, context or browser has been closed' in str(error):
+            result['target_closed'] = True
     return result
 
 
@@ -168,8 +181,13 @@ def browser_scenario(ca, home):
         cdp.send('Page.enable')
         cdp.on('Page.backForwardCacheNotUsed', lambda event: events.append(event))
         fixture.stage('get-login-bfcache-calibration')
+        fixture.stage('navigate-protected-app-to-login')
         response = page.goto(fixture.APP)
+        fixture.RESULT['initial_navigation'] = {'status':response.status if response else None, 'landing':classify_back_landing(page.url)}
+        fixture.save()
+        fixture.stage('wait-actual-login-form')
         page.locator('#loginForm').wait_for()
+        fixture.stage('inspect-actual-login-entry')
         callbacks = page.locator('input[name="callback"]').evaluate_all('els => els.map(el => el.value).filter(Boolean)')
         fixture.check('Actual app entry retains approved callback', approved_login_entry(page.url, callbacks))
         fixture.check('Actual GET login keeps no-store', response.status == 200 and 'no-store' in response.headers.get('cache-control','') and response.request.method == 'GET')

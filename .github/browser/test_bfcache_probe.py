@@ -58,3 +58,24 @@ class BackLanding(unittest.TestCase):
         self.assertEqual(classify_back_landing(fixture.AUTH+'/_login?opaque=synthetic'), 'auth_login')
         for value in ('https://attacker.invalid/', fixture.APP+'/other', fixture.APP.replace(':19443',':19444'), fixture.AUTH+'/_account', fixture.APP.replace('https:','http:')):
             self.assertEqual(classify_back_landing(value), 'other')
+
+
+class NavigationDiagnostics(unittest.TestCase):
+    def test_only_fixed_browser_code_is_retained(self):
+        secret = 'https://private.invalid/?token=secret'
+        result = safe_experiment_failure(RuntimeError('page.goto: net::ERR_CONNECTION_RESET at '+secret))
+        self.assertEqual(result['browser_error_codes'], ['ERR_CONNECTION_RESET'])
+        self.assertNotIn(secret, json.dumps(result))
+        self.assertNotIn('browser_error_codes', safe_experiment_failure(RuntimeError('net::SECRET_VALUE '+secret)))
+
+    def test_navigation_categories_do_not_echo_urls(self):
+        secret = 'https://private.invalid/?token=secret'
+        for message, field in (('interrupted by another navigation to '+secret, 'navigation_interrupted'),
+                               ('Target page, context or browser has been closed '+secret, 'target_closed')):
+            result = safe_experiment_failure(RuntimeError(message))
+            self.assertIs(result[field], True)
+            self.assertNotIn(secret, json.dumps(result))
+        for code in ('ERR_TOO_MANY_REDIRECTS', 'ERR_HTTP_RESPONSE_CODE_FAILURE'):
+            result = safe_experiment_failure(RuntimeError('net::'+code+' '+secret))
+            self.assertEqual(result['browser_error_codes'], [code])
+            self.assertNotIn(secret, json.dumps(result))
