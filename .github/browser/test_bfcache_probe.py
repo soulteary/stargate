@@ -1,0 +1,94 @@
+import json
+import unittest
+from bfcache_probe import genuine_restore, safe_reasons, approved_login_entry, accepted_login, exact_cdp_body_limit, safe_experiment_failure, classify_back_landing
+import production_tls as fixture
+
+
+class BFCacheProof(unittest.TestCase):
+    def test_reload_and_request_cannot_be_called_restoration(self):
+        self.assertTrue(genuine_restore(True, True, 0))
+        for values in ((False, True, 0), (True, False, 0), (True, True, 1), (True, True, False), (1, True, 0)):
+            self.assertFalse(genuine_restore(*values))
+
+    def test_only_reason_enum_codes_survive(self):
+        secret = 'private@example.test?token=secret'
+        events = [{'url': secret, 'notRestoredExplanations': [
+            {'reason':'CacheControlNoStoreCookieModified', 'context':secret},
+            {'reason':'HTTPMethodNotGET'}, {'reason':secret}]}]
+        result = safe_reasons(events)
+        self.assertEqual(result, {'codes':['CacheControlNoStoreCookieModified','HTTPMethodNotGET'], 'unknown_count':1})
+        self.assertNotIn(secret, json.dumps(result))
+
+
+class AppEntry(unittest.TestCase):
+    def test_entry_requires_real_auth_origin_and_exact_callback(self):
+        self.assertTrue(approved_login_entry(fixture.AUTH+'/_login?state=synthetic', [fixture.APP]))
+        for origin, callbacks in ((fixture.AUTH+'/_login', []), (fixture.APP+'/_login', [fixture.APP]),
+                                  (fixture.AUTH+'/_login', ['https://attacker.invalid']),
+                                  (fixture.AUTH.replace('https:', 'http:')+'/_login', [fixture.APP])):
+            self.assertFalse(approved_login_entry(origin, callbacks))
+
+    def test_login_requires_exact_status_and_boolean_success(self):
+        self.assertTrue(accepted_login(200, {'success':True}))
+        for status, body in ((201, {'success':True}), (401, {'success':True}), (200, {'success':1}),
+                             (200, {}), (200, ['success'])):
+            self.assertFalse(accepted_login(status, body))
+
+
+class BodyObservation(unittest.TestCase):
+    def test_only_precise_playwright_resource_limit_has_fallback(self):
+        class PlaywrightError(Exception):
+            pass
+        marker = 'Protocol error (Network.getResponseBody): No resource with given identifier found'
+        self.assertTrue(exact_cdp_body_limit(PlaywrightError(marker), PlaywrightError))
+        self.assertTrue(exact_cdp_body_limit(PlaywrightError('Network.getResponseBody: No data found for resource with given identifier'), PlaywrightError))
+        for error in (Exception(marker), PlaywrightError('JSON parse failed'), PlaywrightError('Network.getResponseBody: access denied')):
+            self.assertFalse(exact_cdp_body_limit(error, PlaywrightError))
+
+    def test_failure_type_and_category_do_not_echo_values(self):
+        secret = 'private@example.test-secret-code'
+        result = safe_experiment_failure(RuntimeError(secret))
+        self.assertEqual(result['exception_type'], 'RuntimeError')
+        self.assertNotIn(secret, json.dumps(result))
+
+
+class BackLanding(unittest.TestCase):
+    def test_only_exact_approved_product_origins_and_paths(self):
+        self.assertEqual(classify_back_landing(fixture.APP+'/'), 'approved_app')
+        self.assertEqual(classify_back_landing(fixture.AUTH+'/_login?opaque=synthetic'), 'auth_login')
+        for value in ('https://attacker.invalid/', fixture.APP+'/other', fixture.APP.replace(':19443',':19444'), fixture.AUTH+'/_account', fixture.APP.replace('https:','http:')):
+            self.assertEqual(classify_back_landing(value), 'other')
+
+
+class NavigationDiagnostics(unittest.TestCase):
+    def test_only_fixed_browser_code_is_retained(self):
+        secret = 'https://private.invalid/?token=secret'
+        result = safe_experiment_failure(RuntimeError('page.goto: net::ERR_CONNECTION_RESET at '+secret))
+        self.assertEqual(result['browser_error_codes'], ['ERR_CONNECTION_RESET'])
+        self.assertNotIn(secret, json.dumps(result))
+        self.assertNotIn('browser_error_codes', safe_experiment_failure(RuntimeError('net::SECRET_VALUE '+secret)))
+
+    def test_navigation_categories_do_not_echo_urls(self):
+        secret = 'https://private.invalid/?token=secret'
+        for message, field in (('interrupted by another navigation to '+secret, 'navigation_interrupted'),
+                               ('Target page, context or browser has been closed '+secret, 'target_closed')):
+            result = safe_experiment_failure(RuntimeError(message))
+            self.assertIs(result[field], True)
+            self.assertNotIn(secret, json.dumps(result))
+        for code in ('ERR_TOO_MANY_REDIRECTS', 'ERR_HTTP_RESPONSE_CODE_FAILURE'):
+            result = safe_experiment_failure(RuntimeError('net::'+code+' '+secret))
+            self.assertEqual(result['browser_error_codes'], [code])
+            self.assertNotIn(secret, json.dumps(result))
+
+
+class AccountPrivacyExclusion(unittest.TestCase):
+    def test_exact_cookie_exclusion_and_real_restore_only(self):
+        from bfcache_probe import accepted_account_observation
+        self.assertTrue(accepted_account_observation({'status':'restored','same_document':True,'trusted_pageshow_persisted':True,'new_main_requests':0}))
+        result = {'status':'not_restored','not_restored':{'codes':['CacheControlNoStoreHTTPOnlyCookieModified'],'unknown_count':0}}
+        self.assertTrue(accepted_account_observation(result))
+        for reasons in ({'codes':[],'unknown_count':0}, {'codes':['Timeout'],'unknown_count':0},
+                        {'codes':['CacheControlNoStoreHTTPOnlyCookieModified'],'unknown_count':1},
+                        {'codes':['CacheControlNoStoreHTTPOnlyCookieModified','Timeout'],'unknown_count':0}):
+            self.assertFalse(accepted_account_observation({'status':'not_restored','not_restored':reasons}))
+        self.assertFalse(accepted_account_observation({'status':'restored','same_document':False,'trusted_pageshow_persisted':True,'new_main_requests':0}))

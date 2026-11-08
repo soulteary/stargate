@@ -139,3 +139,57 @@ jobs:
           name: production-tls-${{ github.run_id }}-${{ github.run_attempt }}
           path: production-tls-results.json
           if-no-files-found: error
+
+  bfcache:
+    needs: production_tls
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Validate immutable inputs and pure contracts
+        run: |
+          python3 .github/browser/validate_inputs.py
+          python3 -m unittest discover -s .github/browser -p 'test_*.py'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.FULLSTACK_REF }}
+          path: fullstack
+          persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.GATEWAY_REF }}
+          path: gateway
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Install verified-browser test prerequisites
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libnss3-tools
+          python3 -m pip install playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+      - name: Run controlled BFCache browser scenario
+        run: |
+          set +e
+          python3 .github/browser/bfcache_probe.py
+          result=$?
+          python3 - "$result" <<'PYTHON'
+          import json, pathlib, sys
+          path = pathlib.Path("bfcache-results.json")
+          data = json.loads(path.read_text())
+          data["process_exit_code"] = int(sys.argv[1])
+          if int(sys.argv[1]) != 0:
+              data["status"] = "failed"
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          PYTHON
+          exit "$result"
+      - name: Upload redacted BFCache observation only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: bfcache-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bfcache-results.json
+          if-no-files-found: error
