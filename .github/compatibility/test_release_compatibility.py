@@ -86,5 +86,30 @@ class ManifestTests(unittest.TestCase):
         self.assertEqual(env['HERALD_HMAC_SECRET'], 'synthetic')
 
 
+    def test_rotation_recipients_are_distinct_and_present_in_directory(self):
+        self.assertEqual(len(set(module.ROTATION_SUBJECTS)), 2)
+        self.assertTrue(set(module.ROTATION_SUBJECTS).isdisjoint({'chain-a@example.test', 'chain-b@example.test'}))
+        directory = {user['mail']: user for user in module.directory_users()}
+        for subject in module.ROTATION_SUBJECTS:
+            self.assertEqual(directory[subject]['status'], 'active')
+
+    def test_rotation_login_preserves_pending_browser_even_on_failure(self):
+        pending = {'stargate_session_id': 'pending-browser', 'stargate_callback': 'pending-target'}
+        def fake_send(subject):
+            self.assertEqual(module.browser_cookies, {})
+            module.browser_cookies['temporary'] = 'synthetic'
+            return 'challenge', '123456'
+        def fake_login(subject, challenge, code):
+            module.browser_cookies['stargate_session_id'] = 'rotation-session'
+            raise RuntimeError('upstream failure')
+        with mock.patch.object(module, 'browser_cookies', pending), mock.patch.object(module, 'send', side_effect=fake_send) as send, mock.patch.object(module, 'login', side_effect=fake_login) as login:
+            with self.assertRaisesRegex(RuntimeError, 'upstream failure'):
+                module.rotation_login(module.ROTATION_SUBJECTS[0])
+            self.assertIs(module.browser_cookies, pending)
+            self.assertEqual(pending, {'stargate_session_id': 'pending-browser', 'stargate_callback': 'pending-target'})
+            send.assert_called_once_with(module.ROTATION_SUBJECTS[0])
+            login.assert_called_once_with(module.ROTATION_SUBJECTS[0], 'challenge', '123456')
+
+
 if __name__ == '__main__':
     unittest.main()
