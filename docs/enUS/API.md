@@ -308,6 +308,8 @@ The handler also accepts `phone` + `mail` in the same verification-code request.
 }
 ```
 
+On a rate-limited send, a validated upstream retry interval is returned as optional integer `next_resend_in` (1–86400 seconds) and `Retry-After`. If the upstream omits timing or sends invalid/conflicting metadata, both are absent: clients must treat the wait as unknown, without inventing a countdown or automatically retrying the send.
+
 **Failure Response**
 
 | Status Code | Description | Response Body |
