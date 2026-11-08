@@ -4,6 +4,13 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Fixed
+
+- Refresh directory authorization only when session authentication is selected.
+  An unavailable or deleted identity in an existing cookie no longer blocks
+  valid password-header or trusted-header authentication. Session fallback and
+  session-bound step-up verification retain their existing checks.
+
 ## [1.3.4] - 2026-11-08
 
 ### Dependencies

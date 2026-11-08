@@ -130,18 +130,6 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		}
 		defer sess.Release()
 		refreshed := false
-		if auth.IsAuthenticated(sess) {
-			refreshed, err = refreshAuthorizationIfNeeded(spanCtx, sess)
-			if err != nil {
-				if errors.Is(err, errAuthorizationUnavailable) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
-				}
-				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
-			}
-		}
-		if requiresStepUp(ctx, sess) {
-			return redirectToStepUp(ctx)
-		}
 
 		// Wrap Fiber context and session for forwardauth-kit
 		faCtx := fafiber.NewContext(ctx)
@@ -161,6 +149,24 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		} else {
 			result, err = handler.Check(faCtx, faSess)
 		}
+		// A cookie cannot override an explicit authentication method. Refresh
+		// directory authorization only after the session checker is selected.
+		if err == nil && result.AuthMethod == forwardauth.AuthMethodSession {
+			refreshed, err = refreshAuthorizationIfNeeded(spanCtx, sess)
+			if err != nil {
+				if errors.Is(err, errAuthorizationUnavailable) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+					return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
+				}
+				return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
+			}
+			if requiresStepUp(ctx, sess) {
+				return redirectToStepUp(ctx)
+			}
+			if refreshed {
+				// Rebuild the result from refreshed claims before publishing headers.
+				result, err = handler.Check(faCtx, faSess)
+			}
+		}
 		if refreshed {
 			if saveErr := sess.Save(); saveErr != nil {
 				tracing.RecordError(forwardAuthSpan, saveErr)
@@ -173,7 +179,7 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		}
 
 		// Header and password authentication are stateless. They are evaluated by
-		// forwardauth-kit after the session-only check above, so enforce the path
+		// the selected checker above, so enforce the path
 		// policy again after a successful authentication result. A protected path
 		// requires a session because that is where the recent verification marker
 		// is stored.
