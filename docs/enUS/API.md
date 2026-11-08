@@ -533,17 +533,17 @@ Error messages support internationalization, returning Chinese or English messag
 
 ### ForwardAuth Authentication Flow (Main Path)
 
-**Key Principle: forwardAuth main path only verifies session, does not call Warden/Herald**
+**ForwardAuth checks the configured authentication method. Warden authorization refresh and trusted identity lookup can call Warden; it does not verify OTP codes through Herald on this path.**
 
 1. User accesses protected resource (e.g., `https://app.example.com/dashboard`)
 2. Traefik intercepts the request and forwards it to `https://auth.example.com/_auth`
-3. Stargate **only verifies Session** (reads from Cookie or Redis)
-   - **Does not call Warden**
-   - **Does not call Herald**
+3. Stargate loads the server-side session using its cookie identifier, or checks the configured password/trusted identity headers. Warden sessions may require directory authorization refresh; unavailable directory evidence returns 503.
 4. If authenticated, sets `X-Forwarded-User` header and returns 200
 5. If not authenticated, redirects to login page (HTML requests) or returns 401 (API requests)
 
 ### Password Authentication Login Flow
+
+The password and OTP summaries below use the browser-bound [session exchange](#session-exchange-endpoint) described above; the destination nonce handshake must precede ticket issuance.
 
 1. User accesses protected resource
 2. Traefik → Stargate `/_auth`: Check session, not logged in
@@ -566,10 +566,10 @@ Error messages support internationalization, returning Chinese or English messag
 8. User enters verification code, submits `POST /_login` (`auth_method=warden`)
 9. **Stargate → Herald**: verify(challenge_id, code)
 10. Herald returns ok + user_id (+ optional amr/authentication strength)
-11. Stargate issues session (cookie/JWT), gets user information from Warden and writes to session claims
+11. Stargate creates a server-side session with Warden user information and sets its opaque cookie identifier; it does not issue a JWT
 12. Redirects to `https://app.example.com/_session_exchange?ticket=<opaque_ticket>`
 13. Session cookie is set to the `app.example.com` domain
-14. User accesses protected resource again, forwardAuth **only verifies Stargate session**, does not trigger Warden/Herald
+14. User accesses the protected resource again; ForwardAuth checks the session and refreshes Warden authorization when required, without re-verifying the OTP through Herald
 
 ### API Authentication Flow
 
@@ -586,4 +586,4 @@ Error messages support internationalization, returning Chinese or English messag
 2. **Cookie security**: All cookies are set with `HttpOnly` and `SameSite=Lax` flags
 3. **Password verification**: Passwords are opaque, case-sensitive values; whitespace and case are preserved during verification
 4. **Multiple password support**: Multiple passwords can be configured, any password that passes verification is acceptable
-5. **Cross-domain sessions**: The `COOKIE_DOMAIN` environment variable must be configured to enable cross-domain session sharing
+5. **Cross-domain sessions**: Allowed destinations use the browser-bound session exchange described above. `COOKIE_DOMAIN` is optional and only shares a cookie within that DNS domain; other allowed domains receive host-only cookies

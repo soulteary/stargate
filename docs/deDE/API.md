@@ -518,4 +518,4 @@ Fehlermeldungen unterstützen Internationalisierung und geben je nach Umgebungsv
 2. **Cookie-Sicherheit**: Alle Cookies werden mit den Flags `HttpOnly` und `SameSite=Lax` gesetzt
 3. **Passwort-Überprüfung**: Passwörter sind undurchsichtige, groß-/kleinschreibungssensitive Werte; Leerzeichen und Schreibweise bleiben erhalten
 4. **Unterstützung mehrerer Passwörter**: Mehrere Passwörter können konfiguriert werden, jedes Passwort, das die Überprüfung besteht, ist akzeptabel
-5. **Cross-Domain-Sitzungen**: Die Umgebungsvariable `COOKIE_DOMAIN` muss konfiguriert werden, um die Cross-Domain-Sitzungsfreigabe zu aktivieren
+5. **Cross-Domain-Sitzungen**: Erlaubte Ziele verwenden den oben beschriebenen browsergebundenen Sitzungsaustausch. `COOKIE_DOMAIN` ist optional und teilt Cookies nur innerhalb dieser DNS-Domain; andere erlaubte Domains erhalten Host-only-Cookies
