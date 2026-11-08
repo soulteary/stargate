@@ -665,7 +665,7 @@ func handleChallengeVerificationError(ctx fiber.Ctx, err error, verifyResp *hera
 			return SendAuthenticationError(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), "service_unavailable")
 		}
 		if heraldErr.StatusCode == http.StatusConflict && heraldErr.Reason == "lock_contention" {
-			return SendErrorResponse(ctx, fiber.StatusConflict, i18n.T(ctx, "error.herald_unavailable_retry"))
+			return SendAuthenticationError(ctx, fiber.StatusConflict, i18n.T(ctx, "error.herald_unavailable_retry"), "lock_contention")
 		}
 		if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
 			// Herald service is unavailable, suggest OTP fallback if enabled

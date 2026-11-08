@@ -19,10 +19,16 @@ func authenticationReasonAllowed(reason string) bool {
 }
 
 func authenticationUILanguage(c fiber.Ctx) string {
+	lang := i18nfiber.Language(c)
 	if c.Locals(i18nkit.LocalsLanguageKey) == nil {
-		return string(i18nfiber.DetectWith(i18nkit.NewDetector(i18nkit.DetectorConfig{Default: i18n.GetLanguage()}), c))
+		lang = i18nfiber.DetectWith(i18nkit.NewDetector(i18nkit.DetectorConfig{Default: i18n.GetLanguage()}), c)
 	}
-	return string(i18nfiber.Language(c))
+	switch lang {
+	case i18n.LangEN, i18n.LangZH, i18n.LangFR, i18n.LangDE, i18n.LangIT, i18n.LangJA, i18n.LangKO:
+		return string(lang)
+	default:
+		return "en"
+	}
 }
 
 // authenticationUIData is serialized into an HTML attribute, never executable JS.

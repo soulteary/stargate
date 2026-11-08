@@ -51,6 +51,7 @@
   async function request(url, data) {
     const target = new URL(url, root.location.href);
     if (target.origin !== root.location.origin) throw new Error('ambiguous');
+    target.searchParams.set('lang', config.dataset.locale);
     const controller = new AbortController();
     const timer = root.setTimeout(() => controller.abort(), 45000);
     try {
@@ -183,10 +184,14 @@
   }
   let managementBusy = false;
   const nativeForms = Array.from(document.querySelectorAll('[data-logout], [data-native-once]'));
-  nativeForms.forEach(nativeForm => nativeForm.addEventListener('submit', event => {
+  nativeForms.forEach(nativeForm => {
+    const action = new URL(nativeForm.action, root.location.href);
+    if(action.origin === root.location.origin) { action.searchParams.set('lang',config.dataset.locale);nativeForm.action=action.href; }
+    nativeForm.addEventListener('submit', event => {
     if(managementBusy) { event.preventDefault();return; }
     managementBusy=true;nativeForms.forEach(f=>freeze(f,true));
-  }));
+    });
+  });
   root.addEventListener('pageshow', event => { if(event.persisted) { managementBusy=false;nativeForms.forEach(f=>freeze(f,false)); } });
   const management = document.getElementById('confirmForm') || document.getElementById('revokeForm');
   if (management) {

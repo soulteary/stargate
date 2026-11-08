@@ -70,3 +70,8 @@ test('confirmed password login stays locked while navigation is deferred and res
  const event={preventDefault(){}};await f.form.events.submit(event);assert.equal(f.elements.button.disabled,true);await f.form.events.submit(event);assert.equal(calls,1);assert.equal(f.navigations.length,1);
  f.dispatch('pageshow',{persisted:true});assert.equal(f.elements.button.disabled,false);assert.equal(calls,1);
 });
+
+test('confirmation pins the rendered locale into the request query above any older cookie preference',async()=>{
+ let target;const f=fixture(async url=>{target=new URL(url);return {ok:false,status:429,type:'basic',json:async()=>({ok:false,error:'rate_limited'})};});
+ await f.form.events.submit({preventDefault(){}});assert.equal(target.origin,'https://auth.example');assert.equal(target.searchParams.get('lang'),'en');
+});
