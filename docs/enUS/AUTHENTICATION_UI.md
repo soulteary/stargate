@@ -11,3 +11,9 @@ After TOTP setup succeeds, save the one-time backup-code list. Copying and downl
 Open `/_account` on the authentication host to manage the current session or use its same-origin POST logout button. Logout affects this browser session; it is not an all-device revocation feature. The root endpoint's existing plain-text behavior is unchanged.
 
 An optional `LOGIN_SUPPORT_URL` provides a support link. See [configuration](CONFIG.md#login_support_url). With no configured link the pages omit it rather than displaying a placeholder destination.
+
+## Standalone binary resources
+
+The binary includes an explicit set of authentication templates and public assets. When no external template or asset directory exists, it serves these built-in resources without creating files in the working directory. Docker images still carry the same resource directory.
+
+Existing external directories keep their precedence. Update a complete external template/asset tree with the binary, or remove that override to use the matching built-in UI. An old or partial override is not silently merged with new templates. Configuration, generated files and setup secrets are not embedded.

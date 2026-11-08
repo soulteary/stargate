@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -184,13 +186,13 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 		}
 
 		heraldStartTime := time.Now()
-		createResp, err := heraldClient.CreateChallenge(heraldCtx, createReq)
+		createResp, metadata, err := heraldClient.CreateChallengeWithMetadata(heraldCtx, createReq)
 		heraldDuration := time.Since(heraldStartTime)
 		if err != nil {
 			tracing.RecordError(heraldSpan, err)
 			log.Error().Err(err).Msg("Failed to create challenge")
 
-			return handleChallengeCreationError(ctx, err, userID, channel, destination)
+			return handleChallengeCreationErrorWithMetadata(ctx, err, metadata, userID, channel, destination)
 		}
 
 		// Log successful verification code send
@@ -268,9 +270,14 @@ func verificationLocale(ctx fiber.Ctx) string {
 }
 
 func handleChallengeCreationError(ctx fiber.Ctx, err error, userID, channel, destination string) error {
+	return handleChallengeCreationErrorWithMetadata(ctx, err, herald.CreateChallengeMetadata{}, userID, channel, destination)
+}
+
+func handleChallengeCreationErrorWithMetadata(ctx fiber.Ctx, err error, metadata herald.CreateChallengeMetadata, userID, channel, destination string) error {
 	reason := "unknown_error"
 	// Check if it's a connection error (Herald service unavailable)
-	if heraldErr, ok := err.(*herald.HeraldError); ok {
+	var heraldErr *herald.HeraldError
+	if errors.As(err, &heraldErr) {
 		if heraldErr.StatusCode == 0 || heraldErr.Reason == "connection_failed" {
 			reason = "connection_failed"
 			// Herald service is unavailable, suggest OTP fallback if enabled
@@ -286,6 +293,12 @@ func handleChallengeCreationError(ctx fiber.Ctx, err error, userID, channel, des
 		if heraldErr.StatusCode == http.StatusTooManyRequests {
 			reason = "rate_limited"
 			auditlog.LogVerifyCodeSend(ctx.Context(), userID, "", channel, destination, ctx.IP(), false, reason)
+			if seconds := metadata.RetryAfterSeconds; seconds != nil && *seconds >= 1 && *seconds <= 86400 {
+				ctx.Set("Retry-After", strconv.Itoa(*seconds))
+				return ctx.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+					"success": false, "message": i18n.T(ctx, "error.rate_limited_retry"), "reason": reason, "next_resend_in": *seconds,
+				})
+			}
 			return sendVerifyCodeErrorJSON(ctx, fiber.StatusTooManyRequests, i18n.T(ctx, "error.rate_limited_retry"), reason)
 		}
 		reason = "provider_error"
