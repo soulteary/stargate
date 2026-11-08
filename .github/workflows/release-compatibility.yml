@@ -23,7 +23,8 @@ jobs:
     timeout-minutes: 25
     services:
       redis:
-        image: redis@sha256:64e425955ca42226d6b5e273149c6b3ff566a3849e3071a5507c8d3817d2cc65
+        # Redis 8.4.7 multi-platform index; includes the hosted amd64 runner.
+        image: redis@sha256:6a12a187547eb2eac4da4528f9d9787d69f3848e513480baedfd75e3b2ac393e
         ports:
           - 6379:6379
         options: >-
