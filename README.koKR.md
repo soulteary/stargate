@@ -76,7 +76,7 @@ Stargate는 다음에 완벽합니다:
 
 ## 🚀 빠른 시작
 
-**2분 이내**에 Stargate를 실행하세요!
+다음 예제는 비밀번호 인증을 사용하는 로컬 데모입니다.
 
 ### Docker Compose 사용(권장)
 
@@ -89,31 +89,24 @@ cd stargate
 **2단계:** 인증 구성(`docker-compose.yml` 편집)
 
 **옵션 A: 비밀번호 인증(간단)**
-```yaml
-services:
-  stargate:
-    environment:
-      - AUTH_HOST=auth.example.com
-      - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```bash
+# 변경 없이 로컬 HTTP 데모를 80 포트에서 실행합니다.
+# DNS 이름을 바꿀 때만 .env.example을 .env로 복사해 편집합니다.
+docker compose config --quiet
 ```
 
-**옵션 B: Warden + Herald OTP 인증(프로덕션)**
-```yaml
-services:
-  stargate:
-    environment:
-      - AUTH_HOST=auth.example.com
-      - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8081
-      - WARDEN_API_KEY=your-warden-api-key
-      - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8082
-      - HERALD_HMAC_SECRET=your-herald-hmac-secret
-```
+시작 후 `http://hello.test.localhost`를 열고 `test1234` 또는 `test1337`로 로그인한 뒤
+보호된 서비스로 돌아오는지 확인하세요. 이 비밀번호와 `COOKIE_SECURE=false`는 로컬 HTTP 데모 전용입니다.
+
+사용자 도메인은 `.env`의 `AUTH_HOSTNAME`과 `APP_HOSTNAME`에 설정합니다
+(프로토콜, 경로, 포트가 없는 DNS 이름). 두 이름 모두 이 컴퓨터로 해석되어야 합니다.
+프록시 경로와 콜백 검증을 함께 설정하므로 서비스의 `AUTH_HOST`만 바꾸지 마세요.
+HTTPS 및 OTP/TOTP는 [배포 가이드](docs/enUS/DEPLOYMENT.md)를 참고하세요.
+
 
 **3단계:** 서비스 시작
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 **완료!** 인증 서비스가 이제 실행 중입니다. 🎉
@@ -127,7 +120,12 @@ chmod +x start-local.sh
 ./start-local.sh
 ```
 
-로그인 페이지에 액세스: `http://localhost:8080/_login?callback=localhost`
+로그인 페이지에 액세스: `http://localhost:8080/_login?callback=localhost:8080`
+
+네이티브 개발에서 다른 포트를 사용하려면 `./start-local.sh --port 9090`을 실행하고
+출력된 `http://localhost:9090/_login?callback=localhost:9090` 주소를 사용하세요.
+Compose 데모는 80 포트를 사용하며 이 명령은 네이티브 Go 서비스를 시작합니다.
+
 
 ## 📚 문서
 
