@@ -13,9 +13,7 @@ scoped to Herald, with no TLS bypass. This uses the actual full-stack generator 
 Warden, Herald, herald-totp, SMTP and Mailpit. Three service HMAC legs retain
 separate credentials. No service test-code endpoint, limiter changes, Redis flush,
 explicit retry of a consumptive POST, or injected authentication state is used.
-The optional history probe passively counts enrollment POST request events from
-Chromium; an event is not evidence of server receipt. The report preserves that
-count and does not label a cache-miss restoration as BFCache coverage.
+The HTTP profile never navigates Back to the enrollment POST document.
 A fresh task-owned stack is removed, including its volumes, in `finally`.
 
 Chromium tests password and delivered email login, wrong email code, TOTP
@@ -31,8 +29,7 @@ checks ambiguous-result handling and absence of POST retry. These two browser
 transport fixtures are identified separately from actual backend success checks.
 A natural 61-second quiet interval precedes consumed-code rejection, which must
 return 401; an unused-code positive control must then authenticate the expected
-user. A real BFCache restoration checks cleared save controls; a reload is recorded
-as not exercising BFCache. Logout must use same-origin POST; cross-origin POST and GET are rejected.
+user. Logout must use same-origin POST; cross-origin POST and GET are rejected.
 Authenticated pages must return `Cache-Control: no-store`.
 
 Only a redacted outcome JSON and the allowlisted `browser-account.png` are uploaded.
@@ -56,11 +53,35 @@ complete HTTPS mail login, reach the actual protected app, retain Secure HttpOnl
 host-only cookies on both hosts, and require login again after POST logout.
 No certificate bypass is used. The signed status request is an active probe that
 may write replay and audit records in the owned test Redis; it is not a read-only
-health check. Both profiles clean up only their own containers/networks/volumes.
+health check. Each profile cleans up only its own containers/networks/volumes.
 
+The separate `bfcache` job runs after HTTPS acceptance with the same immutable
+product inputs and a new owned stack. It uses full Chromium with only Playwright's
+BFCache-disabling and repost-prompt-disabling defaults removed. Product no-store,
+TLS verification, authentication and cookie behavior remain unchanged. A GET
+login restoration must simultaneously preserve the per-document random identity,
+produce a trusted `pageshow.persisted`, and issue zero new main-document requests.
+The authenticated account must either meet that same proof or report only the
+explicit `CacheControlNoStoreHTTPOnlyCookieModified` privacy exclusion, with no
+unknown or additional reasons. The latter is not account restoration coverage;
+normal account navigation and real ForwardAuth identity must still succeed.
+
+Actual enrollment and confirmation then display ten recovery entries. A pagehide
+observer registered after product initialization verifies rendered codes and QR
+are cleared and save controls disabled when leaving. Chromium excludes POST main
+documents through `HTTPMethodNotGET`; this is a source-based limitation, not an
+observed restoration. The job never navigates Back to the secret POST page.
+Exact CDP response-body unavailability is reported separately: login POST200 plus
+actual protected-app response and ForwardAuth identity are required; unread JSON
+is never described as `success=true`. Other response errors fail.
+
+This is repeatable controlled acceptance, not automatic regression coverage of
+all future UI changes. Pull requests trigger only for harness/workflow paths;
+manual dispatch selects exact reviewed product commits. The report records the
+actual harness and product sources. Fixed default refs remain reproducible
+reviewed snapshots and do not mean that every current-main product change ran.
 These profiles do not prove external email delivery, Safari, Firefox, iOS or
-Android behavior. BFCache is recorded as unexercised when Chromium cannot restore
-the POST history document; it is never counted as a pass in that case.
+Android behavior.
 
 Pure input checks: `python3 -m unittest discover -s .github/browser -p 'test_*.py'`.
 Actual browser acceptance requires the workflow's clean Linux Docker runner.

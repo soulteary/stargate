@@ -39,11 +39,11 @@ class CompletionRecord(unittest.TestCase):
         workflow = (Path(__file__).parents[1] / "workflows/browser-acceptance.yml").read_text()
         import re
         wrappers = [part.split("          PYTHON", 1)[0] for part in workflow.split("<<'PYTHON'\n")[1:] if 'data["process_exit_code"]' in part.split("          PYTHON", 1)[0]]
-        self.assertEqual(len(wrappers), 2)
+        self.assertEqual(len(wrappers), 3)
         for block in wrappers:
             code = "\n".join(line[10:] for line in block.splitlines())
             filename = re.search(r'path = pathlib.Path\("([a-z-]+\.json)"\)', code).group(1)
-            self.assertIn(filename, {"browser-results.json", "production-tls-results.json"})
+            self.assertIn(filename, {"browser-results.json", "production-tls-results.json", "bfcache-results.json"})
             with tempfile.TemporaryDirectory() as temporary:
                 path = Path(temporary) / filename
                 for exit_code in (0, 1):
