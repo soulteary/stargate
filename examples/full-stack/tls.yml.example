@@ -1,0 +1,5 @@
+# Copy to TLS_DIR/tls.yml alongside cert.pem and key.pem.
+tls:
+  certificates:
+    - certFile: /certs/cert.pem
+      keyFile: /certs/key.pem

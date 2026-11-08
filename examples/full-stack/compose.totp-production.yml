@@ -1,0 +1,19 @@
+# Production TOTP requires verified TLS, even inside the private network.
+services:
+  herald:
+    environment:
+      HERALD_TOTP_BASE_URL: https://totp-tls:8443
+  totp-tls:
+    profiles: [totp]
+    image: traefik:v3.7.12
+    labels: {traefik.enable: 'false'}
+    command:
+      - --providers.file.filename=/etc/traefik/totp.yml
+      - --entrypoints.totp.address=:8443
+    volumes:
+      - ${STATE_DIR:?run configure.py first}/totp-tls.yml:/etc/traefik/totp.yml:ro
+      - ${TLS_DIR:?set TLS_DIR}/totp-cert.pem:/certs/totp-cert.pem:ro
+      - ${TLS_DIR:?set TLS_DIR}/totp-key.pem:/certs/totp-key.pem:ro
+    networks: [backend]
+    depends_on:
+      totp: {condition: service_healthy}

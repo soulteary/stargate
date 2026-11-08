@@ -86,7 +86,7 @@ git clone https://github.com/soulteary/stargate.git
 cd stargate
 ```
 
-**Schritt 2:** Authentifizierung konfigurieren (`docker-compose.yml` bearbeiten)
+**Schritt 2:** Lokale Demo-Konfiguration prüfen (Standard-DNS-Namen unverändert lassen)
 
 **Option A: Passwort-Authentifizierung (Einfach)**
 ```bash
@@ -94,10 +94,6 @@ cd stargate
 # Nur für eigene DNS-Namen .env.example nach .env kopieren und bearbeiten.
 docker compose config --quiet
 ```
-
-Nach dem Start `http://hello.test.localhost` öffnen, mit `test1234` oder `test1337`
-anmelden und die Rückkehr zum geschützten Dienst prüfen. Diese Passwörter und
-`COOKIE_SECURE=false` gelten nur für diese lokale HTTP-Demo.
 
 Für eigene Domains `AUTH_HOSTNAME` und `APP_HOSTNAME` in `.env` setzen (DNS-Namen
 ohne Protokoll, Pfad oder Port); beide müssen auf diesen Rechner zeigen. Sie
@@ -110,7 +106,12 @@ im Dienst ändern. Für HTTPS und OTP/TOTP siehe [Bereitstellungsanleitung](docs
 docker compose up -d
 ```
 
-**Das war's!** Ihr Authentifizierungsservice läuft jetzt. 🎉
+Mit `docker compose ps` prüfen und warten, bis Stargate gesund ist. Andernfalls die Dienstprotokolle prüfen; `up -d` allein bestätigt noch keinen funktionierenden Login.
+
+Nach dem Start `http://hello.test.localhost` öffnen, mit `test1234` oder `test1337`
+anmelden und die Rückkehr zum geschützten Dienst prüfen. Diese Passwörter und
+`COOKIE_SECURE=false` gelten nur für diese lokale HTTP-Demo.
+
 
 ### Lokale Entwicklung
 

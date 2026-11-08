@@ -1,5 +1,7 @@
 # Deployment Guide
 
+For a complete first deployment with mail OTP or mail OTP plus TOTP, see the [full-stack example](../../examples/full-stack/README.md). It separates local SMTP capture from the HTTPS production template.
+
 For v1.3.5, read [authentication priority upgrade and rollback](#authentication-priority-upgrade-and-rollback-v135). Valid explicit credentials no longer depend on refreshing an unrelated existing cookie.
 
 For v1.3.4, read [dependency patch upgrade and rollback](#dependency-patch-upgrade-and-rollback-v134). The update changes masking behavior and dependency versions, while preserving existing session and verification state.
