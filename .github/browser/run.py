@@ -14,7 +14,8 @@ import urllib.request
 from urllib.parse import parse_qs, urlparse
 
 from playwright.sync_api import sync_playwright
-from validate_inputs import validate
+from validate_inputs import validate, callback_matches
+from diagnostics import smtp_signatures
 
 ROOT = Path.cwd()
 STATE = Path(os.environ["RUNNER_TEMP"]) / ("browser-" + secrets.token_hex(6))
@@ -97,6 +98,28 @@ def login_page(page):
     page.locator("#mail").fill("demo@example.test")
 
 
+def app_login_page(page):
+    page.goto(APP)
+    page.wait_for_url(lambda u: urlparse(u).hostname == urlparse(AUTH).hostname and urlparse(u).path == "/_login")
+    callbacks = page.locator('input[name="callback"]')
+    states = page.locator('input[name="exchange_state"]')
+    values = [value for value in callbacks.evaluate_all("els => els.map(el => el.value)") if value]
+    if values:
+        check("protected app callback has exact expected authority", all(callback_matches(value, APP) for value in values))
+    else:
+        check("protected app supplies opaque return context", any(states.evaluate_all("els => els.map(el => el.value.length > 0)")))
+        RESULT["callback_context"] = "opaque state present; target is proven separately by actual app arrival"
+    page.locator("#mail").fill("demo@example.test")
+
+
+def protected_app(page):
+    page.wait_for_url(lambda u: urlparse(u).hostname == urlparse(APP).hostname and urlparse(u).path == "/")
+    check("real protected hello rendered", page.locator("h1").inner_text() == "hello from the terminal")
+    response = page.context.request.get(APP, headers={"Accept": "text/plain"}, max_redirects=0)
+    check("protected hello200 and published response contract", response.status == 200 and response.headers.get("project") == "https://github.com/soulteary/hello" and "Hello from soulteary/hello!" in response.text().splitlines())
+    authenticated(page, "demo-user-001")
+
+
 def logout(page):
     response = page.goto(AUTH + "/_account?lang=en")
     check("authenticated HTML is not cacheable", "no-store" in response.headers.get("cache-control", ""))
@@ -107,6 +130,9 @@ def logout(page):
     with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/_logout") as response:
         page.locator("[data-logout] button").click()
     check("same-origin POST logout", response.value.status in (200, 302, 303))
+    page.goto(APP)
+    page.wait_for_url(lambda u: urlparse(u).hostname == urlparse(AUTH).hostname and urlparse(u).path == "/_login")
+    check("protected app requires login after logout", urlparse(page.url).path == "/_login")
 
 
 def error_controls(context):
@@ -170,7 +196,7 @@ def run_browser():
         check("real password login", "/_login" not in urlparse(page.url).path)
         authenticated(page)
         logout(page)
-        login_page(page)
+        app_login_page(page)
         page.locator("#deliver_via").select_option("email")
         with page.expect_response(lambda r: urlparse(r.url).path == "/_send_verify_code") as sent:
             page.locator("#sendCodeBtn").click()
@@ -179,7 +205,7 @@ def run_browser():
             reason = sent.value.json().get("reason", "")
         except Exception:
             reason = ""
-        RESULT["email_challenge_reason"] = reason if reason in {"identifier_required", "identifier_invalid", "invalid", "rate_limited", "resend_cooldown", "service_unavailable", "connection_failed", "backend_unavailable", "user_not_in_list", "authentication_failed"} else "unknown"
+        RESULT["email_challenge_reason"] = reason if reason in {"identifier_required", "identifier_invalid", "invalid", "rate_limited", "resend_cooldown", "service_unavailable", "connection_failed", "backend_unavailable", "user_not_in_list", "authentication_failed", "provider_error", "unknown_error"} else "unknown"
         stage("email-challenge-response")
         check("real email challenge accepted", sent.value.status == 200)
         error_controls(context)
@@ -195,7 +221,7 @@ def run_browser():
         page.locator("#loginForm [type=submit]").click()
         page.wait_for_url(lambda u: "/_login" not in urlparse(u).path)
         check("real SMTP email OTP login", "/_login" not in urlparse(page.url).path)
-        authenticated(page, "demo-user-001")
+        protected_app(page)
         page.goto(AUTH + "/_account?lang=en")
         check("account screenshot contains no secret controls", page.locator("input, #qrcode, #backupCodesList").count() == 0 and "demo@example.test" not in page.locator("body").inner_text())
         page.screenshot(path="browser-account.png", full_page=True)
@@ -301,6 +327,10 @@ def main():
         RESULT["failure_type"] = type(failure).__name__
         RESULT["status"] = "failed"
         RESULT["service_health"] = health_summary()
+        try:
+            RESULT["smtp_error_signatures"] = smtp_signatures(compose("logs", "--no-color", "--no-log-prefix", "--tail", "80", "herald"))
+        except Exception:
+            RESULT["smtp_error_signatures"] = {"status": "unavailable"}
         RESULT["error"] = "Acceptance failed; raw errors, browser data and service logs intentionally withheld"
         raise RuntimeError(RESULT["error"]) from None
     finally:

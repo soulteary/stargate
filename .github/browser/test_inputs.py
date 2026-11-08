@@ -1,5 +1,5 @@
 import unittest
-from validate_inputs import validate
+from validate_inputs import validate, callback_matches
 
 
 class Inputs(unittest.TestCase):
@@ -56,9 +56,20 @@ class BrowserURLPredicates(unittest.TestCase):
         tree = ast.parse((Path(__file__).parent / "run.py").read_text())
         predicates = [node.args[0] for node in ast.walk(tree)
                       if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
-                      and node.func.attr == "wait_for_url"]
+                      and node.func.attr == "wait_for_url" and len(node.args) == 1
+                      and isinstance(node.args[0], ast.Lambda)
+                      and "APP" not in ast.unparse(node.args[0]) and "AUTH" not in ast.unparse(node.args[0])]
         self.assertGreaterEqual(len(predicates), 4)
         for predicate in predicates:
             function = eval(compile(ast.Expression(predicate), "predicate", "eval"), {"urlparse": urlparse})
             self.assertFalse(function("http://auth.test.localhost:8088/_login"))
             self.assertTrue(function("http://auth.test.localhost:8088/_account"))
+
+
+class CallbackAuthority(unittest.TestCase):
+    def test_exact_url_and_authority(self):
+        target = "http://hello.test.localhost:8088"
+        for raw in (target, target + "/", "hello.test.localhost:8088/"):
+            self.assertTrue(callback_matches(raw, target))
+        for raw in ("http://hello.test.localhost:9090", "http://other.test.localhost:8088", "http://hello.test.localhost:8088.evil.test", "https://hello.test.localhost:8088", "http://user@hello.test.localhost:8088", target + "/secret", target + "?q=1"):
+            self.assertFalse(callback_matches(raw, target))

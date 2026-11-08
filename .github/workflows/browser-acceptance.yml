@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      FULLSTACK_REF: ${{ inputs.fullstack_ref || '3ac5b87b7f58ebb7c1af89a993daaea49ae1a1ef' }}
+      FULLSTACK_REF: ${{ inputs.fullstack_ref || 'c5e4876322515b00079a07a48a6017003d5af373' }}
       GATEWAY_REF: ${{ inputs.gateway_ref || '843e2301efb8d9dff35a67d26bc9755a33e45654' }}
       HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:89eb2dba787b7d7a22a39b43ffb12118631b62ba6e8779d9bff8cc7c82f79765' }}
     steps:
