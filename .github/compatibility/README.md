@@ -29,6 +29,16 @@ Stargate and Herald, enrolls and verifies TOTP, and checks single consumption.
 Upgrade mode replaces TOTP, Warden, Herald, then Stargate; rollback reverses that
 order. Shared Redis, credentials, pending OTP bindings, enrolled credentials,
 consumed challenges, backup-code consumption and session absolute deadlines are retained.
+Each successful OTP login must produce a revocable cookie and a ForwardAuth
+response for its expected directory identity, including the independent login
+cases used after caller switching and key retirement. HTTP 200 alone is not
+treated as an established session.
+The workflow's equal idle/absolute lifetime profile checks Redis `PEXPIRETIME`
+before and after ForwardAuth. Both shortening and extension are rejected outside
+an explicit five-millisecond bound against the token deadline and the initial
+server expiry. The active-record marker is checked; opaque Fiber session bytes
+are not required to remain identical. These expiry assertions describe this
+profile, not configurations with a deliberately shorter sliding idle timeout.
 Backup checks use the actual persistent Redis array, preserve ordered hashes and
 used timestamps, reject a used code with a fresh challenge, then consume an
 unused code after rollback. Only counts, used timestamps and a whole-record
