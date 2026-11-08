@@ -711,7 +711,7 @@ TOTP 绑定与校验通过 **Herald** 完成（Herald 内部代理 herald-totp �
 
 ### 会话存储（Redis，可选）
 
-启用后会话将存储在 Redis，便于多实例共享与持久化；未启用时使用内存或 Cookie 存储。
+启用后，服务端会话存储在 Redis，可供多实例共享并在 Stargate 重启后继续使用，具体取决于 Redis 的持久化与可用性。未启用时，会话只存储在当前进程的内存中，重启后丢失。浏览器 Cookie 仅携带会话标识符，不存储会话数据。多副本部署应使用共享 Redis 存储。
 
 #### `SESSION_STORAGE_ENABLED`
 

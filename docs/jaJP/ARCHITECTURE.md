@@ -375,7 +375,7 @@ WardenおよびHerald統合が有効な場合、OTP認証を使用できます�
 
 **ForwardAuthデータフロー（メインパス）：**
 1. Traefik → Stargate：認証チェックリクエスト
-2. Stargate：Redisからセッションを読み取る（またはCookieから解析）
+2. Stargate：Cookie の識別子を使い、Redis またはプロセスメモリからサーバー側セッションを読み取る
 3. Stargate → Traefik：認証結果を返す（2xxまたは401/302）
 
 ### セキュリティ境界

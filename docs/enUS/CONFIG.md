@@ -716,7 +716,7 @@ Enable TOTP (bind/verify TOTP codes). When `true`, Stargate calls Herald's `/v1/
 
 ### Session Storage (Redis, Optional)
 
-When enabled, sessions are stored in Redis for multi-instance sharing and persistence; otherwise in-memory or cookie.
+When enabled, server-side sessions are stored in Redis for sharing across instances and survival across Stargate restarts, subject to Redis persistence and availability. When disabled, sessions are stored in the current process's memory and are lost on restart. The browser cookie carries only the session identifier; it does not store session data. Use shared Redis storage for multiple replicas.
 
 #### `SESSION_STORAGE_ENABLED`
 

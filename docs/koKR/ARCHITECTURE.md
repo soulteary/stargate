@@ -375,7 +375,7 @@ Warden 및 Herald 통합이 활성화된 경우 OTP 인증을 사용할 수 있�
 
 **ForwardAuth 데이터 흐름 (메인 경로):**
 1. Traefik → Stargate: 인증 확인 요청
-2. Stargate: Redis에서 세션 읽기 (또는 Cookie에서 구문 분석)
+2. Stargate: Cookie 식별자를 사용하여 Redis 또는 프로세스 메모리에서 서버 측 세션 로드
 3. Stargate → Traefik: 인증 결과 반환 (2xx 또는 401/302)
 
 ### 보안 경계
