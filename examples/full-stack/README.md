@@ -200,9 +200,11 @@ An older configuration without `state/provider-ca.pem` is rejected explicitly;
 setup will not create it silently or replace existing credentials. For production
 mail using public SMTP certificates and no TOTP, create an empty 0644 provider
 bundle and keep `HERALD_CA_FILE=""` so normal public roots remain in use. For a
-private SMTP issuer, put only its public CA certificates in that file. With TOTP,
-include its public issuer too, retaining existing SMTP issuers, and set
-`HERALD_CA_FILE="/certs/provider-ca.pem"`. Never put a CA private key in the bundle.
+private SMTP issuer, put only its public CA certificates in that file and set
+`HERALD_CA_FILE="/certs/provider-ca.pem"` in the existing private `.env`, even when
+TOTP is disabled. Mounting the bundle alone does not select it for TLS verification.
+With TOTP, include its public issuer too, retaining existing SMTP issuers and the
+same `HERALD_CA_FILE` setting. Never put a CA private key in the bundle.
 Recreate Herald after changing trust. Retain all application keys and Redis.
 Generated path values use JSON double quotes and literal dollars escaped as `$$`;
 use absolute paths, not shell expressions, when editing them.
