@@ -30,6 +30,10 @@ import urllib.request
 REPOS = {'warden': 'warden', 'herald': 'herald', 'totp': 'herald-totp', 'gateway': 'stargate'}
 ORDER = ['totp', 'warden', 'herald', 'gateway']
 ROTATION_SUBJECTS = ('chain-c@example.test', 'chain-d@example.test')
+# This workflow uses equal idle and absolute lifetimes on one runner/Redis host.
+# Redis TIME and SET PX use millisecond clocks; record the small allowed offset.
+SESSION_EXPIRY_TOLERANCE_MS = 5
+ACTIVE_SESSION_PREFIX = '\x00session-kit:active:v1:'
 MAX_DOWNLOAD = 160 * 1024 * 1024
 DEADLINE = None
 OUT = Path('compatibility-evidence').resolve()
@@ -391,6 +395,20 @@ def login(subject, challenge, code):
         'auth_method': 'warden', 'mail': subject, 'challenge_id': challenge, 'verify_code': code}), opener=True), 200)
     if not response['success']:
         raise AssertionError('OTP login rejected')
+    session_token()
+    authenticated = request(gateway, '/_auth', opener=True)
+    expect('new login has a usable ForwardAuth session', authenticated, 200)
+    expected_user = next(user['user_id'] for user in directory_users() if user['mail'] == subject)
+    if authenticated[2].get('x-auth-user') != expected_user:
+        raise AssertionError('new login has the wrong authenticated identity')
+
+
+def session_token():
+    tokens = [urllib.parse.unquote(value) for value in browser_cookies.values()
+              if urllib.parse.unquote(value).startswith('r1.')]
+    if len(tokens) != 1:
+        raise AssertionError('expected one revocable session cookie')
+    return tokens[0]
 
 
 def nonce_seed(service):
@@ -434,27 +452,46 @@ def nonce_check(seed, stage):
 
 
 def session_snapshot(prefix):
-    token = next(urllib.parse.unquote(v) for v in browser_cookies.values() if urllib.parse.unquote(v).startswith('r1.'))
+    token = session_token()
     key = prefix + 'revocable:v1:' + token
-    ttl = resp(['PTTL', key], 1)
-    if ttl <= 0:
-        raise AssertionError('session record absent')
-    return {'cookies': dict(browser_cookies), 'token': token, 'deadline_ms': int(token.split('.')[1], 36),
-            'redis_key': key, 'observed_deadline': time.time() + ttl / 1000}
+    snapshot = {'cookies': dict(browser_cookies), 'token': token, 'deadline_ms': int(token.split('.')[1], 36),
+                'redis_key': key, 'expiry_tolerance_ms': SESSION_EXPIRY_TOLERANCE_MS}
+    snapshot['redis_expiry_ms'] = session_expiry(snapshot)
+    return snapshot
+
+
+def session_expiry(snapshot):
+    key = snapshot['redis_key']
+    expiry = resp(['PEXPIRETIME', key], 1)
+    if type(expiry) is not int or expiry <= 0:
+        raise AssertionError('session expiry is absent or persistent')
+    if abs(expiry - snapshot['deadline_ms']) > SESSION_EXPIRY_TOLERANCE_MS:
+        raise AssertionError('session expiry differs from its immutable identifier deadline')
+    if abs(expiry - snapshot.get('redis_expiry_ms', expiry)) > SESSION_EXPIRY_TOLERANCE_MS:
+        raise AssertionError('session expiry shortened or extended across a transition')
+    if resp(['PTTL', key], 1) <= 0:
+        raise AssertionError('session record expired')
+    if resp(['GETRANGE', key, 0, len(ACTIVE_SESSION_PREFIX) - 1], 1) != ACTIVE_SESSION_PREFIX:
+        raise AssertionError('session record is not active')
+    return expiry
 
 
 def assert_session(snapshot, stage):
     global browser_cookies
     previous = browser_cookies
     browser_cookies = dict(snapshot['cookies'])
-    response = request(gateway, '/_auth', opener=True)
-    expect('existing session survives ' + stage, response, 200)
-    if response[2]['x-auth-user'] != 'chain-user-a' or browser_cookies != snapshot['cookies']:
-        raise AssertionError('session identity or cookie changed')
-    ttl = resp(['PTTL', snapshot['redis_key']], 1)
-    if ttl <= 0 or time.time() + ttl / 1000 > snapshot['observed_deadline'] + 2:
-        raise AssertionError('session expiry extended or lost')
-    browser_cookies = previous
+    try:
+        before = session_expiry(snapshot)
+        response = request(gateway, '/_auth', opener=True)
+        expect('existing session survives ' + stage, response, 200)
+        if response[2].get('x-auth-user') != 'chain-user-a' or browser_cookies != snapshot['cookies']:
+            raise AssertionError('session identity or cookie changed')
+        after = session_expiry(snapshot)
+        events.append({'check': 'session absolute expiry retained', 'stage': stage,
+                       'identifier_deadline_ms': snapshot['deadline_ms'], 'before_expiry_ms': before,
+                       'after_expiry_ms': after, 'tolerance_ms': SESSION_EXPIRY_TOLERANCE_MS})
+    finally:
+        browser_cookies = previous
 
 
 

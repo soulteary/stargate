@@ -93,6 +93,58 @@ class ManifestTests(unittest.TestCase):
         for subject in module.ROTATION_SUBJECTS:
             self.assertEqual(directory[subject]['status'], 'active')
 
+    def test_successful_login_without_session_cookie_is_rejected(self):
+        with mock.patch.object(module, 'browser_cookies', {}), mock.patch.object(module, 'request', return_value=(200, {'success': True}, {})) as request, mock.patch.object(module, 'save'):
+            with self.assertRaisesRegex(AssertionError, 'session cookie'):
+                module.login('chain-c@example.test', 'challenge', '123456')
+            self.assertEqual(request.call_count, 1)
+
+    def test_successful_login_requires_usable_session_for_the_expected_user(self):
+        for auth in [(401, {}, {}), (200, {}, {'x-auth-user': 'chain-user-a'})]:
+            with self.subTest(auth=auth), mock.patch.object(module, 'browser_cookies', {'session': 'r1.example.synthetic'}), mock.patch.object(module, 'request', side_effect=[(200, {'success': True}, {}), auth]), mock.patch.object(module, 'save'):
+                with self.assertRaises(AssertionError):
+                    module.login('chain-c@example.test', 'challenge', '123456')
+        with mock.patch.object(module, 'browser_cookies', {'session': 'r1.example.synthetic'}), mock.patch.object(module, 'request', side_effect=[(200, {'success': True}, {}), (200, {}, {'x-auth-user': 'chain-user-c'})]) as request, mock.patch.object(module, 'save'):
+            module.login('chain-c@example.test', 'challenge', '123456')
+            self.assertEqual(request.call_args_list[-1], mock.call(module.gateway, '/_auth', opener=True))
+
+    def test_session_expiry_rejects_shortening_extension_missing_and_tombstones(self):
+        snapshot = {'redis_key': 'synthetic:session', 'deadline_ms': 10000000, 'redis_expiry_ms': 10000000}
+        for expiry in (-2, -1, 10000000 - 1000, 10000000 + 1000):
+            with self.subTest(expiry=expiry), mock.patch.object(module, 'resp', return_value=expiry):
+                with self.assertRaises(AssertionError):
+                    module.session_expiry(snapshot)
+        def response(parts, db):
+            self.assertEqual(db, 1)
+            return {'PEXPIRETIME': 10000000, 'PTTL': 1000, 'GETRANGE': '\x00session-kit:revoked:v1'}[parts[0]]
+        with mock.patch.object(module, 'resp', side_effect=response):
+            with self.assertRaisesRegex(AssertionError, 'not active'):
+                module.session_expiry(snapshot)
+
+    def test_session_expiry_records_small_clock_offset_and_baseline_drift(self):
+        snapshot = {'redis_key': 'synthetic:session', 'deadline_ms': 10000000, 'redis_expiry_ms': 10000000}
+        def response(parts, db):
+            return {'PEXPIRETIME': 9999999, 'PTTL': 1000, 'GETRANGE': module.ACTIVE_SESSION_PREFIX}[parts[0]]
+        with mock.patch.object(module, 'resp', side_effect=response):
+            self.assertEqual(module.session_expiry(snapshot), 9999999)
+            snapshot['redis_expiry_ms'] = 9999990
+            with self.assertRaisesRegex(AssertionError, 'across a transition'):
+                module.session_expiry(snapshot)
+
+    def test_session_checks_before_and_after_forwardauth_and_restores_browser(self):
+        pending = {'pending': 'unchanged'}
+        snapshot = {'cookies': {'session': 'r1.example.synthetic'}, 'redis_key': 'synthetic:session', 'deadline_ms': 10000000}
+        with mock.patch.object(module, 'browser_cookies', pending), mock.patch.object(module, 'session_expiry', side_effect=[10000000, AssertionError('shortened')]) as expiry, mock.patch.object(module, 'request', return_value=(200, {}, {'x-auth-user': 'chain-user-a'})), mock.patch.object(module, 'save'):
+            with self.assertRaisesRegex(AssertionError, 'shortened'):
+                module.assert_session(snapshot, 'synthetic upgrade')
+            self.assertEqual(expiry.call_count, 2)
+            self.assertIs(module.browser_cookies, pending)
+        with mock.patch.object(module, 'browser_cookies', pending), mock.patch.object(module, 'session_expiry', side_effect=AssertionError('missing')), mock.patch.object(module, 'request') as request:
+            with self.assertRaisesRegex(AssertionError, 'missing'):
+                module.assert_session(snapshot, 'synthetic upgrade')
+            request.assert_not_called()
+            self.assertIs(module.browser_cookies, pending)
+
     def test_rotation_login_preserves_pending_browser_even_on_failure(self):
         pending = {'stargate_session_id': 'pending-browser', 'stargate_callback': 'pending-target'}
         def fake_send(subject):
