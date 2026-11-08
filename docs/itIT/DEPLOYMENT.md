@@ -1,6 +1,6 @@
 # Guida al Deployment
 
-Gli esempi attuali usano v1.3.3. Prima di sostituire una versione precedente alla v1.3, leggere la [migrazione delle sessioni](../enUS/DEPLOYMENT.md#revocable-session-migration) e lo [scambio legato al browser](../enUS/DEPLOYMENT.md#browser-bound-session-exchange). Coordinare tutte le repliche, conservare lo stato Redis e prevedere il nuovo accesso richiesto.
+Gli esempi attuali usano v1.3.4. Prima di sostituire una versione precedente alla v1.3, leggere la [migrazione delle sessioni](../enUS/DEPLOYMENT.md#revocable-session-migration) e lo [scambio legato al browser](../enUS/DEPLOYMENT.md#browser-bound-session-exchange). Coordinare tutte le repliche, conservare lo stato Redis e prevedere il nuovo accesso richiesto.
 
 > **Traduzione storica**: questa guida non include tutte le modifiche attuali. Consultare la [guida inglese aggiornata](../enUS/DEPLOYMENT.md).
 
@@ -180,7 +180,7 @@ Usare l'esempio separato seguente solo quando Traefik è già in esecuzione su u
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -269,7 +269,7 @@ Modificare `docker-compose.yml` e modificare le variabili d'ambiente:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -293,7 +293,7 @@ Configurare Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.3
+    image: ghcr.io/soulteary/stargate:1.3.4
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
