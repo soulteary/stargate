@@ -1322,3 +1322,8 @@ HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 不能复用配置中的服务、会话凭据或明文登录密码；散列登录密码也不应复用。
 同时在网络或反向代理限制指标入口。完整行为见
 [英文配置参考](../enUS/CONFIG.md#source-freshness-and-scrape-credentials)。
+
+
+## 部署诊断
+
+可使用 [`stargate doctor`](DIAGNOSTICS.md) 进行离线配置检查或显式健康/就绪检查；健康通过不证明 HMAC 或实际登录可用。

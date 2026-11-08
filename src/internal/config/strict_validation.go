@@ -67,16 +67,21 @@ func parseHostPort(raw string) (string, error) {
 }
 
 func validateAuthHostAndCookieDomain() error {
-	authHost, err := parseHostPort(AuthHost.Value)
+	return ValidateHostCookieDomain(AuthHost.Value, CookieDomain.Value)
+}
+
+// ValidateHostCookieDomain checks the startup host/cookie contract without changing configuration.
+func ValidateHostCookieDomain(host, cookie string) error {
+	authHost, err := parseHostPort(host)
 	if err != nil {
 		return err
 	}
 
-	rawDomain := strings.TrimSpace(CookieDomain.Value)
+	rawDomain := strings.TrimSpace(cookie)
 	if rawDomain == "" {
 		return nil
 	}
-	if rawDomain != CookieDomain.Value {
+	if rawDomain != cookie {
 		return strictValidationError(&CookieDomain, "must not contain surrounding whitespace")
 	}
 	domain := strings.ToLower(strings.TrimPrefix(rawDomain, "."))

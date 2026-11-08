@@ -1349,3 +1349,8 @@ random secret of at least 32 bytes and configure the scraper to send
 Warden and Herald credentials. Reusing configured service/session keys or plaintext login passwords
 is rejected at startup; never reuse a hashed login password either. Restrict this path at the network or proxy layer as
 well. Existing anonymous scrapers must be updated before deploying this change.
+
+
+## Scoped deployment diagnostics
+
+Use [`stargate doctor`](DIAGNOSTICS.md) for explicit offline configuration inspection and optional health/readiness checks. Health success does not prove HMAC or a working login.
