@@ -14,7 +14,7 @@ import urllib.request
 from urllib.parse import parse_qs, urlparse
 
 from playwright.sync_api import sync_playwright
-from validate_inputs import validate, callback_matches
+from validate_inputs import validate, callback_matches, hello_text_url
 from diagnostics import smtp_signatures
 
 ROOT = Path.cwd()
@@ -115,8 +115,13 @@ def app_login_page(page):
 def protected_app(page):
     page.wait_for_url(lambda u: urlparse(u).hostname == urlparse(APP).hostname and urlparse(u).path == "/")
     check("real protected hello rendered", page.locator("h1").inner_text() == "hello from the terminal")
-    response = page.context.request.get(APP, headers={"Accept": "text/plain"}, max_redirects=0)
-    check("protected hello200 and published response contract", response.status == 200 and response.headers.get("project") == "https://github.com/soulteary/hello" and "Hello from soulteary/hello!" in response.text().splitlines())
+    # hello v2.3.0 gives Mozilla user agents HTML even with Accept:text/plain;
+    # its explicit format parameter takes precedence over that browser default.
+    response = page.context.request.get(hello_text_url(APP), headers={"Accept": "text/plain"}, max_redirects=0)
+    observed = {"status": response.status, "project_matches": response.headers.get("project") == "https://github.com/soulteary/hello", "summary_matches": "Hello from soulteary/hello!" in response.text().splitlines()}
+    RESULT["protected_app_probe"] = observed
+    save()
+    check("protected hello200 and published response contract", observed["status"] == 200 and observed["project_matches"] and observed["summary_matches"])
     authenticated(page, "demo-user-001")
 
 

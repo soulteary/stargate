@@ -12,6 +12,10 @@ def validate(values):
         raise ValueError("Herald must use its verified canonical image digest")
 
 
+def hello_text_url(base):
+    return base.rstrip("/") + "/?format=text"
+
+
 def callback_matches(raw, target):
     try:
         expected = urlparse(target)

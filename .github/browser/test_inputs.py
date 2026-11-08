@@ -1,5 +1,5 @@
 import unittest
-from validate_inputs import validate, callback_matches
+from validate_inputs import validate, callback_matches, hello_text_url
 
 
 class Inputs(unittest.TestCase):
@@ -73,3 +73,14 @@ class CallbackAuthority(unittest.TestCase):
             self.assertTrue(callback_matches(raw, target))
         for raw in ("http://hello.test.localhost:9090", "http://other.test.localhost:8088", "http://hello.test.localhost:8088.evil.test", "https://hello.test.localhost:8088", "http://user@hello.test.localhost:8088", target + "/secret", target + "?q=1"):
             self.assertFalse(callback_matches(raw, target))
+
+
+class HelloFormat(unittest.TestCase):
+    def test_explicit_format_preserves_example_origin(self):
+        from urllib.parse import urlparse, parse_qs
+        for base in ("http://hello.test.localhost:8088", "https://app.example.com:8443/"):
+            parsed = urlparse(hello_text_url(base))
+            self.assertEqual(parsed.netloc, urlparse(base).netloc)
+            self.assertEqual(parsed.scheme, urlparse(base).scheme)
+            self.assertEqual(parsed.path, "/")
+            self.assertEqual(parse_qs(parsed.query), {"format": ["text"]})
