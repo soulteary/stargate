@@ -96,6 +96,29 @@ class ConfigurationTests(unittest.TestCase):
             self.assertNotEqual(process.returncode, 0)
             self.assertIn(reason, (process.stdout + process.stderr).lower())
 
+    def test_dollar_and_backslash_paths_repeat_without_mutation(self):
+        self.output = Path(self.tmp.name) / 'private$path\\with-slash'
+        args = self.args()
+        config.configure(args, {})
+        before = {p: p.read_bytes() for p in self.output.rglob('*') if p.is_file()}
+        self.assertFalse(config.configure(args, {}))
+        self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_missing_provider_bundle_is_partial_for_production_too(self):
+        self.output.mkdir()
+        state = self.output / 'state'
+        state.mkdir()
+        (state / 'users.json').write_text('[]')
+        (state / 'routes.yml').write_text('{}')
+        private = self.output / '.env'
+        private.write_text('COMPOSE_FILE="compose.yml:compose.production.yml"\n')
+        private.chmod(0o600)
+        before = private.read_bytes()
+        with self.assertRaisesRegex(ValueError, 'provider CA bundle is missing'):
+            config.configure(self.args(environment='production'), {})
+        self.assertFalse((state / 'provider-ca.pem').exists())
+        self.assertEqual(private.read_bytes(), before)
+
     def test_distinct_keys_and_exact_encryption_key_bytes(self):
         config.configure(self.args(), {})
         text = (self.output / '.env').read_text()

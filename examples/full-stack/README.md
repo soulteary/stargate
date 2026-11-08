@@ -194,6 +194,19 @@ socket. Every service has `traefik.enable=false` so an unrelated Docker-discover
 proxy does not automatically route these containers. Choose a unique `--project`
 and an unused `--subnet`; do not reuse another deployment’s project or network.
 
+### Existing provider trust-bundle migration
+
+An older configuration without `state/provider-ca.pem` is rejected explicitly;
+setup will not create it silently or replace existing credentials. For production
+mail using public SMTP certificates and no TOTP, create an empty 0644 provider
+bundle and keep `HERALD_CA_FILE=""` so normal public roots remain in use. For a
+private SMTP issuer, put only its public CA certificates in that file. With TOTP,
+include its public issuer too, retaining existing SMTP issuers, and set
+`HERALD_CA_FILE="/certs/provider-ca.pem"`. Never put a CA private key in the bundle.
+Recreate Herald after changing trust. Retain all application keys and Redis.
+Generated path values use JSON double quotes and literal dollars escaped as `$$`;
+use absolute paths, not shell expressions, when editing them.
+
 ## Enable TOTP on an existing production mail deployment
 
 Do not rerun setup expecting it to change an existing deployment, and do not

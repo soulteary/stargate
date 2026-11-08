@@ -149,6 +149,16 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 打开 `https://app.example.com`，先验证受控邮箱的真实投递，再添加其他账号。
 将 `hello` 演示替换为实际应用时，保留 ForwardAuth 中间件。
 
+### 既有提供方信任包迁移
+
+旧配置缺少 `state/provider-ca.pem` 时会明确拒绝；初始化不会静默补文件或替换凭据。
+仅使用公开 SMTP 证书且未启用 TOTP 的生产邮件部署，可创建权限 0644 的空信任包，保持
+`HERALD_CA_FILE=""`，继续使用原有公开根证书。私有 SMTP 签发方只将公开 CA 证书放入该文件。
+启用 TOTP 时还应加入其公开签发 CA，保留已有 SMTP CA，并设置
+`HERALD_CA_FILE="/certs/provider-ca.pem"`。信任包中不得包含 CA 私钥。修改后重新创建 Herald，
+保留全部应用密钥和 Redis。生成的路径使用 JSON 双引号，字面量美元符以 `$$` 转义；
+手动编辑时填写绝对路径，不写 Shell 表达式。
+
 ## 为已有生产邮件部署启用 TOTP
 
 不要期待重复运行生成器会修改既有部署，也不要重新生成秘密。先备份既有 `.env` 和 Redis。

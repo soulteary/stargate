@@ -52,6 +52,16 @@ def dotenv(values):
     return '\n'.join(lines) + '\n'
 
 
+def generated_dotenv_value(value):
+    # Decode only our own JSON-quoted format; never evaluate a shell expression.
+    if not value.startswith('"'):
+        raise ValueError('expected a generated JSON-quoted configuration value')
+    decoded = json.loads(value)
+    if not isinstance(decoded, str):
+        raise ValueError('expected a generated string value')
+    return decoded.replace('$$', '$')
+
+
 def private_write(path, text):
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, 'w') as output:
@@ -68,18 +78,20 @@ def configure(args, environ=None):
         if env_file.is_file() and (state / 'users.json').is_file() and (state / 'routes.yml').is_file():
             if env_file.stat().st_mode & 0o077:
                 raise ValueError('existing .env is not private; restrict its permissions to 0600')
+            if not (state / 'provider-ca.pem').is_file():
+                raise ValueError('existing provider CA bundle is missing; follow migration instructions without replacing credentials')
             existing = env_file.read_text()
             if 'compose.local.yml' in existing:
                 selected = next((line.split('=', 1)[1] for line in existing.splitlines() if line.startswith('SMTP_TLS_DIR=')), '')
                 if not selected:
                     raise ValueError('existing local configuration lacks SMTP TLS settings; follow migration instructions without replacing application keys')
                 try:
-                    selected = json.loads(selected) if selected.startswith('"') else selected.strip("'")
+                    selected = generated_dotenv_value(selected)
                 except ValueError:
                     raise ValueError('existing SMTP_TLS_DIR is invalid; nothing was overwritten') from None
                 smtp_directory = Path(selected)
                 required = ['ca.pem', 'ca-key.pem', 'smtp-cert.pem', 'smtp-key.pem']
-                if not (state / 'provider-ca.pem').is_file() or not all((smtp_directory / name).is_file() for name in required):
+                if not all((smtp_directory / name).is_file() for name in required):
                     raise ValueError('partial SMTP TLS configuration exists; nothing was overwritten')
                 generate_smtp_certificates(smtp_directory)
             return False
