@@ -15,6 +15,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shlex
 import shutil
 import signal
 import socket
@@ -92,6 +93,37 @@ def api(repo, path):
     return json.loads(fetch('https://api.github.com/repos/soulteary/' + repo + '/' + path, 4 * 1024 * 1024, True))
 
 
+
+def embedded_identity(info, service, version, source):
+    """Recognize this binary's identity fields, never dependency text matches."""
+    module = 'github.com/soulteary/' + REPOS[service] + ('/v2' if service == 'totp' else '')
+    main_version = False
+    vcs_source = False
+    assignments = {}
+    for line in info.splitlines():
+        fields = line.split('\t')
+        if len(fields) >= 4 and fields[1:4] == ['mod', module, 'v' + version]:
+            main_version = True
+        if line == '\tbuild\tvcs.revision=' + source:
+            vcs_source = True
+        if not line.startswith('\tbuild\t-ldflags='):
+            continue
+        value = line.split('-ldflags=', 1)[1]
+        try:
+            flags = shlex.split(json.loads(value) if value.startswith('"') else value)
+        except (ValueError, TypeError):
+            continue
+        for index, flag in enumerate(flags):
+            assignment = flags[index + 1] if flag == '-X' and index + 1 < len(flags) else flag[3:] if flag.startswith('-X=') else ''
+            if '=' in assignment:
+                key, value = assignment.split('=', 1)
+                assignments[key] = value
+    return {
+        'embedded_version_present': main_version or assignments.get('github.com/soulteary/version-kit/v4.Version') == version,
+        'embedded_source_present': vcs_source or assignments.get('github.com/soulteary/version-kit/v4.Commit') == source,
+    }
+
+
 def download_tuple(phase, entries):
     paths = {}
     for service, entry in entries.items():
@@ -143,8 +175,7 @@ def download_tuple(phase, entries):
         paths[service] = path.resolve()
         events.append({'check': 'formal binary identity', 'phase': phase, 'service': service,
                        **entry, 'release_id': release['id'], 'path': str(path),
-                       'embedded_source_present': entry['source'] in info,
-                       'embedded_version_present': entry['version'] in info,
+                       **embedded_identity(info, service, entry['version'], entry['source']),
                        'verification_scope': 'Published stable tag/source, pinned SHA, checksum manifest and Go metadata; signatures verified separately'})
         save()
     return paths
