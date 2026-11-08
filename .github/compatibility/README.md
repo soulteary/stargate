@@ -18,7 +18,7 @@ Before submitting a new manifest, independently verify release signatures and
 provenance under the publication procedure. The harness checks the stable
 GitHub release, tag target, pinned asset hash and published checksum manifest.
 It records Go platform/build metadata and checks version/source fields when
-present. Historical Herald binaries omit those fields; their binding is the
+present. Verified Herald v1.4.3 and v1.4.4 binaries omit those fields; their binding is the
 previously verified asset hash plus formal tag, not invented embedded metadata.
 OCI references are recorded only: native binary execution is not image-entrypoint
 or image-signature verification. The workflow source commit is recorded
@@ -28,7 +28,14 @@ The baseline starts the four real services, sends and verifies an OTP through
 Stargate and Herald, enrolls and verifies TOTP, and checks single consumption.
 Upgrade mode replaces TOTP, Warden, Herald, then Stargate; rollback reverses that
 order. Shared Redis, credentials, pending OTP bindings, enrolled credentials,
-consumed challenges and session absolute deadlines are retained. Fresh HMAC
+consumed challenges, backup-code consumption and session absolute deadlines are retained.
+Backup checks use the actual persistent Redis array, preserve ordered hashes and
+used timestamps, reject a used code with a fresh challenge, then consume an
+unused code after rollback. Only counts, used timestamps and a whole-record
+fingerprint are recorded; raw backup codes and individual code hashes are not
+written to artifacts. Five-minute challenge replay markers are checked only
+while their actual TTL is positive. The existing normal quota profile remains
+unchanged; no counters or cooldowns are cleared. Fresh HMAC
 nonces are accepted before each adjacent transition and re-signed with current
 timestamps afterwards; positive Redis marker TTLs and replay-specific evidence
 are checked. A separate configuration phase exercises three-leg key overlap,

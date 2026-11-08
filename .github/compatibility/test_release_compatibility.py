@@ -111,5 +111,37 @@ class ManifestTests(unittest.TestCase):
             login.assert_called_once_with(module.ROTATION_SUBJECTS[0], 'challenge', '123456')
 
 
+    def test_backup_summary_redacts_codes_and_individual_hashes(self):
+        entries = [{'code_hash': format(i, '064x'), 'used_at': 123 if i == 0 else 0} for i in range(10)]
+        raw = json.dumps(entries)
+        with mock.patch.object(module, 'resp', side_effect=[raw, -1]) as redis:
+            stored, private_entries, summary = module.backup_state('synthetic-user')
+        self.assertEqual(stored, raw)
+        self.assertEqual(private_entries, entries)
+        self.assertEqual(summary['used_count'], 1)
+        self.assertEqual(summary['entry_count'], 10)
+        self.assertEqual(summary['key_ttl_ms'], -1)
+        self.assertNotIn('code_hash', json.dumps(summary))
+        self.assertNotIn(entries[1]['code_hash'], json.dumps(summary))
+        self.assertEqual(redis.call_args_list, [mock.call(['GET', 'totp:backup:synthetic-user']), mock.call(['PTTL', 'totp:backup:synthetic-user'])])
+
+    def test_backup_state_mutation_and_unexpected_expiry_fail_closed(self):
+        entries = [{'code_hash': format(i, '064x'), 'used_at': 0} for i in range(10)]
+        with mock.patch.object(module, 'resp', side_effect=[json.dumps(entries), 30000]):
+            with self.assertRaisesRegex(AssertionError, 'persistent lifetime'):
+                module.backup_state('synthetic-user')
+        with mock.patch.object(module, 'backup_state', return_value=('changed', entries, {})):
+            with self.assertRaisesRegex(AssertionError, 'mutated'):
+                module.assert_backup_unchanged(('original', entries, {}), 'upgrade')
+
+    def test_backup_hash_matches_case_and_separator_normalization(self):
+        self.assertEqual(module.backup_hash(' abcd-efgh '), module.backup_hash('ABCDEFGH'))
+
+    def test_unexpected_response_does_not_write_raw_backup_codes_to_error(self):
+        with self.assertRaises(AssertionError) as raised:
+            module.expect('enrollment', (201, {'backup_codes': ['private-synthetic-code']}, {}), 200)
+        self.assertNotIn('private-synthetic-code', str(raised.exception))
+
+
 if __name__ == '__main__':
     unittest.main()
