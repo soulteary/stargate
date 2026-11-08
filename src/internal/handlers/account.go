@@ -8,10 +8,10 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
-func authenticationView(c fiber.Ctx) fiber.Map {
+func authenticationView(c fiber.Ctx, page string) fiber.Map {
 	words, encoded := authenticationUIData(c)
 	c.Set("Cache-Control", "no-store")
-	return fiber.Map{"UI": words, "UIMessages": encoded, "UILanguage": authenticationUILanguage(c), "SupportURL": config.LoginSupportURL.String(), "Title": config.LoginPageTitle.Value, "FooterText": config.LoginPageFooterText.Value, "HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool()}
+	return fiber.Map{"PageTitle": words[page], "UI": words, "UIMessages": encoded, "UILanguage": authenticationUILanguage(c), "SupportURL": config.LoginSupportURL.String(), "Title": config.LoginPageTitle.Value, "FooterText": config.LoginPageFooterText.Value, "HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool()}
 }
 
 // AccountRoute renders session management without changing the root API response
@@ -29,6 +29,6 @@ func AccountRoute(store *session.Store) fiber.Handler {
 		if allowed, err := authorizeSensitiveSession(c, sess); !allowed {
 			return err
 		}
-		return c.Render("account", authenticationView(c))
+		return c.Render("account", authenticationView(c, "account"))
 	}
 }

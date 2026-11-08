@@ -51,7 +51,7 @@ func TOTPEnrollPageRoute(store *session.Store) func(c fiber.Ctx) error {
 		if !hasRecentAuthentication(sess) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "recent authentication required")
 		}
-		return ctx.Render("totp_start", authenticationView(ctx))
+		return ctx.Render("totp_start", authenticationView(ctx, "bind"))
 	}
 }
 
@@ -115,8 +115,8 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 		ctx.Set("Cache-Control", "no-store")
 		uiWords, uiJSON := authenticationUIData(ctx)
 		return ctx.Render("totp_enroll", fiber.Map{
-			"Title":             config.LoginPageTitle.Value,
-			"UI":                uiWords,
+			"Title":     config.LoginPageTitle.Value,
+			"PageTitle": uiWords["bind"], "UI": uiWords,
 			"UIMessages":        uiJSON,
 			"UILanguage":        authenticationUILanguage(ctx),
 			"SupportURL":        config.LoginSupportURL.String(),

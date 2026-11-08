@@ -59,6 +59,7 @@ func TOTPRevokeRoute(store *session.Store) func(c fiber.Ctx) error {
 		return ctx.Render("totp_revoke", fiber.Map{
 			"Title":             config.LoginPageTitle.Value,
 			"UI":                uiWords,
+			"PageTitle":         uiWords["revoke"],
 			"UIMessages":        uiJSON,
 			"UILanguage":        authenticationUILanguage(ctx),
 			"SupportURL":        config.LoginSupportURL.String(),

@@ -59,7 +59,7 @@ func TestAccountPageRequiresSessionAndLogoutRemainsSameOrigin(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page.StatusCode != 200 || !strings.Contains(string(body), `method="post" action="/_logout"`) || page.Header.Get("Cache-Control") != "no-store" {
+	if page.StatusCode != 200 || !strings.Contains(string(body), "<title>Account settings") || !strings.Contains(string(body), `method="post" action="/_logout"`) || page.Header.Get("Cache-Control") != "no-store" {
 		t.Fatalf("management page: %d %s", page.StatusCode, body)
 	}
 	for _, origin := range []string{"https://outside.example", "http://auth.example"} {
