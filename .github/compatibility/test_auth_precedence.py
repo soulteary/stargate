@@ -97,6 +97,43 @@ class AuthPrecedenceTests(unittest.TestCase):
             original.module.login('chain-c@example.test', 'challenge', 'code', auth_headers={'X-Forwarded-Uri': '/profile'})
             self.assertEqual(request.call_args_list[-1], mock.call(original.module.gateway, '/_auth', opener=True, extra_headers={'X-Forwarded-Uri': '/profile'}))
 
+    def test_pacer_waits_initial_window_and_after_four_successful_sends(self):
+        with mock.patch.object(profile.time, 'monotonic', return_value=100):
+            pacer = profile.OTPPacer()
+        self.assertEqual(pacer.ready_at, 161)
+        harness = SimpleNamespace(budget=mock.Mock())
+        with mock.patch.object(profile.time, 'monotonic', side_effect=[160.9, 161]), mock.patch.object(profile.time, 'sleep') as sleep:
+            pacer.before_send(harness)
+            sleep.assert_called_once_with(.2)
+            harness.budget.assert_called_once()
+        for count in range(3):
+            pacer.sent()
+            self.assertEqual(pacer.ready_at, 161)
+        with mock.patch.object(profile.time, 'monotonic', return_value=170):
+            pacer.sent()
+        self.assertEqual(pacer.ready_at, 231)
+        self.assertEqual(pacer.sent_in_batch, 0)
+
+    def test_pacing_schedule_stays_below_unchanged_five_per_minute(self):
+        # Model redis-kit1.8.1 fixed window: expiry is set on first acceptance;
+        # later accepts increment without extending it. No network or Redis.
+        clock, attempts = 0, []
+        with mock.patch.object(profile.time, 'monotonic', side_effect=lambda: clock):
+            pacer = profile.OTPPacer()
+            for index in range(20):
+                clock = max(clock, pacer.ready_at)
+                attempts.append(clock)
+                pacer.sent()
+        accepted = 0
+        expiry = -1
+        for timestamp in attempts:
+            if timestamp >= expiry:
+                accepted, expiry = 0, timestamp + 60
+            accepted += 1
+            self.assertLessEqual(accepted, 4)
+        self.assertEqual(attempts[-1], 305)
+        self.assertEqual(sum(1 for i, t in enumerate(attempts) if i == 0 or t != attempts[i - 1]), 5)
+
     def test_startup_failure_records_actual_health_without_changing_deadline(self):
         module = original.module
         with tempfile.TemporaryDirectory() as directory, mock.patch.object(module, 'OUT', Path(directory)), mock.patch.object(module, 'RUNTIME', Path(directory)), mock.patch.object(module, 'processes', {}), mock.patch.object(module, 'log_handles', []), mock.patch.object(module, 'events', []), mock.patch.object(module, 'save'), mock.patch.object(module.subprocess, 'Popen') as process, mock.patch.object(module.time, 'monotonic', side_effect=[0, 0, 36]), mock.patch.object(module.time, 'sleep'), mock.patch.object(module, 'request', return_value=(503, {'status': 'unhealthy'}, {})):
@@ -119,7 +156,7 @@ class AuthPrecedenceTests(unittest.TestCase):
             paths = {phase: {name: name + '-' + phase for name in env} for phase in ('old', 'new')}
             harness = SimpleNamespace(RUNTIME=runtime, browser_cookies=previous_browser,
                 processes={name: object() for name in env}, gateway='http://127.0.0.1:38080',
-                warden='http://127.0.0.1:38081', key_w='synthetic', events=[],
+                warden='http://127.0.0.1:38081', key_w='synthetic', events=[], result={},
                 send=lambda subject: ('challenge', 'synthetic-code'),
                 login=lambda *args, **kwargs: None, budget=lambda: 10, save=lambda: None)
             def stop(name):
@@ -140,7 +177,7 @@ class AuthPrecedenceTests(unittest.TestCase):
                     harness.browser_cookies = previous
             harness.isolated_browser = isolated_browser
             harness.request = lambda *args, **kwargs: (200, {}, {'x-forwarded-user': 'authenticated'})
-            with mock.patch.object(profile.time, 'monotonic', side_effect=[0, 3]), self.assertRaisesRegex(AssertionError, 'expected 503'):
+            with mock.patch.object(profile, 'OTPPacer'), mock.patch.object(profile.time, 'monotonic', side_effect=[0, 3]), self.assertRaisesRegex(AssertionError, 'expected 503'):
                 profile.run(harness, manifest, paths, {'old': 'old-templates', 'new': 'new-templates'}, env)
             self.assertIs(harness.browser_cookies, previous_browser)
             self.assertEqual((runtime / 'users.json').read_bytes(), initial_source)

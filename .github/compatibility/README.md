@@ -109,3 +109,12 @@ protected controls provide `/admin/settings`. Successful directory identities
 must match user, scopes and role; failures must publish none of those claims or
 the default forwarded-user header. Only non-secret case outcomes are added to
 the result records.
+
+The profile retains Herald's default five-create-calls-per-minute IP quota. Its
+redis-kit v1.8.1 limiter starts a fixed 60-second window on the first accepted
+call. The profile waits 61 seconds initially and after each four successful OTP
+sends, measured after the response. It does not retry 429 responses, increase
+limits or delete rate-limit records. Twenty old/new cases require at most 305
+seconds of planned pacing plus 42 seconds of deliberate refresh staleness; the
+existing 18-minute whole-run deadline still bounds downloads, startup and HTTP
+work. Slow infrastructure can fail that deadline rather than relax assertions.

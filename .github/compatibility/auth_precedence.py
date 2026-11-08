@@ -23,6 +23,33 @@ CASES = (
 )
 
 
+class OTPPacer:
+    """Respect Herald's unchanged five-per-minute fixed IP window.
+
+    Pause beyond a complete window initially and after each four successful
+    sends. The margin leaves one slot unused; no Redis counters are modified.
+    """
+    WINDOW_SECONDS = 61
+    BATCH_SIZE = 4
+
+    def __init__(self):
+        self.ready_at = time.monotonic() + self.WINDOW_SECONDS
+        self.sent_in_batch = 0
+
+    def before_send(self, harness):
+        while time.monotonic() < self.ready_at:
+            harness.budget()
+            time.sleep(.2)
+
+    def sent(self):
+        self.sent_in_batch += 1
+        if self.sent_in_batch == self.BATCH_SIZE:
+            # Start the wait after the response, so even a delayed create call's
+            # actual Redis acceptance precedes the full quiet interval.
+            self.ready_at = time.monotonic() + self.WINDOW_SECONDS
+            self.sent_in_batch = 0
+
+
 def validate_profile(manifest):
     if 'auth_precedence' not in manifest:
         return
@@ -101,6 +128,12 @@ def run(harness, manifest, paths, templates, original_env):
                           HEADER_AUTH_SHARED_SECRET=TRUSTED_SECRET, TRUSTED_PROXIES='127.0.0.1',
                           STEP_UP_ENABLED='true', STEP_UP_PATHS='/admin')
     phases = ['old'] + (['new'] if manifest['mode'] == 'upgrade' else [])
+    pacer = OTPPacer()
+    harness.result['auth_precedence_pacing'] = {
+        'unchanged_ip_limit': 5, 'fixed_window_seconds': 60, 'batch_size': 4,
+        'quiet_interval_seconds': 61, 'maximum_planned_pacing_seconds':
+            ((len(phases) * len(CASES) + 3) // 4) * 61,
+        'counter_reset': False, 'retry_429': False}
     try:
         for phase in phases:
             version = manifest[phase]['gateway']['version']
@@ -111,7 +144,9 @@ def run(harness, manifest, paths, templates, original_env):
                     f'precedence-{version.replace(".", "-")}-{index}-')]
                 user_a, user_b = pair
                 harness.browser_cookies = {}
+                pacer.before_send(harness)
                 challenge, code = harness.send(user_a['mail'])
+                pacer.sent()
                 harness.login(user_a['mail'], challenge, code, auth_headers={'X-Forwarded-Uri': '/profile'})
                 if method == 'trusted':
                     with harness.isolated_browser():
