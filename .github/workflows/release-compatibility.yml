@@ -1,0 +1,56 @@
+name: Release compatibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      manifest_json:
+        description: 'Optional validated old/new release manifest JSON; empty uses the committed baseline'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-compatibility-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compatibility:
+    name: Formal binary upgrade and rollback
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      redis:
+        image: redis@sha256:64e425955ca42226d6b5e273149c6b3ff566a3849e3071a5507c8d3817d2cc65
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    steps:
+      - name: Check out verification harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up metadata reader
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: go.mod
+          cache: false
+      - name: Validate formal releases and run compatibility checks
+        env:
+          COMPAT_MANIFEST_JSON: ${{ inputs.manifest_json }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/compatibility/release_compatibility.py
+      - name: Save verification records
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-compatibility-${{ github.run_id }}-${{ github.run_attempt }}
+          path: compatibility-evidence/
+          if-no-files-found: error
+          retention-days: 30
