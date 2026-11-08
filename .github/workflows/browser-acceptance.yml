@@ -1,4 +1,4 @@
-name: Real browser acceptance
+name: Controlled BFCache experiment
 on:
   pull_request:
     paths:
@@ -25,69 +25,7 @@ env:
   GATEWAY_REF: ${{ inputs.gateway_ref || '843e2301efb8d9dff35a67d26bc9755a33e45654' }}
   HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:89eb2dba787b7d7a22a39b43ffb12118631b62ba6e8779d9bff8cc7c82f79765' }}
 jobs:
-  chromium:
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Validate immutable inputs
-        run: |
-          python3 .github/browser/validate_inputs.py
-          python3 -m unittest discover -s .github/browser -p 'test_*.py'
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.FULLSTACK_REF }}
-          path: fullstack
-          persist-credentials: false
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: ${{ env.GATEWAY_REF }}
-          path: gateway
-          persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
-        with:
-          python-version: '3.12'
-      - name: Resolve owned loopback hosts for browser and HTTP clients
-        run: |
-          printf '127.0.0.1 auth.test.localhost hello.test.localhost\n' | sudo tee -a /etc/hosts > /dev/null
-          python3 - <<'PYTHON'
-          import ipaddress, socket
-          for host in ("auth.test.localhost", "hello.test.localhost"):
-              assert all(ipaddress.ip_address(item[4][0]).is_loopback for item in socket.getaddrinfo(host, 8088))
-          PYTHON
-      - name: Install Chromium test dependencies
-        run: |
-          python3 -m pip install playwright==1.56.0
-          python3 -m playwright install --with-deps chromium
-      - name: Start isolated real stack and run browser acceptance
-        run: |
-          set +e
-          python3 .github/browser/run.py
-          result=$?
-          python3 - "$result" <<'PYTHON'
-          import json, pathlib, sys
-          path = pathlib.Path("browser-results.json")
-          data = json.loads(path.read_text())
-          data["process_exit_code"] = int(sys.argv[1])
-          if int(sys.argv[1]) != 0:
-              data["status"] = "failed"
-          path.write_text(json.dumps(data, indent=2) + "\n")
-          PYTHON
-          exit "$result"
-      - name: Upload redacted result only
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: browser-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
-          path: |
-            browser-results.json
-            browser-account.png
-          if-no-files-found: error
-
-  production_tls:
-    needs: chromium
+  bfcache_experiment:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -97,7 +35,8 @@ jobs:
       - name: Validate immutable inputs and pure contracts
         run: |
           python3 .github/browser/validate_inputs.py
-          python3 -m unittest discover -s .github/browser -p 'test_*.py'
+          python3 -m unittest discover -s .github/browser -p 'test_bfcache_probe.py'
+          python3 -m unittest discover -s .github/browser -p 'test_production_tls.py'
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.FULLSTACK_REF }}
@@ -117,14 +56,14 @@ jobs:
           sudo apt-get install -y libnss3-tools
           python3 -m pip install playwright==1.56.0
           python3 -m playwright install --with-deps chromium
-      - name: Run isolated production TLS acceptance
+      - name: Run controlled BFCache browser scenario
         run: |
           set +e
-          python3 .github/browser/production_tls.py
+          python3 .github/browser/bfcache_probe.py
           result=$?
           python3 - "$result" <<'PYTHON'
           import json, pathlib, sys
-          path = pathlib.Path("production-tls-results.json")
+          path = pathlib.Path("bfcache-results.json")
           data = json.loads(path.read_text())
           data["process_exit_code"] = int(sys.argv[1])
           if int(sys.argv[1]) != 0:
@@ -132,10 +71,10 @@ jobs:
           path.write_text(json.dumps(data, indent=2) + "\n")
           PYTHON
           exit "$result"
-      - name: Upload redacted production TLS result only
+      - name: Upload redacted BFCache observation only
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: production-tls-${{ github.run_id }}-${{ github.run_attempt }}
-          path: production-tls-results.json
+          name: bfcache-experiment-${{ github.run_id }}-${{ github.run_attempt }}
+          path: bfcache-results.json
           if-no-files-found: error
