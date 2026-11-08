@@ -1,6 +1,6 @@
 # 배포 가이드
 
-현재 배포 예제는 v1.3.4을 사용합니다. v1.3 이전 배포를 교체하기 전에 [세션 마이그레이션](../enUS/DEPLOYMENT.md#revocable-session-migration)과 [브라우저에 바인딩된 교환](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)을 확인하세요. 모든 복제본을 조정하고 필요한 Redis 상태를 보존하며 필수 재로그인을 계획하세요.
+현재 배포 예제는 v1.3.5을 사용합니다. v1.3 이전 배포를 교체하기 전에 [세션 마이그레이션](../enUS/DEPLOYMENT.md#revocable-session-migration)과 [브라우저에 바인딩된 교환](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)을 확인하세요. 모든 복제본을 조정하고 필요한 Redis 상태를 보존하며 필수 재로그인을 계획하세요.
 
 > **이전 번역**: 현재 변경 사항이 모두 반영되어 있지 않습니다. [최신 영어 문서](../enUS/DEPLOYMENT.md)를 확인하세요.
 
@@ -180,7 +180,7 @@ Traefik이 공유 외부 Docker 네트워크에서 이미 실행 중인 경우�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -269,7 +269,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -293,7 +293,7 @@ Stargate는 Traefik과 통합하도록 설계되어 있으며, Forward Auth 미�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

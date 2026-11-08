@@ -1,9 +1,11 @@
 # 部署指南
 
+升级至 v1.3.5 前，请阅读[认证优先级升级与回滚](#认证优先级升级与回滚v135)。有效显式凭据不再依赖无关旧 Cookie 的目录刷新。
+
 升级至 v1.3.4 前，请阅读[依赖补丁升级与回滚](#依赖补丁升级与回滚v134)。本次更新调整脱敏行为和依赖版本，保留既有会话与验证码状态。
 
 
-当前部署示例使用 v1.3.4。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
+当前部署示例使用 v1.3.5。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
 
 本文档提供 Stargate Forward Auth Service 的详细部署指南。
 
@@ -206,7 +208,7 @@ CI 输出不会自动改写；若其中实际包含凭据，应限制访问，�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -259,7 +261,7 @@ networks:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
@@ -325,7 +327,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -349,7 +351,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -1008,3 +1010,19 @@ secure-kit/v2 v2.1.4 按 Unicode 码点处理日志脱敏，并安全处理超�
 最小版本选择而保留较新的直接依赖或传递依赖下限。回滚不会重写既有日志、恢复已退役
 密钥或撤销已提交的验证码消费。保留共享状态，对不确定的提供方结果
 进行核对，不应独立降级提供方服务或删除重放记录。
+
+## 认证优先级升级与回滚（v1.3.5）
+
+从 v1.3.4 升级至 v1.3.5 时，替换网关二进制或镜像，保留原有配置与服务版本。
+本次更新不改变依赖、Redis 结构、会话命名空间或绝对截止时间。升级和回滚期间，
+保留待验证 challenge 绑定、撤销与重放记录，不要清空 Redis。
+
+有效密码头或可信身份头的认证不再受无关旧 Warden 会话刷新影响。实际选中会话认证时，
+仍刷新目录授权并检查来源有效期，目录不可用时拒绝放行。错误密码头仍可按既有行为回退到
+已认证会话，该会话仍须通过上述检查。这与服务 HMAC 认证不同：HMAC 请求不会改用 API key
+重试。无状态凭据不能借用会话的 step-up 验证标记。本次更新不增加自动验证码重试或会话续期。
+
+回滚至已验证的 v1.3.4 二进制或镜像保留既有状态，但恢复旧认证顺序：旧 Cookie 的目录刷新
+可能再次阻断其他有效显式凭据。源码构建应检出 v1.3.4 源码
+（`19d2997ff0bb6c61ff8a302cf4b99287c8b27008`）后重新构建。本次依赖未变，仅恢复
+`go.mod` 与 `go.sum` 不能撤销认证源码修改。重新构建前仍须核对实际选中的模块版本。上文 v1.3.4 依赖与更早版本的迁移要求仍然适用。

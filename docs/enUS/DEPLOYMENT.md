@@ -1,9 +1,11 @@
 # Deployment Guide
 
+For v1.3.5, read [authentication priority upgrade and rollback](#authentication-priority-upgrade-and-rollback-v135). Valid explicit credentials no longer depend on refreshing an unrelated existing cookie.
+
 For v1.3.4, read [dependency patch upgrade and rollback](#dependency-patch-upgrade-and-rollback-v134). The update changes masking behavior and dependency versions, while preserving existing session and verification state.
 
 
-Current deployment examples use v1.3.4. Before replacing a pre-v1.3 deployment, read the [revocable-session migration](#revocable-session-migration) and [browser-bound session exchange](#browser-bound-session-exchange) requirements. Coordinate all replicas; preserve required Redis state and account for the documented fresh-login boundary.
+Current deployment examples use v1.3.5. Before replacing a pre-v1.3 deployment, read the [revocable-session migration](#revocable-session-migration) and [browser-bound session exchange](#browser-bound-session-exchange) requirements. Coordinate all replicas; preserve required Redis state and account for the documented fresh-login boundary.
 
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
@@ -211,7 +213,7 @@ Use the separate example below when Traefik already runs on a shared external Do
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -300,7 +302,7 @@ Edit `docker-compose.yml` and modify environment variables:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -324,7 +326,7 @@ Configure Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.4
+    image: ghcr.io/soulteary/stargate:1.3.5
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -955,3 +957,25 @@ minimums under Go minimal version selection. Rollback does not rewrite existing
 logs, restore retired keys or undo committed OTP consumption.
 Keep shared state and reconcile uncertain provider results. Do not independently
 downgrade provider services or discard replay records.
+
+## Authentication priority upgrade and rollback (v1.3.5)
+
+Upgrade the gateway binary or image from v1.3.4 to v1.3.5 with the same
+configuration and service versions. No dependency, Redis schema, session namespace
+or absolute-deadline change is required. Preserve pending challenge bindings,
+revocation and replay records; do not clear Redis during rollout or rollback.
+
+A valid password header or trusted identity header is evaluated independently of
+an unrelated old Warden session. If session authentication is selected, directory
+refresh and source freshness still fail closed. An invalid password header can
+still fall back to an authenticated session, which must pass those checks. This
+existing password fallback is separate from service HMAC authentication, which
+does not retry with an API key. Stateless credentials cannot borrow a session's
+step-up verification marker. No automatic OTP retry or session renewal is added.
+
+Rollback to the verified v1.3.4 binary or image preserves existing state but
+restores the previous ordering: refreshing an old cookie can reject a request
+with otherwise valid explicit credentials. For source builds, check out the v1.3.4 source
+(`19d2997ff0bb6c61ff8a302cf4b99287c8b27008`) and rebuild; restoring only
+`go.mod` and `go.sum` cannot undo this source change because dependencies are
+unchanged. Verify selected module versions before rebuilding. The v1.3.4 dependency and older migration guidance above still applies.
