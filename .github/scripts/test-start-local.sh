@@ -89,4 +89,10 @@ assert_invalid "out-of-range CLI port" "错误: 无效端口: :65536" \
 assert_invalid "missing CLI port" "错误: --port 需要端口值" \
   bash "$launcher" --port
 
+# README URLs must retain the callback port emitted by the launcher.
+for readme in "$repo_root"/README*.md; do
+  grep -Fq 'http://localhost:8080/_login?callback=localhost:8080' "$readme" || fail "missing default callback port: $readme"
+  grep -Fq 'http://localhost:9090/_login?callback=localhost:9090' "$readme" || fail "missing custom callback port: $readme"
+done
+
 echo "Local launcher port tests passed."
