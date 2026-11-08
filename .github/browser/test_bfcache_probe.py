@@ -79,3 +79,16 @@ class NavigationDiagnostics(unittest.TestCase):
             result = safe_experiment_failure(RuntimeError('net::'+code+' '+secret))
             self.assertEqual(result['browser_error_codes'], [code])
             self.assertNotIn(secret, json.dumps(result))
+
+
+class AccountPrivacyExclusion(unittest.TestCase):
+    def test_exact_cookie_exclusion_and_real_restore_only(self):
+        from bfcache_probe import accepted_account_observation
+        self.assertTrue(accepted_account_observation({'status':'restored','same_document':True,'trusted_pageshow_persisted':True,'new_main_requests':0}))
+        result = {'status':'not_restored','not_restored':{'codes':['CacheControlNoStoreHTTPOnlyCookieModified'],'unknown_count':0}}
+        self.assertTrue(accepted_account_observation(result))
+        for reasons in ({'codes':[],'unknown_count':0}, {'codes':['Timeout'],'unknown_count':0},
+                        {'codes':['CacheControlNoStoreHTTPOnlyCookieModified'],'unknown_count':1},
+                        {'codes':['CacheControlNoStoreHTTPOnlyCookieModified','Timeout'],'unknown_count':0}):
+            self.assertFalse(accepted_account_observation({'status':'not_restored','not_restored':reasons}))
+        self.assertFalse(accepted_account_observation({'status':'restored','same_document':False,'trusted_pageshow_persisted':True,'new_main_requests':0}))

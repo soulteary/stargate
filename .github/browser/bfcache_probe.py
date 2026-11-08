@@ -134,7 +134,14 @@ def restore(page, cdp, events, requests, name, original_stamp, entry_id, require
     return result
 
 
-def round_trip(page, cdp, events, requests, name):
+def accepted_account_observation(result):
+    if result.get('status') == 'restored':
+        return genuine_restore(result.get('same_document'), result.get('trusted_pageshow_persisted'), result.get('new_main_requests'))
+    return (result.get('status') == 'not_restored' and
+            result.get('not_restored') == {'codes':['CacheControlNoStoreHTTPOnlyCookieModified'], 'unknown_count':0})
+
+
+def round_trip(page, cdp, events, requests, name, required=True):
     stamp = page.evaluate('window.__u11bf.document')
     original_path = urlparse(page.url).path
     history = cdp.send('Page.getNavigationHistory')
@@ -143,9 +150,12 @@ def round_trip(page, cdp, events, requests, name):
     health = page.goto(fixture.AUTH+'/healthz')
     fixture.check(name+' inert health destination', health.status == 200 and 'set-cookie' not in health.headers)
     cookie_stable = cookies == page.context.cookies()  # Values compared only in memory, never hashed or returned.
-    result = restore(page, cdp, events, requests, name, stamp, entry_id, True, original_path)
+    fixture.RESULT.setdefault('away_cookie_observations', {})[name] = {'unchanged':cookie_stable}
+    fixture.save()
+    result = restore(page, cdp, events, requests, name, stamp, entry_id, required, original_path)
     result['cookies_unchanged_during_away'] = cookie_stable
     fixture.save()
+    return result
 
 
 def browser_scenario(ca, home):
@@ -245,9 +255,13 @@ def browser_scenario(ca, home):
         fixture.stage('authenticated-account-bfcache')
         response = page.goto(fixture.AUTH+'/_account?lang=en')
         fixture.check('Actual account keeps no-store', response.status==200 and 'no-store' in response.headers.get('cache-control',''))
-        round_trip(page, cdp, events, requests, 'account_get')
+        account = round_trip(page, cdp, events, requests, 'account_get', required=False)
+        fixture.check('Account restores or has only explicit cookie-privacy exclusion', accepted_account_observation(account))
+        fixture.check('Account remains at approved management document', fixture.url_matches(page.url, fixture.AUTH+'/_account'))
+        account['coverage'] = 'genuine_restore' if account['status']=='restored' else 'not_exercised_cookie_privacy_eviction'
+        fixture.save()
         auth = page.evaluate("""async()=>{const r=await fetch('/_auth',{headers:{'X-Forwarded-Uri':'/profile'}});return {status:r.status,user:r.headers.get('X-Auth-User')};}""")
-        fixture.check('Restored account retains real identity', auth=={'status':200,'user':'production-user-001'})
+        fixture.check('Actual account retains real identity', auth=={'status':200,'user':'production-user-001'})
         fixture.RESULT['mail_login_observation']['real_app_and_identity_positive'] = True
         fixture.save()
         fixture.stage('native-post-secret-leave')
