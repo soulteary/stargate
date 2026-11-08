@@ -1,6 +1,6 @@
 import json
 import unittest
-from bfcache_probe import genuine_restore, safe_reasons, approved_login_entry, accepted_login
+from bfcache_probe import genuine_restore, safe_reasons, approved_login_entry, accepted_login, exact_cdp_body_limit, safe_experiment_failure
 import production_tls as fixture
 
 
@@ -33,3 +33,20 @@ class AppEntry(unittest.TestCase):
         for status, body in ((201, {'success':True}), (401, {'success':True}), (200, {'success':1}),
                              (200, {}), (200, ['success'])):
             self.assertFalse(accepted_login(status, body))
+
+
+class BodyObservation(unittest.TestCase):
+    def test_only_precise_playwright_resource_limit_has_fallback(self):
+        class PlaywrightError(Exception):
+            pass
+        marker = 'Protocol error (Network.getResponseBody): No resource with given identifier found'
+        self.assertTrue(exact_cdp_body_limit(PlaywrightError(marker), PlaywrightError))
+        self.assertTrue(exact_cdp_body_limit(PlaywrightError('Network.getResponseBody: No data found for resource with given identifier'), PlaywrightError))
+        for error in (Exception(marker), PlaywrightError('JSON parse failed'), PlaywrightError('Network.getResponseBody: access denied')):
+            self.assertFalse(exact_cdp_body_limit(error, PlaywrightError))
+
+    def test_failure_type_and_category_do_not_echo_values(self):
+        secret = 'private@example.test-secret-code'
+        result = safe_experiment_failure(RuntimeError(secret))
+        self.assertEqual(result['exception_type'], 'RuntimeError')
+        self.assertNotIn(secret, json.dumps(result))

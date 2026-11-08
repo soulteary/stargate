@@ -21,8 +21,28 @@ REASONS = {'BackForwardCacheDisabled', 'HTTPMethodNotGET', 'HTTPStatusNotOK', 'E
            'CookieFlushed', 'WebSocket', 'WebTransport', 'WebRTC', 'OutstandingNetworkRequestFetch',
            'OutstandingNetworkRequestXHR', 'OutstandingNetworkRequestOthers', 'SessionRestored',
            'ForwardCacheDisabled', 'NavigationCancelledWhileRestoring'}
+BASE_SAFE_FAILURE = fixture.safe_failure
 STAMP_SCRIPT = """window.__u11bf = {document:crypto.randomUUID(), shows:[]};
 addEventListener('pageshow', e => window.__u11bf.shows.push({persisted:e.persisted, trusted:e.isTrusted}));"""
+
+
+def exact_cdp_body_limit(error, playwright_error_type):
+    if not isinstance(error, playwright_error_type):
+        return False
+    message = str(error)
+    return 'Network.getResponseBody' in message and any(marker in message for marker in (
+        'No resource with given identifier found', 'No data found for resource with given identifier'))
+
+
+def safe_experiment_failure(error):
+    result = BASE_SAFE_FAILURE(error)
+    name = type(error).__name__
+    result['exception_type'] = name if name in {'Error','TimeoutError','JSONDecodeError','HTTPError','URLError','KeyError','RuntimeError','AssertionError','TypeError','ValueError'} else 'other'
+    if isinstance(error, json.JSONDecodeError):
+        result['reason'] = 'json_decode_failed'
+    elif 'Network.getResponseBody' in str(error):
+        result['reason'] = 'cdp_response_body_read_failed'
+    return result
 
 
 def approved_login_entry(login_url, callbacks):
@@ -108,7 +128,7 @@ def round_trip(page, cdp, events, requests, name):
 
 
 def browser_scenario(ca, home):
-    from playwright.sync_api import sync_playwright
+    from playwright.sync_api import sync_playwright, Error as PlaywrightError
     fixture.CA_SYSTEM_PATH = Path('/usr/local/share/ca-certificates')/(fixture.PROJECT+'.crt')
     fixture.check('Runner CA destination new', not fixture.CA_SYSTEM_PATH.exists())
     fixture.command(['sudo','install','-m','0644',ca,fixture.CA_SYSTEM_PATH])
@@ -158,20 +178,47 @@ def browser_scenario(ca, home):
         with page.expect_response(lambda r: urlparse(r.url).path=='/_send_verify_code') as sent:
             page.locator('#sendCodeBtn').click()
         fixture.check('Actual mail challenge accepted', sent.value.status == 200)
-        page.locator('#verify_code').fill(fixture.mailbox_code())
+        fixture.stage('read-captured-mail-code')
+        code = fixture.mailbox_code()
+        fixture.stage('fill-delivered-code')
+        page.locator('#verify_code').fill(code)
+        fixture.stage('read-login-history-before-submit')
         login_stamp = page.evaluate('window.__u11bf.document')
         history = cdp.send('Page.getNavigationHistory')
         login_entry = history['entries'][history['currentIndex']]['id']
+        fixture.stage('submit-single-real-login')
         with page.expect_response(lambda r:r.request.method=='POST' and urlparse(r.url).path=='/_login') as logged_in:
             page.locator('#loginForm [type=submit]').click()
-        body = logged_in.value.json()
-        fixture.RESULT['mail_login_observation'] = {'status':logged_in.value.status, 'success':isinstance(body,dict) and body.get('success') is True}
-        fixture.check('Single real login POST accepted', accepted_login(logged_in.value.status, body))
+        fixture.RESULT['mail_login_observation'] = {'status':logged_in.value.status, 'success':None, 'body_limit':False}
+        fixture.save()
+        fixture.check('Single real login POST status200', logged_in.value.status == 200)
+        fixture.stage('read-login-response-json')
+        try:
+            body = logged_in.value.json()
+        except PlaywrightError as error:
+            if not exact_cdp_body_limit(error, PlaywrightError):
+                raise
+            fixture.RESULT['mail_login_observation']['body_limit'] = True
+            fixture.RESULT['mail_login_observation']['body_limit_kind'] = 'exact_cdp_resource_body_unavailable'
+        else:
+            fixture.RESULT['mail_login_observation']['success'] = isinstance(body,dict) and body.get('success') is True
+            fixture.check('Single real login JSON success', accepted_login(logged_in.value.status, body))
+        fixture.stage('wait-for-approved-app')
         page.wait_for_url(lambda value: fixture.url_matches(value, fixture.APP))
         fixture.check('Actual mail authentication reaches app', fixture.url_matches(page.url, fixture.APP))
+        fixture.stage('actual-protected-app-contract')
+        app = page.evaluate("""async()=>{const r=await fetch('/?format=text',{headers:{Accept:'text/plain'},redirect:'manual'});const text=await r.text();return {status:r.status,project:r.headers.get('Project')==='https://github.com/soulteary/hello',summary:text.split(String.fromCharCode(10)).includes('Hello from soulteary/hello!')};}""")
+        fixture.RESULT['protected_app_positive'] = app
+        fixture.check('Same page protected app200 and real hello contract', app=={'status':200,'project':True,'summary':True})
         fixture.stage('successful-login-history-observation')
         restore(page, cdp, events, requests, 'after_successful_login', login_stamp, login_entry, False, '/_login')
         fixture.RESULT['successful_login_field_presence'] = field_presence(page)
+        fixture.stage('same-session-auth-positive')
+        fixture.check('History observation returned actual auth origin', urlparse(page.url).hostname == fixture.AUTH_HOST)
+        auth = page.evaluate("""async()=>{const r=await fetch('/_auth',{headers:{'X-Forwarded-Uri':'/profile'}});return {status:r.status,user:r.headers.get('X-Auth-User')};}""")
+        fixture.check('Resumed login has real stable identity', auth=={'status':200,'user':'production-user-001'})
+        fixture.RESULT['mail_login_observation']['real_app_and_identity_positive'] = True
+        fixture.save()
         fixture.stage('authenticated-account-bfcache')
         response = page.goto(fixture.AUTH+'/_account?lang=en')
         fixture.check('Actual account keeps no-store', response.status==200 and 'no-store' in response.headers.get('cache-control',''))
@@ -208,6 +255,7 @@ def browser_scenario(ca, home):
 def main():
     fixture.RESULT['scope']='Controlled real BFCache experiment; product no-store/TLS/auth unchanged; no POST history resubmission'
     fixture.save=lambda:Path('bfcache-results.json').write_text(json.dumps(fixture.RESULT,indent=2)+'\n')
+    fixture.safe_failure=safe_experiment_failure
     fixture.trust_and_browser=browser_scenario  # Replace only the browser scenario; reuse fixture setup and owned cleanup unchanged.
     return fixture.main()
 
