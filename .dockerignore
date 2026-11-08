@@ -1,0 +1,33 @@
+# Both source builds and release packaging use this repository as their context.
+# Allow only Go source, required runtime web resources and packaged public binaries.
+**
+!go.mod
+!go.sum
+!src/**/*.go
+!src/internal/web/templates/login.html
+!src/internal/web/templates/login.warden.html
+!src/internal/web/templates/account.html
+!src/internal/web/templates/totp_start.html
+!src/internal/web/templates/totp_enroll.html
+!src/internal/web/templates/totp_revoke.html
+!src/internal/web/templates/assets/auth-ui.js
+!src/internal/web/templates/assets/auth-ui.css
+!src/internal/web/templates/assets/qrcode.min.js
+!src/internal/web/templates/assets/favicon.ico
+!dist/stargate-linux-amd64
+!dist/stargate-linux-arm64
+# Late denies also protect generated files placed under otherwise allowed paths.
+**/*_test.go
+**/.env*
+**/audit-spool
+**/audit-spool/**
+**/generated-output*
+**/generated-output*/**
+**/outputs
+**/outputs/**
+**/__pycache__
+**/__pycache__/**
+**/*.pem
+**/*.key
+**/*.p12
+**/*.pfx

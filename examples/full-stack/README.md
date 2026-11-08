@@ -7,7 +7,7 @@ local demo, use the [root quick start](../../README.md#-quick-start).
 
 ## Local mail OTP
 
-Requirements: Python 3, Docker Compose v2, and free loopback ports 8088 and 8025.
+Requirements: Python 3, OpenSSL, Docker Compose v2 on a Unix-compatible host (use WSL2 on Windows), and free loopback ports 8088 and 8025.
 The `*.test.localhost` names must resolve to loopback in your browser. If they do
 not, add `127.0.0.1 auth.test.localhost hello.test.localhost` to your hosts file.
 
@@ -51,16 +51,41 @@ files. Some shared-VM filesystems deny access through a private host ancestor
 actual container error; do not treat a timeout as a permission diagnosis.
 
 Do not relax `.env`, certificate-key or private-parent permissions. For the
-**synthetic local demo only**, an operator may stage only `state/users.json` and
-`state/routes.yml` in an owned temporary directory outside Documents, make that
-public-fixture parent 0755 and those two files 0644, and run Compose with an
+**synthetic local demo only**, an operator may stage only `state/users.json`, `state/routes.yml` and the public
+`state/provider-ca.pem` in an owned temporary directory outside Documents, make that
+public-fixture parent 0755 and those public files 0644, and run Compose with an
 explicit `STATE_DIR` override pointing there. Keep the original private `.env`
 and every credential unchanged. Never copy real user data, `.env` or private
-keys into that public fixture directory. Verify the exact mounted files are
+keys into that public fixture directory. Keep SMTP private keys at their original private path. Verify the exact mounted files are
 readable before calling startup successful; record this as a local filesystem
 accommodation, not a production configuration default. Remove only the owned
 fixture directory after stopping its stack. Production should use an approved
 host/mount mechanism that preserves its access-control requirements.
+
+### Local SMTP TLS and existing setups
+
+Herald requires verified SMTP STARTTLS even in the local HTTP walkthrough.
+Setup generates a private local CA and a server certificate with SAN `mailpit`.
+Mailpit requires STARTTLS; only the public CA bundle is mounted into Herald via
+`SSL_CERT_FILE`. The CA private key is never mounted. No host trust store is
+changed. Both `mail` and `totp` modes require OpenSSL; the separate root
+password-only Compose example does not.
+
+For an older local configuration without these files, keep `.env`, Redis,
+account IDs and every application/HMAC/TOTP key unchanged. Run `certificates.py`
+with `--output` pointing to a new `local-smtp` directory under its private state
+directory. Copy its public `ca.pem` to `STATE_DIR/provider-ca.pem` (0644), and add
+`SMTP_TLS_DIR` (the absolute certificate directory), `FIXTURE_UID`/`FIXTURE_GID`
+(your host numeric UID/GID) and `HERALD_CA_FILE="/certs/provider-ca.pem"` to the
+existing private `.env`. Recreate Herald and Mailpit to reload trust. Do not
+initialize another application configuration or rotate credentials.
+
+Local SMTP certificates last 365 days. An expired, partial or mismatched set is
+rejected rather than overwritten. To renew explicitly, retain a private backup
+of only the old `local-smtp` certificate directory, create a fresh certificate set
+at the original path, update the public provider CA bundle and recreate Herald
+and Mailpit. Do not change users, Redis, HMAC or TOTP encryption keys. These are
+local test certificates, not a production CA-management procedure.
 
 ## Add an authenticator
 
@@ -152,6 +177,9 @@ For production TOTP, configuration also selects `compose.totp-production.yml`.
 Herald calls `https://totp-tls:8443`; the proxy forwards unchanged signed requests
 to the private TOTP service. No TOTP proxy port is published. `SSL_CERT_FILE` is
 scoped to the Herald container, with no host trust-store changes or TLS bypass.
+For a private SMTP issuer, provide `SMTP_CA_FILE` during initial production setup.
+The generator combines that public CA with the TOTP issuer in `state/provider-ca.pem`;
+without a custom SMTP CA, production mail uses the image’s normal public trust roots.
 Validate an authenticated TOTP operation through Herald after startup; a healthy
 process or rendered Compose file does not prove this TLS/authentication path.
 
@@ -174,7 +202,9 @@ regenerate any secrets. Back up the existing `.env` and Redis first.
 1. In the existing `TLS_DIR`, provision the TOTP certificate with SAN `DNS:totp-tls`,
    matching `totp-key.pem` (host mode 0600) and issuing `totp-ca.pem` described above.
 2. Copy this checkout's `totp-tls.yml.example` to the existing `STATE_DIR/totp-tls.yml`
-   and make that non-secret routing file readable by the proxy (0644). Do not copy
+   and make that non-secret routing file readable by the proxy (0644). Add the
+   public TOTP issuer to `STATE_DIR/provider-ca.pem`, retaining any existing SMTP CA,
+   and set `HERALD_CA_FILE="/certs/provider-ca.pem"` in the private `.env`. Do not copy
    or change the user directory, encryption key or HMAC credentials.
 3. Edit the existing private `.env`: set `COMPOSE_PROFILES="totp"` and
    `TOTP_ENABLED="true"`; append this checkout's absolute
@@ -214,3 +244,12 @@ The old published Stargate v1.3.5 does not contain the new account/recovery UI.
 Use the source build for this local walkthrough. Production requires your own
 tested immutable gateway image until a suitable formal release is available;
 this example does not publish or silently select one.
+
+### Build context boundary
+
+The repository `.dockerignore` allows Go source, the explicit runtime web resources
+and the two packaged Linux binaries. Git credentials, example configuration,
+`.env*`, audit spools and private key/certificate files do not enter the build
+context. New custom runtime resources must be explicitly allowed and tested; do
+not remove the private-file exclusions. CI verifies this with synthetic canaries
+in an actual scratch-image `COPY`, without copying real private data.

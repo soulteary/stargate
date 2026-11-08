@@ -6,7 +6,7 @@ herald-totp 2.0.3，使用真实 SMTP 投递、持久 Redis、显式 HMAC key ID
 
 ## 本地邮件 OTP
 
-需要 Python 3、Docker Compose v2，以及空闲的 loopback 8088、8025 端口。
+需要 Python 3、OpenSSL、Unix 兼容环境中的 Docker Compose v2（Windows 使用 WSL2），以及空闲的 loopback 8088、8025 端口。
 浏览器须将两个 `*.test.localhost` 域名解析到本机；若不能自动解析，在 hosts 文件加入：
 `127.0.0.1 auth.test.localhost hello.test.localhost`。
 
@@ -46,11 +46,30 @@ python3 configure.py --port 9090 --mailbox-port 9025 \
 容器错误，不能把超时当作权限原因的证明。
 
 不要放宽 `.env`、证书私钥或私有父目录权限。**仅针对合成本地演示**，维护者可以只将
-`state/users.json`、`state/routes.yml` 放到 Documents 之外自行创建的临时目录，将此公开
-夹具父目录设为 0755、这两个文件设为 0644，并用明确的 `STATE_DIR` 覆盖指向该目录。
+`state/users.json`、`state/routes.yml` 和公开的 `state/provider-ca.pem` 放到 Documents 之外自行创建的临时目录，将此公开
+夹具父目录设为 0755、这些公开文件设为 0644，并用明确的 `STATE_DIR` 覆盖指向该目录。
 原私有 `.env` 和全部凭据保持不变。不得将真实用户资料、`.env` 或私钥复制到公开夹具目录。
 须验证实际挂载文件可读后，才能认定启动成功，并如实记录这是本地文件系统适配，而非生产默认值。
 停止所属测试栈后只清理自己创建的夹具目录。生产应使用满足访问控制要求的宿主机或挂载方式。
+
+### 本地 SMTP TLS 与既有配置
+
+即使网页使用本地 HTTP，Herald 也要求经过验证的 SMTP STARTTLS。初始化会生成私有本地 CA
+和 SAN 为 `mailpit` 的服务端证书，Mailpit 强制 STARTTLS，仅将公开 CA 信任包通过
+`SSL_CERT_FILE` 挂载给 Herald，不挂载 CA 私钥，也不修改宿主机信任库。
+`mail`、`totp` 两种组合都需要 OpenSSL；独立的根目录密码演示不需要证书。
+
+较早的本地配置缺少这些文件时，保留原 `.env`、Redis、账号 ID 和全部应用/HMAC/TOTP 密钥。
+通过 `certificates.py --output` 在其私有状态目录下新建 `local-smtp` 证书目录，将其中公开
+`ca.pem` 复制为 `STATE_DIR/provider-ca.pem`（0644），再向既有私有 `.env` 添加绝对路径
+`SMTP_TLS_DIR`、宿主机数字 UID/GID 对应的 `FIXTURE_UID`/`FIXTURE_GID`，以及
+`HERALD_CA_FILE="/certs/provider-ca.pem"`。重新创建 Herald、Mailpit 以加载信任。
+不要另建应用配置或轮换应用凭据。
+
+本地 SMTP 证书有效期为 365 天。过期、残缺或证书/私钥不匹配时拒绝覆盖。
+需要续期时，仅私密备份原 `local-smtp` 证书目录，在原路径显式生成新证书，更新公开 CA
+信任包，再重新创建 Herald、Mailpit。账号、Redis、HMAC 和 TOTP 加密密钥保持不变。
+这仅是本地测试证书流程，不代表生产 CA 管理方案。
 
 ## 添加验证器
 
@@ -120,7 +139,9 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 生产 TOTP 配置还会选择 `compose.totp-production.yml`。Herald 通过
 `https://totp-tls:8443` 调用内部代理，原始 HMAC 签名请求保持不变，代理再转发至私有 TOTP
 服务。代理不发布宿主机端口，`SSL_CERT_FILE` 仅作用于 Herald 容器，不修改宿主机信任库，
-不跳过 TLS 验证。启动后必须通过 Herald 执行一次带认证的 TOTP 操作；进程健康或 Compose
+不跳过 TLS 验证。生产 SMTP 使用私有 CA 时，初次配置提供 `SMTP_CA_FILE`；生成器会将
+该公开 CA 与 TOTP 的签发 CA 合并到 `state/provider-ca.pem`。未指定私有 SMTP CA 时，
+生产邮件使用镜像原有的公开根证书。启动后必须通过 Herald 执行一次带认证的 TOTP 操作；进程健康或 Compose
 渲染通过不能证明这条链路可用。
 
 生成器在写入前校验证书/私钥配对、解析 CA 及检查必填项，不代表已验证证书域名覆盖、SMTP 可投递性、备份质量或网络策略。
@@ -135,7 +156,8 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 1. 在原 `TLS_DIR` 中准备上文要求的 TOTP 证书（SAN 含 `DNS:totp-tls`）、配对的
    `totp-key.pem`（宿主机权限 0600）及签发 CA 的 `totp-ca.pem`。
 2. 将本源码目录的 `totp-tls.yml.example` 复制为原 `STATE_DIR/totp-tls.yml`，将此非秘密
-   路由文件设为代理可读（0644）。不要复制或更改用户目录、加密密钥或 HMAC 凭据。
+   路由文件设为代理可读（0644）。将公开 TOTP 签发 CA 加入 `STATE_DIR/provider-ca.pem`，
+   保留既有 SMTP CA，并在私有 `.env` 设置 `HERALD_CA_FILE="/certs/provider-ca.pem"`。不要复制或更改用户目录、加密密钥或 HMAC 凭据。
 3. 编辑既有私有 `.env`：设置 `COMPOSE_PROFILES="totp"` 和 `TOTP_ENABLED="true"`；
    在 `COMPOSE_FILE` 的基础文件与生产覆盖文件后，追加本源码目录中
    `compose.totp-production.yml` 的绝对路径，使用当前平台的路径分隔符（Unix 为 `:`）。
@@ -163,3 +185,10 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 
 旧版正式 Stargate v1.3.5 不含新版账号与恢复界面，本地流程使用源码构建。在合适的正式版本
 发布前，生产模板要求提供自行验证的不可变网关镜像。本例不会发布镜像或自动替用户选择新版本。
+
+### 构建上下文边界
+
+仓库 `.dockerignore` 仅允许 Go 源码、明确的运行时网页资源和两个已打包 Linux 二进制。
+Git 凭据、示例配置、`.env*`、审计暂存和私钥/证书文件不进入构建上下文。新增自定义运行时
+资源须显式允许并验证，不能删除私有文件排除规则。CI 通过实际 scratch 镜像的 `COPY`
+检查合成夹具，不复制真实私有数据。

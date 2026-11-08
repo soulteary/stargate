@@ -82,6 +82,9 @@ jobs:
       - name: Check full-stack deployment examples
         run: python3 -m unittest discover -s examples/full-stack -p 'test_*.py'
 
+      - name: Check Docker build context boundaries
+        run: python3 .github/scripts/test-docker-context.py
+
       - name: Check formatting
         if: steps.changes.outputs.code == 'true'
         run: |

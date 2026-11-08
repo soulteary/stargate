@@ -7,8 +7,11 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import ssl
 import sys
+
+from certificates import generate as generate_smtp_certificates
 
 HERE = Path(__file__).resolve().parent
 SECRET_KEYS = ('SESSION_EXCHANGE_SECRET', 'STARGATE_WARDEN_HMAC', 'STARGATE_HERALD_HMAC',
@@ -65,9 +68,25 @@ def configure(args, environ=None):
         if env_file.is_file() and (state / 'users.json').is_file() and (state / 'routes.yml').is_file():
             if env_file.stat().st_mode & 0o077:
                 raise ValueError('existing .env is not private; restrict its permissions to 0600')
+            existing = env_file.read_text()
+            if 'compose.local.yml' in existing:
+                selected = next((line.split('=', 1)[1] for line in existing.splitlines() if line.startswith('SMTP_TLS_DIR=')), '')
+                if not selected:
+                    raise ValueError('existing local configuration lacks SMTP TLS settings; follow migration instructions without replacing application keys')
+                try:
+                    selected = json.loads(selected) if selected.startswith('"') else selected.strip("'")
+                except ValueError:
+                    raise ValueError('existing SMTP_TLS_DIR is invalid; nothing was overwritten') from None
+                smtp_directory = Path(selected)
+                required = ['ca.pem', 'ca-key.pem', 'smtp-cert.pem', 'smtp-key.pem']
+                if not (state / 'provider-ca.pem').is_file() or not all((smtp_directory / name).is_file() for name in required):
+                    raise ValueError('partial SMTP TLS configuration exists; nothing was overwritten')
+                generate_smtp_certificates(smtp_directory)
             return False
         raise ValueError('partial configuration exists; inspect it before continuing (nothing overwritten)')
     production = args.environment == 'production'
+    if not production and not shutil.which('openssl'):
+        raise ValueError('OpenSSL is required for the local SMTP TLS example')
     auth = hostname(args.auth_host or ('auth.test.localhost' if not production else ''))
     app = hostname(args.app_host or ('hello.test.localhost' if not production else ''))
     if auth == app:
@@ -100,17 +119,21 @@ def configure(args, environ=None):
                   APP_AUTHORITY=authority(app, selected_port, 443 if production else 80),
                   PUBLIC_PORT=selected_port, MAILBOX_PORT=mailbox_port,
                   COOKIE_SECURE='true' if production else 'false',
-                  TOTP_ENABLED='true' if args.mode == 'totp' else 'false')
+                  TOTP_ENABLED='true' if args.mode == 'totp' else 'false',
+                  SMTP_TLS_DIR=str(state / 'local-smtp'),
+                  FIXTURE_UID=os.getuid(), FIXTURE_GID=os.getgid())
     if not re.fullmatch(r'[a-z0-9][a-z0-9_-]{0,50}', args.project):
         raise ValueError('invalid Compose project name')
+    provider_ca = []
+    values['HERALD_CA_FILE'] = '/certs/provider-ca.pem' if not production else ''
     if production:
         for key in ('SMTP_HOST', 'SMTP_PORT', 'SMTP_FROM', 'SMTP_USER', 'SMTP_PASSWORD', 'TLS_DIR'):
             if not environ.get(key):
                 raise ValueError(f'production requires {key} in the environment')
             values[key] = environ[key]
         image = environ.get('STARGATE_IMAGE', '')
-        if not re.fullmatch(r'[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}', image):
-            raise ValueError('production requires a tested STARGATE_IMAGE pinned by sha256 digest')
+        if not (re.fullmatch(r'[a-z0-9][a-z0-9./:_-]*@sha256:[0-9a-f]{64}', image) or re.fullmatch(r'sha256:[0-9a-f]{64}', image)):
+            raise ValueError('production requires a tested STARGATE_IMAGE pinned by repository digest or immutable local image ID')
         if image.endswith('sha256:98ec7f90728b0b0a6271318d755baeb5295a581de29d36f03fa5f0f528d4107b'):
             raise ValueError('v1.3.5 does not contain the new account and recovery UI; select a tested newer image')
         values['STARGATE_IMAGE'] = image
@@ -122,11 +145,17 @@ def configure(args, environ=None):
         if not (tls_dir / 'tls.yml').is_file():
             raise ValueError('TLS_DIR must contain tls.yml (see README)')
         values['TLS_DIR'] = str(tls_dir)
+        if environ.get('SMTP_CA_FILE'):
+            smtp_ca = Path(environ['SMTP_CA_FILE']).resolve()
+            ssl.create_default_context(cafile=str(smtp_ca))
+            provider_ca.append(smtp_ca.read_text())
         if args.mode == 'totp':
             # Herald's production TOTP client requires HTTPS and verifies the private CA.
             context.load_cert_chain(tls_dir / 'totp-cert.pem', tls_dir / 'totp-key.pem')
             ssl.create_default_context(cafile=str(tls_dir / 'totp-ca.pem'))
+            provider_ca.append((tls_dir / 'totp-ca.pem').read_text())
             values['COMPOSE_FILE'] += os.pathsep + str(HERE / 'compose.totp-production.yml')
+        values['HERALD_CA_FILE'] = '/certs/provider-ca.pem' if provider_ca else ''
     else:
         values.update(SMTP_HOST='mailpit', SMTP_PORT=1025, SMTP_FROM='login@example.test', SMTP_USER='', SMTP_PASSWORD='')
     routing = {
@@ -163,6 +192,12 @@ def configure(args, environ=None):
         totp_routes = state / 'totp-tls.yml'
         private_write(totp_routes, (HERE / 'totp-tls.yml.example').read_text())
         totp_routes.chmod(0o644)
+    if not production:
+        generate_smtp_certificates(state / 'local-smtp')
+        provider_ca.append((state / 'local-smtp/ca.pem').read_text())
+    trust_bundle = state / 'provider-ca.pem'
+    private_write(trust_bundle, '\n'.join(provider_ca))
+    trust_bundle.chmod(0o644)
     private_write(env_file, encoded)
     return True
 

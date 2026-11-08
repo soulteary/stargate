@@ -17,6 +17,19 @@ services:
   mailpit:
     labels: {traefik.enable: 'false'}
     image: axllent/mailpit:v1.33.1@sha256:aef2aacc11f075ec0fb6874275ee4a421e688e11a96ebb296134d1735c7761ce
+    user: ${FIXTURE_UID:?run configure.py first}:${FIXTURE_GID:?run configure.py first}
+    environment:
+      MP_SMTP_TLS_CERT: /certs/smtp-cert.pem
+      MP_SMTP_TLS_KEY: /certs/smtp-key.pem
+      MP_SMTP_REQUIRE_STARTTLS: 'true'
+      MP_DATABASE: /tmp/mailpit.db
+    volumes:
+      - ${SMTP_TLS_DIR:?run configure.py first}/smtp-cert.pem:/certs/smtp-cert.pem:ro
+      - ${SMTP_TLS_DIR:?run configure.py first}/smtp-key.pem:/certs/smtp-key.pem:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
     ports:
       - 127.0.0.1:${MAILBOX_PORT:?run configure.py first}:8025
     networks: [delivery]

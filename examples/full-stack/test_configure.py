@@ -10,6 +10,9 @@ import stat
 import shutil
 import subprocess
 import tempfile
+import time
+
+import certificates
 import unittest
 from unittest.mock import patch
 
@@ -52,6 +55,46 @@ class ConfigurationTests(unittest.TestCase):
         with patch.object(config.secrets, 'token_hex', side_effect=AssertionError('must not rotate')):
             self.assertFalse(config.configure(args, {}))
         self.assertEqual(before, {p: p.read_bytes() for p in before})
+
+    def test_existing_missing_tls_is_partial_and_never_recreated(self):
+        args = self.args()
+        config.configure(args, {})
+        state = self.output / 'state/local-smtp'
+        (state / 'ca.pem').unlink()
+        before = (self.output / '.env').read_bytes()
+        with self.assertRaisesRegex(ValueError, 'partial SMTP TLS'):
+            config.configure(args, {})
+        self.assertFalse((state / 'ca.pem').exists())
+        self.assertEqual((self.output / '.env').read_bytes(), before)
+
+    def test_mismatched_smtp_private_key_is_rejected_without_overwrite(self):
+        args = self.args()
+        config.configure(args, {})
+        directory = self.output / 'state/local-smtp'
+        (directory / 'smtp-key.pem').write_bytes((directory / 'ca-key.pem').read_bytes())
+        before = (directory / 'smtp-key.pem').read_bytes()
+        with self.assertRaisesRegex(ValueError, 'do not match'):
+            config.configure(args, {})
+        self.assertEqual((directory / 'smtp-key.pem').read_bytes(), before)
+
+    def test_openssl_required_without_partial_output(self):
+        with patch.object(config.shutil, 'which', return_value=None):
+            with self.assertRaisesRegex(ValueError, 'OpenSSL'):
+                config.configure(self.args(), {})
+        self.assertFalse(self.output.exists())
+
+    def test_actual_smtp_certificate_verification_and_permissions(self):
+        config.configure(self.args(), {})
+        directory = self.output / 'state/local-smtp'
+        for name in ['ca-key.pem', 'smtp-key.pem']:
+            self.assertEqual(stat.S_IMODE((directory / name).stat().st_mode), 0o600)
+        certificates.openssl('verify', '-CAfile', directory / 'ca.pem', '-verify_hostname', 'mailpit', directory / 'smtp-cert.pem')
+        for extra, reason in [(['-verify_hostname', 'wrong.example'], b'hostname mismatch'),
+                              (['-attime', str(int(time.time()) + 400 * 86400)], b'expired')]:
+            process = subprocess.run(['openssl', 'verify', '-CAfile', str(directory / 'ca.pem'), *extra,
+                                      str(directory / 'smtp-cert.pem')], capture_output=True, timeout=10)
+            self.assertNotEqual(process.returncode, 0)
+            self.assertIn(reason, (process.stdout + process.stderr).lower())
 
     def test_distinct_keys_and_exact_encryption_key_bytes(self):
         config.configure(self.args(), {})
@@ -99,6 +142,7 @@ class ConfigurationTests(unittest.TestCase):
         tls = Path(self.tmp.name) / 'tls'
         tls.mkdir()
         (tls / 'tls.yml').write_text('tls: {}')
+        (tls / 'totp-ca.pem').write_text('synthetic-test-public-ca')
         env = dict(SMTP_HOST='smtp.example.com', SMTP_PORT='587', SMTP_FROM='sender@example.com',
                    SMTP_USER='sender', SMTP_PASSWORD="synthetic$quote'password", TLS_DIR=str(tls),
                    STARGATE_IMAGE='registry.example.com/stargate@sha256:' + 'a' * 64)
@@ -129,7 +173,7 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(services['traefik']['ports'][0]['target'], 443)
             self.assertEqual(services['herald']['environment']['ENVIRONMENT'], 'production')
             self.assertEqual(services['herald']['environment']['HERALD_TOTP_BASE_URL'], 'https://totp-tls:8443')
-            self.assertEqual(services['herald']['environment']['SSL_CERT_FILE'], '/certs/totp-ca.pem')
+            self.assertEqual(services['herald']['environment']['SSL_CERT_FILE'], '/certs/provider-ca.pem')
             self.assertFalse(services['totp-tls'].get('ports'))
             self.assertEqual(services['herald']['environment']['SMTP_HOST'], 'smtp.example.com')
             # Compose config serializes literal dollars as $$ on some CLI versions.
@@ -190,6 +234,9 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(services['herald']['environment']['PROVIDER_FAILURE_POLICY'], 'strict')
             self.assertEqual(services['herald']['environment']['ENVIRONMENT'], 'development')
             self.assertEqual(services['herald']['environment']['HERALD_TEST_MODE'], 'false')
+            self.assertEqual(services['herald']['environment']['SSL_CERT_FILE'], '/certs/provider-ca.pem')
+            self.assertEqual(services['mailpit']['environment']['MP_SMTP_REQUIRE_STARTTLS'], 'true')
+            self.assertFalse(any('ca-key.pem' in str(v) for service in services.values() for v in service.get('volumes', [])))
             self.assertIn('--appendonly yes', ' '.join(services['redis']['command']))
             self.assertEqual(services['mailpit']['ports'][0]['host_ip'], '127.0.0.1')
             for service in ['warden', 'herald', 'redis']:

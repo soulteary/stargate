@@ -3,9 +3,6 @@ services:
   herald:
     environment:
       HERALD_TOTP_BASE_URL: https://totp-tls:8443
-      SSL_CERT_FILE: /certs/totp-ca.pem
-    volumes:
-      - ${TLS_DIR:?set TLS_DIR}/totp-ca.pem:/certs/totp-ca.pem:ro
   totp-tls:
     profiles: [totp]
     image: traefik:v3.7.12
