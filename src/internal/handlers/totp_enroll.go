@@ -114,6 +114,8 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 		}
 		return ctx.Render("totp_enroll", fiber.Map{
 			"Title":             config.LoginPageTitle.Value,
+			"UILanguage":        authenticationUILanguage(ctx),
+			"SupportURL":        config.LoginSupportURL.String(),
 			"FooterText":        config.LoginPageFooterText.Value,
 			"EnrollID":          startResp.EnrollID,
 			"OtpauthURI":        template.URL(startResp.OtpauthURI), // avoid html/template sanitizing otpauth:// to #ZgotmplZ
