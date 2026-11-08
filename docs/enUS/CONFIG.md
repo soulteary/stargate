@@ -53,6 +53,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `LOG_LEVEL` | debug/info/warn/error | info | No |
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | No |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | No |
+| `LOGIN_SUPPORT_URL` | String | `""` | No |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | No |
 | `TRUSTED_PROXIES` | comma-separated IPs/CIDRs | empty | No |
 | `PROXY_HEADER` | HTTP header name | X-Forwarded-For | No |
@@ -1350,6 +1351,10 @@ Warden and Herald credentials. Reusing configured service/session keys or plaint
 is rejected at startup; never reuse a hashed login password either. Restrict this path at the network or proxy layer as
 well. Existing anonymous scrapers must be updated before deploying this change.
 
+
+### `LOGIN_SUPPORT_URL`
+
+Optional HTTPS support link or one `mailto:help@example.com` mailbox. Empty hides the link. Userinfo, control characters and mailto headers are rejected.
 
 ## Scoped deployment diagnostics
 

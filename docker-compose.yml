@@ -22,9 +22,9 @@ services:
     # ports:
     #   - "8080:8080"
     environment:
-      - AUTH_HOST=auth.test.localhost # Replace with your auth host (e.g.: auth.example.com).
+      - AUTH_HOST=${AUTH_HOSTNAME:-auth.test.localhost} # DNS hostname only; this HTTP demo listens on port 80.
       - PASSWORDS=plaintext:test1234|test1337 # Replace with your passwords. See the docs for more info.
-      - CALLBACK_ALLOWED_HOSTS=hello.test.localhost
+      - CALLBACK_ALLOWED_HOSTS=${APP_HOSTNAME:-hello.test.localhost}
       - SESSION_EXCHANGE_SECRET=local-development-session-secret-change-me
       - TRUSTED_PROXIES=172.30.0.0/24 # Matches the Compose-managed Traefik network below.
       - COOKIE_SECURE=false # Local HTTP only. Keep the default true in HTTPS deployments.
@@ -48,7 +48,7 @@ services:
       - traefik.enable=true
       - traefik.docker.network=stargate-traefik
       - traefik.http.routers.auth.entrypoints=http
-      - traefik.http.routers.auth.rule=Host(`auth.test.localhost`) || Path(`/_session_exchange`) # Replace auth.test.localhost with your auth host defined above.
+      - traefik.http.routers.auth.rule=Host(`${AUTH_HOSTNAME:-auth.test.localhost}`) || Path(`/_session_exchange`) # Uses the same hostname as AUTH_HOST.
       - traefik.http.middlewares.stargate.forwardauth.address=http://stargate:8080/_auth
       - "traefik.http.middlewares.stargate.forwardauth.authResponseHeaders=X-Forwarded-User,X-Auth-User,X-Auth-Email,X-Auth-Name,X-Auth-Scopes,X-Auth-Role,X-Auth-AMR"
 
@@ -61,7 +61,7 @@ services:
       - traefik.enable=true
       - traefik.docker.network=stargate-traefik
       - traefik.http.routers.hello.entrypoints=http
-      - traefik.http.routers.hello.rule=Host(`hello.test.localhost`)
+      - traefik.http.routers.hello.rule=Host(`${APP_HOSTNAME:-hello.test.localhost}`)
       - "traefik.http.routers.hello.middlewares=stargate"
       - traefik.http.services.hello.loadbalancer.server.port=8080
        # Add this to services that you want to guard

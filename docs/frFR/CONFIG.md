@@ -475,3 +475,8 @@ de passe de connexion. Entre hôtes, utiliser HTTPS avec vérification du certif
 HTTP suppose un réseau local isolé et de confiance.
 Les règles détaillées et la migration sont décrites dans la
 [référence anglaise](../enUS/CONFIG.md#source-freshness-and-scrape-credentials).
+
+
+### `LOGIN_SUPPORT_URL`
+
+Lien HTTPS facultatif ou une seule adresse `mailto:help@example.com`. Vide, le lien est masqué. Identifiants, caractères de contrôle et en-têtes mailto sont refusés.

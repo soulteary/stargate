@@ -80,7 +80,7 @@ Stargate 非常适合以下场景：
 
 ## 🚀 快速开始
 
-**2 分钟内**让 Stargate 运行起来！
+下面的示例运行本地密码认证演示。
 
 ### 使用 Docker Compose（推荐）
 
@@ -90,34 +90,26 @@ git clone https://github.com/soulteary/stargate.git
 cd stargate
 ```
 
-**步骤 2：** 配置认证信息（编辑 `docker-compose.yml`）
+**步骤 2：** 检查本地演示配置（无需修改默认域名）
 
 **选项 A：密码认证（简单）**
-```yaml
-services:
-  stargate:
-    environment:
-      - AUTH_HOST=auth.example.com
-      - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```bash
+# 原样运行本地 HTTP 演示，监听宿主机 80 端口。
+# 仅需自定义域名时，将 .env.example 复制为 .env 后编辑。
+docker compose config --quiet
 ```
 
-**选项 B：Warden + Herald OTP 认证（生产环境）**
-```yaml
-services:
-  stargate:
-    environment:
-      - AUTH_HOST=auth.example.com
-      - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8081
-      - WARDEN_API_KEY=your-warden-api-key
-      - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8082
-      - HERALD_HMAC_SECRET=your-herald-hmac-secret
-```
+启动后打开 `http://hello.test.localhost`，使用 `test1234` 或 `test1337` 登录，
+确认返回受保护的演示服务。这些密码和 `COOKIE_SECURE=false` 仅供本地 HTTP 演示使用。
+
+自定义域名时，在 `.env` 设置 `AUTH_HOSTNAME` 和 `APP_HOSTNAME`（不含协议、路径或端口），
+并确保两个域名均解析到本机。这两个值同时配置代理路由和回调校验，不要只修改服务内的
+`AUTH_HOST`。HTTPS 生产部署及 OTP/TOTP 接入请阅读[部署指南](docs/zhCN/DEPLOYMENT.md)。
+
 
 **步骤 3：** 启动服务
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 **完成！** 您的认证服务现在已经在运行了。🎉
@@ -131,7 +123,12 @@ chmod +x start-local.sh
 ./start-local.sh
 ```
 
-访问登录页面：`http://localhost:8080/_login?callback=localhost`
+访问登录页面：`http://localhost:8080/_login?callback=localhost:8080`
+
+原生开发使用其他端口时，运行 `./start-local.sh --port 9090`，并使用脚本输出的地址：
+`http://localhost:9090/_login?callback=localhost:9090`。
+上面的 Compose 演示使用 80 端口；此命令启动原生 Go 服务。
+
 
 ## 📚 文档导航
 
