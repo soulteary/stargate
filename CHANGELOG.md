@@ -4,12 +4,32 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.3.5] - 2026-11-08
+
 ### Fixed
 
 - Refresh directory authorization only when session authentication is selected.
   An unavailable or deleted identity in an existing cookie no longer blocks
   valid password-header or trusted-header authentication. Session fallback and
   session-bound step-up verification retain their existing checks.
+
+### Verification
+
+- Strengthen the manual compatibility harness to check absolute session expiry,
+  stored identity and newly issued login sessions during upgrade and rollback.
+  This changes verification coverage, not the session storage format.
+
+### Upgrade and rollback
+
+- Dependencies and configuration are unchanged from v1.3.4. Preserve Redis
+  records, pending bindings, session namespaces and absolute deadlines.
+- Selected session authentication still refreshes directory authorization and
+  fails closed when it is unavailable. Invalid password headers retain the
+  existing fallback to an authenticated session; service HMAC requests do not
+  fall back to API-key authentication. Step-up verification remains session-bound.
+- Rolling back to v1.3.4 restores the previous authentication ordering: an old
+  directory session can again block otherwise valid explicit credentials. No
+  schema migration, automatic OTP retry or session renewal is introduced.
 
 ## [1.3.4] - 2026-11-08
 
