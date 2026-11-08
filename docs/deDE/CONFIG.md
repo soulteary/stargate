@@ -477,6 +477,6 @@ Die vollständigen Regeln und Migrationshinweise stehen in der
 [englischen Konfigurationsreferenz](../enUS/CONFIG.md#source-freshness-and-scrape-credentials).
 
 
-### LOGIN_SUPPORT_URL
+### `LOGIN_SUPPORT_URL`
 
 Optionaler HTTPS-Supportlink oder ein einzelnes `mailto:help@example.com`-Postfach. Leer blendet den Link aus. Zugangsdaten, Steuerzeichen und Mailto-Header sind nicht erlaubt.

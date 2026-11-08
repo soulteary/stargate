@@ -477,6 +477,6 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 [英語の設定リファレンス](../enUS/CONFIG.md#source-freshness-and-scrape-credentials)を参照してください。
 
 
-### LOGIN_SUPPORT_URL
+### `LOGIN_SUPPORT_URL`
 
 任意のHTTPSサポートリンク、または単一の `mailto:help@example.com` アドレス。空の場合は非表示です。認証情報、制御文字、メールヘッダー指定は許可されません。

@@ -53,6 +53,7 @@ services:
 | `LOG_LEVEL` | debug/info/warn/error | info | 否 |
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | 否 |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | 否 |
+| `LOGIN_SUPPORT_URL` | String | `""` | 否 |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | 否 |
 | `TRUSTED_PROXIES` | 逗号分隔的 IP/CIDR | 空 | 否 |
 | `PROXY_HEADER` | HTTP 头名称 | X-Forwarded-For | 否 |
@@ -1324,6 +1325,6 @@ HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 [英文配置参考](../enUS/CONFIG.md#source-freshness-and-scrape-credentials)。
 
 
-### LOGIN_SUPPORT_URL
+### `LOGIN_SUPPORT_URL`
 
 可选的 HTTPS 求助链接，或单个 `mailto:help@example.com` 邮箱；为空时隐藏链接。不允许用户凭据、控制字符或邮件头参数。
