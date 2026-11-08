@@ -21,7 +21,8 @@ docker compose up -d --build
 Open **http://hello.test.localhost:8088**. Enter `demo@example.test`, send the
 email code, then open **http://127.0.0.1:8025** to read the Mailpit inbox. Submit
 the delivered code and confirm that the browser returns to the protected demo.
-The email goes through Herald's real SMTP provider. Mailpit captures it locally;
+The local override explicitly uses Herald development mode while retaining
+HMAC, strict delivery and `HERALD_TEST_MODE=false`. The email goes through Herald's real SMTP provider. Mailpit captures it locally;
 this is not delivery to an external mailbox. No SMS provider is configured.
 
 Open `http://auth.test.localhost:8088/_login` to inspect the authentication page.
@@ -91,13 +92,20 @@ The production override is a starting template for a single trusted host, not a
 certificate issuer or delivery-provider setup tool. It requires real DNS, a TLS
 certificate valid for both hosts and authenticated SMTP. It does not start Mailpit
 or publish Redis/Warden/Herald/TOTP ports. Internal service HTTP is confined to the
-private Compose network; for multiple hosts or an untrusted network, configure
-TLS/mTLS in the respective services and SDKs before deployment. mTLS does not
+private Compose network. Herald’s production TOTP client requires verified HTTPS
+even on that network: the TOTP production extension adds an internal TLS proxy and
+a private CA trusted only by the Herald container. For multiple hosts or an
+untrusted network, configure TLS/mTLS for the remaining service links before
+deployment. mTLS does not
 replace Herald/TOTP request authentication.
 
 1. Place `cert.pem`, `key.pem` and a copy of `tls.yml.example` named `tls.yml` in
-   a protected certificate directory. Keep the private key out of Git.
-2. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD` and
+   a protected certificate directory. Keep the private key out of Git and limit
+   its host permissions to 0600. For TOTP, also provide `totp-cert.pem` (SAN
+   `DNS:totp-tls`), `totp-key.pem` and the issuing `totp-ca.pem`. Keep the CA private
+   key offline; it is not mounted. The TOTP server certificate/key must match,
+   and its chain must verify against that CA.
+2. Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_FROM`, `SMTP_USER`, `SMTP_PASSWORD`,
    `TLS_DIR` and `STARGATE_IMAGE` in the shell environment. `STARGATE_IMAGE` must
    identify a tested gateway image by `@sha256:...` digest, built from source that
    contains the account and recovery UI. A repository tag alone is not accepted. Do not place a password in command-line
@@ -120,7 +128,14 @@ image from the reviewed source separately, publish it to your approved registry,
 and set its immutable digest. Do not substitute the old v1.3.5 image, which lacks
 the account and revised recovery UI.
 
-The generator validates the certificate/key pair and required settings before
+For production TOTP, configuration also selects `compose.totp-production.yml`.
+Herald calls `https://totp-tls:8443`; the proxy forwards unchanged signed requests
+to the private TOTP service. No TOTP proxy port is published. `SSL_CERT_FILE` is
+scoped to the Herald container, with no host trust-store changes or TLS bypass.
+Validate an authenticated TOTP operation through Herald after startup; a healthy
+process or rendered Compose file does not prove this TLS/authentication path.
+
+The generator validates the certificate/key pairs, parses the CA and checks required settings before
 writing. It does not prove certificate hostname coverage, SMTP deliverability,
 volume backup quality or network policy. Verify those independently. `COOKIE_SECURE`
 is true and the proxy listens with TLS on port 443. Open `https://app.example.com`

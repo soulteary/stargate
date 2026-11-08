@@ -121,6 +121,11 @@ def configure(args, environ=None):
         if not (tls_dir / 'tls.yml').is_file():
             raise ValueError('TLS_DIR must contain tls.yml (see README)')
         values['TLS_DIR'] = str(tls_dir)
+        if args.mode == 'totp':
+            # Herald's production TOTP client requires HTTPS and verifies the private CA.
+            context.load_cert_chain(tls_dir / 'totp-cert.pem', tls_dir / 'totp-key.pem')
+            ssl.create_default_context(cafile=str(tls_dir / 'totp-ca.pem'))
+            values['COMPOSE_FILE'] += os.pathsep + str(HERE / 'compose.totp-production.yml')
     else:
         values.update(SMTP_HOST='mailpit', SMTP_PORT=1025, SMTP_FROM='login@example.test', SMTP_USER='', SMTP_PASSWORD='')
     routing = {
@@ -142,6 +147,13 @@ def configure(args, environ=None):
     if production:
         for router in routing['http']['routers'].values():
             router['tls'] = {}
+    totp_routing = {
+        'http': {
+            'routers': {'totp': {'rule': 'Host(`totp-tls`)', 'entryPoints': ['totp'], 'service': 'totp', 'tls': {}}},
+            'services': {'totp': {'loadBalancer': {'servers': [{'url': 'http://totp:8084'}]}}},
+        },
+        'tls': {'certificates': [{'certFile': '/certs/totp-cert.pem', 'keyFile': '/certs/totp-key.pem'}]},
+    }
     encoded = dotenv(values)
     output.mkdir(parents=True, exist_ok=True, mode=0o700)
     state.mkdir(mode=0o700)
@@ -153,6 +165,10 @@ def configure(args, environ=None):
     routes = state / 'routes.yml'
     private_write(routes, json.dumps(routing, indent=2) + '\n')
     routes.chmod(0o644)
+    if production and args.mode == 'totp':
+        totp_routes = state / 'totp-tls.yml'
+        private_write(totp_routes, json.dumps(totp_routing, indent=2) + '\n')
+        totp_routes.chmod(0o644)
     private_write(env_file, encoded)
     return True
 

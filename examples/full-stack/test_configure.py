@@ -104,9 +104,10 @@ class ConfigurationTests(unittest.TestCase):
                    STARGATE_IMAGE='registry.example.com/stargate@sha256:' + 'a' * 64)
         args = self.args(environment='production', mode='totp', auth_host='auth.example.com',
                          app_host='app.example.com', email='user@example.com', user_id='stable-001')
-        with patch.object(config.ssl, 'SSLContext') as context:
+        with patch.object(config.ssl, 'SSLContext') as context, patch.object(config.ssl, 'create_default_context') as trust:
             config.configure(args, env)
-            context.return_value.load_cert_chain.assert_called_once_with(tls.resolve() / 'cert.pem', tls.resolve() / 'key.pem')
+            self.assertEqual(context.return_value.load_cert_chain.call_count, 2)
+            trust.assert_called_once_with(cafile=str(tls.resolve() / 'totp-ca.pem'))
         text = (self.output / '.env').read_text()
         self.assertIn("COOKIE_SECURE='true'", text)
         self.assertIn("AUTH_AUTHORITY='auth.example.com'", text)
@@ -124,6 +125,10 @@ class ConfigurationTests(unittest.TestCase):
             self.assertNotIn('build', services['stargate'])
             self.assertEqual(services['stargate']['environment']['COOKIE_SECURE'], 'true')
             self.assertEqual(services['traefik']['ports'][0]['target'], 443)
+            self.assertEqual(services['herald']['environment']['ENVIRONMENT'], 'production')
+            self.assertEqual(services['herald']['environment']['HERALD_TOTP_BASE_URL'], 'https://totp-tls:8443')
+            self.assertEqual(services['herald']['environment']['SSL_CERT_FILE'], '/certs/totp-ca.pem')
+            self.assertFalse(services['totp-tls'].get('ports'))
             self.assertEqual(services['herald']['environment']['SMTP_HOST'], 'smtp.example.com')
             # Compose config serializes literal dollars as $$ on some CLI versions.
             self.assertIn(services['herald']['environment']['SMTP_PASSWORD'],
@@ -165,6 +170,8 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(gateway['HERALD_TOTP_ENABLED'], str(mode == 'totp').lower())
             self.assertEqual('totp' in services, mode == 'totp')
             self.assertEqual(services['herald']['environment']['PROVIDER_FAILURE_POLICY'], 'strict')
+            self.assertEqual(services['herald']['environment']['ENVIRONMENT'], 'development')
+            self.assertEqual(services['herald']['environment']['HERALD_TEST_MODE'], 'false')
             self.assertIn('--appendonly yes', ' '.join(services['redis']['command']))
             self.assertEqual(services['mailpit']['ports'][0]['host_ip'], '127.0.0.1')
             for service in ['warden', 'herald', 'redis']:

@@ -19,7 +19,8 @@ docker compose up -d --build
 
 打开 **http://hello.test.localhost:8088**，输入 `demo@example.test` 并发送邮件验证码，
 再打开 **http://127.0.0.1:8025** 的 Mailpit 收件箱查看邮件。输入实际投递的验证码后，
-确认浏览器返回受保护的演示服务。邮件经过 Herald 的真实 SMTP 提供方，但由本地 Mailpit
+确认浏览器返回受保护的演示服务。本地覆盖文件明确设置 Herald 为 development，同时保留 HMAC、strict 投递及
+`HERALD_TEST_MODE=false`。邮件经过 Herald 的真实 SMTP 提供方，但由本地 Mailpit
 捕获，并非投递到外部邮箱。本例没有配置短信提供方。
 
 认证页为 `http://auth.test.localhost:8088/_login`。访问 **http://auth.test.localhost:8088/_account**，点击登出按钮，发起同源
@@ -74,11 +75,15 @@ Redis、Warden、Herald、TOTP 不发布宿主机端口。
 
 生产覆盖文件是单台可信宿主机的起点，不负责签发证书或配置邮件提供方。需要真实 DNS、
 覆盖两个域名的 TLS 证书，以及经过认证的 SMTP。生产模式不启动 Mailpit，也不发布后端端口。
-内部 HTTP 仅用于私有 Compose 网络；跨主机或不可信网络须先配置服务及 SDK 的 TLS/mTLS。
+其他内部 HTTP 仅用于私有 Compose 网络。Herald 的生产 TOTP 客户端即使在此网络中也要求
+验证 HTTPS；TOTP 生产扩展提供内部 TLS 代理，将私有 CA 仅加入 Herald 容器信任。
+跨主机或不可信网络须先为其余服务链路配置 TLS/mTLS。
 mTLS 不能替代 Herald/TOTP 的请求认证。
 
 1. 在受保护目录准备 `cert.pem`、`key.pem`，将 `tls.yml.example` 复制为 `tls.yml`。
-   私钥不得进入 Git。
+   私钥不得进入 Git，宿主机权限限制为 0600。TOTP 还需 `totp-cert.pem`（SAN 含
+   `DNS:totp-tls`）、`totp-key.pem` 及签发 CA 的 `totp-ca.pem`。CA 私钥离线保管，不挂载。
+   TOTP 证书须与私钥配对，证书链须由该 CA 验证。
 2. 在 Shell 环境设置 `SMTP_HOST`、`SMTP_PORT`、`SMTP_FROM`、`SMTP_USER`、`SMTP_PASSWORD`
    、`TLS_DIR` 和 `STARGATE_IMAGE`。`STARGATE_IMAGE` 必须是已验证、包含账号与恢复界面的
    网关镜像 `@sha256:...` digest，不能只填写标签。不要在命令行参数或 Shell 历史中写密码。此模板要求认证 SMTP；使用其他
@@ -98,7 +103,13 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 生产覆盖文件不构建 Stargate。请从已审查源码单独构建和验证网关镜像，推送到已批准的镜像
 仓库后填写不可变 digest。不要替换为缺少新版账号与恢复界面的旧 v1.3.5 镜像。
 
-生成器在写入前校验证书/私钥配对及必填项，不代表已验证证书域名覆盖、SMTP 可投递性、备份质量或网络策略。
+生产 TOTP 配置还会选择 `compose.totp-production.yml`。Herald 通过
+`https://totp-tls:8443` 调用内部代理，原始 HMAC 签名请求保持不变，代理再转发至私有 TOTP
+服务。代理不发布宿主机端口，`SSL_CERT_FILE` 仅作用于 Herald 容器，不修改宿主机信任库，
+不跳过 TLS 验证。启动后必须通过 Herald 执行一次带认证的 TOTP 操作；进程健康或 Compose
+渲染通过不能证明这条链路可用。
+
+生成器在写入前校验证书/私钥配对、解析 CA 及检查必填项，不代表已验证证书域名覆盖、SMTP 可投递性、备份质量或网络策略。
 这些要求须另行验收。生产 `COOKIE_SECURE=true`，代理通过 443 端口提供 TLS。
 打开 `https://app.example.com`，先验证受控邮箱的真实投递，再添加其他账号。
 将 `hello` 演示替换为实际应用时，保留 ForwardAuth 中间件。

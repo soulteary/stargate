@@ -102,6 +102,7 @@ services:
     environment:
       PORT: ':8082'
       ENVIRONMENT: production
+      HERALD_TEST_MODE: 'false'
       REQUEST_AUTH_MODE: hmac_v2
       HMAC_V1_ENABLED: 'false'
       API_KEY: ''
@@ -117,7 +118,7 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMTP_FROM: ${SMTP_FROM:?configure the sender address}
       HERALD_TOTP_ENABLED: ${TOTP_ENABLED:?run configure.py first}
-      HERALD_TOTP_BASE_URL: http://totp:8084
+      HERALD_TOTP_BASE_URL: ''
       HERALD_TOTP_API_KEY: ''
       HERALD_TOTP_HMAC_SECRET: ${HERALD_TOTP_HMAC:?run configure.py first}
       HERALD_TOTP_HMAC_KEY_ID: herald-totp
