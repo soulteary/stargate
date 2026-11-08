@@ -210,7 +210,10 @@
           const qr = document.getElementById('qrcode'); if (qr) { qr.replaceChildren(); qr.removeAttribute('data-uri'); qr.hidden = true; }
           if (management.id === 'confirmForm') {
             if (!Array.isArray(result.backup_codes) || !result.backup_codes.length || result.backup_codes.some(c => typeof c !== 'string')) throw new Error('ambiguous');
-            backupCodes = result.backup_codes.slice();
+            backupCodes = result.backup_codes.slice(); sensitiveCleared = false;
+            if (copy) copy.disabled = false; if (download) download.disabled = false;
+            if (saved) { saved.disabled = false; saved.checked = false; document.getElementById('savedHome').hidden = true; }
+            const hint = document.getElementById('backupHint'); if (hint) hint.textContent = text('backup_hint');
             const list = document.getElementById('backupCodesList'); list.replaceChildren();
             backupCodes.forEach(value => { const li = document.createElement('li'); li.textContent = value; list.appendChild(li); });
             const section = document.getElementById('backupCodes'); section.hidden = false; section.focus(); announce('backup_hint');

@@ -75,3 +75,15 @@ test('confirmation pins the rendered locale into the request query above any old
  let target;const f=fixture(async url=>{target=new URL(url);return {ok:false,status:429,type:'basic',json:async()=>({ok:false,error:'rate_limited'})};});
  await f.form.events.submit({preventDefault(){}});assert.equal(target.origin,'https://auth.example');assert.equal(target.searchParams.get('lang'),'en');
 });
+
+test('fresh confirmation after page restore re-enables only the newly received backup codes',async()=>{
+ let calls=0;const f=fixture(async()=>{calls++;return {ok:true,status:200,type:'basic',json:async()=>({ok:true,backup_codes:['NEWC-ODES-ONLY-HERE']})};});
+ f.dispatch('pagehide');f.dispatch('pageshow',{persisted:true});
+ assert.equal(f.elements.copyCodes.disabled,true);assert.equal(f.elements.codesSaved.disabled,true);
+ await f.form.events.submit({preventDefault(){}});
+ assert.equal(calls,1);assert.equal(f.elements.copyCodes.disabled,false);assert.equal(f.elements.downloadCodes.disabled,false);assert.equal(f.elements.codesSaved.disabled,false);
+ assert.equal(f.elements.codesSaved.checked,false);assert.equal(f.elements.savedHome.hidden,true);assert.equal(f.elements.backupHint.textContent,'save');
+ await f.elements.copyCodes.events.click();assert.deepEqual(f.copied,['NEWC-ODES-ONLY-HERE']);
+ f.elements.codesSaved.checked=true;f.elements.codesSaved.events.change();assert.equal(f.elements.savedHome.hidden,false);
+ f.dispatch('pagehide');f.dispatch('pageshow',{persisted:true});assert.equal(f.elements.copyCodes.disabled,true);assert.equal(f.elements.codesSaved.checked,false);assert.equal(f.elements.savedHome.hidden,true);
+});
