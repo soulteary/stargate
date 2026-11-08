@@ -1,0 +1,73 @@
+name: Real browser acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      fullstack_ref:
+        description: Full 40-character reviewed full-stack source commit
+        required: true
+        type: string
+      gateway_ref:
+        description: Full 40-character reviewed gateway source commit
+        required: true
+        type: string
+      herald_image:
+        description: Verified Herald image canonical digest (retry metadata requires 1.5.0)
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  chromium:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Validate immutable inputs
+        env:
+          FULLSTACK_REF: ${{ inputs.fullstack_ref }}
+          GATEWAY_REF: ${{ inputs.gateway_ref }}
+          HERALD_IMAGE: ${{ inputs.herald_image }}
+        run: |
+          python3 .github/browser/validate_inputs.py
+          python3 -m unittest discover -s .github/browser -p 'test_*.py'
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.fullstack_ref }}
+          path: fullstack
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.gateway_ref }}
+          path: gateway
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: '3.12'
+      - name: Install Chromium test dependencies
+        run: |
+          python3 -m pip install playwright==1.56.0
+          python3 -m playwright install --with-deps chromium
+      - name: Start isolated real stack and run browser acceptance
+        env:
+          FULLSTACK_REF: ${{ inputs.fullstack_ref }}
+          GATEWAY_REF: ${{ inputs.gateway_ref }}
+          HERALD_IMAGE: ${{ inputs.herald_image }}
+        run: |
+          set +e
+          python3 .github/browser/run.py
+          result=$?
+          python3 - "$result" <<'PYTHON'
+          import json, pathlib, sys
+          path = pathlib.Path("browser-results.json")
+          data = json.loads(path.read_text())
+          data["process_exit_code"] = int(sys.argv[1])
+          if int(sys.argv[1]) != 0:
+              data["status"] = "failed"
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          PYTHON
+          exit "$result"
+      - name: Upload redacted result only
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: browser-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
+          path: browser-results.json
+          if-no-files-found: error
