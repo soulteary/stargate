@@ -54,15 +54,19 @@ func Health(ctx context.Context, m Manifest, r *Report) {
 }
 
 func validRoot(raw string) bool {
-	return strings.TrimSpace(raw) != "" && strings.TrimSpace(raw) == raw && config.ValidateServiceRoot(raw) == nil
+	return strings.TrimSpace(raw) != "" && strings.TrimSpace(raw) == raw && !strings.ContainsAny(raw, "?#") && config.ValidateServiceRoot(raw) == nil
 }
 
 func validProxyURL(raw string) bool {
 	u, err := url.Parse(raw)
-	return err == nil && u.Hostname() != "" && (u.Scheme == "https" || u.Scheme == "http") && u.User == nil && u.RawQuery == "" && u.Fragment == "" && !strings.ContainsAny(raw, "\r\n\t\\")
+	return err == nil && u.Hostname() != "" && (u.Scheme == "https" || u.Scheme == "http") && u.User == nil && u.RawQuery == "" && !u.ForceQuery && u.Fragment == "" && !strings.ContainsAny(raw, "?#\r\n\t\\")
 }
 
 func probeHealth(ctx context.Context, t healthTarget, r *Report) {
+	if !validProxyURL(t.base) {
+		r.add(t.id, "fail", "The configured health target contains invalid URL components.")
+		return
+	}
 	settings := t.values
 	for _, suffix := range []string{"_TLS_CA_CERT_FILE", "_TLS_CLIENT_CERT_FILE", "_TLS_CLIENT_KEY_FILE"} {
 		if path := settings[t.prefix+suffix]; path != "" {
@@ -83,7 +87,14 @@ func probeHealth(ctx context.Context, t healthTarget, r *Report) {
 	transport.TLSClientConfig = tlsConfig
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Timeout: 2 * time.Second, Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, strings.TrimRight(t.base, "/")+t.path, nil)
+	target, _ := url.Parse(t.base)
+	target.Path = strings.TrimRight(target.Path, "/") + t.path
+	target.RawPath = ""
+	target.RawQuery = ""
+	target.ForceQuery = false
+	target.Fragment = ""
+	target.RawFragment = ""
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String(), nil)
 	if err != nil {
 		r.add(t.id, "fail", "The configured health target is invalid.")
 		return

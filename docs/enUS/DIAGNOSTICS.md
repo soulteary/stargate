@@ -59,8 +59,8 @@ file under your normal secret-management policy.
 
 Offline checks reuse the startup host/cookie-domain, callback-list syntax,
 service-root URL and session-exchange-path validators. Other checks inspect
-boolean fields, an explicitly configured session-exchange secret's minimum
-length, session Redis address syntax, and locally supplied credential pairs.
+boolean fields, the startup requirement for a 32-byte session-exchange secret
+when COOKIE_DOMAIN or CALLBACK_ALLOWED_HOSTS is set, session Redis address syntax, and locally supplied credential pairs.
 Password syntax uses the shared startup parser, but no password is authenticated.
 This is not full startup validation: UI settings (including
 `LOGIN_SUPPORT_URL`), all enablement combinations and service action policies

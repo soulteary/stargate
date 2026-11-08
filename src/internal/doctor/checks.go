@@ -84,8 +84,10 @@ func Inspect(m Manifest) Report {
 		path = "/"
 	}
 	r.add("gateway.exchange_path", result(config.ValidateSessionExchangeRedirectPath(config.EnvVariable{Value: path})), "Check SESSION_EXCHANGE_REDIRECT_PATH using the startup validator.")
-	if g["SESSION_EXCHANGE_SECRET"] == "" {
-		r.add("gateway.exchange_secret", "skipped", "Session exchange is not configured; this is not an application startup failure.")
+	if config.ValidateCrossDomainExchange(g["COOKIE_DOMAIN"], g["CALLBACK_ALLOWED_HOSTS"], g["SESSION_EXCHANGE_SECRET"]) != nil {
+		r.add("gateway.exchange_secret", "fail", "Configure at least 32 characters in SESSION_EXCHANGE_SECRET when COOKIE_DOMAIN or CALLBACK_ALLOWED_HOSTS enables cross-domain exchange.")
+	} else if g["SESSION_EXCHANGE_SECRET"] == "" {
+		r.add("gateway.exchange_secret", "skipped", "No cross-domain settings require session exchange in this snapshot.")
 	} else if len(g["SESSION_EXCHANGE_SECRET"]) < 32 {
 		r.add("gateway.exchange_secret", "fail", "SESSION_EXCHANGE_SECRET must contain at least 32 characters when configured.")
 	} else {

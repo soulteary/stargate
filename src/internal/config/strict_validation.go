@@ -196,10 +196,8 @@ func validateStrictSettings() error {
 	if HeaderAuthEnabled.ToBool() && len(HeaderAuthSharedSecret.Value) < 32 {
 		return strictValidationError(&HeaderAuthSharedSecret, "must contain at least 32 characters when trusted header authentication is enabled")
 	}
-	if strings.TrimSpace(CookieDomain.Value) != "" || strings.TrimSpace(CallbackAllowedHosts.Value) != "" {
-		if len(SessionExchangeSecret.Value) < 32 {
-			return strictValidationError(&SessionExchangeSecret, "must contain at least 32 characters when cross-domain callbacks are enabled")
-		}
+	if err := ValidateCrossDomainExchange(CookieDomain.Value, CallbackAllowedHosts.Value, SessionExchangeSecret.Value); err != nil {
+		return err
 	}
 	if err := validateCallbackHostList(&CallbackAllowedHosts); err != nil {
 		return err

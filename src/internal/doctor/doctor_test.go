@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 )
 
@@ -310,5 +311,165 @@ func TestHealthUnknownTargetsAndCancelledContext(t *testing.T) {
 	probeHealth(context.Background(), healthTarget{id: "bad-tls-file", base: "https://unreachable.invalid", prefix: "SERVICE", values: map[string]string{"SERVICE_TLS_CA_CERT_FILE": "private-do-not-echo"}}, &r)
 	if r.Checks[0].Status != "fail" || strings.Contains(r.Checks[0].Message, "private-do-not-echo") {
 		t.Fatal("TLS file error exposed a path")
+	}
+}
+
+func TestCrossDomainExchangeRequiresSharedSecret(t *testing.T) {
+	for _, field := range []string{"COOKIE_DOMAIN", "CALLBACK_ALLOWED_HOSTS"} {
+		m := fixture()
+		m.Gateway["SESSION_EXCHANGE_SECRET"] = ""
+		if field == "COOKIE_DOMAIN" {
+			m.Gateway[field] = ".example.test"
+		} else {
+			m.Gateway[field] = "app.example.test"
+		}
+		if c := find(Inspect(m), "gateway.exchange_secret"); c.Status != "fail" {
+			t.Fatalf("%s did not require secret", field)
+		}
+		m.Gateway["SESSION_EXCHANGE_SECRET"] = strings.Repeat("x", 32)
+		if c := find(Inspect(m), "gateway.exchange_secret"); c.Status != "pass" {
+			t.Fatalf("%s rejected valid secret", field)
+		}
+	}
+	m := fixture()
+	m.Gateway["SESSION_EXCHANGE_SECRET"] = ""
+	if find(Inspect(m), "gateway.exchange_secret").Status != "skipped" {
+		t.Fatal("same-origin optional exchange lost")
+	}
+}
+
+func TestHealthRejectsBareDelimitersBeforeAnyRequest(t *testing.T) {
+	var hits atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits.Add(1)
+		_, _ = w.Write([]byte(`{"status":"healthy"}`))
+	}))
+	defer server.Close()
+	for _, suffix := range []string{"?", "#", "?x=1", "#fragment"} {
+		base := server.URL + "/business" + suffix
+		if validProxyURL(base) || validRoot(server.URL+suffix) {
+			t.Fatal("URL delimiter accepted")
+		}
+		report := Report{}
+		probeHealth(context.Background(), healthTarget{id: "totp.health", base: base, path: "/healthz"}, &report)
+		if report.Checks[0].Status != "fail" {
+			t.Fatal("invalid target passed")
+		}
+	}
+	if hits.Load() != 0 {
+		t.Fatal("business endpoint was contacted")
+	}
+}
+
+func TestHealthBuildsPathWithEncodedPrefixWithoutQuery(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/prefix?part/healthz" || r.URL.RawQuery != "" {
+			t.Error("wrong health target path")
+		}
+		_, _ = w.Write([]byte(`{"status":"healthy"}`))
+	}))
+	defer server.Close()
+	report := Report{}
+	probeHealth(context.Background(), healthTarget{id: "totp.health", base: server.URL + "/prefix%3Fpart", path: "/healthz"}, &report)
+	if report.Checks[0].Status != "pass" {
+		t.Fatal("encoded path prefix failed")
+	}
+}
+
+func TestOfflineConfigurationBoundaries(t *testing.T) {
+	for _, tc := range []struct{ key, value, id, status string }{
+		{"SESSION_EXCHANGE_SECRET", "short", "gateway.exchange_secret", "fail"},
+		{"SESSION_EXCHANGE_REDIRECT_PATH", "https://outside.test", "gateway.exchange_path", "fail"},
+		{"SESSION_STORAGE_ENABLED", "invalid", "gateway.redis", "fail"},
+		{"SESSION_STORAGE_ENABLED", "true", "gateway.redis_config", "pass"},
+		{"HERALD_TOTP_ENABLED", "invalid", "totp.enabled", "fail"},
+		{"HERALD_TOTP_ENABLED", "true", "totp.credentials", "unknown"},
+		{"HERALD_ENABLED", "true", "herald.credentials", "unknown"},
+	} {
+		t.Run(tc.key+tc.value, func(t *testing.T) {
+			m := fixture()
+			m.Gateway[tc.key] = tc.value
+			if got := find(Inspect(m), tc.id).Status; got != tc.status {
+				t.Fatalf("got %s want %s", got, tc.status)
+			}
+		})
+	}
+	m := fixture()
+	m.Gateway["AUTH_HOST"] = "localhost"
+	m.GatewayURL = "http://localhost"
+	if find(Inspect(m), "gateway.cookie_transport").Status != "unknown" {
+		t.Fatal("localhost browser exception claimed definite")
+	}
+	m = fixture()
+	m.Gateway["HERALD_TOTP_ENABLED"] = "true"
+	m.Herald = map[string]string{"HERALD_TOTP_BASE_URL": "https://totp.test/prefix", "HERALD_TOTP_API_KEY": "api"}
+	m.TOTP = map[string]string{"API_KEY": "api"}
+	if find(Inspect(m), "totp.credentials").Status != "pass" {
+		t.Fatal("API-only proxy mismatch")
+	}
+}
+
+func TestCredentialModeBoundaries(t *testing.T) {
+	for _, tc := range []struct {
+		name, prefix   string
+		herald         bool
+		client, server map[string]string
+		want           string
+	}{
+		{"mtls acceptance unknown", "WARDEN", false, map[string]string{"WARDEN_TLS_CLIENT_CERT_FILE": "not-read"}, map[string]string{}, "unknown"},
+		{"malformed mapped keys", "WARDEN", false, map[string]string{"WARDEN_HMAC_SECRET": "secret"}, map[string]string{"WARDEN_HMAC_KEYS": "not-json"}, "fail"},
+		{"mapped identity required", "WARDEN", false, map[string]string{"WARDEN_HMAC_SECRET": "secret"}, map[string]string{"WARDEN_HMAC_KEYS": `{"a":"secret"}`}, "fail"},
+		{"unsupported auth mode", "HERALD", true, map[string]string{"HERALD_HMAC_SECRET": "secret"}, map[string]string{"HERALD_HMAC_SECRET": "secret", "REQUEST_AUTH_MODE": "future"}, "unknown"},
+		{"missing HMAC", "HERALD", true, map[string]string{"HERALD_API_KEY": "api"}, map[string]string{"API_KEY": "api"}, "fail"},
+		{"API-only compatible", "HERALD", true, map[string]string{"HERALD_API_KEY": "api"}, map[string]string{"API_KEY": "api", "REQUEST_AUTH_MODE": "api_key"}, "pass"},
+		{"API mismatch", "WARDEN", false, map[string]string{"WARDEN_API_KEY": "wrong"}, map[string]string{"API_KEY": "api"}, "fail"},
+		{"explicit TOTP ID", "HERALD_TOTP", false, map[string]string{"HERALD_TOTP_HMAC_SECRET": "secret", "HERALD_TOTP_HMAC_KEY_ID": "a"}, map[string]string{"HERALD_TOTP_HMAC_KEYS": `{"a":"secret","b":"other"}`}, "pass"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := Report{}
+			inspectPair(&r, "pair", tc.client, tc.server, tc.prefix, tc.herald)
+			if r.Checks[0].Status != tc.want {
+				t.Fatalf("got %s", r.Checks[0].Status)
+			}
+		})
+	}
+	if (Report{Checks: []Check{{Status: "unknown"}}}).ExitCode() != 3 {
+		t.Fatal("incomplete exit")
+	}
+}
+
+func TestCommandHelpHumanAndHealth(t *testing.T) {
+	for _, args := range [][]string{{"--help"}, {}} {
+		var out, errOut bytes.Buffer
+		code := Run(args, func(k string) (string, bool) {
+			if k == "AUTH_HOST" {
+				return "auth.example.test", true
+			}
+			if k == "PASSWORDS" {
+				return "plaintext:test", true
+			}
+			return "", false
+		}, &out, &errOut)
+		if code != 0 || out.Len() == 0 {
+			t.Fatalf("exit %d", code)
+		}
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(`{"status":"ready"}`)) }))
+	defer server.Close()
+	var out, errOut bytes.Buffer
+	host := strings.TrimPrefix(server.URL, "http://")
+	code := Run([]string{"--health", "--gateway-url", server.URL, "--json"}, func(k string) (string, bool) {
+		switch k {
+		case "AUTH_HOST":
+			return host, true
+		case "PASSWORDS":
+			return "plaintext:test", true
+		case "COOKIE_SECURE":
+			return "false", true
+		}
+		return "", false
+	}, &out, &errOut)
+	if code != 0 || !strings.Contains(out.String(), `"mode":"health"`) {
+		t.Fatalf("exit %d", code)
 	}
 }
