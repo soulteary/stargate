@@ -51,7 +51,7 @@ func TOTPEnrollPageRoute(store *session.Store) func(c fiber.Ctx) error {
 		if !hasRecentAuthentication(sess) {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "recent authentication required")
 		}
-		return ctx.Type("html").SendString(`<!doctype html><html><body><main><h1>Bind Authenticator (TOTP)</h1><p>Start enrollment to generate a new authenticator secret and recovery codes.</p><form method="post" action="/totp/enroll"><button type="submit">Start enrollment</button></form><p><a href="/totp/revoke">Manage existing TOTP</a></p></main></body></html>`)
+		return ctx.Render("totp_start", authenticationView(ctx, "bind"))
 	}
 }
 
@@ -112,8 +112,14 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 		if err := sess.Save(); err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
+		ctx.Set("Cache-Control", "no-store")
+		uiWords, uiJSON := authenticationUIData(ctx)
 		return ctx.Render("totp_enroll", fiber.Map{
-			"Title":             config.LoginPageTitle.Value,
+			"Title":     config.LoginPageTitle.Value,
+			"PageTitle": uiWords["bind"], "UI": uiWords,
+			"UIMessages":        uiJSON,
+			"UILanguage":        authenticationUILanguage(ctx),
+			"SupportURL":        config.LoginSupportURL.String(),
 			"FooterText":        config.LoginPageFooterText.Value,
 			"EnrollID":          startResp.EnrollID,
 			"OtpauthURI":        template.URL(startResp.OtpauthURI), // avoid html/template sanitizing otpauth:// to #ZgotmplZ

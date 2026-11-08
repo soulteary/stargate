@@ -260,6 +260,7 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	app.Get(RouteHealth, healthfiber.Handler(healthAggregator))
 	app.Get(RouteRoot, handlers.IndexRoute(store))
 	app.Get(RouteLogin, handlers.LoginRoute(store))
+	app.Get("/_account", handlers.AccountRoute(store))
 	sameOrigin := handlers.RequireSameOrigin()
 	app.Post(RouteLogin, sameOrigin, handlers.LoginRateLimit(), handlers.LoginAPI(store))
 	app.Post("/_send_verify_code", sameOrigin, handlers.VerificationRateLimit(), handlers.SendVerifyCodeAPI())
@@ -339,7 +340,8 @@ func setupMiddleware(app *fiber.App) {
 	// 5. i18n middleware (language detection from Query > Cookie > Header > Accept-Language)
 	app.Use(i18nfiber.Middleware(i18nfiber.Config{
 		MiddlewareConfig: i18nkit.MiddlewareConfig{
-			Bundle: i18n.GetBundle(),
+			Bundle:   i18n.GetBundle(),
+			Detector: i18nkit.NewDetector(i18nkit.DetectorConfig{Default: i18n.GetLanguage()}),
 		},
 	}))
 	log.Debug().Msg("i18n middleware enabled")

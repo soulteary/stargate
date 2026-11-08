@@ -36,17 +36,12 @@ func TestTOTPEnrollPageRouteRequiresAuthentication(t *testing.T) {
 
 func TestTOTPEnrollPageRouteRendersPostForm(t *testing.T) {
 	store := setupTestStore()
-	ctx, app := createTestContext("GET", "/totp/enroll", nil, "")
-	defer app.ReleaseCtx(ctx)
-	sess, err := store.Get(ctx)
-	testza.AssertNoError(t, err)
-	testza.AssertNoError(t, auth.Authenticate(sess))
-	ctx = rebindSessionContext(t, app, ctx, sess)
-	defer app.ReleaseCtx(ctx)
-
+	ctx := authenticatedTOTPContext(t, store, "/totp/enroll", "")
+	ctx.Request().Header.SetMethod("GET")
 	testza.AssertNoError(t, TOTPEnrollPageRoute(store)(ctx))
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
 	testza.AssertContains(t, string(ctx.Response().Body()), `method="post" action="/totp/enroll"`)
+	testza.AssertEqual(t, "no-store", string(ctx.Response().Header.Peek("Cache-Control")))
 }
 
 func (s *failSetStorage) Set(key string, value []byte, expiration time.Duration) error {

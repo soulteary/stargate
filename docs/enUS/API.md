@@ -587,3 +587,8 @@ The password and OTP summaries below use the browser-bound [session exchange](#s
 3. **Password verification**: Passwords are opaque, case-sensitive values; whitespace and case are preserved during verification
 4. **Multiple password support**: Multiple passwords can be configured, any password that passes verification is acceptable
 5. **Cross-domain sessions**: Allowed destinations use the browser-bound session exchange described above. `COOKIE_DOMAIN` is optional and only shares a cookie within that DNS domain; other allowed domains receive host-only cookies
+
+
+### `GET /_account`
+
+Authenticated session-management page with links to TOTP setup and a same-origin `POST /_logout` form. Unauthenticated requests redirect to `/_login`; directory freshness checks still apply. This GET does not start enrollment. The root endpoint remains unchanged.

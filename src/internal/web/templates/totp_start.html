@@ -1,0 +1,5 @@
+<!DOCTYPE html>
+<html lang="{{.UILanguage}}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{if .PageTitle}}{{.PageTitle}}{{else}}{{.UI.signin}}{{end}} - {{.Title}}</title><link rel="icon" href="/favicon.ico"><link rel="stylesheet" href="/assets/auth-ui.css"><script defer src="/assets/auth-ui.js"></script></head>
+<body><main class="card"><div id="auth-ui-config" hidden data-locale="{{.UILanguage}}" data-messages="{{.UIMessages}}" data-debug="{{.Debug}}"></div>
+<div id="error-container" class="message" role="alert" aria-atomic="true"></div>
+<h1>{{.UI.bind}}</h1><p>{{.UI.start_hint}}</p><form data-native-once method="post" action="/totp/enroll"><button type="submit">{{.UI.start}}</button></form><footer><p><a href="/_account?lang={{.UILanguage}}">{{.UI.account}}</a></p><form data-logout method="post" action="/_logout"><button type="submit">{{.UI.logout}}</button></form>{{if .SupportURL}}<p><a href="{{.SupportURL}}" rel="noreferrer">{{.UI.contact}}</a></p>{{end}}<p>{{.FooterText}}</p></footer></main></body></html>

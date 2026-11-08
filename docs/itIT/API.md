@@ -519,3 +519,8 @@ I messaggi di errore supportano l'internazionalizzazione, restituendo messaggi i
 3. **Verifica password**: Le password sono valori opachi e distinguono maiuscole, minuscole e spazi
 4. **Supporto più password**: Più password possono essere configurate, qualsiasi password che passa la verifica è accettabile
 5. **Sessioni cross-domain**: Le destinazioni consentite usano lo scambio di sessione legato al browser descritto sopra. `COOKIE_DOMAIN` è facoltativo e condivide i cookie solo nel dominio DNS configurato; gli altri domini consentiti ricevono cookie limitati al singolo host
+
+
+### `GET /_account`
+
+Pagina per la sessione autenticata con link TOTP e modulo `POST /_logout` della stessa origine. Le richieste non autenticate sono reindirizzate a `/_login`; restano i controlli di aggiornamento della directory. Questo GET non avvia la configurazione e non cambia l’endpoint radice.
