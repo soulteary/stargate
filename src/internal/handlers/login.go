@@ -313,8 +313,12 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 		}
 		stateToken = raw
 	}
+	ctx.Set("Cache-Control", "no-store")
+	uiWords, uiJSON := authenticationUIData(ctx)
 	return ctx.Render(templateName, fiber.Map{
 		"ExchangeState":        stateToken,
+		"UI":                   uiWords,
+		"UIMessages":           uiJSON,
 		"UILanguage":           authenticationUILanguage(ctx),
 		"SupportURL":           config.LoginSupportURL.String(),
 		"Callback":             callback,
