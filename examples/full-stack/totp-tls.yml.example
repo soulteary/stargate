@@ -1,0 +1,33 @@
+{
+  "http": {
+    "routers": {
+      "totp": {
+        "rule": "Host(`totp-tls`)",
+        "entryPoints": [
+          "totp"
+        ],
+        "service": "totp",
+        "tls": {}
+      }
+    },
+    "services": {
+      "totp": {
+        "loadBalancer": {
+          "servers": [
+            {
+              "url": "http://totp:8084"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "tls": {
+    "certificates": [
+      {
+        "certFile": "/certs/totp-cert.pem",
+        "keyFile": "/certs/totp-key.pem"
+      }
+    ]
+  }
+}

@@ -54,7 +54,8 @@ challenge 中仍应失败。新版恢复表单来自本源码目录，不在旧�
 生成器创建权限为 0600 的 `.env` 及私有 `state/` 目录，不打印秘密，也不覆盖既有配置。
 重复运行保留所有密钥及账号 ID，**不会应用新的命令行参数**。发现残缺配置时拒绝继续，留待检查。
 不要为了改端口或启用 TOTP 而删除既有配置：先备份，再协调修改非秘密参数，保留全部密钥。
-已有邮件配置启用 TOTP 时设置 `COMPOSE_PROFILES=totp`、`TOTP_ENABLED=true`，其余密钥保持不变。
+已有**本地**邮件配置启用 TOTP 时设置 `COMPOSE_PROFILES=totp`、`TOTP_ENABLED=true`，其余密钥保持不变。
+生产还需要下文的 TLS 扩展和路由文件，仅修改这两个开关并不足够。
 
 生成的用户目录不含密码或验证码，允许非 root Warden 容器读取，宿主机访问由私有父目录限制。
 Redis AOF 和 Herald 审计暂存使用具名卷。重启或 `docker compose down` 不删除这些卷，
@@ -113,6 +114,25 @@ mTLS 不能替代 Herald/TOTP 的请求认证。
 这些要求须另行验收。生产 `COOKIE_SECURE=true`，代理通过 443 端口提供 TLS。
 打开 `https://app.example.com`，先验证受控邮箱的真实投递，再添加其他账号。
 将 `hello` 演示替换为实际应用时，保留 ForwardAuth 中间件。
+
+## 为已有生产邮件部署启用 TOTP
+
+不要期待重复运行生成器会修改既有部署，也不要重新生成秘密。先备份既有 `.env` 和 Redis。
+
+1. 在原 `TLS_DIR` 中准备上文要求的 TOTP 证书（SAN 含 `DNS:totp-tls`）、配对的
+   `totp-key.pem`（宿主机权限 0600）及签发 CA 的 `totp-ca.pem`。
+2. 将本源码目录的 `totp-tls.yml.example` 复制为原 `STATE_DIR/totp-tls.yml`，将此非秘密
+   路由文件设为代理可读（0644）。不要复制或更改用户目录、加密密钥或 HMAC 凭据。
+3. 编辑既有私有 `.env`：设置 `COMPOSE_PROFILES="totp"` 和 `TOTP_ENABLED="true"`；
+   在 `COMPOSE_FILE` 的基础文件与生产覆盖文件后，追加本源码目录中
+   `compose.totp-production.yml` 的绝对路径，使用当前平台的路径分隔符（Unix 为 `:`）。
+   保留原 `TLS_DIR`、`TOTP_ENCRYPTION_KEY`、全部 HMAC secret/key ID、Redis 密码、
+   会话交换秘密、前缀和账号 ID。不要另建配置或用新初始化文件覆盖此文件。
+4. 执行 `docker compose config --quiet`，重启所选服务，保持证书验证开启，通过 Herald
+   验证一次带认证的 TOTP 操作，再完成浏览器绑定。仅启动健康不能证明新的 TLS 与请求认证链路。
+
+此过程同时选择 TLS 代理、CA 挂载及功能开关。回滚或停用 TOTP 时仍保留加密密钥、凭据、
+重放状态和原账号 ID；不要清空 Redis 或重新生成配置。
 
 ## 停止与排障
 

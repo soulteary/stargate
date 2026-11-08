@@ -115,6 +115,8 @@ class ConfigurationTests(unittest.TestCase):
         self.assertNotIn('compose.local.yml', text)
         routes = json.loads((self.output / 'state/routes.yml').read_text())
         self.assertTrue(all('tls' in router for router in routes['http']['routers'].values()))
+        self.assertEqual((self.output / 'state/totp-tls.yml').read_bytes(),
+                         (config.HERE / 'totp-tls.yml.example').read_bytes())
         if shutil.which('docker'):
             child_env = {key: os.environ[key] for key in ['PATH', 'HOME', 'DOCKER_CONFIG'] if key in os.environ}
             rendered = subprocess.run(['docker', 'compose', 'config', '--format', 'json'],

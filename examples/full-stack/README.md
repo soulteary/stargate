@@ -65,8 +65,9 @@ It never prints secrets or overwrites existing configuration. Running it again
 retains all keys and user IDs; it does **not** apply changed command-line options.
 A partial setup fails for manual inspection. Never delete an existing setup to
 change a port or enable TOTP: back it up, edit the non-secret settings together,
-and keep all stored credentials. To enable TOTP in an existing mail setup, set
-`COMPOSE_PROFILES=totp` and `TOTP_ENABLED=true`, retaining every generated key.
+and keep all stored credentials. For an existing **local** mail setup, set `COMPOSE_PROFILES=totp` and
+`TOTP_ENABLED=true`, retaining every generated key. Production also needs the
+TLS extension and routing file described below; these two flags alone are not sufficient.
 
 The generated user directory has no password or code; it is readable by the
 non-root Warden container, while its private parent restricts host access. The
@@ -145,6 +146,32 @@ The example proxy uses generated file-provider routes and never mounts the Docke
 socket. Every service has `traefik.enable=false` so an unrelated Docker-discovery
 proxy does not automatically route these containers. Choose a unique `--project`
 and an unused `--subnet`; do not reuse another deployment’s project or network.
+
+## Enable TOTP on an existing production mail deployment
+
+Do not rerun setup expecting it to change an existing deployment, and do not
+regenerate any secrets. Back up the existing `.env` and Redis first.
+
+1. In the existing `TLS_DIR`, provision the TOTP certificate with SAN `DNS:totp-tls`,
+   matching `totp-key.pem` (host mode 0600) and issuing `totp-ca.pem` described above.
+2. Copy this checkout's `totp-tls.yml.example` to the existing `STATE_DIR/totp-tls.yml`
+   and make that non-secret routing file readable by the proxy (0644). Do not copy
+   or change the user directory, encryption key or HMAC credentials.
+3. Edit the existing private `.env`: set `COMPOSE_PROFILES="totp"` and
+   `TOTP_ENABLED="true"`; append this checkout's absolute
+   `compose.totp-production.yml` path to `COMPOSE_FILE`, after the base and
+   production override paths, using the platform's path separator (`:` on Unix).
+   Retain `TLS_DIR`, the original `TOTP_ENCRYPTION_KEY`, all HMAC secrets/key IDs,
+   Redis password, exchange secret, prefixes and account IDs. Do not create a
+   second configuration or overwrite this file from a fresh setup.
+4. Run `docker compose config --quiet` and restart the selected services. Verify
+   an authenticated TOTP operation through Herald with certificate verification
+   enabled, then complete enrollment in the browser. Startup health alone is not
+   proof of the new TLS/request-authentication path.
+
+This selects the TLS proxy and CA mount as well as enabling the feature. On
+rollback, keep the encryption key, credential/replay state and original account
+IDs even if TOTP is disabled; do not erase Redis or regenerate configuration.
 
 ## Stop and diagnose
 

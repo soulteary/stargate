@@ -148,13 +148,6 @@ def configure(args, environ=None):
     if production:
         for router in routing['http']['routers'].values():
             router['tls'] = {}
-    totp_routing = {
-        'http': {
-            'routers': {'totp': {'rule': 'Host(`totp-tls`)', 'entryPoints': ['totp'], 'service': 'totp', 'tls': {}}},
-            'services': {'totp': {'loadBalancer': {'servers': [{'url': 'http://totp:8084'}]}}},
-        },
-        'tls': {'certificates': [{'certFile': '/certs/totp-cert.pem', 'keyFile': '/certs/totp-key.pem'}]},
-    }
     encoded = dotenv(values)
     output.mkdir(parents=True, exist_ok=True, mode=0o700)
     state.mkdir(mode=0o700)
@@ -168,7 +161,7 @@ def configure(args, environ=None):
     routes.chmod(0o644)
     if production and args.mode == 'totp':
         totp_routes = state / 'totp-tls.yml'
-        private_write(totp_routes, json.dumps(totp_routing, indent=2) + '\n')
+        private_write(totp_routes, (HERE / 'totp-tls.yml.example').read_text())
         totp_routes.chmod(0o644)
     private_write(env_file, encoded)
     return True
