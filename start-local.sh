@@ -87,7 +87,7 @@ HOST_PORT=${PORT#:}
 if [[ ! "$PORT" =~ ^:?[0-9]+$ ]] ||
     [[ ! "$HOST_PORT" =~ ^[0-9]{1,5}$ ]] ||
     ((10#$HOST_PORT < 1 || 10#$HOST_PORT > 65535)); then
-    echo -e "${RED}错误: 无效端口: $PORT（应为 1-65535，可选冒号前缀）${NC}"
+    echo -e "${RED}错误: 无效端口: ${PORT}（应为 1-65535，可选冒号前缀）${NC}"
     exit 1
 fi
 

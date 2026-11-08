@@ -76,7 +76,7 @@ Stargate は以下に最適です：
 
 ## 🚀 クイックスタート
 
-**2 分以内**に Stargate を起動して実行できます！
+以下の例は、パスワード認証を使うローカルデモです。
 
 ### Docker Compose の使用（推奨）
 
@@ -89,31 +89,25 @@ cd stargate
 **ステップ 2：** 認証を設定（`docker-compose.yml` を編集）
 
 **オプション A: パスワード認証（シンプル）**
-```yaml
-services:
-  stargate:
-    environment:
-      - AUTH_HOST=auth.example.com
-      - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```bash
+# 変更せずにローカル HTTP デモをポート 80 で起動します。
+# DNS 名を変更する場合のみ .env.example を .env にコピーして編集します。
+docker compose config --quiet
 ```
 
-**オプション B: Warden + Herald OTP認証（本番環境）**
-```yaml
-services:
-  stargate:
-    environment:
-      - AUTH_HOST=auth.example.com
-      - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8081
-      - WARDEN_API_KEY=your-warden-api-key
-      - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8082
-      - HERALD_HMAC_SECRET=your-herald-hmac-secret
-```
+起動後、`http://hello.test.localhost` を開き、`test1234` または `test1337` で
+ログインして保護対象サービスに戻ることを確認します。このパスワードと
+`COOKIE_SECURE=false` はローカル HTTP デモ専用です。
+
+独自ドメインは `.env` の `AUTH_HOSTNAME` と `APP_HOSTNAME` に設定します
+（プロトコル、パス、ポートを含まない DNS 名）。両方をこのマシンに解決してください。
+プロキシのルートとコールバック検証を同時に設定するため、サービスの `AUTH_HOST` だけを
+変更しないでください。HTTPS と OTP/TOTP は[デプロイガイド](docs/enUS/DEPLOYMENT.md)を参照してください。
+
 
 **ステップ 3：** サービスを起動
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 **これで完了です！** 認証サービスが実行されています。🎉
@@ -127,7 +121,12 @@ chmod +x start-local.sh
 ./start-local.sh
 ```
 
-ログインページにアクセス：`http://localhost:8080/_login?callback=localhost`
+ログインページにアクセス：`http://localhost:8080/_login?callback=localhost:8080`
+
+ネイティブ開発で別のポートを使う場合は `./start-local.sh --port 9090` を実行し、
+表示される `http://localhost:9090/_login?callback=localhost:9090` を開きます。
+Compose デモはポート 80、このコマンドはネイティブ Go サービスを使います。
+
 
 ## 📚 ドキュメント
 

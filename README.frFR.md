@@ -76,7 +76,7 @@ Stargate est parfait pour :
 
 ## 🚀 Démarrage Rapide
 
-Mettez Stargate en route en **moins de 2 minutes** !
+Cet exemple lance une démonstration locale avec authentification par mot de passe.
 
 ### Utilisation de Docker Compose (Recommandé)
 
@@ -89,31 +89,26 @@ cd stargate
 **Étape 2 :** Configurer votre authentification (modifier `docker-compose.yml`)
 
 **Option A : Authentification par Mot de Passe (Simple)**
-```yaml
-services:
-  stargate:
-    environment:
-      - AUTH_HOST=auth.example.com
-      - PASSWORDS=plaintext:yourpassword1|yourpassword2
+```bash
+# Démonstration HTTP locale inchangée sur le port 80.
+# Pour des noms DNS personnalisés, copier .env.example vers .env et le modifier.
+docker compose config --quiet
 ```
 
-**Option B : Authentification OTP Warden + Herald (Production)**
-```yaml
-services:
-  stargate:
-    environment:
-      - AUTH_HOST=auth.example.com
-      - WARDEN_ENABLED=true
-      - WARDEN_URL=http://warden:8081
-      - WARDEN_API_KEY=your-warden-api-key
-      - HERALD_ENABLED=true
-      - HERALD_URL=http://herald:8082
-      - HERALD_HMAC_SECRET=your-herald-hmac-secret
-```
+Après le démarrage, ouvrir `http://hello.test.localhost`, se connecter avec
+`test1234` ou `test1337`, puis vérifier le retour au service protégé. Ces mots de
+passe et `COOKIE_SECURE=false` sont réservés à cette démonstration HTTP locale.
+
+Définir `AUTH_HOSTNAME` et `APP_HOSTNAME` dans `.env` pour des domaines personnalisés
+(noms DNS sans protocole, chemin ni port), et faire résoudre les deux vers cette
+machine. Ces valeurs configurent les routes du proxy et les callbacks ensemble ;
+ne pas modifier uniquement `AUTH_HOST`. Pour HTTPS et OTP/TOTP, consulter le
+[guide de déploiement](docs/enUS/DEPLOYMENT.md).
+
 
 **Étape 3 :** Démarrer le service
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 **C'est tout !** Votre service d'authentification est maintenant en cours d'exécution. 🎉
@@ -127,7 +122,12 @@ chmod +x start-local.sh
 ./start-local.sh
 ```
 
-Accédez à la page de connexion à `http://localhost:8080/_login?callback=localhost`
+Accédez à la page de connexion à `http://localhost:8080/_login?callback=localhost:8080`
+
+Pour un autre port de développement natif, exécuter `./start-local.sh --port 9090`
+et utiliser l’URL affichée : `http://localhost:9090/_login?callback=localhost:9090`.
+La démonstration Compose utilise le port 80 ; cette commande lance le service Go natif.
+
 
 ## 📚 Documentation
 
