@@ -1,0 +1,95 @@
+name: Released work IM / three native components
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/fixtures/work-im-three-native/**'
+      - '.github/workflows/released-work-im-native-three.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: released-work-im-native-three-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  released-native-three:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out reviewed test harness
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out released Stargate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: soulteary/stargate
+          ref: 6f04912db1dafa953d244e3f7350bd9ead94cc80
+          path: released-sources/sg
+          persist-credentials: false
+      - name: Check out released Herald
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: soulteary/herald
+          ref: a4e611f3763d670adec310d222cefed33930765e
+          path: released-sources/herald
+          persist-credentials: false
+      - name: Check out released DingTalk adapter
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: soulteary/herald-dingtalk
+          ref: 47c2d029f8c4f2a27c291f1b36b318e2de41c23f
+          path: released-sources/adapter
+          persist-credentials: false
+      - name: Set up fixed Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Validate safe artifact projection and workflow contract
+        run: |
+          # Retained source control uses this exact sibling repository name.
+          # Point it only at the fixed released adapter checkout, never a download.
+          ln -s "$GITHUB_WORKSPACE/released-sources/adapter" .github/fixtures/herald-dingtalk127-source-current
+          python3 -I -B .github/fixtures/work-im-three-native/test_controls.py
+          python3 -I -B .github/fixtures/work-im-three-native/test_public_ci.py
+      - name: Download and verify only public module dependencies
+        env:
+          GOTOOLCHAIN: local
+          GOENV: 'off'
+          GOWORK: 'off'
+        run: |
+          for source in sg herald adapter; do
+            (cd "released-sources/$source" && go mod download && go mod verify)
+          done
+      - name: Run fixed released native components without module downloads
+        run: |
+          python3 -I -B .github/fixtures/work-im-three-native/run_three.py \
+            --sg-source "$GITHUB_WORKSPACE/released-sources/sg" \
+            --herald-source "$GITHUB_WORKSPACE/released-sources/herald" \
+            --adapter-source "$GITHUB_WORKSPACE/released-sources/adapter" \
+            --go "$(command -v go)" \
+            --go-mod-cache "$(go env GOMODCACHE)" \
+            --output "$RUNNER_TEMP/released-native-three-private"
+      - name: Project only safe fixed-schema metadata
+        if: always()
+        run: |
+          python3 -I -B .github/fixtures/work-im-three-native/public_results.py \
+            --run "$RUNNER_TEMP/released-native-three-private" \
+            --output "$RUNNER_TEMP/released-native-three-public"
+      - name: Upload only safe metadata
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: released-native-three-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/released-native-three-public/result.json
+            ${{ runner.temp }}/released-native-three-public/native-results.json
+            ${{ runner.temp }}/released-native-three-public/source-inputs.json
+            ${{ runner.temp }}/released-native-three-public/failure.json
+          if-no-files-found: error
+          retention-days: 14
