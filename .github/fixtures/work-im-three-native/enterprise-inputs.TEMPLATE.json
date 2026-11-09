@@ -1,0 +1,24 @@
+{
+  "scope": "unbound-enterprise-input-template-only",
+  "activated": false,
+  "source_commit": "47c2d029f8c4f2a27c291f1b36b318e2de41c23f",
+  "adapter_environment_placeholders": {
+    "DINGTALK_APP_KEY": "<enterprise-app-key-not-filled>",
+    "DINGTALK_APP_SECRET": "<enterprise-app-secret-not-filled>",
+    "DINGTALK_AGENT_ID": "<positive-base10-enterprise-agent-id-not-filled>",
+    "DINGTALK_LOOKUP_MODE": "none",
+    "API_KEY": "<independent-internal-service-secret-generated-later-by-Root>"
+  },
+  "verified_canary_userid_record_placeholder": {
+    "dingtalk_userid": "<verified-canary-userid-not-filled>",
+    "mapping_verified": false,
+    "delivery_approved": false
+  },
+  "notes": [
+    "Template is not an env file, deployment profile, permission or delivery approval.",
+    "dingtalk_userid is a server-maintained verified account mapping, not an adapter environment key.",
+    "Native adapter accepts general bounded to strings including commas; it has no canary recipient allowlist. This template does not implement that guard.",
+    "lookup none avoids mobile lookup; it does not establish account ownership or a safe delivery scope.",
+    "No real credentials, recipients, addresses or user records are present; do not place real values in this public fixture directory."
+  ]
+}
