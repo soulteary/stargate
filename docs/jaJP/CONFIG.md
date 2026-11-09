@@ -318,6 +318,7 @@ PORT=8080
 | `HERALD_TOTP_ENABLED` | true/false | false | TOTP ログインと管理 |
 | `LOGIN_SMS_ENABLED` | true/false | true | SMS ログインチャネル |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | メールログインチャネル |
+| `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | DingTalk に明示的な Warden userid を必須にする |
 | `SESSION_STORAGE_ENABLED` | true/false | false | Redis セッションストレージ |
 | `SESSION_STORAGE_REDIS_ADDR` | host:port | `localhost:6379` | Redis アドレス |
 | `SESSION_STORAGE_REDIS_PASSWORD` | 秘密値 | 空 | Redis パスワード |
@@ -335,6 +336,8 @@ PORT=8080
 | `RATE_LIMIT_LOGIN_MAX` | 整数 | 10 | クライアントごと・ウィンドウごとのログイン試行数。0 で無効 |
 | `RATE_LIMIT_VERIFICATION_MAX` | 整数 | 5 | クライアントごと・ウィンドウごとの認証コード要求数。0 で無効 |
 | `RATE_LIMIT_WINDOW` | 期間 | `1m` | レート制限の固定ウィンドウ |
+
+`LOGIN_DINGTALK_REQUIRE_USERID`: 既定値は `false`（互換モード）です。`true` の場合は、Warden がサーバー側で管理する `dingtalk_userid` のみを使用し、電話番号へのフォールバックは行いません。対応付けがない場合や無効な場合は拒否します。コードの発行と既存の紐付けの検証に同じ規則を適用します。自動的には有効にならず、既存セッションやキャッシュの失効境界も変更しません。詳細は[英語の userid プロファイル](../enUS/DINGTALK_USERID_ONLY.md)を参照してください。
 
 `PORT` は開発・本番の両方で設定できます。未設定の原生バイナリは `:80`、公式イメージは `PORT=8080` を使います。コンテナで変更する場合は `PORT=8080` のように数字だけを指定してください。ヘルスチェックが URL を組み立てるため、原生バイナリで使える `:8080` 形式は不適切です。
 
