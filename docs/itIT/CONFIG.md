@@ -318,6 +318,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `HERALD_TOTP_ENABLED` | true/false | false | Login e gestione TOTP |
 | `LOGIN_SMS_ENABLED` | true/false | true | Canale login SMS |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | Canale login e-mail |
+| `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | Richiedere un userid Warden esplicito per DingTalk |
 | `SESSION_STORAGE_ENABLED` | true/false | false | Storage sessioni Redis |
 | `SESSION_STORAGE_REDIS_ADDR` | host:porta | `localhost:6379` | Indirizzo Redis |
 | `SESSION_STORAGE_REDIS_PASSWORD` | segreto | vuoto | Password Redis |
@@ -335,6 +336,8 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `RATE_LIMIT_LOGIN_MAX` | intero | 10 | Tentativi di accesso per finestra e per client; 0 disabilita |
 | `RATE_LIMIT_VERIFICATION_MAX` | intero | 5 | Richieste di verifica per finestra e per client; 0 disabilita |
 | `RATE_LIMIT_WINDOW` | durata | `1m` | Finestra fissa di limitazione |
+
+`LOGIN_DINGTALK_REQUIRE_USERID`: Valore predefinito: `false` (modalità compatibile). Con `true` è ammesso solo il valore `dingtalk_userid` gestito da Warden sul server: nessun ripiego sul numero di telefono; associazioni mancanti o non valide vengono rifiutate. La stessa regola vale per la richiesta del codice e per la verifica di un’associazione esistente. L’opzione non si attiva automaticamente e non modifica le sessioni esistenti né i limiti di revoca della cache. Vedere il [profilo userid in inglese](../enUS/DINGTALK_USERID_ONLY.md).
 
 `PORT` vale per sviluppo e produzione. Il binario nativo usa `:80` senza un valore; le immagini ufficiali impostano `PORT=8080`. Nei container usare solo un numero, ad esempio `PORT=8080`: il controllo di salute costruisce un URL, quindi la forma nativa `:8080` non è adatta.
 

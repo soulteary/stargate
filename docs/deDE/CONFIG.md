@@ -318,6 +318,7 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `HERALD_TOTP_ENABLED` | true/false | false | TOTP-Anmeldung und -Verwaltung |
 | `LOGIN_SMS_ENABLED` | true/false | true | SMS-Anmeldekanal |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | E-Mail-Anmeldekanal |
+| `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | Nur explizite Warden-Userid für DingTalk verlangen |
 | `SESSION_STORAGE_ENABLED` | true/false | false | Redis-Sitzungsspeicher |
 | `SESSION_STORAGE_REDIS_ADDR` | host:port | `localhost:6379` | Redis-Adresse |
 | `SESSION_STORAGE_REDIS_PASSWORD` | Geheimnis | leer | Redis-Passwort |
@@ -335,6 +336,8 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `RATE_LIMIT_LOGIN_MAX` | Ganzzahl | 10 | Anmeldeversuche pro Fenster und Client; 0 deaktiviert |
 | `RATE_LIMIT_VERIFICATION_MAX` | Ganzzahl | 5 | Verifizierungsanfragen pro Fenster und Client; 0 deaktiviert |
 | `RATE_LIMIT_WINDOW` | Dauer | `1m` | Festes Ratenbegrenzungsfenster |
+
+`LOGIN_DINGTALK_REQUIRE_USERID`: Standard: `false` (Kompatibilitätsmodus). Bei `true` ist nur die serverseitig von Warden verwaltete `dingtalk_userid` zulässig: keine Telefonnummer als Ersatz, und fehlende oder ungültige Zuordnungen werden abgelehnt. Dieselbe Regel gilt beim Anfordern eines Codes und beim Prüfen einer bestehenden Bindung. Dies aktiviert die Option nicht automatisch und ändert weder bestehende Sitzungen noch die Cache-/Widerrufsgrenzen. Siehe das [englische Userid-Profil](../enUS/DINGTALK_USERID_ONLY.md).
 
 `PORT` gilt für Entwicklung und Produktion. Ohne Umgebungswert nutzt die native Binärdatei `:80`; offizielle Images setzen `PORT=8080`. In Containern nur eine Zahl verwenden, etwa `PORT=8080`: Der Healthcheck baut daraus eine URL, daher ist die native Schreibweise `:8080` dort ungeeignet.
 

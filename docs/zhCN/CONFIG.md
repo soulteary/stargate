@@ -92,6 +92,7 @@ services:
 | `HERALD_TOTP_ENABLED` | true/false | false | 否 |
 | `LOGIN_SMS_ENABLED` | true/false | true | 否 |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | 否 |
+| `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | 否 |
 | `SESSION_STORAGE_ENABLED` | true/false | false | 否 |
 | `SESSION_STORAGE_REDIS_ADDR` | String | localhost:6379 | 否 |
 | `SESSION_STORAGE_REDIS_PASSWORD` | String | 空 | 否 |
@@ -535,6 +536,27 @@ HERALD_ENABLED=true
 ```bash
 LOGIN_SMS_ENABLED=false
 ```
+
+#### `LOGIN_DINGTALK_REQUIRE_USERID`
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | Boolean |
+| **必需** | 否 |
+| **默认值** | `false`（兼容模式） |
+| **可选值** | `true`, `false` |
+
+默认 `false` 时，显式选择钉钉投递会先使用 Warden 的规范 `dingtalk_userid`，并保留现有的规范手机号回退。
+设为 `true` 后，只接受服务端 Warden 管理的 userid 映射，不回退到手机号或邮箱；不能用表单或请求头中自行声明的 userid 代替该映射。
+缺少映射、纯空白、多值、换行或其他控制字符会在请求 Herald 前按现有 `dingtalk_not_bound` 响应拒绝。
+userid 去除首尾空白后保留大小写；纯数字 userid 也不会被猜测成手机号。
+
+创建验证码绑定与验证已经存在的待完成绑定使用同一目的地选择规则。在 `true` 模式下，以前由手机号推导出的绑定或联系人已经变化的绑定会被拒绝，不消费该验证码。
+这项设置不会过期、迁移或删除现有会话或绑定，也不改变现有目录缓存、会话和撤权的边界。
+
+这是既有钉钉投递的目的地约束，不是额外增加一层验证码，不是 header authentication 重构，也不证明管理员已核验映射对应的真人。
+它不授予应用权限、不把钉钉登录视为邮箱已验证，也不会自动启用；生产是否选用仍须明确决定。
+启用前请阅读[英文 userid-only 隔离配置](../enUS/DINGTALK_USERID_ONLY.md)。
 
 #### `LOGIN_EMAIL_ENABLED`
 

@@ -318,6 +318,7 @@ PORT=8080
 | `HERALD_TOTP_ENABLED` | true/false | false | TOTP 로그인 및 관리 |
 | `LOGIN_SMS_ENABLED` | true/false | true | SMS 로그인 채널 |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | 이메일 로그인 채널 |
+| `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | DingTalk에 명시적인 Warden userid 요구 |
 | `SESSION_STORAGE_ENABLED` | true/false | false | Redis 세션 저장소 |
 | `SESSION_STORAGE_REDIS_ADDR` | host:port | `localhost:6379` | Redis 주소 |
 | `SESSION_STORAGE_REDIS_PASSWORD` | 비밀값 | 비어 있음 | Redis 비밀번호 |
@@ -335,6 +336,8 @@ PORT=8080
 | `RATE_LIMIT_LOGIN_MAX` | 정수 | 10 | 클라이언트별·윈도우별 로그인 시도 수. 0이면 비활성화 |
 | `RATE_LIMIT_VERIFICATION_MAX` | 정수 | 5 | 클라이언트별·윈도우별 인증 코드 요청 수. 0이면 비활성화 |
 | `RATE_LIMIT_WINDOW` | 기간 | `1m` | 레이트 리밋 고정 윈도우 |
+
+`LOGIN_DINGTALK_REQUIRE_USERID`: 기본값은 `false`(호환 모드)입니다. `true`이면 Warden이 서버에서 관리하는 `dingtalk_userid`만 허용하며 전화번호로 대체하지 않습니다. 매핑이 없거나 유효하지 않으면 거부합니다. 코드 요청과 기존 바인딩 검증에 같은 규칙이 적용됩니다. 자동으로 활성화되지 않으며 기존 세션이나 캐시의 폐기 경계를 변경하지 않습니다. 자세한 내용은 [영문 userid 프로필](../enUS/DINGTALK_USERID_ONLY.md)을 참조하세요.
 
 `PORT`는 개발과 프로덕션 모두에 적용됩니다. 환경 값이 없는 네이티브 바이너리는 `:80`, 공식 이미지는 `PORT=8080`을 사용합니다. 컨테이너에서는 `PORT=8080`처럼 숫자만 지정하세요. 상태 검사가 URL을 구성하므로 네이티브의 `:8080` 형식은 적합하지 않습니다.
 
