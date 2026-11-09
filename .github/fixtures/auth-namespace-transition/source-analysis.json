@@ -1,0 +1,58 @@
+{
+  "actual_upgrade_accepted": false,
+  "axes": [
+    "Herald challenge state migration",
+    "Stargate sessions/exchange",
+    "Redis/auth isolation"
+  ],
+  "gaps": [
+    "native test build/run pending independent peer",
+    "physical Redis/script/permissions/persistence",
+    "real pause/drain/last-issuance and >=300s expiry wait with margins",
+    "all gateway/verifier replicas and rollback namespace config",
+    "Warden freshness/credential proof/whole HTTP and browser exchange",
+    "idempotency/delivery_unknown reconciliation/audit/nonce preservation",
+    "TOTP currently false; no enrollment/recovery or enabling tested"
+  ],
+  "observed_old_config": {
+    "Herald_OTP_seconds": 300,
+    "SG_session_DB": 1,
+    "SG_session_Redis_enabled": true,
+    "TOTP_enabled": false,
+    "profile_was_not_imported": true
+  },
+  "reference_receipts_sha256": {
+    "auth-old-config-shape-Root-98b290fb2058537825f8/result.json": "5678390e791662a30198372650f7e4ce7539bb8195d4dd8ffb726ca2e01b62f9",
+    "auth-upgrade-contract-peer/compatibility-review.json": "14839ca5a7c9687c556ef6b6e6ebefa1d61b865ae2910dc7e8e0750dfcb216f2"
+  },
+  "scope": "reuse-existing-17-axes-native-namespace-slice",
+  "source_facts": {
+    "Herald_new_active_index_prefix": "otp2:active:",
+    "Herald_new_record_prefix": "otp2:ch:",
+    "Herald_new_verify_lock_prefix": "otp2:vlock:",
+    "Herald_old_record_prefix": "otp:ch:",
+    "SG_new_appends_revocable_v1": true,
+    "SG_old_ordinary_prefix": true,
+    "old_prefix_rollback_can_revive_legacy_session": "unsafe witness required, not a measured result yet",
+    "safe_rollback_requires_fresh_disjoint_prefix": true,
+    "user_lockout_prefix_retained": "otp:lock:"
+  },
+  "sources": {
+    "herald_new": {
+      "commit": "a4e611f3763d670adec310d222cefed33930765e",
+      "tree": "1b031fbaae91bff03a1d25f7a880160b2d2b9c8f"
+    },
+    "herald_old": {
+      "commit": "0f90a5ec6d4cb557cb16e0ec70feedb9d5c7bf90",
+      "tree": "7d406272d121ca358fc59d24e29b30ade6def490"
+    },
+    "sg_new": {
+      "commit": "6f04912db1dafa953d244e3f7350bd9ead94cc80",
+      "tree": "a36ef6feec9a32410e290eb63bb1a9b831ecaf66"
+    },
+    "sg_old": {
+      "commit": "791b6ccaf506f3197b19f7b406f6e56be668b116",
+      "tree": "7a2e1ed902aba010ff025740c7a2329b2f277f2b"
+    }
+  }
+}

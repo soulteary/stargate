@@ -1,0 +1,100 @@
+name: Released auth / native namespace transition
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.github/fixtures/auth-namespace-transition/**'
+      - '.github/workflows/released-auth-namespace-transition.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: released-auth-namespace-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  released-native-namespace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out reviewed namespace fixture
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Check out old Stargate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: soulteary/stargate
+          ref: 791b6ccaf506f3197b19f7b406f6e56be668b116
+          path: released-auth-sources/sg_old
+          persist-credentials: false
+      - name: Check out new Stargate
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: soulteary/stargate
+          ref: 6f04912db1dafa953d244e3f7350bd9ead94cc80
+          path: released-auth-sources/sg_new
+          persist-credentials: false
+      - name: Check out old Herald
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: soulteary/herald
+          ref: 0f90a5ec6d4cb557cb16e0ec70feedb9d5c7bf90
+          path: released-auth-sources/herald_old
+          persist-credentials: false
+      - name: Check out new Herald
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: soulteary/herald
+          ref: a4e611f3763d670adec310d222cefed33930765e
+          path: released-auth-sources/herald_new
+          persist-credentials: false
+      - name: Set up fixed Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.3'
+          cache: false
+      - name: Validate offline source and public metadata gates
+        run: |
+          python3 -I -B .github/fixtures/auth-namespace-transition/test_controls.py
+          python3 -I -B .github/fixtures/auth-namespace-transition/test_public_ci.py
+      - name: Download and verify only public dependencies
+        env:
+          GOTOOLCHAIN: local
+          GOENV: 'off'
+          GOWORK: 'off'
+        run: |
+          for source in sg_old sg_new herald_old herald_new; do
+            (cd "released-auth-sources/$source" && go mod download && go mod verify)
+          done
+      - name: Run fixed native namespace regression offline
+        run: |
+          python3 -I -B .github/fixtures/auth-namespace-transition/run_transition.py \
+            --sg-old-source "$GITHUB_WORKSPACE/released-auth-sources/sg_old" \
+            --sg-new-source "$GITHUB_WORKSPACE/released-auth-sources/sg_new" \
+            --herald-old-source "$GITHUB_WORKSPACE/released-auth-sources/herald_old" \
+            --herald-new-source "$GITHUB_WORKSPACE/released-auth-sources/herald_new" \
+            --go "$(command -v go)" \
+            --go-mod-cache "$(go env GOMODCACHE)" \
+            --output "$RUNNER_TEMP/native-namespace-private"
+      - name: Project strict safe metadata only
+        if: always()
+        run: |
+          python3 -I -B .github/fixtures/auth-namespace-transition/public_results.py \
+            --run "$RUNNER_TEMP/native-namespace-private" \
+            --output "$RUNNER_TEMP/native-namespace-public"
+      - name: Upload only safe namespace metadata
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: native-namespace-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/native-namespace-public/result.json
+            ${{ runner.temp }}/native-namespace-public/native-results.json
+            ${{ runner.temp }}/native-namespace-public/source-inputs.json
+            ${{ runner.temp }}/native-namespace-public/failure.json
+          if-no-files-found: error
+          retention-days: 14
