@@ -31,6 +31,24 @@ class Controls(unittest.TestCase):
    with self.assertRaises(FileExistsError):m.write_new(p,b'replace')
    link=Path(root)/'alias';link.symlink_to(p)
    with self.assertRaises(Exception):m.read_regular(link,100)
+ def test_readiness_is_published_after_complete_write_and_close(self):
+  # This is a source gate for the real Go publishers; the native CI exercises
+  # both publishers. In particular O_CREATE must never expose the final path.
+  root=Path(__file__).parent
+  for name in ('adapter', 'herald'):
+   source=(root/(name+'_formal_bridge_test.go')).read_text()
+   stage=source.index('pending := ready + ".pending"')
+   create=source.index('os.OpenFile(pending, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)',stage)
+   write=source.index('f.WriteString(server.URL)',create)
+   close=source.index('closeErr := f.Close()',write)
+   check=source.index('if err != nil || closeErr != nil',close)
+   publish=source.index('os.Rename(pending, ready)',check)
+   self.assertLess(stage,create)
+   self.assertLess(create,write)
+   self.assertLess(write,close)
+   self.assertLess(close,check)
+   self.assertLess(check,publish)
+   self.assertNotIn('os.OpenFile(ready,',source)
  def test_transport_and_native_seams_are_explicit(self):
   root=Path(__file__).parent
   adapter=(root/'adapter_formal_bridge_test.go').read_text()

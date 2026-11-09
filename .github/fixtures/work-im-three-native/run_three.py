@@ -20,7 +20,7 @@ SOURCES = {
     'adapter': ('47c2d029f8c4f2a27c291f1b36b318e2de41c23f', 'ed729f80b5b6eaf6affc706f4fcd609faf457270', './internal/router', 'adapter_formal_bridge_test.go', 'internal/router/formal_three_bridge_test.go', 'TestFormalAdapterServe'),
 }
 EXPECTED_MANIFEST_SHA256 = 'cdd899c07caac2f0af5881019066ba8d4cc28533bd357e9d9f7bfc57ecf821a7'
-EXPECTED_OVERLAYS = {'sg': 'cad04e8c64a9ac490c42b9dd1a8b3e153dad6450c30a6a2ea0ec05ebf8137bda', 'herald': '3df05f660a58a7366aab85eba31031794704a7d98c0f4ff324599b1701505ee9', 'adapter': '0ef328a0e15b2706212f3ba4be6ae95cfdcf6d914d17f6c825b94cb99410864d'}
+EXPECTED_OVERLAYS = {'sg': 'cad04e8c64a9ac490c42b9dd1a8b3e153dad6450c30a6a2ea0ec05ebf8137bda', 'herald': 'fbc4263869a2bf8645d9b76a5b307d031a39aeaaeff83708016013326e4e7d6b', 'adapter': '78a7727f2af4a8671fa61045225dbe75a10db66e373f78e8857953e013196be2'}
 SUBTESTS = ('opaque_mapping_and_client_injection', 'same_request_idempotent', 'wrong_user_cannot_consume', 'owner_session_and_consumed_replay', 'unmapped_user_no_delivery', 'adapter_auth_and_idempotency', 'provider_failure_refuses_login_challenge')
 class Refusal(Exception):
     pass

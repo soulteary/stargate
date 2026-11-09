@@ -5,7 +5,7 @@ change this fixture/workflow only. It does not replace the always-run Work IM
 bridge or any current-main gate. No push event or unrelated application source
 path triggers this expensive released-version suite.
 
-The eight original files are copied byte for byte from source-bound candidate
+The initial eight files were copied byte for byte from source-bound candidate
 56ed56c5e14c0567a69c4c546bc28be9be40a4e8c346967900913b9bc409bb2c.
 Its independent source peer is b3a3da9a2db55c36688f342f6463e2d56bc4f69fe25484244426086e6ecaaa32.
 Root subsequently ran that exact candidate: all three builds and runtimes exited
@@ -28,8 +28,8 @@ hashes must match before compilation. Git archive is expected to reproduce the
 same fixed public bytes on Ubuntu; a Git/tar/attributes difference fails closed.
 Do not normalize archives, refresh expected hashes or silently substitute a source
 if public CI reveals a difference. Investigate it as a separate source successor.
-The original source-side `test_controls.py` is retained unchanged and all nine
-methods run before the four portable `test_public_ci.py` controls. Its actual
+The source-side `test_controls.py` now adds a readiness publication source gate;
+all ten methods run before the four portable `test_public_ci.py` controls. Its actual
 adapter overlay-tamper materialization test uses a fixed sibling repository name;
 CI creates that test-only alias to the already checked-out exact released adapter.
 No archive, provider or dependency is downloaded through the alias. These controls
@@ -48,3 +48,10 @@ does not qualify current-HEAD whole SG routing, TLS, real Warden, physical Redis
 upgrade/session migration, verified live mappings, real IM delivery, restarts,
 durable exactly-once behavior, capacity or deployment. Native comma-recipient
 semantics are unchanged. All application and production dependencies remain intact.
+
+PR review follow-up: both Go fixture publishers now write and close a sibling
+private `.pending` file before atomically renaming it to the readiness path.
+The fixed reader never sees the intermediate empty/partial endpoint. The native
+CI must rerun with the updated overlay digests; the seven business scenarios and
+all source archive/blob pins remain unchanged. The new source control rejects
+creating the final path directly or publishing before the write/close error gate.

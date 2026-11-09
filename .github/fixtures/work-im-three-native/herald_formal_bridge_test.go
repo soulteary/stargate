@@ -96,7 +96,10 @@ func TestFormalHeraldServe(t *testing.T) {
 	if strings.Contains(endpoint, "@") {
 		t.Fatal("userinfo prohibited")
 	}
-	f, err := os.OpenFile(ready, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	// The runner must never observe a partial readiness endpoint. Both paths
+	// belong to its freshly created private directory; no other publisher exists.
+	pending := ready + ".pending"
+	f, err := os.OpenFile(pending, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
 	if err != nil {
 		t.Fatal("readiness create failed")
 	}
@@ -104,6 +107,9 @@ func TestFormalHeraldServe(t *testing.T) {
 	closeErr := f.Close()
 	if err != nil || closeErr != nil {
 		t.Fatal("readiness write failed")
+	}
+	if err := os.Rename(pending, ready); err != nil {
+		t.Fatal("readiness publish failed")
 	}
 	select {
 	case <-stop:
