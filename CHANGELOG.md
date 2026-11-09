@@ -4,11 +4,79 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.3.6] - 2026-11-09
+
 ### Added
 
+- Add opt-in `LOGIN_DINGTALK_REQUIRE_USERID`, defaulting to `false`. When enabled,
+  explicit DingTalk delivery requires a single canonical Warden `dingtalk_userid`
+  and refuses missing or invalid bindings before calling Herald. Preserve opaque
+  userid case and apply the same constraint to pending login verification.
+  Document the isolated IM-only profile in English and the six translated
+  configuration guides; this does not verify or populate a real mapping.
+- Add an authenticated `/_account` management page without generating enrollment
+  secrets or backup codes on a read-only GET. Existing fresh-directory and
+  sensitive-session authorization still apply.
+- Add optional `LOGIN_SUPPORT_URL` for an HTTPS or single-mailbox support link,
+  plus stable allowlisted authentication error reasons in JSON responses.
+  Existing status codes, numeric error codes and non-JSON formats are retained.
 - Add a scoped offline `doctor` command with explicit, bounded health checks and
   redacted human/JSON output. Health results do not prove service authentication
   or a working login; no active business probe is performed.
+
+### Changed
+
+- Unify login, authenticator enrollment/revocation and account-page feedback,
+  localized messages, recovery actions and request state across supported UI
+  languages. Keep authentication views non-cacheable and avoid automatic OTP
+  resend or verification retries.
+- Embed templates, static assets and the favicon for standalone binaries when
+  external resource paths do not exist. Existing external overrides remain in
+  use; inaccessible overrides are not silently replaced.
+- Update the Herald SDK from v1.4.4 to v1.5.0 and forward validated optional
+  challenge-creation retry timing to the login page. Missing or unusable timing
+  remains unknown; a countdown is not guaranteed admission or a quota reset.
+  Updating this SDK does not replace an independently deployed Herald service.
+- Add complete mail-OTP and authenticator examples with explicit local versus
+  production TLS profiles, private SMTP CA selection, protected build contexts
+  and retained provider trust-state validation. Align local host/callback routing
+  and startup guidance without treating the HTTP demo as a production profile.
+
+### Fixed
+
+- Keep page locale and management titles consistent across authentication
+  requests, and restore backup-code controls after fresh confirmation.
+- Preserve literal SMTP credential bytes and verify configured local SMTP TLS
+  and retained example trust material instead of silently bypassing trust.
+
+### Verification
+
+- Add an always-run work-IM bridge CI job with a fixed reviewed Herald source
+  and a loopback mock provider. Check canonical receiver binding, cross-user
+  refusal, idempotency and failure behavior without real IM delivery.
+- Add scoped Chromium acceptance for isolated full-stack HTTP and verified-HTTPS
+  examples, protected application callbacks, authentication-page recovery and
+  browser history. Record bounded navigation/observation failures and distinguish
+  cookie privacy eviction from restoration.
+- Observe product BFCache behavior without weakening authentication or changing
+  cache policy. Synthetic and isolated browser coverage does not establish a
+  production login, real mailbox delivery or 200-person capacity.
+
+### Upgrade and rollback
+
+- The strict DingTalk option remains off unless explicitly configured. Default
+  behavior retains the existing canonical-phone fallback. For a separately
+  approved userid-only profile, maintain verified directory mappings, disable
+  alternate SMS/email channels as intended, and review pending phone-derived
+  bindings before opting in; no live profile is enabled by this release.
+- Preserve Redis records, pending bindings, replay/revocation state, credentials
+  and absolute deadlines. This release performs no directory or application
+  permission migration, session rewrite, credential rotation or provider rollout.
+  Earlier v1.3.x migration requirements still apply to older deployments.
+- Rolling back removes the new UI/diagnostic behavior and strict-userid option;
+  phone fallback can return. Restore compatible source manifests when rebuilding,
+  retain provider state, and do not independently downgrade services or clear
+  persistent records to make a rollback pass.
 
 ## [1.3.5] - 2026-11-08
 
