@@ -1,24 +1,24 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 576,
-    "passed": 567,
+    "total": 608,
+    "passed": 597,
     "failed": 0,
-    "skipped": 9
+    "skipped": 11
   },
   "coverage": {
-    "covered_statements": 2525,
-    "total_statements": 2637,
-    "percentage": 95.75,
+    "covered_statements": 2894,
+    "total_statements": 3032,
+    "percentage": 95.45,
     "threshold": 95
   },
   "packages": [
     {
       "name": "src/cmd/stargate",
       "status": "pass",
-      "tests": 65,
+      "tests": 68,
       "failed": 0,
-      "coverage": 88.94
+      "coverage": 88.21
     },
     {
       "name": "src/internal/auditlog",
@@ -37,21 +37,28 @@
     {
       "name": "src/internal/config",
       "status": "pass",
-      "tests": 76,
+      "tests": 78,
       "failed": 0,
-      "coverage": 97.38
+      "coverage": 96.53
+    },
+    {
+      "name": "src/internal/doctor",
+      "status": "pass",
+      "tests": 15,
+      "failed": 0,
+      "coverage": 94.57
     },
     {
       "name": "src/internal/handlers",
       "status": "pass",
-      "tests": 299,
+      "tests": 309,
       "failed": 0,
-      "coverage": 95.78
+      "coverage": 95.81
     },
     {
       "name": "src/internal/i18n",
       "status": "pass",
-      "tests": 36,
+      "tests": 37,
       "failed": 0,
       "coverage": 100
     },
@@ -82,6 +89,13 @@
       "tests": 4,
       "failed": 0,
       "coverage": 95.56
+    },
+    {
+      "name": "src/internal/web",
+      "status": "pass",
+      "tests": 1,
+      "failed": 0,
+      "coverage": 83.33
     }
   ],
   "failures": null
