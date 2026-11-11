@@ -46,7 +46,7 @@ jobs:
           ref: ${{ env.GATEWAY_REF }}
           path: gateway
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
       - name: Resolve owned loopback hosts for browser and HTTP clients
@@ -108,7 +108,7 @@ jobs:
           ref: ${{ env.GATEWAY_REF }}
           path: gateway
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
       - name: Install verified-browser test prerequisites
@@ -162,7 +162,7 @@ jobs:
           ref: ${{ env.GATEWAY_REF }}
           path: gateway
           persist-credentials: false
-      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
       - name: Install verified-browser test prerequisites
