@@ -208,3 +208,30 @@ func LogSessionDestroy(ctx context.Context, userID, ip string) {
 		audit.WithRecordIP(ip),
 	)
 }
+
+// TOTP factor changes recorded by LogTOTPChange.
+const (
+	TOTPActionEnrolled = "totp_enrolled"
+	TOTPActionRevoked  = "totp_revoked"
+)
+
+// LogTOTPChange records an attempt to add or remove a user's TOTP factor.
+// Changing a second factor alters how the account can be accessed, so both
+// successful and refused attempts are recorded.
+func LogTOTPChange(ctx context.Context, userID, action, ip string, success bool, reason string) {
+	l := GetLogger()
+	if l == nil {
+		return
+	}
+
+	result := audit.ResultSuccess
+	if !success {
+		result = audit.ResultFailure
+	}
+
+	l.LogAuth(ctx, audit.EventUserUpdated, userID, result,
+		audit.WithRecordIP(ip),
+		audit.WithRecordReason(reason),
+		audit.WithRecordMetadata("action", action),
+	)
+}
