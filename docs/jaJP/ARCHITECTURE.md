@@ -8,7 +8,7 @@
 
 - **言語**: Go 1.27.4
 - **Web フレームワーク**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
-- **テンプレートエンジン**: [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
+- **テンプレートエンジン**: [Fiber HTML Template v3.1.0](https://github.com/gofiber/template)
 - **セッション管理**: session-kit（Fiber 対応ストア；メモリ・Redis）
 - **ログ**: [Zerolog](https://github.com/rs/zerolog)（logger-kit 経由）
 - **ターミナル出力**: [Pterm](https://github.com/pterm/pterm)

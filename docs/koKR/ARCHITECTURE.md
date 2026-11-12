@@ -8,7 +8,7 @@
 
 - **언어**: Go 1.27.4
 - **웹 프레임워크**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
-- **템플릿 엔진**: [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
+- **템플릿 엔진**: [Fiber HTML Template v3.1.0](https://github.com/gofiber/template)
 - **세션 관리**: session-kit(Fiber 호환 스토어; 메모리·Redis)
 - **로깅**: [Zerolog](https://github.com/rs/zerolog)(logger-kit 경유)
 - **터미널 출력**: [Pterm](https://github.com/pterm/pterm)

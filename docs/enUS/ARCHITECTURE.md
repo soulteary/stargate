@@ -6,7 +6,7 @@ This document describes the technical architecture and design decisions of the S
 
 - **Language**: Go 1.27.4
 - **Web Framework**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
-- **Template Engine**: [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
+- **Template Engine**: [Fiber HTML Template v3.1.0](https://github.com/gofiber/template)
 - **Session Management**: session-kit (Fiber-compatible store; supports in-memory and Redis)
 - **Logging**: [Zerolog](https://github.com/rs/zerolog) via logger-kit
 - **Terminal Output**: [Pterm](https://github.com/pterm/pterm)

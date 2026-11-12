@@ -8,7 +8,7 @@ Ce document décrit l'architecture technique et les décisions de conception du 
 
 - **Langage** : Go 1.27.4
 - **Framework Web** : [Fiber v3.6.1](https://github.com/gofiber/fiber)
-- **Moteur de Template** : [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
+- **Moteur de Template** : [Fiber HTML Template v3.1.0](https://github.com/gofiber/template)
 - **Gestion de Session** : session-kit (store compatible Fiber ; mémoire et Redis)
 - **Journalisation** : [Zerolog](https://github.com/rs/zerolog) via logger-kit
 - **Sortie Terminal** : [Pterm](https://github.com/pterm/pterm)
