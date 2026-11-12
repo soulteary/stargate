@@ -5,7 +5,7 @@ go 1.27.4
 require (
 	github.com/MarvinJWendt/testza v0.5.2
 	github.com/alicebob/miniredis/v2 v2.40.0
-	github.com/gofiber/fiber/v3 v3.6.1
+	github.com/gofiber/fiber/v3 v3.7.0
 	github.com/gofiber/template/html/v3 v3.1.0
 	github.com/gofiber/utils/v2 v2.6.5
 	github.com/pquerna/otp v1.5.0
@@ -23,9 +23,9 @@ require (
 	github.com/soulteary/logger-kit/v3 v3.0.4
 	github.com/soulteary/metrics-kit/v3 v3.0.4
 	github.com/soulteary/middleware-kit/v3 v3.0.5
-	github.com/soulteary/redis-kit v1.8.1
+	github.com/soulteary/redis-kit v1.8.2
 	github.com/soulteary/secure-kit/v2 v2.1.4
-	github.com/soulteary/session-kit/v3 v3.2.1
+	github.com/soulteary/session-kit/v3 v3.2.2
 	github.com/soulteary/tracing-kit/v2 v2.0.3
 	github.com/soulteary/version-kit/v4 v4.0.3
 	github.com/soulteary/warden v1.6.3

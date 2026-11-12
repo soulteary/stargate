@@ -26,7 +26,7 @@ func AccountRoute(store *session.Store) fiber.Handler {
 		if !auth.IsAuthenticated(sess) {
 			return c.Redirect().Status(302).To("/_login")
 		}
-		if allowed, err := authorizeSensitiveSession(c, sess); !allowed {
+		if allowed, err := authorizeSensitiveSession(c, store, sess); !allowed {
 			return err
 		}
 		return c.Render("account", authenticationView(c, "account"))

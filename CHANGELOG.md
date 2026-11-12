@@ -11,8 +11,14 @@ This file records user-visible changes. For upgrade steps and configuration exam
   fresh quota for each address. IPv4 keys are unchanged.
 - Update `middleware-kit/v3` to v3.0.5, `audit-kit/v2` to v2.1.5, the Herald SDK
   to v1.5.2, the Warden SDK to v1.6.3, fasthttp to v1.78.0, and indirect
-  dependencies. Fiber stays at v3.6.1: v3.7.0 changes session rotation and
-  login fails with the current `session-kit`.
+  dependencies.
+- Update Fiber to v3.7.0 and `session-kit/v3` to v3.2.2, which keeps session
+  storage keyed by the session ID under Fiber v3.7.0. Stored sessions need no
+  migration. Fiber v3.7.0 no longer reports an error when a request saves a
+  session that a logout in the same process has already ended, so Stargate now
+  confirms that the session still exists after saving a directory refresh. A
+  `/_auth` or factor-management request that overlaps a logout is refused with
+  `500`, as before.
 
 ### Security
 

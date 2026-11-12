@@ -11,7 +11,7 @@ import (
 
 // authorizeSensitiveSession rechecks directory identity before factor-management
 // and step-up operations, even when background refresh is disabled or not due.
-func authorizeSensitiveSession(ctx fiber.Ctx, sess *session.Session) (bool, error) {
+func authorizeSensitiveSession(ctx fiber.Ctx, store *session.Store, sess *session.Session) (bool, error) {
 	if !auth.IsAuthenticated(sess) {
 		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
 	}
@@ -23,7 +23,7 @@ func authorizeSensitiveSession(ctx fiber.Ctx, sess *session.Session) (bool, erro
 		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, "authentication required")
 	}
 	if refreshed {
-		if err := sess.Save(); err != nil {
+		if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
 			return false, SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to save directory authorization")
 		}
 	}

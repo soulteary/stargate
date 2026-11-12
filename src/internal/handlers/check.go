@@ -73,10 +73,12 @@ func handleNotAuthenticated(ctx fiber.Ctx) error {
 	return SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.auth_required"))
 }
 
-// SessionStoreForCheck is the minimal interface required by CheckRoute to get session.
+// SessionStoreForCheck is the minimal interface required by CheckRoute to get a
+// session and to confirm that a refreshed session still exists after it is saved.
 // *session.Store implements it; tests can pass a mock to simulate store.Get failure.
 type SessionStoreForCheck interface {
 	Get(ctx fiber.Ctx) (*session.Session, error)
+	sessionByID
 }
 
 // CheckRoute is the main authentication check handler for Traefik Forward Auth.
@@ -168,7 +170,7 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 			}
 		}
 		if refreshed {
-			if saveErr := sess.Save(); saveErr != nil {
+			if saveErr := saveLiveSession(spanCtx, store, sess); saveErr != nil {
 				tracing.RecordError(forwardAuthSpan, saveErr)
 				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 			}

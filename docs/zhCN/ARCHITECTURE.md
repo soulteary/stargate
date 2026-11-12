@@ -5,7 +5,7 @@
 ## 技术栈
 
 - **语言**: Go 1.27.4
-- **Web 框架**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
+- **Web 框架**: [Fiber v3.7.0](https://github.com/gofiber/fiber)
 - **模板引擎**: [Fiber HTML Template v3.1.0](https://github.com/gofiber/template)
 - **会话管理**: session-kit（兼容 Fiber 的存储；支持内存与 Redis）
 - **日志**: [Zerolog](https://github.com/rs/zerolog)（通过 logger-kit）

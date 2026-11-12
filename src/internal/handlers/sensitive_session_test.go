@@ -89,7 +89,7 @@ func TestSensitiveGuardDistinguishesRevocationAndRefresh(t *testing.T) {
 	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
 		return nil, time.Time{}, auth.ErrUserUnavailable
 	}
-	allowed, err := authorizeSensitiveSession(ctx, sess)
+	allowed, err := authorizeSensitiveSession(ctx, store, sess)
 	require.NoError(t, err)
 	require.False(t, allowed)
 	require.Equal(t, 401, ctx.Response().StatusCode())
@@ -103,7 +103,7 @@ func TestSensitiveGuardDistinguishesRevocationAndRefresh(t *testing.T) {
 	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
 		return &warden.AllowListUser{UserID: "u1", Mail: "user@example.com", Status: "active", Role: "viewer"}, deadline, nil
 	}
-	allowed, err = authorizeSensitiveSession(next, active)
+	allowed, err = authorizeSensitiveSession(next, store, active)
 	require.NoError(t, err)
 	require.True(t, allowed)
 	require.Equal(t, "viewer", active.Get("user_role"))
@@ -121,7 +121,7 @@ func TestSensitiveGuardRejectsAnonymousAndExpiredEvidence(t *testing.T) {
 	sess, err := store.Get(ctx)
 	require.NoError(t, err)
 	defer sess.Release()
-	allowed, err := authorizeSensitiveSession(ctx, sess)
+	allowed, err := authorizeSensitiveSession(ctx, store, sess)
 	require.NoError(t, err)
 	require.False(t, allowed)
 	require.Equal(t, 401, ctx.Response().StatusCode())
@@ -133,7 +133,7 @@ func TestSensitiveGuardRejectsAnonymousAndExpiredEvidence(t *testing.T) {
 	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
 		return &warden.AllowListUser{UserID: "u1", Mail: "user@example.com", Status: "active"}, time.Now().Add(-time.Second), nil
 	}
-	allowed, err = authorizeSensitiveSession(next, active)
+	allowed, err = authorizeSensitiveSession(next, store, active)
 	require.NoError(t, err)
 	require.False(t, allowed)
 	require.Equal(t, 503, next.Response().StatusCode())

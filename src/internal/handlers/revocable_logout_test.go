@@ -137,7 +137,7 @@ func TestSensitiveRefreshSaveFailureDoesNotAuthorize(t *testing.T) {
 		return &warden.AllowListUser{UserID: "u1", Mail: "user@example.com", Status: "active"}, time.Time{}, nil
 	}
 	storage.fail = true
-	allowed, err := authorizeSensitiveSession(ctx, sess)
+	allowed, err := authorizeSensitiveSession(ctx, store, sess)
 	require.NoError(t, err)
 	require.False(t, allowed)
 	require.Equal(t, 500, ctx.Response().StatusCode())
@@ -148,8 +148,45 @@ func TestSensitiveRefreshSaveFailureDoesNotAuthorize(t *testing.T) {
 	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
 		return nil, time.Time{}, errors.New("dependency stopped")
 	}
-	allowed, err = authorizeSensitiveSession(ctx, sess)
+	allowed, err = authorizeSensitiveSession(ctx, store, sess)
 	require.NoError(t, err)
 	require.False(t, allowed)
 	require.Equal(t, 503, ctx.Response().StatusCode())
+}
+
+func TestSensitiveRefreshAfterLogoutDoesNotAuthorize(t *testing.T) {
+	for _, backend := range []string{"memory", "redis"} {
+		t.Run(backend, func(t *testing.T) {
+			setupRefreshTest(t)
+			store, _ := revocableTestStore(t, backend)
+			seed, seedApp := createTestContext("GET", "/totp/enroll", nil, "")
+			defer seedApp.ReleaseCtx(seed)
+			seeded, err := store.Get(seed)
+			require.NoError(t, err)
+			seeded.Set("auth_method", "warden")
+			seeded.Set("user_id", "u1")
+			seeded.Set("user_mail", "user@example.com")
+			require.NoError(t, auth.Authenticate(seeded))
+			id := seeded.ID()
+			seeded.Release()
+
+			ctx, app := createTestContext("POST", "/totp/enroll", nil, "")
+			defer app.ReleaseCtx(ctx)
+			ctx.Request().Header.SetCookie(auth.SessionCookieName, id)
+			sess, err := store.Get(ctx)
+			require.NoError(t, err)
+			defer sess.Release()
+			lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
+				logout, logoutApp := createTestContext("POST", "/_logout", nil, "")
+				defer logoutApp.ReleaseCtx(logout)
+				logout.Request().Header.SetCookie(auth.SessionCookieName, id)
+				require.NoError(t, LogoutRoute(store)(logout))
+				return &warden.AllowListUser{UserID: "u1", Mail: "user@example.com", Status: "active"}, time.Time{}, nil
+			}
+			allowed, err := authorizeSensitiveSession(ctx, store, sess)
+			require.NoError(t, err)
+			require.False(t, allowed)
+			require.Equal(t, 500, ctx.Response().StatusCode())
+		})
+	}
 }

@@ -74,6 +74,10 @@ func (m *mockSessionStoreFailing) Get(_ fiber.Ctx) (*session.Session, error) {
 	return nil, errors.New("store error")
 }
 
+func (m *mockSessionStoreFailing) GetByID(context.Context, string) (*session.Session, error) {
+	return nil, errors.New("store error")
+}
+
 // TestCheckRoute_SessionStoreError verifies that when store.Get returns an error,
 // the check handler returns 500 and session store failed message.
 func TestCheckRoute_SessionStoreError(t *testing.T) {

@@ -44,7 +44,7 @@ func TOTPRevokeRoute(store *session.Store) func(c fiber.Ctx) error {
 		if !auth.IsAuthenticated(sess) {
 			return ctx.Redirect().Status(fiber.StatusFound).To("/_login")
 		}
-		if allowed, err := authorizeSensitiveSession(ctx, sess); !allowed {
+		if allowed, err := authorizeSensitiveSession(ctx, store, sess); !allowed {
 			return err
 		}
 		client := getHeraldClient()
@@ -81,7 +81,7 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 		if !auth.IsAuthenticated(sess) {
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "unauthorized"})
 		}
-		if allowed, err := authorizeSensitiveSession(ctx, sess); !allowed {
+		if allowed, err := authorizeSensitiveSession(ctx, store, sess); !allowed {
 			return err
 		}
 		client := getHeraldClient()
