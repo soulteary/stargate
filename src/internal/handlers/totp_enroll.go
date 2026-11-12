@@ -9,6 +9,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/session"
 
 	"github.com/soulteary/herald/pkg/herald"
+	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -178,6 +179,7 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 			log.Error().Str("expected_subject", boundSubject).Str("confirmed_subject", confirmResp.Subject).Msg("TOTP enrollment subject mismatch")
 			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "enrollment_subject_mismatch"})
 		}
+		auditlog.LogTOTPChange(ctx.Context(), boundSubject, auditlog.TOTPActionEnrolled, ctx.IP(), true, "")
 		clearTOTPEnrollment(sess)
 		if err := sess.Save(); err != nil {
 			// Herald has already completed enrollment and backup codes are only

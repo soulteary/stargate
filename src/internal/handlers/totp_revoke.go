@@ -7,6 +7,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/session"
 
 	"github.com/soulteary/herald/pkg/herald"
+	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
@@ -105,14 +106,24 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 			}
 		}
 		if !reauthenticated {
+			auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionRevoked, ctx.IP(), false, "reauthentication_failed")
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "recent_authentication_required"})
 		}
-		_, err = client.TOTPRevoke(ctx.Context(), userID)
+		revokeResp, err := client.TOTPRevoke(ctx.Context(), userID)
 		if err != nil {
 			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP revoke failed")
 			reason := revokeErrorReason(err)
+			auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionRevoked, ctx.IP(), false, reason)
 			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "revoke_failed", "reason": reason})
 		}
+		// Herald can answer 200 without confirming the revocation. Reporting
+		// success then would tell the user the factor is gone when it is not.
+		if revokeResp == nil || !revokeResp.OK {
+			log.Warn().Str("user_id", userID).Msg("TOTP revoke was not confirmed by Herald")
+			auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionRevoked, ctx.IP(), false, "revoke_not_confirmed")
+			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "revoke_failed", "reason": "revoke_not_confirmed"})
+		}
+		auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionRevoked, ctx.IP(), true, "")
 		return ctx.JSON(fiber.Map{"ok": true, "subject": userID})
 	}
 }

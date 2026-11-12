@@ -12,6 +12,10 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ### Security
 
+- Record TOTP enrollment and revocation in the audit log (`user_updated` with
+  `action` `totp_enrolled` or `totp_revoked`), including refused revocations.
+- `/totp/revoke` reports failure when Herald answers without confirming the
+  revocation. It previously reported success.
 - Reject `/log/level` requests that carry a forwarding header (`X-Forwarded-For`,
   `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded`, `X-Real-IP`) with
   `404 Not Found`, and apply the cross-site write check to its `PUT` and `POST`
