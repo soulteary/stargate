@@ -4,6 +4,12 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Changed
+
+- Key login and verification rate limits on the /64 prefix for IPv6 clients.
+  A client that rotates addresses inside its own prefix no longer receives a
+  fresh quota for each address. IPv4 keys are unchanged.
+
 ## [1.3.6] - 2026-11-09
 
 ### Added
