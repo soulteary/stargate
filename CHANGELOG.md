@@ -18,6 +18,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
   methods. A same-host reverse proxy connects from `127.0.0.1`, so the loopback
   allowlist alone let relayed clients change the log level. Direct local
   requests are unaffected.
+- Match `STEP_UP_PATHS` case-insensitively and ignore `;` path parameters in
+  each segment. With `STEP_UP_PATHS=/admin`, a backend that routes
+  case-insensitively or drops path parameters served `/Admin` and `/admin;x`
+  without step-up. Paths whose parameters hide a dot segment or an empty
+  leading segment now require step-up.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 

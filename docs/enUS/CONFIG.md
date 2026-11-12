@@ -845,7 +845,7 @@ Paths that require step-up; comma-separated; prefix matching supported.
 
 At least one path is required when `STEP_UP_ENABLED=true`. Matching uses the request path only; query parameters do not affect protection.
 
-`TRUSTED_PROXIES` must also be configured. The trusted ForwardAuth proxy must send the original request URI in `X-Forwarded-Uri`; Stargate rejects the Step-up check when this trusted path provenance is missing or invalid. A plain path matches itself and child path segments, so `/admin` protects both `/admin` and `/admin/users` but not `/administrator`. Explicit `*` and `?` glob patterns remain supported.
+`TRUSTED_PROXIES` must also be configured. The trusted ForwardAuth proxy must send the original request URI in `X-Forwarded-Uri`; Stargate rejects the Step-up check when this trusted path provenance is missing or invalid. A plain path matches itself and child path segments, so `/admin` protects both `/admin` and `/admin/users` but not `/administrator`. Explicit `*` and `?` glob patterns remain supported. Matching is case-insensitive and ignores `;` path parameters in every segment, so `/Admin`, `/admin;x` and `/admin;x/users` are also protected; a path whose parameters hide a dot segment (such as `/public/..;/admin`) requires step-up.
 
 ### OpenTelemetry (Optional)
 

@@ -71,22 +71,43 @@ func InitStepUpMatcher() {
 	}
 }
 
+// StripPathParameters removes `;name=value` path parameters from every path
+// segment. Servlet-style backends ignore them when routing, so `/admin;x` and
+// `/admin;x/users` reach the same handlers as `/admin` and `/admin/users`.
+// Segments are stripped individually and never joined: `/a;x/dmin` becomes
+// `/a/dmin`, not `/admin`.
+func StripPathParameters(path string) string {
+	if !strings.Contains(path, ";") {
+		return path
+	}
+	segments := strings.Split(path, "/")
+	for i, segment := range segments {
+		if idx := strings.IndexByte(segment, ';'); idx >= 0 {
+			segments[i] = segment[:idx]
+		}
+	}
+	return strings.Join(segments, "/")
+}
+
+// stepUpRegexPattern compiles to a case-insensitive expression. Backends that
+// route case-insensitively would otherwise serve `/Admin` without step-up when
+// `/admin` is protected; matching too much is the safe direction.
 func stepUpRegexPattern(path string) string {
 	// Explicit glob patterns retain their exact glob semantics. Plain paths
 	// match the path itself and descendants separated by '/', not unrelated
 	// paths that happen to share the same string prefix.
 	if strings.ContainsAny(path, "*?") {
-		return "^" + strings.ReplaceAll(
+		return "(?i)^" + strings.ReplaceAll(
 			strings.ReplaceAll(regexp.QuoteMeta(path), "\\*", ".*"),
 			"\\?", ".",
 		) + "$"
 	}
 
 	if path == "/" {
-		return "^/.*$"
+		return "(?i)^/.*$"
 	}
 	path = strings.TrimSuffix(path, "/")
-	return "^" + regexp.QuoteMeta(path) + "(?:/.*)?$"
+	return "(?i)^" + regexp.QuoteMeta(path) + "(?:/.*)?$"
 }
 
 // GetStepUpMatcher returns the step-up matcher instance
@@ -97,7 +118,8 @@ func GetStepUpMatcher() *StepUpMatcher {
 	return stepUpMatcher
 }
 
-// RequiresStepUp checks if the given path requires step-up authentication
+// RequiresStepUp checks if the given path requires step-up authentication.
+// Matching is case-insensitive and ignores `;` path parameters.
 func (m *StepUpMatcher) RequiresStepUp(path string) bool {
 	if !m.enabled {
 		return false
@@ -107,8 +129,12 @@ func (m *StepUpMatcher) RequiresStepUp(path string) bool {
 		return false
 	}
 
+	// Match the path both as received and with path parameters removed, so a
+	// parameter can neither hide a protected path nor break a configured
+	// pattern that itself contains ';'.
+	stripped := StripPathParameters(path)
 	for _, pattern := range m.patterns {
-		if pattern.MatchString(path) {
+		if pattern.MatchString(path) || (stripped != path && pattern.MatchString(stripped)) {
 			return true
 		}
 	}
