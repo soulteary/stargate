@@ -296,7 +296,7 @@ jobs:
         run: bash .github/scripts/test-release-image.sh stargate:release-scan-amd64 dist/stargate-linux-amd64
 
       - name: Scan amd64 image for high and critical vulnerabilities
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: stargate:release-scan-amd64
           format: table
@@ -325,7 +325,7 @@ jobs:
         run: bash .github/scripts/test-release-image.sh stargate:release-scan-arm64 dist/stargate-linux-arm64
 
       - name: Scan arm64 image for high and critical vulnerabilities
-        uses: aquasecurity/trivy-action@v0.36.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: stargate:release-scan-arm64
           format: table
