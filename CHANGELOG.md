@@ -9,6 +9,10 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - Key login and verification rate limits on the /64 prefix for IPv6 clients.
   A client that rotates addresses inside its own prefix no longer receives a
   fresh quota for each address. IPv4 keys are unchanged.
+- Update `middleware-kit/v3` to v3.0.5, `audit-kit/v2` to v2.1.5, the Herald SDK
+  to v1.5.2, the Warden SDK to v1.6.3, fasthttp to v1.78.0, and indirect
+  dependencies. Fiber stays at v3.6.1: v3.7.0 changes session rotation and
+  login fails with the current `session-kit`.
 
 ### Security
 
