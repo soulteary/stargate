@@ -23,6 +23,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
   case-insensitively or drops path parameters served `/Admin` and `/admin;x`
   without step-up. Paths whose parameters hide a dot segment or an empty
   leading segment now require step-up.
+- Refuse to start when `SESSION_EXCHANGE_SECRET` is the demo value published in
+  `docker-compose.yml` (`local-development-session-secret-change-me`) and
+  `COOKIE_SECURE` is `true`. The local HTTP demo, which sets
+  `COOKIE_SECURE=false`, is unaffected. Log a startup warning when `PASSWORDS`
+  uses the `plaintext` algorithm while `COOKIE_SECURE` is `true`.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 

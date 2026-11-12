@@ -521,6 +521,23 @@ func warnUnattributableRateLimits() {
 	log.Warn().Msg("TRUSTED_PROXIES is empty: the client address is the direct peer, so behind a reverse proxy every client shares one rate-limit quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
 }
 
+// PublishedDemoSessionExchangeSecret is the value shipped in the repository's
+// docker-compose.yml, start-local.sh and deployment examples. It is public, so
+// it must never protect an HTTPS deployment.
+const PublishedDemoSessionExchangeSecret = "local-development-session-secret-change-me"
+
+// warnPlaintextPasswords reports PASSWORDS stored with the plaintext algorithm
+// in an HTTPS deployment. It stays a warning because existing deployments rely
+// on it; bcrypt keeps the password out of the process environment.
+func warnPlaintextPasswords() {
+	if !CookieSecure.ToBool() {
+		return
+	}
+	if algorithm, _, ok := ParsePasswords(Passwords.Value); ok && algorithm == "plaintext" {
+		log.Warn().Msg("PASSWORDS uses the plaintext algorithm while COOKIE_SECURE is true: plaintext is intended for local development. Use bcrypt for production deployments.")
+	}
+}
+
 func Initialize(l *logger.Logger) error {
 	log = l
 
@@ -536,6 +553,7 @@ func Initialize(l *logger.Logger) error {
 	}
 
 	warnUnattributableRateLimits()
+	warnPlaintextPasswords()
 
 	// Initialize step-up matcher after configuration is loaded
 	InitStepUpMatcher()
@@ -601,6 +619,11 @@ func loadConfiguration() error {
 func validatePasswordSettings() error {
 	if SessionExchangeSecret.Value != "" && len(SessionExchangeSecret.Value) < 32 {
 		return NewValidationError(SessionExchangeSecret.Name, "must contain at least 32 characters", SessionExchangeSecret.PossibleValues)
+	}
+	// The demo secret is published in this repository. It stays usable for the
+	// local HTTP demo (COOKIE_SECURE=false) and is refused anywhere else.
+	if CookieSecure.ToBool() && strings.TrimSpace(SessionExchangeSecret.Value) == PublishedDemoSessionExchangeSecret {
+		return NewValidationError(SessionExchangeSecret.Name, "must not be the published demo value when COOKIE_SECURE is true; generate at least 32 random characters", SessionExchangeSecret.PossibleValues)
 	}
 
 	// PASSWORDS is required when not using Warden (password-only mode). When WardenEnabled=true, pure Warden deployment may omit PASSWORDS.
