@@ -283,13 +283,19 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	// Prometheus metrics endpoint
 	app.Get("/metrics", handlers.MetricsAuth(), metricsfiber.HandlerFor(metrics.Registry))
 
-	// Register log level endpoint
-	loggerfiber.RegisterLevelEndpoint(app, "/log/level", loggerfiber.LevelHandlerConfig{
+	// Register log level endpoint. The loopback allowlist alone is not enough:
+	// a same-host reverse proxy also connects from 127.0.0.1, so requests that
+	// carry forwarding headers are rejected before the handler runs.
+	logLevelHandler := loggerfiber.LevelHandler(loggerfiber.LevelHandlerConfig{
 		LevelHandlerConfig: logger.LevelHandlerConfig{
 			Logger:     log,
 			AllowedIPs: []string{"127.0.0.1"},
 		},
 	})
+	localOnly := handlers.RejectForwardedRequests()
+	app.Get(RouteLogLevel, localOnly, logLevelHandler)
+	app.Put(RouteLogLevel, localOnly, sameOrigin, logLevelHandler)
+	app.Post(RouteLogLevel, localOnly, sameOrigin, logLevelHandler)
 }
 
 // findAssetsPath finds the correct path to assets directory.
@@ -321,6 +327,47 @@ func setupStaticFiles(app *fiber.App) {
 	app.Get("/assets*", static.New(assetsPath))
 }
 
+// contentSecurityPolicy is the policy for the pages Stargate serves itself.
+// The templates load one stylesheet and their scripts from /assets, have no
+// inline script, style or event handler, and call only same-origin endpoints.
+// The TOTP enrollment QR code is rendered into an <img> with a data: URI.
+//
+// form-action is deliberately absent: Chromium applies it to the redirect that
+// follows a form submission, and a successful login or step-up redirects to a
+// callback host on another origin.
+const contentSecurityPolicy = "default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'"
+
+// strictTransportSecurity omits includeSubDomains because Stargate cannot know
+// whether sibling hosts of AUTH_HOST are served over HTTPS.
+const strictTransportSecurity = "max-age=31536000"
+
+// securityHeadersConfig returns the headers for Stargate's own responses.
+// Strict-Transport-Security is sent only when COOKIE_SECURE declares an HTTPS
+// deployment, so the local HTTP demo is unaffected.
+func securityHeadersConfig() middlewarekit.SecurityHeadersConfig {
+	cfg := middlewarekit.DefaultSecurityHeadersConfig()
+	cfg.ContentSecurityPolicy = contentSecurityPolicy
+	if config.CookieSecure.ToBool() {
+		cfg.StrictTransportSecurity = strictTransportSecurity
+	}
+	return cfg
+}
+
+// securityHeaders adds the browser security headers. The forward-auth check is
+// answered to the reverse proxy, which may relay a denied response to the
+// browser under the protected application's origin, so that route keeps the
+// previous header set and never carries Stargate's page policy or HSTS.
+func securityHeaders() fiber.Handler {
+	forwardAuth := mwfiber.SecurityHeaders(middlewarekit.DefaultSecurityHeadersConfig())
+	pages := mwfiber.SecurityHeaders(securityHeadersConfig())
+	return func(c fiber.Ctx) error {
+		if strings.EqualFold(strings.TrimSuffix(c.Path(), "/"), RouteAuth) {
+			return forwardAuth(c)
+		}
+		return pages(c)
+	}
+}
+
 // setupMiddleware configures all middleware for the Fiber application.
 // This includes recover, security headers, logging, tracing, i18n, and favicon handling.
 func setupMiddleware(app *fiber.App) {
@@ -329,7 +376,7 @@ func setupMiddleware(app *fiber.App) {
 	log.Debug().Msg("Panic recovery middleware enabled")
 
 	// 2. Security headers (XSS protection, clickjacking prevention, etc.)
-	app.Use(mwfiber.SecurityHeaders(middlewarekit.DefaultSecurityHeadersConfig()))
+	app.Use(securityHeaders())
 	log.Debug().Msg("Security headers middleware enabled")
 
 	// 3. Install a standard Go context with a real Done channel and deadline.

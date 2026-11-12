@@ -66,6 +66,32 @@ func RequireSameOrigin() fiber.Handler {
 	}
 }
 
+// forwardingHeaders are the headers a reverse proxy adds when it relays a
+// request. A request that carries any of them did not originate on this host.
+var forwardingHeaders = []string{
+	"X-Forwarded-For",
+	"X-Forwarded-Host",
+	"X-Forwarded-Proto",
+	"Forwarded",
+	"X-Real-IP",
+}
+
+// RejectForwardedRequests protects loopback-only operator endpoints. A
+// same-host reverse proxy or sidecar connects from 127.0.0.1, so the peer
+// address alone cannot tell a local operator from a relayed remote client.
+// Relayed requests carry forwarding headers and direct local ones do not, so
+// any such header hides the endpoint with 404 Not Found.
+func RejectForwardedRequests() fiber.Handler {
+	return func(ctx fiber.Ctx) error {
+		for _, name := range forwardingHeaders {
+			if len(ctx.Request().Header.Peek(name)) > 0 {
+				return ctx.SendStatus(fiber.StatusNotFound)
+			}
+		}
+		return ctx.Next()
+	}
+}
+
 // Rate-limit response headers, kept byte-for-byte compatible with the Fiber
 // limiter this package previously used so existing clients keep working.
 const (

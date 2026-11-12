@@ -65,6 +65,12 @@ func stepUpRequestPath(raw string) (string, bool) {
 	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.Path == "" || !strings.HasPrefix(parsed.Path, "/") || strings.HasPrefix(parsed.Path, "//") || strings.Contains(parsed.Path, "\\") || hasDotPathSegment(parsed.Path) {
 		return "", false
 	}
+	// A backend that drops `;` path parameters sees `/public/..;/admin` as
+	// `/public/../admin` and `/;x/admin` as `//admin`. Apply the same
+	// fail-closed rules to the path with parameters removed.
+	if stripped := config.StripPathParameters(parsed.Path); stripped != parsed.Path && (strings.HasPrefix(stripped, "//") || hasDotPathSegment(stripped)) {
+		return "", false
+	}
 	return parsed.Path, true
 }
 

@@ -211,3 +211,34 @@ func TestSafeStepUpCallbackRejectsExternalURLs(t *testing.T) {
 	testza.AssertEqual(t, "/admin", safeStepUpCallback("/admin"))
 	testza.AssertEqual(t, "/admin?tab=users", safeStepUpCallback("/admin?tab=users"))
 }
+
+func TestStepUpAppliesToCaseAndPathParameterVariants(t *testing.T) {
+	setupStepUpTestWithPaths(t, "/admin")
+
+	for forwardedURI, want := range map[string]bool{
+		"/admin":                    true,
+		"/Admin":                    true,
+		"/ADMIN/users":              true,
+		"/admin;x":                  true,
+		"/admin;x?view=1":           true,
+		"/admin%3Bx":                true,
+		"/Admin;jsessionid=1/users": true,
+		"/admin;x/users":            true,
+		// Stripping parameters must not merge neighbouring segments.
+		"/a;x/dmin":      false,
+		"/administrator": false,
+		"/public;x":      false,
+		"/public":        false,
+		// Parameters that hide traversal or an empty leading segment fail closed.
+		"/public/..;/admin":    true,
+		"/public/..;x=1/admin": true,
+		"/public/.;/x":         true,
+		"/;x/admin":            true,
+	} {
+		t.Run(forwardedURI, func(t *testing.T) {
+			ctx, app := createTestContext("GET", "/_auth", map[string]string{"X-Forwarded-Uri": forwardedURI}, "")
+			defer app.ReleaseCtx(ctx)
+			testza.AssertEqual(t, want, stepUpApplies(ctx))
+		})
+	}
+}

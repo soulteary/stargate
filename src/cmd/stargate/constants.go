@@ -22,6 +22,8 @@ const (
 	RouteHealthz = "/healthz"
 	// RouteReadyz is the dependency readiness route.
 	RouteReadyz = "/readyz"
+	// RouteLogLevel is the loopback-only runtime log level route.
+	RouteLogLevel = "/log/level"
 
 	// StaticAssetsPath is the static assets path
 	StaticAssetsPath = "./internal/web/templates/assets"

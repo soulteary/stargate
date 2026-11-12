@@ -128,3 +128,32 @@ func TestPasswordHeaderFailureRateLimit(t *testing.T) {
 	testza.AssertEqual(t, fiber.StatusTooManyRequests, ctx.Response().StatusCode())
 	testza.AssertNotEqual(t, "", string(ctx.Response().Header.Peek(fiber.HeaderRetryAfter)))
 }
+
+func TestRejectForwardedRequests(t *testing.T) {
+	app := fiber.New()
+	app.Get("/local", RejectForwardedRequests(), func(c fiber.Ctx) error {
+		return c.SendStatus(fiber.StatusNoContent)
+	})
+
+	t.Run("direct request passes", func(t *testing.T) {
+		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodGet, "/local"))
+		testza.AssertNoError(t, err)
+		testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
+	})
+
+	for name, value := range map[string]string{
+		"X-Forwarded-For":   "203.0.113.7",
+		"X-Forwarded-Host":  "auth.example.com",
+		"X-Forwarded-Proto": "https",
+		"Forwarded":         "for=203.0.113.7",
+		"X-Real-IP":         "203.0.113.7",
+	} {
+		t.Run(name, func(t *testing.T) {
+			req := newRequestProtectionTestRequest(fiber.MethodGet, "/local")
+			req.Header.Set(name, value)
+			resp, err := app.Test(req)
+			testza.AssertNoError(t, err)
+			testza.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
+		})
+	}
+}

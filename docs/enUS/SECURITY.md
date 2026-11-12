@@ -185,11 +185,12 @@ Stargate does not expose a `MODE` setting. Error responses are endpoint-specific
 Operational details are normally recorded through the logger, but do not treat
 `DEBUG` as a general response-sanitization or non-disclosure guarantee.
 
-When Stargate runs with `DEBUG=true`, and the configured Herald service runs in
+When Stargate runs with `DEBUG=true` and `COOKIE_SECURE=false`, and the configured Herald service runs in
 test mode (`HERALD_TEST_MODE`) and returns a non-empty `debug_code`, Stargate includes
 that test verification code as `debug_code` in the successful `POST /_send_verify_code`
 response. The bundled login page displays the code and fills it into the verification
-code field automatically.
+code field automatically. With `COOKIE_SECURE=true` (the default, used by HTTPS
+deployments) the code is never relayed, regardless of `DEBUG`.
 
 This combination exposes a credential-equivalent verification code to the requesting
 client. Use it only for local development or testing, never in production. In production,
@@ -201,7 +202,12 @@ Stargate automatically adds the following security-related HTTP response headers
 
 - `X-Content-Type-Options: nosniff` - Prevents MIME type sniffing
 - `X-Frame-Options: DENY` - Prevents clickjacking
-- `X-XSS-Protection: 1; mode=block` - XSS protection
+- `X-XSS-Protection: 0` - Disables the deprecated legacy browser XSS filter
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'` - Stargate's pages load scripts and styles only from their own `/assets` path and use no inline script or style. `img-src` allows `data:` for the TOTP enrollment QR code. `form-action` is not set, because a successful login or step-up redirects to the callback host.
+- `Strict-Transport-Security: max-age=31536000` - Sent only when `COOKIE_SECURE=true` (the default). It is omitted for local HTTP deployments with `COOKIE_SECURE=false` and does not include `includeSubDomains`.
+
+`Content-Security-Policy` and `Strict-Transport-Security` are not added to `/_auth` responses. The reverse proxy may relay a denied ForwardAuth response to the browser under the protected application's origin, and those two headers describe the Stargate host only.
 
 ## Cross-Domain Session Sharing
 

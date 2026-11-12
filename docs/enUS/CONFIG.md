@@ -363,7 +363,7 @@ Encryption key for short-lived session exchange tickets. This setting is require
 SESSION_EXCHANGE_SECRET=<at-least-32-random-characters>
 ```
 
-The value is never logged. Without it, session exchange requests fail closed. When Redis session storage is enabled, consumed ticket hashes are also stored in Redis with their remaining lifetime so replay protection is shared by every Stargate replica. In-memory deployments enforce single use only within one process.
+The value is never logged. Without it, session exchange requests fail closed. The value `local-development-session-secret-change-me` used by the repository's local HTTP demo is public: Stargate refuses to start with it unless `COOKIE_SECURE=false`. When Redis session storage is enabled, consumed ticket hashes are also stored in Redis with their remaining lifetime so replay protection is shared by every Stargate replica. In-memory deployments enforce single use only within one process.
 
 ### `SESSION_EXCHANGE_REDIRECT_PATH`
 
@@ -845,7 +845,7 @@ Paths that require step-up; comma-separated; prefix matching supported.
 
 At least one path is required when `STEP_UP_ENABLED=true`. Matching uses the request path only; query parameters do not affect protection.
 
-`TRUSTED_PROXIES` must also be configured. The trusted ForwardAuth proxy must send the original request URI in `X-Forwarded-Uri`; Stargate rejects the Step-up check when this trusted path provenance is missing or invalid. A plain path matches itself and child path segments, so `/admin` protects both `/admin` and `/admin/users` but not `/administrator`. Explicit `*` and `?` glob patterns remain supported.
+`TRUSTED_PROXIES` must also be configured. The trusted ForwardAuth proxy must send the original request URI in `X-Forwarded-Uri`; Stargate rejects the Step-up check when this trusted path provenance is missing or invalid. A plain path matches itself and child path segments, so `/admin` protects both `/admin` and `/admin/users` but not `/administrator`. Explicit `*` and `?` glob patterns remain supported. Matching is case-insensitive and ignores `;` path parameters in every segment, so `/Admin`, `/admin;x` and `/admin;x/users` are also protected; a path whose parameters hide a dot segment (such as `/public/..;/admin`) requires step-up.
 
 ### OpenTelemetry (Optional)
 
@@ -1028,6 +1028,7 @@ Stargate supports plaintext (development only) and bcrypt password verification.
 - Stored in plain text, no encryption
 - **Testing environment only**
 - Strongly not recommended for production use
+- Stargate logs a startup warning when it is used while `COOKIE_SECURE` is `true`
 
 **Example:**
 

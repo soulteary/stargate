@@ -173,3 +173,62 @@ func TestGetStepUpMatcher_NilInitializes(t *testing.T) {
 	matcher := GetStepUpMatcher()
 	testza.AssertNotNil(t, matcher)
 }
+
+func TestStepUpMatcherFailsClosedOnCaseAndPathParameters(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	t.Setenv("STEP_UP_ENABLED", "true")
+	t.Setenv("STEP_UP_PATHS", "/admin,/api/secret,/files/*.pdf")
+	t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
+	testza.AssertNoError(t, Initialize(testLogger()))
+	InitStepUpMatcher()
+	matcher := GetStepUpMatcher()
+
+	for path, want := range map[string]bool{
+		"/admin":                 true,
+		"/Admin":                 true,
+		"/ADMIN":                 true,
+		"/aDmIn/Users":           true,
+		"/admin;x":               true,
+		"/admin;x=1":             true,
+		"/admin;":                true,
+		"/Admin;jsessionid=abc":  true,
+		"/admin;x/users":         true,
+		"/admin/users;x=1":       true,
+		"/admin;a;b/users;c":     true,
+		"/API/Secret":            true,
+		"/api;v=1/secret;x/data": true,
+		"/files/report.PDF":      true,
+		"/files/report.pdf;x":    true,
+		"/a;x/dmin":              false,
+		"/ad;x/min":              false,
+		"/administrator":         false,
+		"/Administrator;x":       false,
+		"/admin2;x":              false,
+		"/api":                   false,
+		"/api;x/public":          false,
+		"/public":                false,
+		"/public;admin":          false,
+		"/public;x=/admin":       false,
+		"/":                      false,
+		"/files/report.txt;x":    false,
+	} {
+		t.Run(path, func(t *testing.T) {
+			testza.AssertEqual(t, want, matcher.RequiresStepUp(path))
+		})
+	}
+}
+
+func TestStripPathParameters(t *testing.T) {
+	for input, want := range map[string]string{
+		"/admin":             "/admin",
+		"/admin;x":           "/admin",
+		"/admin;x/users;y=1": "/admin/users",
+		"/a;x/dmin":          "/a/dmin",
+		"/;x/admin":          "//admin",
+		"/public/..;/admin":  "/public/../admin",
+		"/":                  "/",
+	} {
+		testza.AssertEqual(t, want, StripPathParameters(input))
+	}
+}

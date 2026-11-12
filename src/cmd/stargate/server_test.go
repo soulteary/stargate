@@ -632,3 +632,38 @@ func TestSetupSessionStoreRedisKeyPrefix(t *testing.T) {
 		})
 	}
 }
+
+func TestLogLevelEndpointRejectsProxiedAndCrossSiteRequests(t *testing.T) {
+	ensureTestWorkingDir(t)
+	setupTestConfig(t)
+	app := createApp()
+
+	// A direct request reaches the logger-kit handler, which then applies its
+	// own loopback allowlist. The test transport is not 127.0.0.1, so the
+	// handler answers 403 rather than the guard's 404.
+	direct, err := app.Test(httptest.NewRequest(fiber.MethodGet, RouteLogLevel, nil))
+	testza.AssertNoError(t, err)
+	testza.AssertEqual(t, fiber.StatusForbidden, direct.StatusCode)
+
+	for _, header := range []string{"X-Forwarded-For", "X-Forwarded-Host", "X-Forwarded-Proto", "Forwarded", "X-Real-IP"} {
+		for _, method := range []string{fiber.MethodGet, fiber.MethodPut, fiber.MethodPost} {
+			t.Run(method+" "+header, func(t *testing.T) {
+				req := httptest.NewRequest(method, RouteLogLevel+"?level=debug", nil)
+				req.Header.Set(header, "203.0.113.7")
+				resp, err := app.Test(req)
+				testza.AssertNoError(t, err)
+				testza.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
+			})
+		}
+	}
+
+	t.Run("cross-site write", func(t *testing.T) {
+		req := httptest.NewRequest(fiber.MethodPost, RouteLogLevel+"?level=debug", nil)
+		req.Header.Set("Sec-Fetch-Site", "cross-site")
+		resp, err := app.Test(req)
+		testza.AssertNoError(t, err)
+		body, _ := io.ReadAll(resp.Body)
+		testza.AssertEqual(t, fiber.StatusForbidden, resp.StatusCode)
+		testza.AssertContains(t, string(body), "cross-site request rejected")
+	})
+}

@@ -12,6 +12,30 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ### Security
 
+- Reject `/log/level` requests that carry a forwarding header (`X-Forwarded-For`,
+  `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded`, `X-Real-IP`) with
+  `404 Not Found`, and apply the cross-site write check to its `PUT` and `POST`
+  methods. A same-host reverse proxy connects from `127.0.0.1`, so the loopback
+  allowlist alone let relayed clients change the log level. Direct local
+  requests are unaffected.
+- Match `STEP_UP_PATHS` case-insensitively and ignore `;` path parameters in
+  each segment. With `STEP_UP_PATHS=/admin`, a backend that routes
+  case-insensitively or drops path parameters served `/Admin` and `/admin;x`
+  without step-up. Paths whose parameters hide a dot segment or an empty
+  leading segment now require step-up.
+- Refuse to start when `SESSION_EXCHANGE_SECRET` is the demo value published in
+  `docker-compose.yml` (`local-development-session-secret-change-me`) and
+  `COOKIE_SECURE` is `true`. The local HTTP demo, which sets
+  `COOKIE_SECURE=false`, is unaffected. Log a startup warning when `PASSWORDS`
+  uses the `plaintext` algorithm while `COOKIE_SECURE` is `true`.
+- Send `Content-Security-Policy` on Stargate's own responses
+  (`default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;
+  connect-src 'self'; base-uri 'none'; frame-ancestors 'none'`) and
+  `Strict-Transport-Security: max-age=31536000` when `COOKIE_SECURE` is `true`.
+  `/_auth` responses keep the previous header set.
+- Stop relaying Herald's `debug_code` in the `POST /_send_verify_code` response
+  when `COOKIE_SECURE` is `true`, even if `DEBUG=true`. The relay remains
+  available for local HTTP testing with `COOKIE_SECURE=false`.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 
