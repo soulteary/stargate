@@ -185,11 +185,12 @@ Stargate does not expose a `MODE` setting. Error responses are endpoint-specific
 Operational details are normally recorded through the logger, but do not treat
 `DEBUG` as a general response-sanitization or non-disclosure guarantee.
 
-When Stargate runs with `DEBUG=true`, and the configured Herald service runs in
+When Stargate runs with `DEBUG=true` and `COOKIE_SECURE=false`, and the configured Herald service runs in
 test mode (`HERALD_TEST_MODE`) and returns a non-empty `debug_code`, Stargate includes
 that test verification code as `debug_code` in the successful `POST /_send_verify_code`
 response. The bundled login page displays the code and fills it into the verification
-code field automatically.
+code field automatically. With `COOKIE_SECURE=true` (the default, used by HTTPS
+deployments) the code is never relayed, regardless of `DEBUG`.
 
 This combination exposes a credential-equivalent verification code to the requesting
 client. Use it only for local development or testing, never in production. In production,

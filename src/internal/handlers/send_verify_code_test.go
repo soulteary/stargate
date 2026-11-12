@@ -686,3 +686,47 @@ func TestSendVerifyCodeAPIRedactsProviderErrorDetails(t *testing.T) {
 	testza.AssertContains(t, string(body), "provider_error")
 	testza.AssertNotContains(t, string(body), "sensitive-backend-details")
 }
+
+func TestSendChallengeCreatedRelaysDebugCodeOnlyForLocalHTTP(t *testing.T) {
+	previousDebug := config.Debug.Value
+	previousCookieSecure := config.CookieSecure.Value
+	t.Cleanup(func() {
+		config.Debug.Value = previousDebug
+		config.CookieSecure.Value = previousCookieSecure
+	})
+
+	for _, tc := range []struct {
+		name         string
+		debug        string
+		cookieSecure string
+		wantRelayed  bool
+	}{
+		{name: "debug over local HTTP", debug: "true", cookieSecure: "false", wantRelayed: true},
+		{name: "debug over HTTPS", debug: "true", cookieSecure: "true", wantRelayed: false},
+		{name: "debug with default COOKIE_SECURE", debug: "true", cookieSecure: "", wantRelayed: false},
+		{name: "no debug over local HTTP", debug: "false", cookieSecure: "false", wantRelayed: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			config.Debug.Value = tc.debug
+			config.CookieSecure.Value = tc.cookieSecure
+			if tc.cookieSecure == "" {
+				config.CookieSecure.Value = config.CookieSecure.DefaultValue
+			}
+			ctx, app := createTestContext("POST", "/_send_verify_code", nil, "")
+			defer app.ReleaseCtx(ctx)
+
+			err := sendChallengeCreated(ctx, &herald.CreateChallengeResponse{ChallengeID: "challenge-1", ExpiresIn: 300, DebugCode: "123456"})
+			testza.AssertNoError(t, err)
+
+			var body map[string]any
+			testza.AssertNoError(t, json.Unmarshal(ctx.Response().Body(), &body))
+			testza.AssertEqual(t, "challenge-1", body["challenge_id"])
+			code, relayed := body["debug_code"]
+			testza.AssertEqual(t, tc.wantRelayed, relayed)
+			if tc.wantRelayed {
+				testza.AssertEqual(t, "123456", code)
+			}
+			testza.AssertEqual(t, tc.wantRelayed, strings.Contains(string(ctx.Response().Body()), "123456"))
+		})
+	}
+}

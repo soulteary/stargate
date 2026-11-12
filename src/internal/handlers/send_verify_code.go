@@ -330,8 +330,11 @@ func sendChallengeCreated(ctx fiber.Ctx, createResp *herald.CreateChallengeRespo
 	if createResp.NextResendIn > 0 {
 		resp["next_resend_in"] = createResp.NextResendIn
 	}
-	// When DEBUG=true and Herald returns debug_code (HERALD_TEST_MODE), pass through for display/autofill
-	if config.Debug.ToBool() && createResp.DebugCode != "" {
+	// When DEBUG=true and Herald returns debug_code (HERALD_TEST_MODE), pass
+	// through for display/autofill. The code is equivalent to a credential, so
+	// it is never relayed from an HTTPS deployment (COOKIE_SECURE=true), even
+	// if DEBUG was left enabled there.
+	if config.Debug.ToBool() && !config.CookieSecure.ToBool() && createResp.DebugCode != "" {
 		resp["debug_code"] = createResp.DebugCode
 	}
 	ctx.Set("Content-Type", "application/json")

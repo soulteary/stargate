@@ -33,6 +33,9 @@ This file records user-visible changes. For upgrade steps and configuration exam
   connect-src 'self'; base-uri 'none'; frame-ancestors 'none'`) and
   `Strict-Transport-Security: max-age=31536000` when `COOKIE_SECURE` is `true`.
   `/_auth` responses keep the previous header set.
+- Stop relaying Herald's `debug_code` in the `POST /_send_verify_code` response
+  when `COOKIE_SECURE` is `true`, even if `DEBUG=true`. The relay remains
+  available for local HTTP testing with `COOKIE_SECURE=false`.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 
