@@ -28,6 +28,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
   `COOKIE_SECURE` is `true`. The local HTTP demo, which sets
   `COOKIE_SECURE=false`, is unaffected. Log a startup warning when `PASSWORDS`
   uses the `plaintext` algorithm while `COOKIE_SECURE` is `true`.
+- Send `Content-Security-Policy` on Stargate's own responses
+  (`default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:;
+  connect-src 'self'; base-uri 'none'; frame-ancestors 'none'`) and
+  `Strict-Transport-Security: max-age=31536000` when `COOKIE_SECURE` is `true`.
+  `/_auth` responses keep the previous header set.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 
