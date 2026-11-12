@@ -10,6 +10,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
   A client that rotates addresses inside its own prefix no longer receives a
   fresh quota for each address. IPv4 keys are unchanged.
 
+### Security
+
+- Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
+  now `golang:1.27.4-alpine3.24`.
+
 ## [1.3.6] - 2026-11-09
 
 ### Added

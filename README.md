@@ -1,6 +1,6 @@
 # Stargate - Forward Auth Service
 
-[![Go Test Coverage](./.github/coverage.svg)](./.github/go-test-report.md) [![Go Report Card](./.github/goreportcard.svg)](./.github/goreportcard-report.md) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) [![Go Version](https://img.shields.io/badge/go-1.27.3+-blue.svg)](https://golang.org)
+[![Go Test Coverage](./.github/coverage.svg)](./.github/go-test-report.md) [![Go Report Card](./.github/goreportcard.svg)](./.github/goreportcard-report.md) [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE) [![Go Version](https://img.shields.io/badge/go-1.27.4+-blue.svg)](https://golang.org)
 
 
 
@@ -126,7 +126,7 @@ and `COOKIE_SECURE=false` are for this local HTTP example only.
 
 ### Local Development
 
-For local development, ensure Go 1.27.3+ is installed, then:
+For local development, ensure Go 1.27.4+ is installed, then:
 
 ```bash
 chmod +x start-local.sh

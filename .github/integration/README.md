@@ -17,7 +17,7 @@ From the Stargate checkout:
 python3 -I -B .github/integration/run_work_im.py \
   --stargate . \
   --herald /path/to/reviewed/herald-checkout \
-  --go /path/to/go1.27.3/bin/go \
+  --go /path/to/go1.27.4/bin/go \
   --output /path/to/fresh-result-directory
 ```
 
