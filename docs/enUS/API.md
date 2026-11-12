@@ -484,7 +484,7 @@ Prometheus metrics in text exposition format. Used for monitoring authentication
 
 ### `GET /log/level`
 
-Returns the current log level. `PUT /log/level` or `POST /log/level` changes it using JSON body `{"level":"debug"}` or query parameter `?level=debug`. Stargate restricts this endpoint to `127.0.0.1`; it must not be exposed through the public reverse proxy.
+Returns the current log level. `PUT /log/level` or `POST /log/level` changes it using JSON body `{"level":"debug"}` or query parameter `?level=debug`. Stargate restricts this endpoint to direct connections from `127.0.0.1`. Because a same-host reverse proxy or sidecar also connects from `127.0.0.1`, a request that carries any of `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded`, or `X-Real-IP` receives `404 Not Found`, and `PUT`/`POST` requests are subject to the same cross-site write protection as the login endpoints (`403 Forbidden`). A local `curl http://127.0.0.1:<port>/log/level` keeps working. This check relies on the proxy adding forwarding headers; still exclude `/log/level` from any route the public reverse proxy forwards.
 
 ## Root Endpoint
 

@@ -283,13 +283,19 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	// Prometheus metrics endpoint
 	app.Get("/metrics", handlers.MetricsAuth(), metricsfiber.HandlerFor(metrics.Registry))
 
-	// Register log level endpoint
-	loggerfiber.RegisterLevelEndpoint(app, "/log/level", loggerfiber.LevelHandlerConfig{
+	// Register log level endpoint. The loopback allowlist alone is not enough:
+	// a same-host reverse proxy also connects from 127.0.0.1, so requests that
+	// carry forwarding headers are rejected before the handler runs.
+	logLevelHandler := loggerfiber.LevelHandler(loggerfiber.LevelHandlerConfig{
 		LevelHandlerConfig: logger.LevelHandlerConfig{
 			Logger:     log,
 			AllowedIPs: []string{"127.0.0.1"},
 		},
 	})
+	localOnly := handlers.RejectForwardedRequests()
+	app.Get(RouteLogLevel, localOnly, logLevelHandler)
+	app.Put(RouteLogLevel, localOnly, sameOrigin, logLevelHandler)
+	app.Post(RouteLogLevel, localOnly, sameOrigin, logLevelHandler)
 }
 
 // findAssetsPath finds the correct path to assets directory.

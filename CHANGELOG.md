@@ -12,6 +12,12 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ### Security
 
+- Reject `/log/level` requests that carry a forwarding header (`X-Forwarded-For`,
+  `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded`, `X-Real-IP`) with
+  `404 Not Found`, and apply the cross-site write check to its `PUT` and `POST`
+  methods. A same-host reverse proxy connects from `127.0.0.1`, so the loopback
+  allowlist alone let relayed clients change the log level. Direct local
+  requests are unaffected.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
 
