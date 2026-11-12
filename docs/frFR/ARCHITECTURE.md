@@ -6,7 +6,7 @@ Ce document décrit l'architecture technique et les décisions de conception du 
 
 ## Pile Technologique
 
-- **Langage** : Go 1.27.3
+- **Langage** : Go 1.27.4
 - **Framework Web** : [Fiber v3.6.1](https://github.com/gofiber/fiber)
 - **Moteur de Template** : [Fiber HTML Template v3.0.12](https://github.com/gofiber/template)
 - **Gestion de Session** : session-kit (store compatible Fiber ; mémoire et Redis)
@@ -330,7 +330,7 @@ Modifier le fichier template `internal/web/templates/login.html`.
 ### Déploiement Docker
 
 - Build multi-étapes pour réduire la taille de l'image
-- Étape de build : `golang:1.27.3-alpine3.24` ; étape d’exécution : `alpine:3.24` (les health checks utilisent BusyBox wget)
+- Étape de build : `golang:1.27.4-alpine3.24` ; étape d’exécution : `alpine:3.24` (les health checks utilisent BusyBox wget)
 - Fichiers template copiés de `src/internal/web/templates` vers `/app/web/templates` dans l'image
 - Utilise `-ldflags "-s -w"` lors de la compilation pour réduire la taille du binaire
 - L'application trouve automatiquement les chemins de template (supporte `./internal/web/templates` pour le développement local et `./web/templates` pour la production)
