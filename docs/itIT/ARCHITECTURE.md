@@ -7,7 +7,7 @@ Questo documento descrive l'architettura tecnica e le decisioni di progettazione
 ## Stack Tecnologico
 
 - **Linguaggio**: Go 1.27.4
-- **Framework Web**: [Fiber v3.6.1](https://github.com/gofiber/fiber)
+- **Framework Web**: [Fiber v3.7.0](https://github.com/gofiber/fiber)
 - **Motore Template**: [Fiber HTML Template v3.1.0](https://github.com/gofiber/template)
 - **Gestione Sessioni**: session-kit (store compatibile Fiber; memoria e Redis)
 - **Registrazione**: [Zerolog](https://github.com/rs/zerolog) via logger-kit
