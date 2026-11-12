@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -120,6 +121,31 @@ func retryAfterSeconds(retryAfter time.Duration) string {
 	return strconv.Itoa(seconds)
 }
 
+// rateLimitIPv6PrefixBits is the prefix length that identifies one IPv6 client.
+// A /64 is the smallest allocation a network normally hands to a single
+// subscriber or host, and that client can pick any address inside it.
+const rateLimitIPv6PrefixBits = 64
+
+// rateLimitClientKey returns the rate-limit identity for a client address.
+// IPv4 addresses are used as they are. IPv6 addresses are reduced to their /64
+// prefix, so a client cannot obtain a fresh quota by moving to another address
+// in its own prefix. An unparsable value is returned unchanged.
+func rateLimitClientKey(ip string) string {
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return ip
+	}
+	addr = addr.Unmap().WithZone("")
+	if addr.Is4() {
+		return addr.String()
+	}
+	prefix, err := addr.Prefix(rateLimitIPv6PrefixBits)
+	if err != nil {
+		return ip
+	}
+	return prefix.String()
+}
+
 // consumeRateLimit records one request against key and reports whether the
 // caller is over quota, how much of the quota is left, and how long the current
 // window still runs.
@@ -152,7 +178,7 @@ func endpointRateLimit(limit func() int) fiber.Handler {
 
 		// Route identity is fixed by registration. The raw request spelling can
 		// vary by case or trailing slash while Fiber still matches this endpoint.
-		exceeded, remaining, retryAfter := consumeRateLimit(ctx, ctx.IP()+":"+ctx.Route().Method+":"+ctx.Route().Path, max)
+		exceeded, remaining, retryAfter := consumeRateLimit(ctx, rateLimitClientKey(ctx.IP())+":"+ctx.Route().Method+":"+ctx.Route().Path, max)
 		ctx.Set(xRateLimitLimit, strconv.Itoa(max))
 		ctx.Set(xRateLimitRemaining, strconv.Itoa(remaining))
 		ctx.Set(xRateLimitReset, retryAfterSeconds(retryAfter))
@@ -193,7 +219,7 @@ func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) (bool, error) {
 
 	// The forward-auth path deliberately keeps its original response shape and
 	// does not advertise quota state through X-RateLimit-* headers.
-	exceeded, _, retryAfter := consumeRateLimit(ctx, "password-failure:"+ctx.IP(), max)
+	exceeded, _, retryAfter := consumeRateLimit(ctx, "password-failure:"+rateLimitClientKey(ctx.IP()), max)
 	if !exceeded {
 		return false, nil
 	}

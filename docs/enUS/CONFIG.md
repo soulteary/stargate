@@ -943,6 +943,9 @@ Maximum number of requests one client may send to `/_login` and `/_step_up`
 within `RATE_LIMIT_WINDOW`. The same quota bounds repeated `Stargate-Password`
 header failures. Set it to `0` to disable the login quota.
 
+A client is identified by its IPv4 address or, for IPv6, by its /64 prefix.
+The same rule applies to `RATE_LIMIT_VERIFICATION_MAX`.
+
 | Attribute | Value |
 |-----------|-------|
 | **Type** | Integer |
