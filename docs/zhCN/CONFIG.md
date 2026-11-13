@@ -94,6 +94,8 @@ services:
 | `LOGIN_SMS_ENABLED` | true/false | true | 否 |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | 否 |
 | `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | 否 |
+| `LOGIN_UNIFORM_RESPONSES` | true/false | false | 否 |
+| `LOGIN_UNIFORM_RESEND_COOLDOWN` | duration | 60s | 否 |
 | `SESSION_STORAGE_ENABLED` | true/false | false | 否 |
 | `SESSION_STORAGE_REDIS_ADDR` | String | localhost:6379 | 否 |
 | `SESSION_STORAGE_REDIS_PASSWORD` | String | 空 | 否 |

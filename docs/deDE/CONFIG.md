@@ -320,6 +320,8 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `LOGIN_SMS_ENABLED` | true/false | true | SMS-Anmeldekanal |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | E-Mail-Anmeldekanal |
 | `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | Nur explizite Warden-Userid für DingTalk verlangen |
+| `LOGIN_UNIFORM_RESPONSES` | true/false | false | Gleiche Antworten von `/_send_verify_code` und der Warden-Anmeldung, ob die Kennung in Warden gelistet ist oder nicht; die Antwortzeit wird nicht angeglichen |
+| `LOGIN_UNIFORM_RESEND_COOLDOWN` | Dauer | `60s` | Wartezeit für erneutes Senden je Kennung bei `LOGIN_UNIFORM_RESPONSES=true`; mindestens `1s` und nicht kürzer als `RESEND_COOLDOWN` von Herald |
 | `SESSION_STORAGE_ENABLED` | true/false | false | Redis-Sitzungsspeicher |
 | `SESSION_STORAGE_REDIS_ADDR` | host:port | `localhost:6379` | Redis-Adresse |
 | `SESSION_STORAGE_REDIS_PASSWORD` | Geheimnis | leer | Redis-Passwort |

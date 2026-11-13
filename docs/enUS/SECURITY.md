@@ -232,6 +232,95 @@ When using Herald integration for OTP authentication:
 - **Rate Limiting**: Herald handles rate limiting
 - **Audit Logging**: Herald maintains audit logs
 
+## Uniform Responses
+
+By default `POST /_send_verify_code` and Warden sign-in through `POST /_login`
+answer differently for an identifier that is on the Warden allow list and one
+that is not. For a listed account they also report whether a delivery channel
+is usable and whether TOTP is enrolled. A client that is not signed in can use
+these differences to learn which phone numbers and email addresses are listed.
+
+`LOGIN_UNIFORM_RESPONSES=true` removes these differences from the response
+content. For one request, the two endpoints answer with the same status,
+headers and body whether the identifier is unknown, inactive or listed,
+whatever the state of the listed account, and whatever Herald answers. The
+behavior is described in [CONFIG.md](CONFIG.md) and [API.md](API.md).
+
+What is covered:
+
+- The status code, headers and body of `POST /_send_verify_code` and of
+  `POST /_login` with `auth_method=warden`, in the JSON, XML and text formats.
+- `challenge_id`: a random handle is issued for every admitted request, so
+  neither its presence nor its form marks a listed identifier. The Herald
+  challenge id stays on the server.
+- Herald's own answers (resend cooldown, per-user and per-destination limits,
+  locked user, outage) and the `Idempotency-Key` behavior, which are not
+  passed on.
+- The debug verification code: `debug_code` is never returned in this mode,
+  also with `DEBUG=true` and `COOKIE_SECURE=false`.
+- The fallback from `phone` to `mail`. The default mode consults `mail` when
+  the `phone` of the same request is not listed. With identical responses the
+  fallback would still show the owner of one listed mail address whether a
+  phone number is listed: next to an unlisted phone, and only then, a code
+  would reach that mailbox and sign-in with it would succeed. In this mode a
+  request that supplies `phone` is handled by the phone number alone, and
+  Warden is asked about one identifier per request.
+
+What is not covered:
+
+- **Response time.** It is not equalized. A send for a listed identifier calls
+  Herald and waits for the delivery, and a sign-in for a listed identifier
+  calls Herald to verify. Both take longer than the same request for an
+  unlisted identifier, and a single send request can be told apart by latency.
+  The mode removes the exact signal in the response; it does not hide the
+  allow list from a client that measures time.
+- **The message.** A listed user receives the code. Anyone who knows an
+  identifier can cause that message, as before.
+- **Herald quota.** A request for an unlisted identifier never reaches Herald
+  and consumes none of its limits. A client that knows several listed
+  identifiers and receives the codes of one can fill Herald's per-IP limit with
+  sends to them, request a code for another identifier, and learn from whether
+  its own next code still arrives. Without `HERALD_CLIENT_IP_HEADER` Herald
+  counts that limit against Stargate's address for all users: one client can
+  then use it up for everyone, and a send that Herald refuses is still shown as
+  sent. Set `HERALD_CLIENT_IP_HEADER` together with Herald's
+  `HERALD_TRUSTED_PROXY_HEADER` and `HERALD_TRUSTED_PROXIES`; Stargate logs a
+  startup warning when the header is empty in this mode. That keeps the limit
+  per client address. It does not remove the signal for such a client: the
+  signal needs Herald's per-IP limit to be reached. With the default
+  `RATE_LIMIT_WINDOW` of one minute, one client address can request at most 20
+  codes through Stargate within any minute: twice
+  `RATE_LIMIT_VERIFICATION_MAX` on each of `POST /_send_verify_code` and
+  `POST /_send_reauth_code`. A Herald `RATE_LIMIT_PER_IP` at or above the
+  number that applies to the deployment keeps its limit out of reach. Herald's
+  default of 5 does not.
+- **Direct access to Warden or Herald.** The mode concerns Stargate's
+  responses only.
+
+Consequences to plan for:
+
+- The page shows "sent" when nothing was sent and one text for every failed
+  sign-in. The reason is recorded in the log and the audit log only.
+- A request that supplies both `phone` and `mail` is handled by the phone
+  number alone. A client that sends both receives no code when the phone
+  number is not listed, also when the mail is. The login page has both fields:
+  in this mode its hint asks for one of them, and while both are filled in it
+  shows that hint and sends nothing.
+- The resend cooldown is counted per submitted identifier before any lookup.
+  Anyone who knows an identifier can keep it inside its window, and the
+  owner's own request is then answered `429` until the window ends. Herald's
+  cooldown already allows the same for listed identifiers. The per-client
+  limit `RATE_LIMIT_VERIFICATION_MAX` bounds how many identifiers one client
+  can hold.
+- A `challenge_id` is bound either to the challenge that its own request
+  created, or to the challenge of a `challenge_id` that the requester
+  presented. When Herald refuses a resend, the code delivered earlier
+  therefore stays usable only for a client that presents the handle it holds,
+  which the login page does. A request that presents nothing, or a handle for
+  another user, channel or destination, receives a `challenge_id` that is
+  bound to nothing. Asking for a code for an identifier never yields a handle
+  for a challenge that another client holds.
+
 ## Re-authentication for Sensitive Operations
 
 Step-up (`/_step_up`), TOTP enrollment and TOTP revocation require a proof that belongs to the session's user, not only a valid session cookie:

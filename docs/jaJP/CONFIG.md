@@ -320,6 +320,8 @@ PORT=8080
 | `LOGIN_SMS_ENABLED` | true/false | true | SMS ログインチャネル |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | メールログインチャネル |
 | `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | DingTalk に明示的な Warden userid を必須にする |
+| `LOGIN_UNIFORM_RESPONSES` | true/false | false | 識別子が Warden に登録されているかどうかにかかわらず、`/_send_verify_code` と Warden ログインの応答を同一にする。応答時間は揃えない |
+| `LOGIN_UNIFORM_RESEND_COOLDOWN` | 期間 | `60s` | `LOGIN_UNIFORM_RESPONSES=true` のときの識別子ごとの再送待ち時間。`1s` 以上、かつ Herald の `RESEND_COOLDOWN` 以上にする |
 | `SESSION_STORAGE_ENABLED` | true/false | false | Redis セッションストレージ |
 | `SESSION_STORAGE_REDIS_ADDR` | host:port | `localhost:6379` | Redis アドレス |
 | `SESSION_STORAGE_REDIS_PASSWORD` | 秘密値 | 空 | Redis パスワード |

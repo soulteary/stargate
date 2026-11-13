@@ -96,3 +96,48 @@ test('re-authentication send posts only the channel, once, and reports the outco
  const second=button.events.click();resolve({ok:false,status:429,type:'basic',json:async()=>({success:false,reason:'rate_limited'})});await second;
  assert.equal(f.elements['error-container'].textContent,'wait');assert.equal(calls.length,2);
 });
+test('a send ticket carries the challenge held for the same context and nothing otherwise',()=>{
+ const state=ui.createState(context());const first=ui.beginSend(state);assert.equal(first.previous,null);
+ ui.acceptSend(state,first,{success:true,challenge_id:'held'},0);state.sendPending=false;
+ assert.equal(ui.beginSend(state).previous,'held');state.sendPending=false;
+ assert.equal(ui.changeContext(state,context('b@example.test')),true);assert.equal(ui.beginSend(state).previous,null);state.sendPending=false;
+ for(const stale of [{id:'other',revision:state.revision,key:ui.contextKey(context())},{id:'older',revision:state.revision-1,key:ui.contextKey(state.context)},{id:'bare'}]){
+  state.challenge=stale;assert.equal(ui.beginSend(state).previous,null);state.sendPending=false;
+ }
+});
+function loginFixture(fetch,dataset={}){
+ const elements={};
+ function el(id,value=''){return elements[id]={id,hidden:false,disabled:false,dataset:{},value,textContent:'',events:{},classList:{add(){},remove(){}},setAttribute(){},removeAttribute(){},focus(){},addEventListener(k,fn){this.events[k]=fn;},querySelector(){return elements.submit;},querySelectorAll(){return [];}};}
+ el('auth-ui-config').dataset={locale:'en',messages:JSON.stringify({sent:'sent',send:'send',sending:'sending',resend:'wait {seconds}',signin:'signin',submitting:'submitting',authentication_failed:'auth failed',rate_limited:'wait',account_changed:'changed',unknown_result:'unknown',identifier_hint:'one identifier',code_required:'code required'}),...dataset};
+ el('error-container');el('loginForm');el('phone');el('mail','a@example.test');el('auth-mode','delivery');el('deliver_via','email');el('verify_code');el('otp_code');el('recovery_code');el('sendCodeBtn');el('submit');el('delivery-fields');el('totp-fields');el('recovery-fields');
+ const win={document:{getElementById:id=>elements[id]||null,querySelectorAll:()=>[],addEventListener(){}},location:{href:'https://auth.example/_login',origin:'https://auth.example',assign(){}},fetch,setTimeout:()=>1,clearTimeout(){},setInterval(){},addEventListener(){}};
+ vm.runInNewContext(fs.readFileSync(script,'utf8'),{window:win,AbortController,URL,FormData:class{constructor(){this.fields={};}set(k,v){this.fields[k]=v;}}});return elements;
+}
+test('the send request presents the held challenge on a resend, also after a refused one, and never for another account',async()=>{
+ const replies=[{ok:true,status:200,json:{success:true,challenge_id:'h1'}},{ok:false,status:429,json:{success:false,reason:'rate_limited',next_resend_in:30}},{ok:true,status:200,json:{success:true,challenge_id:'h2'}},{ok:true,status:200,json:{success:true,challenge_id:'h3'}},{ok:true,status:200,json:{success:true,challenge_id:'h4'}}];
+ const sent=[];const elements=loginFixture(async(url,init)=>{const reply=replies[sent.length];sent.push({path:new URL(url).pathname,fields:init.body.fields});return {ok:reply.ok,status:reply.status,type:'basic',json:async()=>reply.json};});
+ const send=elements.sendCodeBtn;const account={mail:'a@example.test',deliver_via:'email'};
+ await send.events.click();await send.events.click();await send.events.click();await send.events.click();
+ assert.deepEqual(sent.map(call=>call.path),Array(4).fill('/_send_verify_code'));
+ assert.deepEqual(sent[0].fields,account);assert.deepEqual(sent[1].fields,{...account,challenge_id:'h1'});
+ assert.deepEqual(sent[2].fields,{...account,challenge_id:'h1'});assert.deepEqual(sent[3].fields,{...account,challenge_id:'h2'});
+ elements.mail.value='b@example.test';elements.mail.events.input();await send.events.click();
+ assert.deepEqual(sent[4].fields,{mail:'b@example.test',deliver_via:'email'});
+});
+test('with the single-identifier flag the page asks for one identifier and sends nothing while both are filled in',async()=>{
+ const sent=[];const fetch=async(url,init)=>{sent.push({path:new URL(url).pathname,fields:init.body.fields});return {ok:true,status:200,type:'basic',json:async()=>({success:true,challenge_id:'h1'})};};
+ const both=(elements)=>{elements.phone.value='13800000001';elements.phone.events.input();return elements;};
+ const shown=(elements)=>elements['error-container'].textContent;
+ const submit=(elements)=>elements.loginForm.events.submit({preventDefault(){}});
+ let elements=both(loginFixture(fetch,{singleIdentifier:'true'}));
+ await elements.sendCodeBtn.events.click();assert.equal(sent.length,0);assert.equal(shown(elements),'one identifier');
+ elements['error-container'].textContent='';await submit(elements);assert.equal(sent.length,0);assert.equal(shown(elements),'one identifier');
+ elements.mail.value='';elements.mail.events.input();await elements.sendCodeBtn.events.click();
+ assert.deepEqual(sent.map(call=>call.fields),[{phone:'13800000001',deliver_via:'email'}]);
+ for(const dataset of [{singleIdentifier:'false'},{}]){
+  sent.length=0;elements=both(loginFixture(fetch,dataset));
+  await submit(elements);assert.equal(shown(elements),'code required');
+  await elements.sendCodeBtn.events.click();
+  assert.deepEqual(sent.map(call=>call.fields),[{phone:'13800000001',mail:'a@example.test',deliver_via:'email'}]);
+ }
+});

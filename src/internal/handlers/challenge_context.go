@@ -18,6 +18,21 @@ type challengeContext struct {
 	// Purpose is empty for login challenges and names any other flow the
 	// challenge was created for, so one flow cannot consume another's code.
 	Purpose string `json:"purpose,omitempty"`
+	// HeraldChallengeID is set when ChallengeID is not the id Herald issued:
+	// with uniform responses the client holds a handle minted by Stargate.
+	HeraldChallengeID string `json:"herald_challenge_id,omitempty"`
+	// ExpiresAt is the Unix time at which the Herald challenge behind the
+	// context stops being valid. It is set on contexts created with uniform
+	// responses, where a later handle may be bound to the same challenge.
+	ExpiresAt int64 `json:"expires_at,omitempty"`
+}
+
+// heraldID returns the id under which Herald knows the challenge.
+func (c challengeContext) heraldID() string {
+	if c.HeraldChallengeID != "" {
+		return c.HeraldChallengeID
+	}
+	return c.ChallengeID
 }
 
 type ChallengeContextStore interface {

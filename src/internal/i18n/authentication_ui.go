@@ -442,3 +442,58 @@ var authenticationPhrases = map[Language]map[string]string{
 		"start_hint":            "설정을 시작하면 새 인증 키가 생성됩니다. 앱에 저장한 후 확인하세요.",
 	},
 }
+
+// UniformAuthenticationUI returns the login-page phrases used while
+// LOGIN_UNIFORM_RESPONSES is on, keyed by the phrase each one replaces. In
+// that mode the server does not say whether a code was sent or why a sign-in
+// failed, so the page must not claim either. It also handles a request by
+// one identifier, so the hint asks for one.
+func UniformAuthenticationUI(lang Language) map[string]string {
+	phrases, ok := uniformAuthenticationPhrases[lang]
+	if !ok {
+		phrases = uniformAuthenticationPhrases[LangEN]
+	}
+	out := make(map[string]string, len(phrases))
+	for k, v := range phrases {
+		out[k] = v
+	}
+	return out
+}
+
+var uniformAuthenticationPhrases = map[Language]map[string]string{
+	"en": {
+		"identifier_hint":       "Enter your phone number or your email address, not both.",
+		"sent":                  "If this account can receive codes, a code has been sent.",
+		"authentication_failed": "Sign-in failed. Check the account and the code, or request a new code.",
+	},
+	"zh": {
+		"identifier_hint":       "请输入手机号或邮箱地址，只填其中一项。",
+		"sent":                  "如果该账号可以接收验证码，验证码已发送。",
+		"authentication_failed": "登录失败。请核对账号和验证码，或重新获取验证码。",
+	},
+	"fr": {
+		"identifier_hint":       "Saisissez votre téléphone ou votre e-mail, pas les deux.",
+		"sent":                  "Si ce compte peut recevoir des codes, un code a été envoyé.",
+		"authentication_failed": "Échec de la connexion. Vérifiez le compte et le code, ou demandez un nouveau code.",
+	},
+	"de": {
+		"identifier_hint":       "Telefonnummer oder E-Mail-Adresse eingeben, nicht beides.",
+		"sent":                  "Wenn dieses Konto Codes empfangen kann, wurde ein Code gesendet.",
+		"authentication_failed": "Anmeldung fehlgeschlagen. Konto und Code prüfen oder einen neuen Code anfordern.",
+	},
+	"it": {
+		"identifier_hint":       "Inserisci telefono o e-mail, non entrambi.",
+		"sent":                  "Se questo account può ricevere codici, un codice è stato inviato.",
+		"authentication_failed": "Accesso non riuscito. Controlla l’account e il codice, oppure richiedi un nuovo codice.",
+	},
+	"ja": {
+		"identifier_hint":       "電話番号またはメールアドレスのどちらか一方を入力してください。",
+		"sent":                  "このアカウントがコードを受信できる場合、コードを送信しました。",
+		"authentication_failed": "ログインできませんでした。アカウントとコードを確認するか、新しいコードを取得してください。",
+	},
+	"ko": {
+		"identifier_hint":       "전화번호 또는 이메일 주소 중 하나만 입력하세요.",
+		"sent":                  "이 계정이 코드를 받을 수 있으면 코드를 보냈습니다.",
+		"authentication_failed": "로그인에 실패했습니다. 계정과 코드를 확인하거나 새 코드를 요청하세요.",
+	},
+}

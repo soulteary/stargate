@@ -179,7 +179,11 @@ func loginAPIHandler(ctx fiber.Ctx, sessionGetter SessionGetter, authenticator A
 	identity := &loginIdentity{userPhone: userPhone, userMail: userMail}
 	var authErr error
 	if authMethod == "warden" {
-		authenticated, authErr = identity.authenticateWarden(ctx, loginCtx, loginSpan)
+		if uniformResponses() {
+			authenticated, authErr = identity.authenticateWardenUniform(ctx, loginCtx, loginSpan)
+		} else {
+			authenticated, authErr = identity.authenticateWarden(ctx, loginCtx, loginSpan)
+		}
 		if authenticated {
 			log.Info().Str("phone", secure.MaskPhone(userPhone)).Str("mail", secure.MaskEmail(userMail)).Msg("Warden authentication successful")
 		}
@@ -322,7 +326,7 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 		stateToken = raw
 	}
 	ctx.Set("Cache-Control", "no-store")
-	uiWords, uiJSON := authenticationUIData(ctx)
+	uiWords, uiJSON := loginUIData(ctx)
 	return ctx.Render(templateName, fiber.Map{
 		"ExchangeState":        stateToken,
 		"UI":                   uiWords,
@@ -343,6 +347,7 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 		"PhoneLabel":           translatedLoginIdentifierLabel(ctx, "label.phone_number"),
 		"MailLabel":            translatedLoginIdentifierLabel(ctx, "label.email_address"),
 		"Debug":                debugCodeRelayEnabled(),
+		"SingleIdentifier":     uniformLoginPage(),
 	})
 }
 
@@ -383,6 +388,9 @@ type loginIdentity struct {
 	wardenValidUntil time.Time
 	verifiedEmail    string
 	verifiedAt       int64
+	// lookupFailed is set when the directory lookup itself failed, as opposed
+	// to reporting that the identifier is not listed or not active.
+	lookupFailed bool
 }
 
 func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx context.Context, loginSpan trace.Span) (bool, error) {
@@ -417,6 +425,7 @@ func (identity *loginIdentity) authenticateWarden(ctx fiber.Ctx, loginCtx contex
 	identity.wardenValidUntil = validUntil
 	wardenDuration := time.Since(wardenStartTime)
 	if lookupErr != nil && !errors.Is(lookupErr, auth.ErrUserUnavailable) {
+		identity.lookupFailed = true
 		wardenSpan.End()
 		return false, SendErrorResponse(ctx, fiber.StatusServiceUnavailable, "directory authorization is unavailable")
 	}
@@ -503,8 +512,11 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 	if auditContext.Purpose != "" || !identity.matchesLoginChallenge(challengeID, auditContext) {
 		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
 	}
+	// With uniform responses challengeID is a handle minted by Stargate; the
+	// bound context carries the id Herald issued.
+	heraldChallengeID := auditContext.heraldID()
 	verifyReq := &herald.VerifyChallengeV2Request{
-		ChallengeID:     challengeID,
+		ChallengeID:     heraldChallengeID,
 		Code:            verifyCode,
 		ClientIP:        ctx.IP(),
 		ExpectedUserID:  identity.userID,
@@ -515,7 +527,7 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 	// Start span for Herald verify challenge
 	heraldCtx, heraldSpan := tracing.StartSpan(loginCtx, "herald.verify_challenge")
 	heraldSpan.SetAttributes(
-		attribute.String("herald.challenge_id", challengeID),
+		attribute.String("herald.challenge_id", heraldChallengeID),
 	)
 
 	startTime := time.Now()
@@ -552,13 +564,13 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 			reason = "invalid"
 		}
 		log.Warn().Str("reason", reason).Msg("Challenge verification failed")
-		auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
+		auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, heraldChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
 
 		// Provide detailed error message based on reason
 		errorMsg := verificationFailureMessage(ctx, verifyResp, reason)
 		return false, SendAuthenticationError(ctx, fiber.StatusUnauthorized, errorMsg, reason)
 	}
-	if boundResp.ChallengeID != challengeID || boundResp.UserID != identity.userID ||
+	if boundResp.ChallengeID != heraldChallengeID || boundResp.UserID != identity.userID ||
 		boundResp.Purpose != "login" || boundResp.Channel != auditContext.Channel {
 		heraldSpan.End()
 		metrics.RecordHeraldCall("verify_challenge", "failure", duration)
@@ -572,7 +584,7 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 	)
 	heraldSpan.End()
 	metrics.RecordHeraldCall("verify_challenge", "success", duration)
-	auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), true, "")
+	auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, heraldChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), true, "")
 	if auditContext.ChallengeID != "" {
 		if err := getChallengeContextStore().Delete(ctx.Context(), auditContext.ChallengeID); err != nil {
 			log.Error().Err(err).Str("challenge_id", auditContext.ChallengeID).Msg("Failed to consume challenge audit context")
@@ -620,7 +632,9 @@ func (identity *loginIdentity) verifyTOTP(ctx fiber.Ctx, loginCtx context.Contex
 			Subject: identity.userID,
 			Code:    otpCode,
 		}
-		if challengeID != "" {
+		// With uniform responses challenge_id is a Stargate handle that
+		// Herald does not know.
+		if challengeID != "" && !uniformResponses() {
 			verifyReq.ChallengeID = challengeID
 		}
 		verifyResp, err := heraldClient.TOTPVerify(loginCtx, verifyReq)
@@ -687,7 +701,7 @@ func handleChallengeVerificationError(ctx fiber.Ctx, err error, verifyResp *hera
 		if (heraldErr.StatusCode == http.StatusUnauthorized || heraldErr.StatusCode == http.StatusBadRequest) &&
 			verifyResp != nil && !verifyResp.OK && verifyResp.Reason != "" {
 			reason := verifyResp.Reason
-			auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.ChallengeID, auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
+			auditlog.LogVerifyCodeCheck(ctx.Context(), auditContext.UserID, auditContext.heraldID(), auditContext.Channel, auditContext.Destination, ctx.IP(), false, reason)
 			errorMsg := verificationFailureMessage(ctx, verifyResp, reason)
 			return SendAuthenticationError(ctx, fiber.StatusUnauthorized, errorMsg, reason)
 		}

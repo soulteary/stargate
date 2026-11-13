@@ -206,6 +206,54 @@ The response varies depending on whether there is a callback and the request typ
 | `429 Too Many Requests` | Request rate limit exceeded | — |
 | `500 Internal Server Error` | Server error | Error message |
 
+#### Uniform Responses
+
+With `LOGIN_UNIFORM_RESPONSES=true`, the answer to a failed Warden sign-in
+(`auth_method=warden`) does not depend on the identifier. Password sign-in and
+the response to a successful Warden sign-in are unchanged.
+
+When `phone` is supplied, `mail` is not used: the request is handled as if
+`mail` had not been sent. The default mode consults `mail` when the phone is
+not listed. With uniform responses the owner of one listed mail address could
+then sign in with it next to a phone number exactly when that number is not
+listed.
+
+`challenge_id` is the handle that `POST /_send_verify_code` returns in this
+mode. The Herald challenge id behind a handle is not accepted.
+
+Every failed sign-in answers `401 Unauthorized` with the same message:
+
+```json
+{
+  "error": "Sign-in failed. Check the account and the code, or request a new code.",
+  "code": 401,
+  "reason": "authentication_failed"
+}
+```
+
+This covers an unknown or inactive identifier, a `challenge_id` that is
+unknown, expired or issued for another account, a wrong, expired or locked
+code, TOTP that is not enrolled or does not verify, and a Herald failure after
+the Warden lookup. The reasons `invalid`, `expired`, `locked`,
+`too_many_attempts`, `totp_not_enrolled` and `lock_contention`, and the status
+codes `409 Conflict` and `502 Bad Gateway`, are not returned for a Warden
+sign-in in this mode.
+
+The following answers keep their status and body. They are decided before the
+Warden lookup, or do not depend on its result, and are therefore the same for
+every identifier:
+
+| Status Code | Case |
+|-------------|------|
+| `400 Bad Request` | Invalid phone number, no identifier, `challenge_id` or `verify_code` missing (`verification_required`), `otp_code` missing, or `use_otp=true` while TOTP is disabled |
+| `429 Too Many Requests` | Per-client request limit |
+| `500 Internal Server Error` | Code variant: Herald is disabled or its client is not initialized |
+| `503 Service Unavailable` | Code variant: the challenge context store cannot be read. TOTP variant: the Herald client is not initialized. Either variant: the Warden lookup failed |
+
+The mode unifies response content. It does not equalize response time; see
+[Uniform Responses](SECURITY.md#uniform-responses) in the security
+documentation.
+
 #### Examples
 
 **Password Authentication:**
@@ -259,7 +307,7 @@ Send verification code request. This endpoint is used in the Warden + Herald OTP
 
 | Header | Description |
 |--------|-------------|
-| `Idempotency-Key` | Optional. If present, Stargate forwards it to Herald; Herald returns the same challenge response for duplicate requests with the same key within TTL. |
+| `Idempotency-Key` | Optional. If present, Stargate forwards it to Herald; Herald returns the same challenge response for duplicate requests with the same key within TTL. It is not forwarded when `LOGIN_UNIFORM_RESPONSES=true`. |
 
 <!-- api-contract: send-verify-code-request-body -->
 #### Request Body
@@ -277,6 +325,7 @@ Supported request-body media types:
 | `phone` | String | No | User phone number; at least one of `phone` or `mail` is required |
 | `mail` | String | No | User email; at least one of `mail` or `phone` is required |
 | `deliver_via` | String | No | Preferred channel: `sms`, `email`, or `dingtalk`. If omitted, Stargate tries an enabled SMS destination first, then email. DingTalk is never selected implicitly; callers must send `deliver_via=dingtalk`. |
+| `challenge_id` | String | No | Read only with `LOGIN_UNIFORM_RESPONSES=true`: the `challenge_id` the client holds for this identifier, sent with a resend. It lets the code delivered earlier keep working when no new code is sent, and it never changes the response; see Uniform Responses below. Ignored in the default mode and when longer than 128 bytes. |
 
 The handler also accepts `phone` + `mail` in the same verification-code request.
 
@@ -319,6 +368,62 @@ On a rate-limited send, a validated upstream retry interval is returned as optio
 | `429 Too Many Requests` | Rate limit triggered | Error message |
 | `503 Service Unavailable` | Herald client or service is unavailable | JSON error with `success=false` |
 | `500 Internal Server Error` | Herald rejected the send for another provider error | JSON error with `success=false` |
+
+#### Uniform Responses
+
+With `LOGIN_UNIFORM_RESPONSES=true` the answer does not depend on whether the
+identifier is on the Warden allow list.
+
+The identifier of a request is `phone` when it is supplied, and `mail`
+otherwise. A `mail` next to a `phone` is not used: the request is handled as
+if `mail` had not been sent. The default mode sends the code to a listed
+`mail` when the `phone` is not listed. With uniform responses the arrival of
+that code would tell the owner of the mail address that the phone is not
+listed.
+
+A request is handled in this order:
+
+1. Request checks, unchanged: `400 Bad Request` for an invalid phone number, a missing identifier, or Herald not configured.
+2. Configuration checks, for every identifier: `400 Bad Request` with reason `channel_disabled` when `deliver_via` names a disabled channel, and `503 Service Unavailable` with reason `connection_failed` when the Herald client is not initialized.
+3. Resend cooldown, before any lookup. The identifier has a window of `LOGIN_UNIFORM_RESEND_COOLDOWN`. While it is open the answer is `429 Too Many Requests`, and neither Warden nor Herald is contacted.
+4. One Warden lookup, by the identifier. If the lookup itself fails, the answer is `503 Service Unavailable` with reason `service_unavailable` for every identifier.
+5. `200 OK`, whether or not a code was sent.
+
+**Success Response (200 OK)**
+
+```json
+{
+  "success": true,
+  "message": "If this account can receive codes, a code has been sent.",
+  "challenge_id": "ch_xxxxxxxxxxxxxxxxxxxxxx",
+  "next_resend_in": 60
+}
+```
+
+- `challenge_id` is a handle that Stargate mints for every request. It is not the Herald challenge id, which is not returned. Send it to `POST /_login` as `challenge_id`.
+- `next_resend_in` is `LOGIN_UNIFORM_RESEND_COOLDOWN` in whole seconds. `expires_in` and `debug_code` are not returned.
+- No code is sent for an unknown or inactive identifier, for an account without a usable destination (for example when DingTalk is requested and not bound), or when Herald refuses the request or cannot be reached (resend cooldown, limit, locked user, outage). The response is the same in each case.
+- A resend may present the `challenge_id` the client holds, in the form field `challenge_id`. When Herald creates no new challenge and the presented handle belongs to a challenge that is still valid for the same account, channel and destination, the new `challenge_id` is bound to that challenge and is accepted with the code delivered earlier. Without the field, or when the presented value does not match, the new `challenge_id` is bound to nothing and fails at `POST /_login` like any unknown one. The field never changes the response to this request.
+- `401 Unauthorized`, and `500 Internal Server Error` for a provider error, are not returned in this mode.
+- `Idempotency-Key` is not forwarded to Herald.
+
+**Cooldown Response (429 Too Many Requests)**
+
+The `Retry-After` header carries the same number of seconds as `next_resend_in`: the time until the request is admitted again.
+
+```json
+{
+  "success": false,
+  "message": "Too many requests. Please try again later.",
+  "reason": "rate_limited",
+  "next_resend_in": 50
+}
+```
+
+The mode unifies response content. It does not equalize response time: a
+request for a listed identifier waits for Herald. See
+[Uniform Responses](SECURITY.md#uniform-responses) in the security
+documentation.
 
 #### Examples
 

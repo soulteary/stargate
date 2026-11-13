@@ -94,6 +94,8 @@ Below are all environment variables used in code. "Required" means the service w
 | `LOGIN_SMS_ENABLED` | true/false | true | No |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | No |
 | `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | No |
+| `LOGIN_UNIFORM_RESPONSES` | true/false | false | No |
+| `LOGIN_UNIFORM_RESEND_COOLDOWN` | duration | 60s | No |
 | `SESSION_STORAGE_ENABLED` | true/false | false | No |
 | `SESSION_STORAGE_REDIS_ADDR` | String | localhost:6379 | No |
 | `SESSION_STORAGE_REDIS_PASSWORD` | String | empty | No |
@@ -583,6 +585,128 @@ Allow verification code login via email when Herald is enabled.
 
 ```bash
 LOGIN_EMAIL_ENABLED=false
+```
+
+#### `LOGIN_UNIFORM_RESPONSES`
+
+Make `POST /_send_verify_code` and Warden sign-in through `POST /_login` answer
+with the same status, headers and body whether or not the submitted phone
+number or email address is on the Warden allow list.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+**Description:**
+
+With the default `false`, the two endpoints answer differently for a listed
+and an unlisted identifier, and for a listed account they report whether a
+channel is usable and whether TOTP is enrolled. With `true`:
+
+- `POST /_send_verify_code` answers `200` with a `challenge_id` and
+  `next_resend_in` for every identifier that passes the request checks and the
+  resend cooldown, whether or not a code was sent. Nothing is sent for an
+  unknown or inactive identifier. The login page shows "If this account can
+  receive codes, a code has been sent." in every case, also for an account
+  without a usable destination, a Herald limit or lock, and a Herald outage.
+- `challenge_id` is a handle minted by Stargate, not the Herald challenge id.
+  `expires_in` and `debug_code` are not returned, and the request's
+  `Idempotency-Key` is not forwarded to Herald.
+- A failed Warden sign-in answers `401` with one message, whatever the reason:
+  unknown identifier, wrong, expired or locked code, TOTP not enrolled, or a
+  Herald failure.
+- Requests that are malformed, or that the configuration cannot serve, keep
+  their own answers, which are given before the Warden lookup. A failed Warden
+  lookup answers `503` for every identifier.
+- On both endpoints a request that supplies `phone` is handled by the phone
+  number alone, as if `mail` had not been sent. The default mode falls back to
+  `mail` when the phone is not listed. In this mode the fallback would show
+  the owner of one listed mail address whether a phone number is listed: next
+  to an unlisted phone, and only then, a code would reach that mailbox and
+  sign-in with it would succeed. The login page asks for one identifier in
+  this mode and sends nothing while both of its fields are filled in.
+
+Limits:
+
+- The mode unifies response content, not response time. A send for a listed
+  identifier waits for Herald, so a single request can still be told apart by
+  latency. See [SECURITY.md](SECURITY.md#uniform-responses) for what else is
+  not covered.
+- What happened to a request is visible only in the log and the audit log.
+- The mode concerns Warden sign-in through Herald. When it is `true` while
+  `WARDEN_ENABLED` or `HERALD_ENABLED` is `false`, Stargate logs a startup
+  warning, and requests with `auth_method=warden` are refused with the same
+  error for every identifier.
+- `debug_code` is never returned in this mode. Stargate logs a startup warning
+  when the debug-code relay (`DEBUG=true` with `COOKIE_SECURE=false`) is
+  active.
+- Password sign-in, `/_auth`, re-authentication, step-up and TOTP management
+  are not affected.
+
+Deployment:
+
+- Set `HERALD_CLIENT_IP_HEADER`, together with `HERALD_TRUSTED_PROXY_HEADER`
+  and `HERALD_TRUSTED_PROXIES` on Herald. Without it Herald counts its
+  `RATE_LIMIT_PER_IP` against Stargate's address for all users, so one client
+  can use up that limit for everyone, and in this mode a send that Herald
+  refuses is still shown as sent. Stargate logs a startup warning when the
+  header is empty.
+- Enable the setting only after every replica runs a version that has it. A
+  replica without it does not know handles and would send them to Herald as
+  challenge ids, so sign-ins that reach it fail.
+- With more than one replica, `LOGIN_UNIFORM_RESPONSES`,
+  `LOGIN_UNIFORM_RESEND_COOLDOWN` and the secret behind the digest key must be
+  identical on all of them. Store keys carry a keyed digest in place of the
+  identifier. The key is derived from the first of these that is set, in this
+  order: `SESSION_EXCHANGE_SECRET`, `HERALD_HMAC_SECRET`, `HERALD_API_KEY`,
+  `WARDEN_HMAC_SECRET`, `WARDEN_API_KEY`. Replicas that derive different keys
+  keep the resend cooldown per replica. So does a deployment that sets none of
+  them: each process then uses a random key.
+
+**Example:**
+
+```bash
+LOGIN_UNIFORM_RESPONSES=true
+```
+
+#### `LOGIN_UNIFORM_RESEND_COOLDOWN`
+
+Resend window that Stargate enforces for each identifier when
+`LOGIN_UNIFORM_RESPONSES=true`.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Duration |
+| **Required** | No |
+| **Default** | `60s` |
+| **Possible Values** | A Go duration of at least `1s`, for example `60s`, `90s`, `2m` |
+
+**Description:**
+
+- Used only in uniform mode. The value is validated at startup in either case.
+- The window starts with the first admitted `POST /_send_verify_code` for a
+  phone number or an email address, and later requests do not extend it.
+  Inside it the endpoint answers `429` with `Retry-After` and `next_resend_in`
+  and contacts neither Warden nor Herald. Phone and mail are counted
+  separately. A request that supplies both is counted against the phone only,
+  because the mail is not used in that case.
+- An admitted request reports the window as `next_resend_in`, in whole seconds
+  rounded up.
+- Set it to at least Herald's `RESEND_COOLDOWN` (default `60s`). If it is
+  lower, a resend that Stargate admits while Herald's cooldown is still running
+  shows "sent" and sends nothing. The code delivered earlier keeps working for
+  a client that presents the `challenge_id` it holds with the resend, which the
+  login page does.
+- The windows are kept in the same store as the rate limits: shared through
+  Redis when `SESSION_STORAGE_ENABLED=true`, otherwise per process.
+
+**Example:**
+
+```bash
+LOGIN_UNIFORM_RESEND_COOLDOWN=60s
 ```
 
 #### `HERALD_URL`

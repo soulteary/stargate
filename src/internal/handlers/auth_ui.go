@@ -6,6 +6,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	i18nkit "github.com/soulteary/i18n-kit/v4"
 	i18nfiber "github.com/soulteary/i18n-kit/v4/fiberadapter"
+	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
 
@@ -36,4 +37,27 @@ func authenticationUIData(c fiber.Ctx) (map[string]string, string) {
 	words := i18n.AuthenticationUI(i18n.Language(authenticationUILanguage(c)))
 	encoded, _ := json.Marshal(words) // string-only map has no failing values
 	return words, string(encoded)
+}
+
+// uniformLoginPage reports whether the login page follows uniform responses:
+// the mode is on and the deployment offers Warden sign-in through Herald.
+func uniformLoginPage() bool {
+	return uniformResponses() && config.WardenEnabled.ToBool() && config.HeraldEnabled.ToBool()
+}
+
+// loginUIData is authenticationUIData for the login page. With uniform
+// responses the server does not say whether a code was sent or why a sign-in
+// failed, and it handles a request by one identifier, so the phrases that
+// would say otherwise are replaced. The other pages keep the original
+// vocabulary.
+func loginUIData(c fiber.Ctx) (map[string]string, string) {
+	words, encoded := authenticationUIData(c)
+	if !uniformLoginPage() {
+		return words, encoded
+	}
+	for key, phrase := range i18n.UniformAuthenticationUI(i18n.Language(authenticationUILanguage(c))) {
+		words[key] = phrase
+	}
+	replaced, _ := json.Marshal(words) // string-only map has no failing values
+	return words, string(replaced)
 }
