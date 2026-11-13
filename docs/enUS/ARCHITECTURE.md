@@ -75,7 +75,7 @@ The configuration system provides:
 - `WARDEN_ENABLED`: Enable Warden integration (default: false)
 - `WARDEN_URL`: Warden service base URL
 - `WARDEN_API_KEY`: Warden API Key (for service authentication)
-- `WARDEN_CACHE_TTL`: Warden cache TTL (seconds, default: 300)
+- `WARDEN_CACHE_TTL`: accepted for compatibility; per-user Warden lookups are not cached, so it has no effect (seconds, default: 300)
 
 **Herald Integration Configuration:**
 - `HERALD_ENABLED`: Enable Herald integration (default: false)

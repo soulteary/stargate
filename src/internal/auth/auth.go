@@ -149,7 +149,9 @@ func InitWardenClient(l *logger.Logger) error {
 			return
 		}
 
-		// Parse cache TTL
+		// The TTL only governs the SDK's user-list cache. Stargate looks users
+		// up one identifier at a time, which the SDK does not cache, so the
+		// value changes nothing here; it is passed on for compatibility.
 		cacheTTL := 300 * time.Second // Default 5 minutes
 		if ttlStr := config.WardenCacheTTL.String(); ttlStr != "" {
 			if parsedTTL, err := strconv.Atoi(ttlStr); err == nil && parsedTTL > 0 {
