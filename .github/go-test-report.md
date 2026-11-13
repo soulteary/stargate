@@ -20,7 +20,7 @@
 | src/internal/auth | pass | 76 | 0 | 97.16% |
 | src/internal/config | pass | 84 | 0 | 96.90% |
 | src/internal/doctor | pass | 15 | 0 | 94.57% |
-| src/internal/handlers | pass | 316 | 0 | 95.88% |
+| src/internal/handlers | pass | 316 | 0 | 95.89% |
 | src/internal/i18n | pass | 37 | 0 | 100.00% |
 | src/internal/metrics | pass | 7 | 0 | 100.00% |
 | src/internal/requestcontext | pass | 2 | 0 | 100.00% |

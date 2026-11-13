@@ -7,8 +7,8 @@
     "skipped": 11
   },
   "coverage": {
-    "covered_statements": 2957,
-    "total_statements": 3101,
+    "covered_statements": 2961,
+    "total_statements": 3105,
     "percentage": 95.36,
     "threshold": 95
   },
@@ -53,7 +53,7 @@
       "status": "pass",
       "tests": 316,
       "failed": 0,
-      "coverage": 95.88
+      "coverage": 95.89
     },
     {
       "name": "src/internal/i18n",
