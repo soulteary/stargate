@@ -369,6 +369,11 @@ func securityHeaders() fiber.Handler {
 	}
 }
 
+// unobservedPaths are the probe and scrape endpoints. They are called every
+// few seconds by infrastructure, so they are left out of request logs and
+// traces.
+var unobservedPaths = []string{RouteHealthz, RouteReadyz, RouteHealth, "/metrics"}
+
 // setupMiddleware configures all middleware for the Fiber application.
 // This includes recover, security headers, logging, tracing, i18n, and favicon handling.
 func setupMiddleware(app *fiber.App) {
@@ -391,7 +396,7 @@ func setupMiddleware(app *fiber.App) {
 	// the standard request context above so deadline, cancellation, and values
 	// survive tracing.
 	if config.OTLPEnabled.ToBool() {
-		app.Use(internal_tracing.TracingMiddleware("stargate"))
+		app.Use(internal_tracing.TracingMiddleware("stargate", unobservedPaths...))
 		log.Info().Msg("OpenTelemetry tracing middleware enabled")
 	}
 
@@ -408,7 +413,7 @@ func setupMiddleware(app *fiber.App) {
 	app.Use(loggerfiber.Middleware(loggerfiber.Config{
 		MiddlewareConfig: logger.MiddlewareConfig{
 			Logger:           log,
-			SkipPaths:        []string{RouteHealthz, RouteReadyz, RouteHealth, "/metrics"},
+			SkipPaths:        unobservedPaths,
 			IncludeRequestID: true,
 			IncludeLatency:   true,
 		},

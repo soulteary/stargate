@@ -130,3 +130,36 @@ func TestSanitizeTraceURLRemovesSensitiveQueryValues(t *testing.T) {
 	assert.NotContains(t, sanitized, "secret-ticket")
 	assert.Equal(t, "/", sanitizeTraceURL("?ticket=secret-ticket"))
 }
+
+// Probe and scrape endpoints are requested every few seconds. They must not
+// produce spans or carry trace headers, while every other path still does.
+func TestTracingMiddlewareSkipsConfiguredPaths(t *testing.T) {
+	_, exporter := tracingtest.Setup(t)
+
+	app := fiber.New()
+	app.Use(TracingMiddleware("test-service", "/healthz", "/metrics"))
+	handled := 0
+	for _, path := range []string{"/healthz", "/metrics", "/healthz/detail", "/_auth"} {
+		app.Get(path, func(c fiber.Ctx) error {
+			handled++
+			return c.SendString("ok")
+		})
+	}
+
+	for _, path := range []string{"/healthz", "/metrics"} {
+		resp, err := app.Test(httptest.NewRequest("GET", path, nil))
+		assert.NoError(t, err)
+		assert.Equal(t, 200, resp.StatusCode)
+		assert.Empty(t, resp.Header.Get("traceparent"), path)
+	}
+	assert.Equal(t, 2, handled)
+	assert.Empty(t, exporter.GetSpans())
+
+	// Only exact paths are skipped.
+	for _, path := range []string{"/healthz/detail", "/_auth"} {
+		resp, err := app.Test(httptest.NewRequest("GET", path, nil))
+		assert.NoError(t, err)
+		assert.NotEmpty(t, resp.Header.Get("traceparent"), path)
+	}
+	assert.Len(t, exporter.GetSpans(), 2)
+}
