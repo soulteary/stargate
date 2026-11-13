@@ -34,6 +34,13 @@ func ValidateSessionExchangeRedirectPath(v EnvVariable) bool {
 		p != "/_login" && p != "/_login/"
 }
 
+// ValidateUniformResendCooldown accepts a Go duration of at least one second.
+// The handlers report the window to clients in whole seconds.
+func ValidateUniformResendCooldown(v EnvVariable) bool {
+	cooldown, err := time.ParseDuration(v.Value)
+	return err == nil && cooldown >= time.Second
+}
+
 type EnvVariable struct {
 	Name           string
 	Required       bool

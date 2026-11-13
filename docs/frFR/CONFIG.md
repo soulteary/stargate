@@ -320,6 +320,8 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `LOGIN_SMS_ENABLED` | true/false | true | Canal de connexion SMS |
 | `LOGIN_EMAIL_ENABLED` | true/false | true | Canal de connexion e-mail |
 | `LOGIN_DINGTALK_REQUIRE_USERID` | true/false | false | Exiger un userid Warden explicite pour DingTalk |
+| `LOGIN_UNIFORM_RESPONSES` | true/false | false | Réponses identiques de `/_send_verify_code` et de la connexion Warden, que l'identifiant figure ou non dans Warden ; le temps de réponse n'est pas égalisé |
+| `LOGIN_UNIFORM_RESEND_COOLDOWN` | durée | `60s` | Délai avant renvoi par identifiant avec `LOGIN_UNIFORM_RESPONSES=true` ; au moins `1s` et pas inférieur au `RESEND_COOLDOWN` de Herald |
 | `SESSION_STORAGE_ENABLED` | true/false | false | Stockage de session Redis |
 | `SESSION_STORAGE_REDIS_ADDR` | hôte:port | `localhost:6379` | Adresse Redis |
 | `SESSION_STORAGE_REDIS_PASSWORD` | secret | vide | Mot de passe Redis |

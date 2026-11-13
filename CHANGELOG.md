@@ -13,6 +13,12 @@ This file records user-visible changes. For upgrade steps and configuration exam
   `HERALD_TRUSTED_PROXIES`; it ignores the header otherwise. The default is
   empty: no header is sent and all users share one per-IP quota at Herald, as
   before.
+- Add `LOGIN_UNIFORM_RESPONSES` (default `false`) and
+  `LOGIN_UNIFORM_RESEND_COOLDOWN` (default `60s`, at least `1s`) for the
+  opt-in uniform responses described under Security. The cooldown must be at
+  least Herald's `RESEND_COOLDOWN`; if it is lower, a resend inside Herald's
+  window shows "sent" and sends nothing, and the earlier code keeps working
+  for a client that presents its current handle, which the login page does.
 
 ### Fixed
 
@@ -43,6 +49,44 @@ This file records user-visible changes. For upgrade steps and configuration exam
   destination always comes from Warden. The route is same-origin protected and
   counted against `RATE_LIMIT_VERIFICATION_MAX`. The code is bound to the
   requesting session and cannot be used to sign in.
+- Opt-in uniform responses. By default `POST /_send_verify_code` and Warden
+  sign-in through `POST /_login` answer differently for a phone number or
+  email address that is on the Warden allow list and one that is not, and for
+  a listed account they report whether TOTP is enrolled. With
+  `LOGIN_UNIFORM_RESPONSES=true` the status, headers and body of both
+  endpoints no longer depend on the identifier:
+  - `POST /_send_verify_code` applies a resend cooldown per identifier before
+    any lookup and answers `429` inside it. Otherwise it answers `200` with a
+    `challenge_id` and `next_resend_in`, whether or not a code was sent. The
+    login page then shows "If this account can receive codes, a code has been
+    sent." also when nothing was sent: unknown or inactive identifier, no
+    usable destination, a Herald limit or lock, or a Herald outage.
+  - In this mode `challenge_id` is a handle minted by Stargate. The Herald
+    challenge id behind it is neither returned nor accepted, `expires_in`
+    and `debug_code` are not returned, and the request's `Idempotency-Key`
+    is not forwarded to Herald. A handle is bound to the challenge its own
+    request created. A resend may present the handle the client holds in the
+    form field `challenge_id`; when Herald creates no new challenge, the new
+    handle is bound to the challenge of the presented one, and to nothing
+    otherwise.
+  - A failed Warden sign-in answers `401` with one text, "Sign-in failed.
+    Check the account and the code, or request a new code." It no longer
+    tells an unknown identifier from a wrong, expired or locked code, from
+    TOTP that is not enrolled, or from a Herald failure after the lookup.
+  - Malformed requests, a disabled channel, a missing Herald client and a
+    failed Warden lookup keep their own answers, which do not depend on the
+    identifier being listed.
+  - A request that supplies `phone` is handled by the phone number alone:
+    `mail` is not used for the cooldown, the lookup or the sign-in. With the
+    default fallback to `mail` for an unlisted phone, the owner of one listed
+    mail address could tell from a code arriving, or from a sign-in
+    succeeding, that a phone number is not listed.
+
+  This unifies response content only. Response time is not equalized: a send
+  for a listed identifier waits for Herald, so a single send request can
+  still be told apart by latency. Password sign-in, `/_auth`,
+  re-authentication, step-up and TOTP management are unchanged. See
+  `docs/enUS/SECURITY.md` for what the mode does not cover.
 
 ### Changed
 
@@ -55,6 +99,29 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ### Upgrade notes
 
+- Enable `LOGIN_UNIFORM_RESPONSES` only after every replica runs a version
+  that has it. A replica without it does not know handles and would send them
+  to Herald as challenge ids. With more than one replica, the two settings and
+  the secret behind the digest key must be identical on all of them. The key
+  is derived from the first of `SESSION_EXCHANGE_SECRET`,
+  `HERALD_HMAC_SECRET`, `HERALD_API_KEY`, `WARDEN_HMAC_SECRET` and
+  `WARDEN_API_KEY` that is set, in this order.
+- With `LOGIN_UNIFORM_RESPONSES=true`, set `HERALD_CLIENT_IP_HEADER`. Stargate
+  logs a startup warning when it is empty: Herald then counts
+  `RATE_LIMIT_PER_IP` against Stargate's address for all users, and a send it
+  refuses is still shown as sent.
+- With `LOGIN_UNIFORM_RESPONSES=true`, `mail` is ignored when `phone` is
+  supplied. A client that sends both fields and relied on the fallback to
+  `mail` for an unlisted phone gets no code, and its sign-in fails. Such a
+  client must send `mail` alone. The login page asks for one identifier in
+  this mode and sends nothing while both of its fields are filled in.
+- Deployments that serve their own template directory must update
+  `login.warden.html` and `assets/auth-ui.js`. The script now sends the
+  `challenge_id` it holds with a resend; with the previous script, a resend
+  that Herald refuses in uniform mode leaves the page with a `challenge_id`
+  that the earlier code does not work with. The template tells the script
+  through `data-single-identifier` when to ask for one identifier. The default
+  mode ignores the `challenge_id` field and sends both identifiers as before.
 - Warden deployments with step-up: users are now asked for their TOTP code or
   a delivered code instead of the shared password. Each delivered code counts
   against Herald's per-user, per-destination and resend limits, and its message

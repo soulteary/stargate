@@ -79,6 +79,8 @@ func init() {
 		"error.send_verify_code_failed":                  "Failed to send verification code",
 		"success.login":                                  "Login successful",
 		"success.verify_code_sent":                       "Verification code sent",
+		"success.verify_code_sent_uniform":               "If this account can receive codes, a code has been sent.",
+		"error.login_failed_uniform":                     "Sign-in failed. Check the account and the code, or request a new code.",
 		"info.click_if_no_redirect":                      "Click here if the page does not redirect automatically",
 	})
 
@@ -133,6 +135,8 @@ func init() {
 		"error.send_verify_code_failed":                  "发送验证码失败",
 		"success.login":                                  "登录成功",
 		"success.verify_code_sent":                       "验证码已发送",
+		"success.verify_code_sent_uniform":               "如果该账号可以接收验证码，验证码已发送。",
+		"error.login_failed_uniform":                     "登录失败。请核对账号和验证码，或重新获取验证码。",
 		"info.click_if_no_redirect":                      "点击这里如果页面没有自动跳转",
 	})
 
@@ -184,6 +188,8 @@ func init() {
 		"error.send_verify_code_failed":                  "Échec de l'envoi du code de vérification",
 		"success.login":                                  "Connexion réussie",
 		"success.verify_code_sent":                       "Code de vérification envoyé",
+		"success.verify_code_sent_uniform":               "Si ce compte peut recevoir des codes, un code a été envoyé.",
+		"error.login_failed_uniform":                     "Échec de la connexion. Vérifiez le compte et le code, ou demandez un nouveau code.",
 		"info.click_if_no_redirect":                      "Cliquez ici si la page ne redirige pas automatiquement",
 	})
 
@@ -235,6 +241,8 @@ func init() {
 		"error.send_verify_code_failed":                  "Invio del codice di verifica non riuscito",
 		"success.login":                                  "Accesso riuscito",
 		"success.verify_code_sent":                       "Codice di verifica inviato",
+		"success.verify_code_sent_uniform":               "Se questo account può ricevere codici, un codice è stato inviato.",
+		"error.login_failed_uniform":                     "Accesso non riuscito. Controlla l'account e il codice, oppure richiedi un nuovo codice.",
 		"info.click_if_no_redirect":                      "Clicca qui se la pagina non reindirizza automaticamente",
 	})
 
@@ -286,6 +294,8 @@ func init() {
 		"error.send_verify_code_failed":                  "確認コードの送信に失敗しました",
 		"success.login":                                  "ログイン成功",
 		"success.verify_code_sent":                       "確認コードを送信しました",
+		"success.verify_code_sent_uniform":               "このアカウントがコードを受信できる場合、コードを送信しました。",
+		"error.login_failed_uniform":                     "ログインに失敗しました。アカウントとコードを確認するか、新しいコードを取得してください。",
 		"info.click_if_no_redirect":                      "ページが自動的にリダイレクトしない場合はここをクリックしてください",
 	})
 
@@ -337,6 +347,8 @@ func init() {
 		"error.send_verify_code_failed":                  "Senden des Bestätigungscodes fehlgeschlagen",
 		"success.login":                                  "Anmeldung erfolgreich",
 		"success.verify_code_sent":                       "Bestätigungscode gesendet",
+		"success.verify_code_sent_uniform":               "Wenn dieses Konto Codes empfangen kann, wurde ein Code gesendet.",
+		"error.login_failed_uniform":                     "Anmeldung fehlgeschlagen. Konto und Code prüfen oder einen neuen Code anfordern.",
 		"info.click_if_no_redirect":                      "Klicken Sie hier, wenn die Seite nicht automatisch weitergeleitet wird",
 	})
 
@@ -388,6 +400,8 @@ func init() {
 		"error.send_verify_code_failed":                  "인증 코드 전송에 실패했습니다",
 		"success.login":                                  "로그인 성공",
 		"success.verify_code_sent":                       "인증 코드가 전송되었습니다",
+		"success.verify_code_sent_uniform":               "이 계정이 코드를 받을 수 있으면 코드를 전송했습니다.",
+		"error.login_failed_uniform":                     "로그인에 실패했습니다. 계정과 코드를 확인하거나 새 코드를 요청하세요.",
 		"info.click_if_no_redirect":                      "페이지가 자동으로 리디렉션되지 않으면 여기를 클릭하세요",
 	})
 }

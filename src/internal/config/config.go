@@ -27,6 +27,11 @@ const (
 	DefaultRateLimitWindow          = time.Minute
 )
 
+// DefaultLoginUniformResendCooldown is the documented default of
+// LOGIN_UNIFORM_RESEND_COOLDOWN and the fallback used by handlers that run
+// without Initialize. It equals Herald's default RESEND_COOLDOWN.
+const DefaultLoginUniformResendCooldown = 60 * time.Second
+
 var (
 	Debug = EnvVariable{
 		Name:           "DEBUG",
@@ -513,6 +518,26 @@ var (
 		PossibleValues: []string{"true", "false"},
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
+
+	// Opt-in: POST /_send_verify_code and Warden sign-in through POST /_login
+	// answer with the same status, headers and body whether or not the
+	// identifier is on the allow list. Response time is not equalized.
+	LoginUniformResponses = EnvVariable{
+		Name:           "LOGIN_UNIFORM_RESPONSES",
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	// LoginUniformResendCooldown is the per-identifier resend window that
+	// uniform mode enforces before any lookup. It must be at least Herald's
+	// RESEND_COOLDOWN.
+	LoginUniformResendCooldown = EnvVariable{
+		Name:           "LOGIN_UNIFORM_RESEND_COOLDOWN",
+		DefaultValue:   "60s",
+		PossibleValues: []string{"a duration of at least 1s"},
+		Validator:      ValidateUniformResendCooldown,
+	}
 )
 
 // warnUnattributableRateLimits reports the configuration in which rate limits
@@ -558,6 +583,27 @@ func warnSharedPasswordStepUp() {
 	}
 }
 
+// warnUniformResponses reports the configurations in which
+// LOGIN_UNIFORM_RESPONSES does less than an operator may expect.
+func warnUniformResponses() {
+	if !LoginUniformResponses.ToBool() {
+		return
+	}
+	if !WardenEnabled.ToBool() || !HeraldEnabled.ToBool() {
+		log.Warn().Msg("LOGIN_UNIFORM_RESPONSES is true but WARDEN_ENABLED or HERALD_ENABLED is false: uniform responses concern Warden sign-in through Herald, which this deployment does not offer. Requests with auth_method=warden are refused with the same error for every identifier.")
+		return
+	}
+	if Debug.ToBool() && !CookieSecure.ToBool() {
+		log.Warn().Msg("LOGIN_UNIFORM_RESPONSES is true while DEBUG is true and COOKIE_SECURE is false: debug_code is never returned in uniform mode.")
+	}
+	// Without the header Herald sees every user at Stargate's address. One
+	// client can then use up the per-IP limit for all of them, and uniform
+	// mode does not report the sends that Herald refuses.
+	if strings.TrimSpace(HeraldClientIPHeader.Value) == "" {
+		log.Warn().Msg("LOGIN_UNIFORM_RESPONSES is true and HERALD_CLIENT_IP_HEADER is empty: Herald counts RATE_LIMIT_PER_IP against Stargate's address for all users, and a send that Herald refuses is still shown as sent. Set HERALD_CLIENT_IP_HEADER together with HERALD_TRUSTED_PROXY_HEADER and HERALD_TRUSTED_PROXIES on Herald.")
+	}
+}
+
 func Initialize(l *logger.Logger) error {
 	log = l
 
@@ -575,6 +621,7 @@ func Initialize(l *logger.Logger) error {
 	warnUnattributableRateLimits()
 	warnPlaintextPasswords()
 	warnSharedPasswordStepUp()
+	warnUniformResponses()
 
 	// Initialize step-up matcher after configuration is loaded
 	InitStepUpMatcher()
@@ -616,7 +663,7 @@ func loadConfiguration() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldClientIPHeader, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldClientIPHeader, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID, &LoginUniformResponses, &LoginUniformResendCooldown}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()

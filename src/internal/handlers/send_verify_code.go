@@ -117,6 +117,12 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 			return sendVerifyCodeErrorJSON(ctx, fiber.StatusBadRequest, i18n.T(ctx, "error.herald_not_configured"), "herald_not_configured")
 		}
 
+		// LOGIN_UNIFORM_RESPONSES: from here on the answer must not depend on
+		// whether the identifier is listed. The default mode continues below.
+		if uniformResponses() {
+			return sendVerifyCodeUniform(ctx, sendCodeCtx, userPhone, userMail)
+		}
+
 		// Step 1: Get complete user information from Warden
 		// This ensures we use the official email/phone from Warden, not user input
 		wardenCtx, wardenSpan := tracing.StartSpan(sendCodeCtx, "warden.get_user_info")

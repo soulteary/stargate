@@ -14,7 +14,10 @@
   }
   function beginSend(state) {
     if (state.sendPending || state.submitPending || state.context.mode !== 'delivery') return null;
-    state.sendPending = true; return { revision: state.revision, key: contextKey(state.context), context: { ...state.context } };
+    const key = contextKey(state.context), held = state.challenge;
+    // A resend presents the challenge already held for this account and channel.
+    const previous = held && held.key === key && held.revision === state.revision ? held.id : null;
+    state.sendPending = true; return { revision: state.revision, key: key, context: { ...state.context }, previous: previous };
   }
   function acceptSend(state, ticket, result, now) {
     if (ticket.revision !== state.revision || ticket.key !== contextKey(state.context)) return false;
@@ -85,6 +88,8 @@
     const debug = document.getElementById('debug-code-container');
     const readContext = () => ({ phone: phone.value.trim(), mail: mail.value.trim(), mode: mode.value, channel: channel ? channel.value : '' });
     const state = createState(readContext());
+    // With uniform responses the server handles a request by the phone number alone when both are sent.
+    const ambiguous = () => config.dataset.singleIdentifier === 'true' && state.context.phone && state.context.mail;
     let navigationStarted = false;
     function render() {
       document.getElementById('delivery-fields').hidden = state.context.mode !== 'delivery';
@@ -111,12 +116,14 @@
     [mode, channel].filter(Boolean).forEach(el => el.addEventListener('change', changed));
     if (send) send.addEventListener('click', async function () {
       if (!state.context.phone && !state.context.mail) { announce('identifier_required', phone); return; }
+      if (ambiguous()) { announce('identifier_hint', mail); return; }
       const ticket = beginSend(state); if (!ticket) return;
       clearMessage(); render();
       const data = new FormData();
       if (ticket.context.phone) data.set('phone', ticket.context.phone);
       if (ticket.context.mail) data.set('mail', ticket.context.mail);
       data.set('deliver_via', ticket.context.channel);
+      if (ticket.previous) data.set('challenge_id', ticket.previous);
       try {
         const { response, result } = await request('/_send_verify_code', data);
         if (ticket.revision !== state.revision) return;
@@ -143,6 +150,7 @@
       const target = localPassword ? passwordForm : form;
       if (!localPassword) {
         if (!state.context.phone && !state.context.mail) { announce('identifier_required', phone); return; }
+        if (ambiguous()) { announce('identifier_hint', mail); return; }
         const field = state.context.mode === 'delivery' ? code : state.context.mode === 'totp' ? otp : backup;
         if (!field.value.trim()) { announce('code_required', field); return; }
         if (state.context.mode === 'delivery' && (!state.challenge || state.challenge.revision !== state.revision)) { announce('challenge_required', send); return; }
