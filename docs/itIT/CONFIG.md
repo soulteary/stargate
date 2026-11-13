@@ -311,6 +311,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `HERALD_API_KEY` | segreto | vuoto | Autenticazione API key |
 | `HERALD_HMAC_KEY_ID` | stringa | vuoto | Identificatore chiave HMAC |
 | `HERALD_HMAC_SECRET` | segreto | vuoto | Segreto firma HMAC |
+| `HERALD_CLIENT_IP_HEADER` | nome header | vuoto | Header in cui Stargate invia a Herald l'indirizzo del client; deve corrispondere a `HERALD_TRUSTED_PROXY_HEADER` di Herald, e Stargate deve essere in `HERALD_TRUSTED_PROXIES` |
 | `HERALD_TLS_CA_CERT_FILE` | percorso | vuoto | CA personalizzata |
 | `HERALD_TLS_CLIENT_CERT_FILE` | percorso | vuoto | Certificato client mTLS |
 | `HERALD_TLS_CLIENT_KEY_FILE` | percorso | vuoto | Chiave client mTLS |

@@ -4,6 +4,16 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Added
+
+- Add `HERALD_CLIENT_IP_HEADER`. When set, Stargate sends the end-user address
+  to Herald in that header on challenge and verification requests, so Herald's
+  `RATE_LIMIT_PER_IP` can be counted per end user. Herald must name the same
+  header in `HERALD_TRUSTED_PROXY_HEADER` and list Stargate in
+  `HERALD_TRUSTED_PROXIES`; it ignores the header otherwise. The default is
+  empty: no header is sent and all users share one per-IP quota at Herald, as
+  before.
+
 ## [1.3.8] - 2026-11-13
 
 ### Changed

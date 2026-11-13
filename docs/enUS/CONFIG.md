@@ -85,6 +85,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `HERALD_API_KEY` | String | empty | No |
 | `HERALD_HMAC_KEY_ID` | String | empty | No |
 | `HERALD_HMAC_SECRET` | String | empty | No |
+| `HERALD_CLIENT_IP_HEADER` | HTTP header name | empty | No |
 | `HERALD_TLS_CA_CERT_FILE` | path | empty | No |
 | `HERALD_TLS_CLIENT_CERT_FILE` | path | empty | No |
 | `HERALD_TLS_CLIENT_KEY_FILE` | path | empty | No |
@@ -713,6 +714,34 @@ Path to client private key file (mTLS).
 | **Type** | String (file path) |
 | **Required** | No |
 | **Default** | Empty |
+
+#### `HERALD_CLIENT_IP_HEADER`
+
+Name of the request header in which Stargate sends the end-user address to Herald on challenge and verification requests, for example `X-Forwarded-For`.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String (HTTP header name) |
+| **Required** | No |
+| **Default** | Empty (no header is sent) |
+
+Herald applies `RATE_LIMIT_PER_IP` to the address it sees for the caller. Without this setting that is Stargate's address, so every user shares one per-IP quota at Herald. To have the limit counted per end user, set all three of the following:
+
+```bash
+# Stargate
+HERALD_CLIENT_IP_HEADER=X-Forwarded-For
+
+# Herald
+HERALD_TRUSTED_PROXY_HEADER=X-Forwarded-For
+HERALD_TRUSTED_PROXIES=10.20.0.15   # the address Herald sees for Stargate
+```
+
+- The header name must match Herald's `HERALD_TRUSTED_PROXY_HEADER`. Herald ignores the header from any peer that is not in `HERALD_TRUSTED_PROXIES`, so setting only the Stargate side has no effect.
+- The value sent is the client address Stargate itself resolved. It is only as accurate as Stargate's own `TRUSTED_PROXIES` and `PROXY_HEADER` configuration; see the client-IP header format under [`TRUSTED_PROXIES` and `PROXY_HEADER`](#trusted_proxies-and-proxy_header).
+- If a proxy sits between Stargate and Herald, that proxy is the peer Herald sees. List it in `HERALD_TRUSTED_PROXIES` and make sure it passes the header on unchanged.
+- The header is sent on verification-code and code-verification requests. TOTP requests do not carry it.
+- A name that is not a valid header name, or one the Herald client sets itself (such as `X-Signature` or `X-API-Key`), stops startup.
+- Requires Herald v1.6.0 or later on the server.
 
 #### `HERALD_TLS_SERVER_NAME`
 

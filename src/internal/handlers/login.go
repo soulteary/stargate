@@ -73,6 +73,14 @@ func InitHeraldClient(l *logger.Logger) error {
 			log.Warn().Msg("Neither HERALD_HMAC_SECRET nor HERALD_API_KEY is set. Herald client may not authenticate properly.")
 		}
 
+		// Forward the end-user address in a header so Herald can apply its
+		// per-IP limit per user instead of per gateway. Herald reads the header
+		// only from peers listed in HERALD_TRUSTED_PROXIES.
+		if header := strings.TrimSpace(config.HeraldClientIPHeader.String()); header != "" {
+			opts = opts.WithClientIPHeader(header)
+			log.Debug().Str("header", header).Msg("Herald client will forward the client IP")
+		}
+
 		// Add TLS/mTLS configuration if provided
 		if caCertFile := config.HeraldTLSCACertFile.String(); caCertFile != "" {
 			opts = opts.WithTLSCACert(caCertFile)

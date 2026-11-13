@@ -311,6 +311,7 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `HERALD_API_KEY` | Geheimnis | leer | API-Key-Authentifizierung |
 | `HERALD_HMAC_KEY_ID` | String | leer | HMAC-Schlüsselkennung |
 | `HERALD_HMAC_SECRET` | Geheimnis | leer | HMAC-Signaturgeheimnis |
+| `HERALD_CLIENT_IP_HEADER` | Header-Name | leer | Header, in dem Stargate die Client-Adresse an Herald sendet; muss `HERALD_TRUSTED_PROXY_HEADER` von Herald entsprechen, und Stargate muss in `HERALD_TRUSTED_PROXIES` stehen |
 | `HERALD_TLS_CA_CERT_FILE` | Pfad | leer | Benutzerdefinierte CA |
 | `HERALD_TLS_CLIENT_CERT_FILE` | Pfad | leer | mTLS-Clientzertifikat |
 | `HERALD_TLS_CLIENT_KEY_FILE` | Pfad | leer | mTLS-Clientschlüssel |

@@ -311,6 +311,7 @@ PORT=8080
 | `HERALD_API_KEY` | 비밀값 | 비어 있음 | API 키 인증 |
 | `HERALD_HMAC_KEY_ID` | 문자열 | 비어 있음 | HMAC 키 ID |
 | `HERALD_HMAC_SECRET` | 비밀값 | 비어 있음 | HMAC 서명 비밀 |
+| `HERALD_CLIENT_IP_HEADER` | 헤더 이름 | 비어 있음 | Stargate가 클라이언트 주소를 Herald에 전달하는 헤더. Herald의 `HERALD_TRUSTED_PROXY_HEADER`와 같아야 하며 Stargate가 `HERALD_TRUSTED_PROXIES`에 포함되어야 합니다 |
 | `HERALD_TLS_CA_CERT_FILE` | 경로 | 비어 있음 | 사용자 지정 CA |
 | `HERALD_TLS_CLIENT_CERT_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 인증서 |
 | `HERALD_TLS_CLIENT_KEY_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 키 |
