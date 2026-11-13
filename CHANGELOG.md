@@ -4,6 +4,19 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.3.8] - 2026-11-13
+
+### Changed
+
+- Update the Herald SDK to v1.6.0. The SDK now returns an error itself when
+  Herald answers a TOTP revocation without confirming it. `/totp/revoke` keeps
+  answering `502 Bad Gateway` with reason `revoke_not_confirmed` and records
+  the same audit event. The SDK no longer quotes a TOTP response that is not
+  valid JSON in its error message, so such a response no longer reaches
+  Stargate's warning log. Stargate does not use the SDK's new `ClientIPHeader`
+  option, and its requests to Herald are unchanged. Updating the SDK does not
+  replace an independently deployed Herald service.
+
 ### Fixed
 
 - Step-up confirmation and the start of TOTP enrollment now confirm that the
@@ -28,6 +41,19 @@ This file records user-visible changes. For upgrade steps and configuration exam
   that adds no forwarding header. Keep the path out of every proxied route.
 - Bring the `/log/level` and `debug_code` descriptions in the `zhCN` and `deDE`
   documents in line with v1.3.7.
+
+### Upgrade and rollback
+
+- This release adds and removes no configuration options. Redis records and
+  stored sessions need no migration; do not clear Redis during rollout or
+  rollback.
+- A step-up confirmation or the start of a TOTP enrollment that overlaps a
+  logout of the same session now answers `500`.
+- When upgrading from v1.3.6 or earlier, first check the client-IP header that
+  the trusted proxy writes, as described under Documentation.
+- The Herald SDK update needs no change to a deployed Herald service.
+- Rolling back to v1.3.7 restores the previous behaviour of the two fixes.
+  Rebuild from the v1.3.7 source when rolling back a source build.
 
 ## [1.3.7] - 2026-11-13
 
