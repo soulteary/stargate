@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -317,11 +318,42 @@ func sendErrorResponse(ctx fiber.Ctx, statusCode int, message, reason string) er
 		return ctx.Status(statusCode).JSON(body, fiber.MIMEApplicationJSON)
 	case "xml":
 		ctx.Set("Content-Type", "application/xml")
-		return ctx.Status(statusCode).SendString(`<errors><error code="` + fmt.Sprintf("%d", statusCode) + `">` + message + `</error></errors>`)
+		return ctx.Status(statusCode).SendString(xmlErrorBody(statusCode, message))
 	default:
 		ctx.Set("Content-Type", "text/plain")
 		return ctx.Status(statusCode).SendString(message)
 	}
+}
+
+// xmlErrorBody renders the XML error document. The message is written as
+// character data: "&", "<" and ">" become entities, so markup in a message can
+// neither add elements nor end the document early, and a character that XML
+// 1.0 does not allow is replaced with U+FFFD. Quotes are left as they are,
+// which is valid in character data and keeps existing messages byte for byte.
+func xmlErrorBody(statusCode int, message string) string {
+	var body strings.Builder
+	body.WriteString(`<errors><error code="`)
+	body.WriteString(strconv.Itoa(statusCode))
+	body.WriteString(`">`)
+	for _, char := range message {
+		switch {
+		case char == '&':
+			body.WriteString("&amp;")
+		case char == '<':
+			body.WriteString("&lt;")
+		case char == '>':
+			body.WriteString("&gt;")
+		case char == '\t' || char == '\n' || char == '\r':
+			body.WriteRune(char)
+		case char < 0x20 || char == 0xFFFE || char == 0xFFFF:
+			// Invalid UTF-8 already arrives here as U+FFFD from the range loop.
+			body.WriteRune('\uFFFD')
+		default:
+			body.WriteRune(char)
+		}
+	}
+	body.WriteString(`</error></errors>`)
+	return body.String()
 }
 
 func validateCallbackURLPath(parsed *url.URL) error {
