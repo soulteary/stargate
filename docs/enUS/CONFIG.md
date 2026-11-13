@@ -298,6 +298,14 @@ PROXY_HEADER=X-Forwarded-For
 
 Configure the narrowest proxy addresses possible. The proxy must remove client-supplied forwarding headers and write its own values before forwarding the request.
 
+Behind a reverse proxy, set `TRUSTED_PROXIES` even though Stargate starts without it. While the proxy is not listed, Stargate sees only the request the proxy sent to `/_auth`, not the one the user made:
+
+- the login redirect carries no `callback` and is built with `http://`, so after signing in users stay on the auth host instead of returning to the application, also on an HTTPS site;
+- step-up path rules cannot be evaluated (which is why `STEP_UP_ENABLED=true` requires `TRUSTED_PROXIES`);
+- every client is attributed to the proxy address and shares one rate-limit quota and one address in audit records.
+
+Stargate logs a warning at startup when `TRUSTED_PROXIES` is empty, and once more when it first ignores forwarded headers from a peer that is not listed.
+
 Every element of the client-IP header must be a bare IPv4 or IPv6 address. Since v1.3.7 (Fiber v3.7.0) Stargate reads the header from right to left and stops at the first element that is not one, such as `203.0.113.7:51234` or `unknown`. The client is then taken to be the nearest trusted proxy, so all users behind that proxy share one login and verification rate limit and appear under the proxy address in audit records. Earlier versions skipped such an element and used the next one to its left.
 
 Send forwarding headers and browser headers such as `Origin` in the header section of the request. Since v1.3.7 a field sent as an HTTP trailer is not read as a header, and a request that announces more than 16 trailer names is answered with `431`.
@@ -1170,7 +1178,9 @@ Quotas are keyed by client address, and the client address is the direct peer
 unless the peer is listed in `TRUSTED_PROXIES`. Behind a reverse proxy that is not
 listed there, every client is attributed to the proxy and the whole deployment
 shares a single quota. Stargate warns at startup when `TRUSTED_PROXIES` is empty
-and again when it first receives forwarded headers from an untrusted peer. Set
+and again when it first receives forwarded headers from an untrusted peer; both
+warnings also name the effect on login redirects described under
+[`TRUSTED_PROXIES`](#trusted_proxies-and-proxy_header). Set
 `TRUSTED_PROXIES` to the reverse-proxy source IPs or CIDRs so quotas apply per
 client.
 
