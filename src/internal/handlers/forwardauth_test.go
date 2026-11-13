@@ -8,13 +8,9 @@ import (
 	"time"
 
 	"github.com/MarvinJWendt/testza"
-	"github.com/gofiber/fiber/v3/extractors"
-	"github.com/gofiber/fiber/v3/middleware/session"
-	"github.com/gofiber/utils/v2"
 	forwardauth "github.com/soulteary/forwardauth-kit/v3"
 	fafiber "github.com/soulteary/forwardauth-kit/v3/fiberadapter"
 	fahttp "github.com/soulteary/forwardauth-kit/v3/httpadapter"
-	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 )
@@ -43,21 +39,6 @@ func TestInitForwardAuthHandler_WithMinimalConfig(t *testing.T) {
 	h := GetForwardAuthHandler()
 	if h == nil {
 		t.Error("GetForwardAuthHandler() must not be nil after InitForwardAuthHandler")
-	}
-}
-
-// TestForwardAuthCheckRoute_ReturnsHandler verifies ForwardAuthCheckRoute returns a non-nil Fiber handler.
-func TestForwardAuthCheckRoute_ReturnsHandler(t *testing.T) {
-	store := session.NewStore(session.Config{
-		Extractor:    extractors.FromCookie(auth.SessionCookieName),
-		KeyGenerator: utils.UUID,
-	})
-	if store == nil {
-		t.Fatal("session.New returned nil")
-	}
-	handler := ForwardAuthCheckRoute(store)
-	if handler == nil {
-		t.Error("ForwardAuthCheckRoute(store) must not return nil")
 	}
 }
 

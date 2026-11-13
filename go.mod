@@ -8,7 +8,6 @@ require (
 	github.com/gofiber/fiber/v3 v3.7.0
 	github.com/gofiber/template/html/v3 v3.1.0
 	github.com/gofiber/utils/v2 v2.6.5
-	github.com/pquerna/otp v1.5.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/pterm/pterm v0.12.84
 	github.com/redis/go-redis/v9 v9.23.0
@@ -42,7 +41,6 @@ require (
 	atomicgo.dev/keyboard v0.2.10 // indirect
 	atomicgo.dev/schedule v0.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/boombuler/barcode v1.1.0 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/clipperhouse/uax29/v2 v2.7.0 // indirect

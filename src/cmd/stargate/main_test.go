@@ -293,6 +293,18 @@ func TestRunApplication_ConfigError(t *testing.T) {
 	testza.AssertNotNil(t, err, "runApplication should return error when config fails")
 }
 
+// runApplicationWithApp runs the startup sequence with a caller-supplied app,
+// so tests can reach the configuration and listener error paths without the
+// full application.
+func runApplicationWithApp(app *fiber.App) error {
+	showBanner()
+	initLogger()
+	if err := initConfig(); err != nil {
+		return err
+	}
+	return startServer(app)
+}
+
 // TestRunApplicationWithApp_ConfigError tests that runApplicationWithApp returns error when config initialization fails
 func TestRunApplicationWithApp_ConfigError(t *testing.T) {
 	// Setup invalid environment variables to cause initialization error

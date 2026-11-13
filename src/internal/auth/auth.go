@@ -13,9 +13,7 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/pquerna/otp/totp"
 	logger "github.com/soulteary/logger-kit/v3"
-	secure "github.com/soulteary/secure-kit/v2"
 	session "github.com/soulteary/session-kit/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 	internal_tls "github.com/soulteary/stargate/src/internal/tlsconfig"
@@ -271,57 +269,6 @@ func IsValidPhone(phone string) bool {
 	return true
 }
 
-// CheckUserInList checks if a user (by phone or mail) is in the Warden allow list.
-//
-// Parameters:
-//   - ctx: Context for the request (can be nil, will use background context)
-//   - phone: User's phone number (optional, can be empty)
-//   - mail: User's email address (optional, can be empty)
-//
-// Returns true if the user is in the allow list, false otherwise.
-// If Warden is not enabled or client is not initialized, returns false.
-func CheckUserInList(ctx context.Context, phone, mail string) bool {
-	if !config.WardenEnabled.ToBool() {
-		log.Debug().Msg("Warden is not enabled, skipping user list check")
-		return false
-	}
-
-	client := getWardenClient()
-	if client == nil {
-		log.Warn().Msg("Warden client is not initialized, cannot check user in list. Make sure WARDEN_URL is set and WARDEN_ENABLED is true.")
-		return false
-	}
-
-	// Ensure we have a valid context
-	// If ctx is nil, use background context
-	if ctx == nil {
-		ctx = context.Background()
-	} else {
-		// In test environments, fasthttp.RequestCtx may have an invalid context
-		// that causes panics when used. Use a safe wrapper that falls back to
-		// background context if the original context is invalid.
-		ctx = safeContext(ctx)
-	}
-
-	// Normalize input (phone: strip spaces/dashes; mail: trim + lowercase)
-	phone = NormalizePhone(phone)
-	mail = strings.TrimSpace(strings.ToLower(mail))
-
-	if phone == "" && mail == "" {
-		log.Debug().Msg("CheckUserInList called with both phone and mail empty")
-		return false
-	}
-
-	log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("Checking user in Warden list")
-	exists := client.CheckUserInList(ctx, phone, mail)
-	if exists {
-		log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("User found and active")
-	} else {
-		log.Debug().Str("phone", secure.MaskPhone(phone)).Str("mail", secure.MaskEmail(mail)).Msg("User not found in Warden list or not active")
-	}
-	return exists
-}
-
 // ErrUserUnavailable distinguishes a confirmed missing/disabled identity from
 // dependency failures. Only the former invalidates an authenticated session.
 var ErrUserUnavailable = errors.New("warden identity is missing or inactive")
@@ -387,44 +334,4 @@ func LookupUserInfo(ctx context.Context, phone, mail string) (*warden.AllowListU
 		return nil, time.Time{}, errors.New("warden source freshness unavailable")
 	}
 	return user, deadline, nil
-}
-
-// Note: SendVerifyCode and VerifyCode functions have been removed.
-// Verification code functionality is now handled by the Herald service.
-
-// VerifyOTP verifies a TOTP (Time-based One-Time Password) code.
-//
-// Parameters:
-//   - secret: The OTP secret key (base32 encoded)
-//   - code: The OTP code to verify (6 digits)
-//
-// Returns true if the code is valid, false otherwise.
-func VerifyOTP(secret, code string) bool {
-	if secret == "" {
-		log.Debug().Msg("OTP secret is empty, cannot verify")
-		return false
-	}
-
-	if code == "" {
-		log.Debug().Msg("OTP code is empty, cannot verify")
-		return false
-	}
-
-	// Validate code is 6 digits
-	code = strings.TrimSpace(code)
-	if len(code) != 6 {
-		log.Debug().Int("length", len(code)).Msg("OTP code length is invalid: expected 6")
-		return false
-	}
-
-	// Verify TOTP code
-	// Using 30 second window, allowing 1 time step skew (previous/current/next window)
-	valid := totp.Validate(code, secret)
-	if !valid {
-		log.Debug().Msg("OTP code verification failed")
-		return false
-	}
-
-	log.Debug().Msg("OTP code verified successfully")
-	return true
 }

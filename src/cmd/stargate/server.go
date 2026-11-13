@@ -415,30 +415,7 @@ func setupMiddleware(app *fiber.App) {
 	}))
 	log.Debug().Msg("Request logging middleware enabled")
 
-	// 7. Rate limiting (optional - uncomment to enable for production)
-	// To enable rate limiting, uncomment the following code:
-	//
-	// zerologLogger := log.Zerolog()
-	// limiter := middlewarekit.NewRateLimiter(middlewarekit.RateLimiterConfig{
-	// 	Rate:            100,           // 100 requests per minute
-	// 	Window:          time.Minute,
-	// 	MaxVisitors:     10000,
-	// 	CleanupInterval: time.Minute,
-	// })
-	// app.Use(mwfiber.RateLimit(mwfiber.RateLimitConfig{
-	// 	RateLimitConfig: middlewarekit.RateLimitConfig{
-	// 		Limiter:   limiter,
-	// 		SkipPaths: []string{"/healthz", "/metrics"},
-	// 		Logger:    &zerologLogger,
-	// 		OnLimitReached: func(key string) {
-	// 			// Optional: increment Prometheus counter
-	// 			// metrics.RateLimitExceeded.Inc()
-	// 		},
-	// 	},
-	// }))
-	// log.Info().Msg("Rate limiting middleware enabled")
-
-	// 8. Favicon middleware
+	// 7. Favicon middleware
 	log.Debug().Msg("Adding favicon middleware")
 	faviconPath := findFaviconPath()
 	// Only add favicon middleware if the file exists

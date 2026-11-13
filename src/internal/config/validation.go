@@ -141,17 +141,6 @@ var (
 		}
 		return true
 	}
-	ValidateStrictPossibleValues = func(v EnvVariable) bool {
-		// Use cli-kit validator for case-sensitive enum validation
-		// Skip validation if PossibleValues contains "*" (any value allowed)
-		if len(v.PossibleValues) > 0 && v.PossibleValues[0] == "*" {
-			return true
-		}
-		if err := validator.ValidateEnum(v.Value, v.PossibleValues, true); err != nil {
-			return false
-		}
-		return true
-	}
 	ValidateCaseInsensitivePossibleValues = func(v EnvVariable) bool {
 		// Use cli-kit validator for case-insensitive enum validation
 		// Skip validation if PossibleValues contains "*" (any value allowed)

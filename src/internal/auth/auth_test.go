@@ -16,7 +16,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/extractors"
 	"github.com/gofiber/fiber/v3/middleware/session"
-	"github.com/pquerna/otp/totp"
 	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/valyala/fasthttp"
@@ -535,8 +534,14 @@ func TestGetWardenClient_NotInitialized(t *testing.T) {
 	testza.AssertNil(t, client)
 }
 
-// TestCheckUserInList_NotEnabled tests that CheckUserInList returns false when Warden is not enabled
-func TestCheckUserInList_NotEnabled(t *testing.T) {
+// userInAllowList reports whether the Warden lookup used by sign-in and code
+// sending finds an active user for the identifiers.
+func userInAllowList(ctx context.Context, phone, mail string) bool {
+	return GetUserInfo(ctx, phone, mail) != nil
+}
+
+// TestUserInAllowList_NotEnabled tests that the lookup returns false when Warden is not enabled
+func TestUserInAllowList_NotEnabled(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -547,12 +552,12 @@ func TestCheckUserInList_NotEnabled(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	result := CheckUserInList(context.TODO(), "1234567890", "test@example.com")
+	result := userInAllowList(context.TODO(), "1234567890", "test@example.com")
 	testza.AssertFalse(t, result, "should return false when Warden is not enabled")
 }
 
-// TestCheckUserInList_NoClient tests that CheckUserInList returns false when client is not initialized
-func TestCheckUserInList_NoClient(t *testing.T) {
+// TestUserInAllowList_NoClient tests that the lookup returns false when client is not initialized
+func TestUserInAllowList_NoClient(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -562,8 +567,8 @@ func TestCheckUserInList_NoClient(t *testing.T) {
 	testza.AssertNotNil(t, err)
 }
 
-// TestCheckUserInList_NilContext tests that CheckUserInList handles nil context correctly
-func TestCheckUserInList_NilContext(t *testing.T) {
+// TestUserInAllowList_NilContext tests that the lookup handles nil context correctly
+func TestUserInAllowList_NilContext(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -574,12 +579,12 @@ func TestCheckUserInList_NilContext(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	result := CheckUserInList(context.TODO(), "1234567890", "test@example.com")
+	result := userInAllowList(context.TODO(), "1234567890", "test@example.com")
 	testza.AssertFalse(t, result, "should return false with nil context when Warden is not enabled")
 }
 
-// TestCheckUserInList_EmptyPhoneAndMail tests that CheckUserInList handles empty phone and mail
-func TestCheckUserInList_EmptyPhoneAndMail(t *testing.T) {
+// TestUserInAllowList_EmptyPhoneAndMail tests that the lookup handles empty phone and mail
+func TestUserInAllowList_EmptyPhoneAndMail(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -590,7 +595,7 @@ func TestCheckUserInList_EmptyPhoneAndMail(t *testing.T) {
 	// Reset client to nil for this test
 	wardenClient = nil
 
-	result := CheckUserInList(context.TODO(), "", "")
+	result := userInAllowList(context.TODO(), "", "")
 	testza.AssertFalse(t, result, "should return false when Warden is not enabled")
 }
 
@@ -749,8 +754,8 @@ func TestInitWardenClient_Success(t *testing.T) {
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 }
 
-// TestCheckUserInList_Success_WithPhone tests CheckUserInList with valid phone when Warden is enabled
-func TestCheckUserInList_Success_WithPhone(t *testing.T) {
+// TestUserInAllowList_Success_WithPhone tests the lookup with valid phone when Warden is enabled
+func TestUserInAllowList_Success_WithPhone(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -822,12 +827,12 @@ func TestCheckUserInList_Success_WithPhone(t *testing.T) {
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with valid phone
-	result := CheckUserInList(context.Background(), "13800138000", "")
+	result := userInAllowList(context.Background(), "13800138000", "")
 	testza.AssertTrue(t, result, "should return true for valid phone")
 }
 
-// TestCheckUserInList_PhoneWithSpaces 验证带空格的手机号（如系统自动填充 "138 0013 8000"）会被规范化后与 Warden 比对
-func TestCheckUserInList_PhoneWithSpaces(t *testing.T) {
+// TestUserInAllowList_PhoneWithSpaces 验证带空格的手机号（如系统自动填充 "138 0013 8000"）会被规范化后与 Warden 比对
+func TestUserInAllowList_PhoneWithSpaces(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -871,12 +876,12 @@ func TestCheckUserInList_PhoneWithSpaces(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertNoError(t, InitWardenClient(testLogger()))
 
-	result := CheckUserInList(context.Background(), "138 0013 8000", "")
+	result := userInAllowList(context.Background(), "138 0013 8000", "")
 	testza.AssertTrue(t, result, "should return true when phone has spaces (normalized to 13800138000)")
 }
 
-// TestCheckUserInList_Success_WithMail tests CheckUserInList with valid email when Warden is enabled
-func TestCheckUserInList_Success_WithMail(t *testing.T) {
+// TestUserInAllowList_Success_WithMail tests the lookup with valid email when Warden is enabled
+func TestUserInAllowList_Success_WithMail(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -948,12 +953,12 @@ func TestCheckUserInList_Success_WithMail(t *testing.T) {
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with valid email
-	result := CheckUserInList(context.Background(), "", "user2@example.com")
+	result := userInAllowList(context.Background(), "", "user2@example.com")
 	testza.AssertTrue(t, result, "should return true for valid email")
 }
 
-// TestCheckUserInList_Success_WithBoth tests CheckUserInList with both phone and email when Warden is enabled
-func TestCheckUserInList_Success_WithBoth(t *testing.T) {
+// TestUserInAllowList_Success_WithBoth tests the lookup with both phone and email when Warden is enabled
+func TestUserInAllowList_Success_WithBoth(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1032,13 +1037,13 @@ func TestCheckUserInList_Success_WithBoth(t *testing.T) {
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with both phone and email (should match by phone first)
-	// When both are provided, CheckUserInList prioritizes phone, so it will call GetUserByIdentifier with phone only
-	result := CheckUserInList(context.Background(), "13800138000", "user1@example.com")
+	// When both are provided, the lookup prioritizes phone, so it will call GetUserByIdentifier with phone only
+	result := userInAllowList(context.Background(), "13800138000", "user1@example.com")
 	testza.AssertTrue(t, result, "should return true when user exists")
 }
 
-// TestCheckUserInList_Success_WithBoth_FallbackToMail tests CheckUserInList fallback to mail when phone is not found
-func TestCheckUserInList_Success_WithBoth_FallbackToMail(t *testing.T) {
+// TestUserInAllowList_Success_WithBoth_FallbackToMail tests the lookup fallback to mail when phone is not found
+func TestUserInAllowList_Success_WithBoth_FallbackToMail(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1100,12 +1105,12 @@ func TestCheckUserInList_Success_WithBoth_FallbackToMail(t *testing.T) {
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with phone that doesn't exist but mail that does (should fallback to mail)
-	result := CheckUserInList(context.Background(), "99999999999", "user2@example.com")
+	result := userInAllowList(context.Background(), "99999999999", "user2@example.com")
 	testza.AssertTrue(t, result, "should return true when phone not found but mail exists (fallback)")
 }
 
-// TestCheckUserInList_Failure_UserNotInList tests CheckUserInList when user is not in list
-func TestCheckUserInList_Failure_UserNotInList(t *testing.T) {
+// TestUserInAllowList_Failure_UserNotInList tests the lookup when user is not in list
+func TestUserInAllowList_Failure_UserNotInList(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1156,12 +1161,12 @@ func TestCheckUserInList_Failure_UserNotInList(t *testing.T) {
 	testza.AssertNotNil(t, wardenClient, "Warden client should be initialized")
 
 	// Test with user not in list
-	result := CheckUserInList(context.Background(), "99999999999", "")
+	result := userInAllowList(context.Background(), "99999999999", "")
 	testza.AssertFalse(t, result, "should return false when user is not in list")
 }
 
-// TestCheckUserInList_WithContext tests CheckUserInList with a custom context
-func TestCheckUserInList_WithContext(t *testing.T) {
+// TestUserInAllowList_WithContext tests the lookup with a custom context
+func TestUserInAllowList_WithContext(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1227,7 +1232,7 @@ func TestCheckUserInList_WithContext(t *testing.T) {
 	// Test with custom context
 	type contextKey string
 	ctx := context.WithValue(context.Background(), contextKey("test"), "value")
-	result := CheckUserInList(ctx, "13800138000", "")
+	result := userInAllowList(ctx, "13800138000", "")
 	testza.AssertTrue(t, result, "should return true for valid phone with custom context")
 }
 
@@ -1476,24 +1481,4 @@ func TestSafeContext_Invalid(t *testing.T) {
 		safe := safeContext(panicContext{})
 		testza.AssertNil(t, safe.Value("key"))
 	})
-}
-
-func TestVerifyOTP_Valid(t *testing.T) {
-	secret := "JBSWY3DPEHPK3PXP"
-	code, err := totp.GenerateCode(secret, time.Now().UTC())
-	testza.AssertNoError(t, err)
-
-	testza.AssertTrue(t, VerifyOTP(secret, code))
-}
-
-func TestVerifyOTP_EmptySecret(t *testing.T) {
-	testza.AssertFalse(t, VerifyOTP("", "123456"))
-}
-
-func TestVerifyOTP_EmptyCode(t *testing.T) {
-	testza.AssertFalse(t, VerifyOTP("JBSWY3DPEHPK3PXP", ""))
-}
-
-func TestVerifyOTP_InvalidLength(t *testing.T) {
-	testza.AssertFalse(t, VerifyOTP("JBSWY3DPEHPK3PXP", "12345"))
 }
