@@ -276,6 +276,27 @@ func validateRedisSettings() error {
 	if SessionStorageEnabled.ToBool() && strings.TrimSpace(SessionStorageRedisAddr.Value) == "" {
 		return strictValidationError(&SessionStorageRedisAddr, "must be set when Redis session storage is enabled")
 	}
+	username := SessionStorageRedisUsername.Value
+	if username != strings.TrimSpace(username) || strings.ContainsAny(username, " \t\r\n") {
+		return strictValidationError(&SessionStorageRedisUsername, "must not contain whitespace")
+	}
+	// Redis authenticates only when a password is sent, so a user name on its
+	// own would silently connect as the default user.
+	if username != "" && SessionStorageRedisPassword.Value == "" {
+		return strictValidationError(&SessionStorageRedisUsername, "requires SESSION_STORAGE_REDIS_PASSWORD")
+	}
+	// A CA file or server name without TLS would be ignored and the connection
+	// would stay unencrypted.
+	if !SessionStorageRedisTLSEnabled.ToBool() {
+		for _, variable := range []*EnvVariable{&SessionStorageRedisTLSCACertFile, &SessionStorageRedisTLSServerName} {
+			if variable.Value != "" {
+				return strictValidationError(variable, "requires SESSION_STORAGE_REDIS_TLS_ENABLED=true")
+			}
+		}
+	}
+	if name := SessionStorageRedisTLSServerName.Value; name != "" && net.ParseIP(name) == nil && !validDNSName(name) {
+		return strictValidationError(&SessionStorageRedisTLSServerName, "must be a DNS name or IP address")
+	}
 	return nil
 }
 

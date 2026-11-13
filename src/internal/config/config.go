@@ -376,6 +376,42 @@ var (
 		Validator:      ValidateAny,
 	}
 
+	// SessionStorageRedisUsername is the Redis ACL user. Empty selects the
+	// default user, which is what a password-only Redis expects.
+	SessionStorageRedisUsername = EnvVariable{
+		Name:           "SESSION_STORAGE_REDIS_USERNAME",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	// SessionStorageRedisTLSEnabled makes the Redis connection use TLS and
+	// verify the server certificate.
+	SessionStorageRedisTLSEnabled = EnvVariable{
+		Name:           "SESSION_STORAGE_REDIS_TLS_ENABLED",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
+	SessionStorageRedisTLSCACertFile = EnvVariable{
+		Name:           "SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
+	SessionStorageRedisTLSServerName = EnvVariable{
+		Name:           "SESSION_STORAGE_REDIS_TLS_SERVER_NAME",
+		Required:       false,
+		DefaultValue:   "",
+		PossibleValues: []string{"*"},
+		Validator:      ValidateAny,
+	}
+
 	AuditLogEnabled = EnvVariable{
 		Name:           "AUDIT_LOG_ENABLED",
 		Required:       false,
@@ -663,7 +699,7 @@ func loadConfiguration() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldClientIPHeader, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID, &LoginUniformResponses, &LoginUniformResendCooldown}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldClientIPHeader, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &SessionStorageRedisUsername, &SessionStorageRedisTLSEnabled, &SessionStorageRedisTLSCACertFile, &SessionStorageRedisTLSServerName, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID, &LoginUniformResponses, &LoginUniformResendCooldown}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()

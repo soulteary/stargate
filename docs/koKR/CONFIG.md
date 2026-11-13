@@ -327,6 +327,10 @@ PORT=8080
 | `SESSION_STORAGE_REDIS_PASSWORD` | 비밀값 | 비어 있음 | Redis 비밀번호 |
 | `SESSION_STORAGE_REDIS_DB` | 정수 | 0 | Redis DB |
 | `SESSION_STORAGE_REDIS_KEY_PREFIX` | 문자열 | `stargate:session:` | Redis 키 접두사 |
+| `SESSION_STORAGE_REDIS_USERNAME` | 문자열 | 비어 있음 | Redis ACL 사용자. `SESSION_STORAGE_REDIS_PASSWORD` 필요 |
+| `SESSION_STORAGE_REDIS_TLS_ENABLED` | true/false | false | Redis 연결에 TLS를 사용하고 서버 인증서를 검증 |
+| `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE` | 경로 | 비어 있음 | Redis용 사용자 지정 CA. `SESSION_STORAGE_REDIS_TLS_ENABLED=true` 필요 |
+| `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` | 문자열 | 비어 있음 | Redis의 예상 TLS 서버 이름. `SESSION_STORAGE_REDIS_TLS_ENABLED=true` 필요 |
 | `AUDIT_LOG_ENABLED` | true/false | true | 감사 로그 |
 | `AUDIT_LOG_FORMAT` | json/text | json | 감사 로그 형식 |
 | `STEP_UP_ENABLED` | true/false | false | 추가 인증 |
