@@ -27,7 +27,7 @@ func TestAuthenticationConfigurationRejectsIncompleteTrust(t *testing.T) {
 		{"short exchange secret", map[*EnvVariable]string{&SessionExchangeSecret: "short"}, validatePasswordSettings, SessionExchangeSecret.Name},
 		{"password mode without password", nil, validatePasswordSettings, Passwords.Name},
 		{"header password without password", map[*EnvVariable]string{&WardenEnabled: "true", &PasswordHeaderAuthEnabled: "true"}, validatePasswordSettings, PasswordHeaderAuthEnabled.Name},
-		{"step-up without password", map[*EnvVariable]string{&WardenEnabled: "true", &StepUpEnabled: "true"}, validatePasswordSettings, StepUpEnabled.Name},
+		{"step-up without password or Herald", map[*EnvVariable]string{&WardenEnabled: "true", &StepUpEnabled: "true"}, validatePasswordSettings, StepUpEnabled.Name},
 		{"Warden URL absent", map[*EnvVariable]string{&WardenEnabled: "true"}, validateServiceSettings, WardenURL.Name},
 		{"unpaired Warden HMAC", map[*EnvVariable]string{&WardenHMACKeyID: "primary"}, validateServiceSettings, WardenHMACSecret.Name},
 		{"unpaired Warden mTLS", map[*EnvVariable]string{&WardenTLSClientCert: "client.pem"}, validateServiceSettings, WardenTLSClientCert.Name},
@@ -49,6 +49,19 @@ func TestAuthenticationConfigurationRejectsIncompleteTrust(t *testing.T) {
 			require.Equal(t, tc.key, err.(*ValidationError).KeyName)
 		})
 	}
+}
+
+// Warden sessions re-authenticate through Herald, so step-up does not need the
+// shared password when Herald is enabled.
+func TestStepUpAcceptsHeraldInsteadOfPassword(t *testing.T) {
+	variables := []*EnvVariable{&Passwords, &WardenEnabled, &StepUpEnabled, &HeraldEnabled, &PasswordHeaderAuthEnabled, &SessionExchangeSecret}
+	for _, v := range variables {
+		previous := v.Value
+		t.Cleanup(func() { v.Value = previous })
+		v.Value = ""
+	}
+	WardenEnabled.Value, StepUpEnabled.Value, HeraldEnabled.Value = "true", "true", "true"
+	require.NoError(t, validatePasswordSettings())
 }
 
 func TestDNSLabelsRejectMalformedNames(t *testing.T) {

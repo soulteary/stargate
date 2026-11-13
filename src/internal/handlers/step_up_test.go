@@ -9,6 +9,7 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
+	"github.com/gofiber/template/html/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )
@@ -45,7 +46,7 @@ func TestStepUpRouteRequiresAuthentication(t *testing.T) {
 func TestStepUpRouteEscapesCallbackInForm(t *testing.T) {
 	setupStepUpTest(t)
 	store := setupTestStore()
-	app := fiber.New()
+	app := fiber.New(fiber.Config{Views: html.New("../web/templates", ".html")})
 	app.Get("/_step_up", StepUpRoute(store))
 
 	seedCtx, seedApp := createTestContext("GET", "/", nil, "")

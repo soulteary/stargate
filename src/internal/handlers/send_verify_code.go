@@ -214,17 +214,7 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 			Channel:     channel,
 			Destination: destination,
 		}
-		stored, err := getChallengeContextStore().PutIfAbsent(ctx.Context(), binding, challengeContextTTL(createResp.ExpiresIn))
-		if err == nil && !stored {
-			var existing challengeContext
-			var found bool
-			existing, found, err = getChallengeContextStore().Get(ctx.Context(), createResp.ChallengeID)
-			if err == nil && (!found || existing.ChallengeID != binding.ChallengeID || existing.UserID != binding.UserID || existing.Channel != binding.Channel ||
-				!sameVerificationDestination(binding.Channel, existing.Destination, binding.Destination)) {
-				err = fmt.Errorf("verification context conflict")
-			}
-		}
-		if err != nil {
+		if err := bindChallengeContext(ctx.Context(), binding, createResp.ExpiresIn); err != nil {
 			log.Error().Err(err).Str("challenge_id", createResp.ChallengeID).Msg("Failed to persist challenge audit context")
 			tracing.RecordError(heraldSpan, fmt.Errorf("verification context unavailable"))
 			return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), "binding_unavailable")
@@ -244,6 +234,23 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 
 		return sendChallengeCreated(ctx, createResp)
 	}
+}
+
+// bindChallengeContext records which user, channel, destination and purpose a
+// challenge was issued for. A challenge id that is already bound must carry the
+// same binding.
+func bindChallengeContext(ctx context.Context, binding challengeContext, expiresIn int) error {
+	stored, err := getChallengeContextStore().PutIfAbsent(ctx, binding, challengeContextTTL(expiresIn))
+	if err == nil && !stored {
+		var existing challengeContext
+		var found bool
+		existing, found, err = getChallengeContextStore().Get(ctx, binding.ChallengeID)
+		if err == nil && (!found || existing.ChallengeID != binding.ChallengeID || existing.UserID != binding.UserID || existing.Channel != binding.Channel ||
+			existing.Purpose != binding.Purpose || !sameVerificationDestination(binding.Channel, existing.Destination, binding.Destination)) {
+			err = fmt.Errorf("verification context conflict")
+		}
+	}
+	return err
 }
 
 func verificationSelectionError(ctx fiber.Ctx, deliverVia, selectionReason string) error {

@@ -22,12 +22,6 @@ const (
 	totpEnrollmentStartedKey = "totp_enrollment_started_at"
 )
 
-func hasRecentAuthentication(sess *session.Session) bool {
-	authenticatedAt, ok := sess.Get("created_at").(int64)
-	age := time.Since(time.Unix(authenticatedAt, 0))
-	return ok && age >= 0 && age <= totpEnrollmentValidity
-}
-
 func clearTOTPEnrollment(sess *session.Session) {
 	sess.Delete(totpEnrollmentIDKey)
 	sess.Delete(totpEnrollmentSubjectKey)
@@ -35,7 +29,8 @@ func clearTOTPEnrollment(sess *session.Session) {
 }
 
 // TOTPEnrollPageRoute renders a safe confirmation page. Enrollment state is
-// created only by the same-origin POST /totp/enroll action.
+// created only by the same-origin POST /totp/enroll action. The page asks for
+// the session's re-authentication proof unless a recent one is on record.
 func TOTPEnrollPageRoute(store *session.Store) func(c fiber.Ctx) error {
 	return func(ctx fiber.Ctx) error {
 		sess, err := store.Get(ctx)
@@ -49,10 +44,14 @@ func TOTPEnrollPageRoute(store *session.Store) func(c fiber.Ctx) error {
 		if allowed, err := authorizeSensitiveSession(ctx, store, sess); !allowed {
 			return err
 		}
-		if !hasRecentAuthentication(sess) {
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "recent authentication required")
+		proof := reauthProofNone
+		if !reauthenticatedRecently(sess) {
+			var failure *reauthFailure
+			if proof, failure = requiredReauthProof(ctx.Context(), sess); failure != nil {
+				return SendErrorResponse(ctx, failure.status, failure.message)
+			}
 		}
-		return ctx.Render("totp_start", authenticationView(ctx, "bind"))
+		return ctx.Render("totp_start", reauthView(authenticationView(ctx, "bind"), proof))
 	}
 }
 
@@ -71,12 +70,22 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 		if allowed, err := authorizeSensitiveSession(ctx, store, sess); !allowed {
 			return err
 		}
-		if !hasRecentAuthentication(sess) {
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "recent authentication required")
-		}
 		userID, _ := sess.Get("user_id").(string)
 		if userID == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, "user_id not in session")
+		}
+		// A session cookie and a recent login are not enough to bind a new
+		// factor: the request must carry the user's own proof, or follow one.
+		if !reauthenticatedRecently(sess) {
+			if failure := reauthenticate(ctx, sess); failure != nil {
+				if failure == reauthFailed {
+					auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionEnrolled, ctx.IP(), false, "reauthentication_failed")
+				}
+				return SendErrorResponse(ctx, failure.status, failure.message)
+			}
+			if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
+			}
 		}
 		label, _ := sess.Get("user_mail").(string)
 		if label == "" {
@@ -143,7 +152,9 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 		if allowed, err := authorizeSensitiveSession(ctx, store, sess); !allowed {
 			return err
 		}
-		if !hasRecentAuthentication(sess) {
+		if !reauthenticatedRecently(sess) {
+			userID, _ := sess.Get("user_id").(string)
+			auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionEnrolled, ctx.IP(), false, "reauthentication_required")
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "recent_authentication_required"})
 		}
 		enrollID := ctx.FormValue("enroll_id")

@@ -851,11 +851,13 @@ Audit log output format.
 
 ### Step-up Authentication (Optional)
 
-Require password re-authentication for selected paths.
+Require re-authentication for selected paths. A Warden user proves it with a current TOTP code when TOTP is enrolled, otherwise with a one-time code sent through Herald to the contact registered in Warden. Only a session created with the shared password re-enters `PASSWORDS`.
 
 #### `STEP_UP_ENABLED`
 
-Enable step-up authentication.
+Enable step-up authentication. Requires `PASSWORDS` or `HERALD_ENABLED=true`.
+
+When `WARDEN_ENABLED=true`, `HERALD_ENABLED=true` and `PASSWORDS` are all set, a session created by the shared-password login still passes step-up with that password, and Stargate logs a warning at startup. Remove `PASSWORDS` to require a per-user proof for every session.
 
 | Attribute | Value |
 |-----------|-------|
@@ -989,8 +991,9 @@ The same rule applies to `RATE_LIMIT_VERIFICATION_MAX`.
 
 #### `RATE_LIMIT_VERIFICATION_MAX`
 
-Maximum number of requests one client may send to `/_send_verify_code` and the
-TOTP enrollment and revocation endpoints within `RATE_LIMIT_WINDOW`. Set it to
+Maximum number of requests one client may send to `/_send_verify_code`,
+`/_send_reauth_code` and the TOTP enrollment and revocation endpoints within
+`RATE_LIMIT_WINDOW`. Set it to
 `0` to disable the verification quota.
 
 | Attribute | Value |
@@ -1291,7 +1294,7 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
   - When `SESSION_STORAGE_ENABLED=true`, Redis must be reachable (default `SESSION_STORAGE_REDIS_ADDR=localhost:6379`)
 
 - **Step-up Authentication**:
-  - When `STEP_UP_ENABLED=true`, use `STEP_UP_PATHS` to define paths that require an additional password verification; this is not a separate authentication factor
+  - When `STEP_UP_ENABLED=true`, use `STEP_UP_PATHS` to define paths that require re-authentication. Warden users confirm with their TOTP code or a delivered one-time code; sessions created with the shared password confirm with that password, which is not a separate authentication factor
 
 - **Auth Refresh**:
   - Authorization refresh is enabled by default for Warden sessions; it is a no-op in standalone password mode. Use `AUTH_REFRESH_INTERVAL` to tune the refresh interval or set `AUTH_REFRESH_ENABLED=false` only when delayed revocation is acceptable.

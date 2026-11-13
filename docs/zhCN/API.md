@@ -370,6 +370,10 @@ Logged out
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+### `POST /_send_reauth_code`
+
+向会话用户在 Warden 中登记的联系方式发送一次性验证码，用于 step-up、TOTP 绑定和解绑前的再次认证。需要会话 Cookie；可选的 `deliver_via` 只选择通道，目标地址始终取自 Warden。响应格式与 `POST /_send_verify_code` 相同。该验证码绑定到发起请求的会话，不能用于登录。
+
 ## Step-up 二次认证端点
 
 ### `GET /_step_up`

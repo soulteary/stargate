@@ -141,45 +141,43 @@ func LogLogout(ctx context.Context, userID, ip string) {
 
 // LogVerifyCodeSend records a verification code send event
 func LogVerifyCodeSend(ctx context.Context, userID, challengeID, channel, destination, ip string, success bool, reason string) {
-	l := GetLogger()
-	if l == nil {
-		return
-	}
-
-	eventType := audit.EventSendSuccess
-	result := audit.ResultSuccess
-	if !success {
-		eventType = audit.EventSendFailed
-		result = audit.ResultFailure
-	}
-
-	l.LogChallenge(ctx, eventType, challengeID, userID, result,
-		audit.WithRecordChannel(channel),
-		audit.WithRecordDestination(destination),
-		audit.WithRecordPurpose("login"),
-		audit.WithRecordIP(ip),
-		audit.WithRecordReason(reason),
-	)
+	logChallengeEvent(ctx, audit.EventSendSuccess, audit.EventSendFailed, "login", userID, challengeID, channel, destination, ip, success, reason)
 }
 
 // LogVerifyCodeCheck records a verification code check event
 func LogVerifyCodeCheck(ctx context.Context, userID, challengeID, channel, destination, ip string, success bool, reason string) {
+	logChallengeEvent(ctx, audit.EventVerificationSuccess, audit.EventVerificationFailed, "login", userID, challengeID, channel, destination, ip, success, reason)
+}
+
+// LogReauthCodeSend records a code sent to re-authenticate an existing
+// session. It uses the send events of LogVerifyCodeSend with purpose "reauth".
+func LogReauthCodeSend(ctx context.Context, userID, challengeID, channel, destination, ip string, success bool, reason string) {
+	logChallengeEvent(ctx, audit.EventSendSuccess, audit.EventSendFailed, "reauth", userID, challengeID, channel, destination, ip, success, reason)
+}
+
+// LogReauthCodeCheck records the check of a re-authentication code. It uses
+// the verification events of LogVerifyCodeCheck with purpose "reauth".
+func LogReauthCodeCheck(ctx context.Context, userID, challengeID, channel, destination, ip string, success bool, reason string) {
+	logChallengeEvent(ctx, audit.EventVerificationSuccess, audit.EventVerificationFailed, "reauth", userID, challengeID, channel, destination, ip, success, reason)
+}
+
+func logChallengeEvent(ctx context.Context, onSuccess, onFailure audit.EventType, purpose, userID, challengeID, channel, destination, ip string, success bool, reason string) {
 	l := GetLogger()
 	if l == nil {
 		return
 	}
 
-	eventType := audit.EventVerificationSuccess
+	eventType := onSuccess
 	result := audit.ResultSuccess
 	if !success {
-		eventType = audit.EventVerificationFailed
+		eventType = onFailure
 		result = audit.ResultFailure
 	}
 
 	l.LogChallenge(ctx, eventType, challengeID, userID, result,
 		audit.WithRecordChannel(channel),
 		audit.WithRecordDestination(destination),
-		audit.WithRecordPurpose("login"),
+		audit.WithRecordPurpose(purpose),
 		audit.WithRecordIP(ip),
 		audit.WithRecordReason(reason),
 	)

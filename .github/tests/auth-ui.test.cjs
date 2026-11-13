@@ -38,10 +38,10 @@ test('stable reasons take precedence and natural language is never parsed',()=>{
 function fixture(fetch, kind='confirm'){
  const elements={}, windowEvents={}, navigations=[];
  function el(id){return elements[id]={id,hidden:false,disabled:false,dataset:{},value:'123456',checked:false,textContent:'',children:[],events:{},classList:{add(){},remove(){}},setAttribute(){},removeAttribute(){},focus(){},addEventListener(k,fn){this.events[k]=fn;},querySelector(){return elements.code;},querySelectorAll(){return [elements.code,elements.button];},replaceChildren(){this.children=[];},appendChild(child){this.children.push(child);}};}
- const config=el('auth-ui-config');config.dataset={locale:'en',messages:JSON.stringify({authentication_failed:'auth failed',rate_limited:'wait',unknown_result:'unknown',format:'format',secret_cleared:'cleared',backup_hint:'save'})};
- el('error-container');el('code');el('button');const form=el(kind==='confirm'?'confirmForm':'passwordOnlyForm');form.action='https://auth.example/totp/enroll/confirm';el('backupCodes').hidden=true;el('backupCodesList');el('copyCodes');el('downloadCodes');el('codesSaved');el('savedHome');el('backupHint');
+ const config=el('auth-ui-config');config.dataset={locale:'en',messages:JSON.stringify({sent:'sent',send:'send',sending:'sending',authentication_failed:'auth failed',rate_limited:'wait',unknown_result:'unknown',format:'format',secret_cleared:'cleared',backup_hint:'save'})};
+ el('error-container');el('code');el('button');const form=el(kind==='confirm'?'confirmForm':'passwordOnlyForm');form.action='https://auth.example/totp/enroll/confirm';el('backupCodes').hidden=true;el('backupCodesList');el('copyCodes');el('downloadCodes');el('codesSaved');el('savedHome');el('backupHint');el('reauthSendBtn');el('deliver_via').value='email';
  let copied=[];const win={document:{getElementById:id=>elements[id]||null,querySelectorAll:()=>[],createElement:()=>({textContent:''})},location:{href:'https://auth.example/totp/enroll',origin:'https://auth.example',assign:url=>navigations.push(url)},fetch,setTimeout:()=>1,clearTimeout(){},addEventListener:(name,fn)=>{(windowEvents[name] ||= []).push(fn);},navigator:{clipboard:{writeText:async value=>{copied.push(value);}}}};
- vm.runInNewContext(fs.readFileSync(script,'utf8'),{window:win,AbortController,URL,Blob,FormData:class{constructor(){}}});return {elements,form,copied,navigations,dispatch:(name,event)=>{for(const fn of windowEvents[name]||[])fn(event||{});}};
+ vm.runInNewContext(fs.readFileSync(script,'utf8'),{window:win,AbortController,URL,Blob,FormData:class{constructor(){this.fields={};}set(k,v){this.fields[k]=v;}}});return {elements,form,copied,navigations,dispatch:(name,event)=>{for(const fn of windowEvents[name]||[])fn(event||{});}};
 }
 test('actual confirmation listener sends once during double submit and restores after 429',async()=>{
  let resolve;let calls=0;const f=fixture(()=>{calls++;return new Promise(r=>{resolve=r;});});const event={preventDefault(){}};
@@ -86,4 +86,13 @@ test('fresh confirmation after page restore re-enables only the newly received b
  await f.elements.copyCodes.events.click();assert.deepEqual(f.copied,['NEWC-ODES-ONLY-HERE']);
  f.elements.codesSaved.checked=true;f.elements.codesSaved.events.change();assert.equal(f.elements.savedHome.hidden,false);
  f.dispatch('pagehide');f.dispatch('pageshow',{persisted:true});assert.equal(f.elements.copyCodes.disabled,true);assert.equal(f.elements.codesSaved.checked,false);assert.equal(f.elements.savedHome.hidden,true);
+});
+test('re-authentication send posts only the channel, once, and reports the outcome',async()=>{
+ let resolve;const calls=[];const f=fixture((url,init)=>{calls.push({url:new URL(url),fields:init.body.fields});return new Promise(r=>{resolve=r;});});
+ const button=f.elements.reauthSendBtn;const first=button.events.click();await button.events.click();
+ assert.equal(calls.length,1);assert.equal(calls[0].url.pathname,'/_send_reauth_code');assert.deepEqual(calls[0].fields,{deliver_via:'email'});assert.equal(button.disabled,true);
+ resolve({ok:true,status:200,type:'basic',json:async()=>({success:true,challenge_id:'c1'})});await first;
+ assert.equal(f.elements['error-container'].textContent,'sent');assert.equal(button.disabled,false);assert.equal(button.textContent,'send');
+ const second=button.events.click();resolve({ok:false,status:429,type:'basic',json:async()=>({success:false,reason:'rate_limited'})});await second;
+ assert.equal(f.elements['error-container'].textContent,'wait');assert.equal(calls.length,2);
 });

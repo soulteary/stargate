@@ -14,6 +14,52 @@ This file records user-visible changes. For upgrade steps and configuration exam
   empty: no header is sent and all users share one per-IP quota at Herald, as
   before.
 
+### Security
+
+- TOTP enrollment now requires a per-user proof. `GET`/`POST /totp/enroll` and
+  `POST /totp/enroll/confirm` were allowed for any session created in the last
+  10 minutes, so a session cookie stolen shortly after login could bind an
+  attacker's authenticator and obtain backup codes. Enrollment now needs a
+  current TOTP code or a one-time code sent to the contact registered in
+  Warden, at most 5 minutes old. Users see a "send code" step before "Start
+  setup"; sessions older than 10 minutes can now enroll after that step.
+- Step-up (`/_step_up`) and `POST /totp/revoke` no longer accept the shared
+  `PASSWORDS` secret for a session that belongs to a Warden user. The proof is
+  a current TOTP code when the user has TOTP enrolled, otherwise a one-time
+  code sent through Herald to the contact registered in Warden. Only sessions
+  created with the shared password still confirm with it. A failed step-up
+  proof is recorded in the audit log as `login_failed` with method `step_up`.
+- Add `POST /_send_reauth_code`, which sends that one-time code. The
+  destination always comes from Warden. The route is same-origin protected and
+  counted against `RATE_LIMIT_VERIFICATION_MAX`. The code is bound to the
+  requesting session and cannot be used to sign in.
+
+### Changed
+
+- `STEP_UP_ENABLED=true` is now accepted without `PASSWORDS` when
+  `HERALD_ENABLED=true`. When Warden, Herald and `PASSWORDS` are all enabled,
+  Stargate logs a startup warning: a session created with the shared password
+  still passes step-up with that password.
+- The step-up page uses the same template, styles and translations as the
+  other account pages (`step_up.html`).
+
+### Upgrade notes
+
+- Warden deployments with step-up: users are now asked for their TOTP code or
+  a delivered code instead of the shared password. Each delivered code counts
+  against Herald's per-user, per-destination and resend limits, and its message
+  reads as a sign-in code because Herald is called with purpose `login`.
+- A user with TOTP enrolled who has lost the authenticator and backup codes can
+  no longer pass step-up or remove TOTP with the shared password. Remove the
+  factor in Herald for that user.
+- Password-only deployments (`WARDEN_ENABLED=false`) behave as before.
+- Deployments that serve their own template directory must add `step_up.html`
+  and update `totp_start.html` and `totp_revoke.html` from this release;
+  otherwise `/_step_up` cannot render and the other two pages lack the proof
+  fields. The official image ships the updated templates.
+- Clients that call `POST /totp/revoke` with `password`, or `POST /_step_up`
+  with `password` for a Warden session, must send `code` instead.
+
 ## [1.3.8] - 2026-11-13
 
 ### Changed

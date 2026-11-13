@@ -499,7 +499,8 @@ func (identity *loginIdentity) verifyChallenge(ctx fiber.Ctx, loginCtx context.C
 		return false, SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.herald_unavailable"))
 	}
 
-	if !identity.matchesLoginChallenge(challengeID, auditContext) {
+	// A context with a purpose belongs to another flow, such as re-authentication.
+	if auditContext.Purpose != "" || !identity.matchesLoginChallenge(challengeID, auditContext) {
 		return false, SendErrorResponse(ctx, fiber.StatusUnauthorized, i18n.T(ctx, "error.verify_failed"))
 	}
 	verifyReq := &herald.VerifyChallengeV2Request{

@@ -7,7 +7,7 @@ import (
 )
 
 func TestBuiltInResourcesAreExplicitAndScoped(t *testing.T) {
-	for _, name := range []string{"login.html", "login.warden.html", "account.html", "totp_start.html", "totp_enroll.html", "totp_revoke.html"} {
+	for _, name := range []string{"login.html", "login.warden.html", "account.html", "totp_start.html", "totp_enroll.html", "totp_revoke.html", "step_up.html"} {
 		if data, err := fs.ReadFile(Templates(), name); err != nil || !strings.Contains(string(data), "auth-ui.js") {
 			t.Fatalf("template %s unavailable: %v", name, err)
 		}

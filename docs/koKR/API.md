@@ -350,6 +350,10 @@ Logged out
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+### `POST /_send_reauth_code`
+
+세션 사용자에 대해 Warden에 등록된 연락처로 일회용 코드를 보냅니다. step-up, TOTP 등록 및 해제 전의 재인증에 사용합니다. 세션 쿠키가 필요합니다. 선택 항목 `deliver_via`는 채널만 선택하며 대상은 항상 Warden에서 가져옵니다. 응답 형식은 `POST /_send_verify_code`와 같습니다. 코드는 요청한 세션에 바인딩되며 로그인에 사용할 수 없습니다.
+
 ## Step-up 인증 엔드포인트
 
 ### `GET /_step_up`

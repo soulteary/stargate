@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
+	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,6 +19,7 @@ import (
 func TestTOTPRevokeRequiresHeraldConfirmation(t *testing.T) {
 	originalHerald := heraldClient
 	t.Cleanup(func() { heraldClient = originalHerald })
+	setConfigValue(t, &config.HeraldTOTPEnabled, "true")
 
 	for _, tc := range []struct {
 		name       string
@@ -32,6 +34,10 @@ func TestTOTPRevokeRequiresHeraldConfirmation(t *testing.T) {
 			revokeCalls := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
+				if strings.HasSuffix(r.URL.Path, "/status") {
+					_ = json.NewEncoder(w).Encode(map[string]any{"totp_enabled": true})
+					return
+				}
 				if strings.HasSuffix(r.URL.Path, "/verify") {
 					_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
 					return
