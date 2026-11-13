@@ -561,6 +561,28 @@ func warnUnattributableRateLimits() {
 // it must never protect an HTTPS deployment.
 const PublishedDemoSessionExchangeSecret = "local-development-session-secret-change-me"
 
+// PublishedDemoPasswords are the plaintext passwords shipped in the
+// repository's docker-compose.yml and deployment examples. They are public, so
+// they must never protect an HTTPS deployment.
+var PublishedDemoPasswords = []string{"test1234", "test1337"}
+
+// usesPublishedDemoPassword reports whether PASSWORDS lists one of the
+// published demo passwords with the plaintext algorithm.
+func usesPublishedDemoPassword() bool {
+	algorithm, passwords, ok := ParsePasswords(Passwords.Value)
+	if !ok || algorithm != "plaintext" {
+		return false
+	}
+	for _, password := range passwords {
+		for _, demo := range PublishedDemoPasswords {
+			if password == demo {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // warnPlaintextPasswords reports PASSWORDS stored with the plaintext algorithm
 // in an HTTPS deployment. It stays a warning because existing deployments rely
 // on it; bcrypt keeps the password out of the process environment.
@@ -692,6 +714,12 @@ func validatePasswordSettings() error {
 	// local HTTP demo (COOKIE_SECURE=false) and is refused anywhere else.
 	if CookieSecure.ToBool() && strings.TrimSpace(SessionExchangeSecret.Value) == PublishedDemoSessionExchangeSecret {
 		return NewValidationError(SessionExchangeSecret.Name, "must not be the published demo value when COOKIE_SECURE is true; generate at least 32 random characters", SessionExchangeSecret.PossibleValues)
+	}
+
+	// The demo passwords are published like the demo secret. Other plaintext
+	// passwords keep the startup warning below.
+	if CookieSecure.ToBool() && usesPublishedDemoPassword() {
+		return NewValidationError(Passwords.Name, "must not contain the published demo passwords when COOKIE_SECURE is true; choose your own and store them with bcrypt", Passwords.PossibleValues)
 	}
 
 	// PASSWORDS is required when not using Warden (password-only mode). When WardenEnabled=true, pure Warden deployment may omit PASSWORDS.
