@@ -2,6 +2,7 @@
 """Create private local SMTP certificates; never modify host trust or existing keys."""
 import argparse
 from pathlib import Path
+import secrets
 import shutil
 import ssl
 import subprocess
@@ -44,8 +45,12 @@ def generate(directory):
         (directory/'smtp-key.pem').chmod(0o600)
         extension = directory/'smtp.ext'
         extension.write_text('basicConstraints=critical,CA:FALSE\nkeyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\nsubjectAltName=DNS:mailpit\n')
+        # Pass the serial on the command line. -CAcreateserial stores it in a file next to the CA
+        # first, and OpenSSL does not write a serial file whose path is 256 bytes or longer.
+        # RFC 5280 wants a positive serial of at most 20 octets.
+        serial = 1 + secrets.randbelow(2**159 - 1)
         openssl('x509', '-req', '-in', directory/'smtp.csr', '-CA', directory/'ca.pem', '-CAkey', directory/'ca-key.pem',
-                '-CAcreateserial', '-days', '365', '-sha256', '-extfile', extension, '-out', directory/'smtp-cert.pem')
+                '-set_serial', serial, '-days', '365', '-sha256', '-extfile', extension, '-out', directory/'smtp-cert.pem')
         for name in ['ca.pem', 'smtp-cert.pem']:
             (directory/name).chmod(0o644)
         openssl('verify', '-CAfile', directory/'ca.pem', '-verify_hostname', 'mailpit', directory/'smtp-cert.pem')

@@ -96,6 +96,17 @@ class ConfigurationTests(unittest.TestCase):
             self.assertNotEqual(process.returncode, 0)
             self.assertIn(reason, (process.stdout + process.stderr).lower())
 
+    def test_smtp_certificate_generation_does_not_depend_on_path_length(self):
+        # OpenSSL does not write a serial file whose path is 256 bytes or longer.
+        directory = Path(self.tmp.name).joinpath(*['d' * 60] * 5) / 'local-smtp'
+        self.assertGreater(len(os.fsencode(directory / 'ca.srl')), 256)
+        self.assertTrue(certificates.generate(directory))
+        certificates.openssl('verify', '-CAfile', directory / 'ca.pem', '-verify_hostname', 'mailpit', directory / 'smtp-cert.pem')
+        serial = subprocess.run(['openssl', 'x509', '-in', str(directory / 'smtp-cert.pem'), '-noout', '-serial'],
+                                capture_output=True, timeout=10, check=True).stdout.decode().strip()
+        self.assertRegex(serial, r'^serial=[0-9A-Fa-f]{1,40}$')
+        self.assertGreater(int(serial.partition('=')[2], 16), 0)
+
     def test_dollar_and_backslash_paths_repeat_without_mutation(self):
         self.output = Path(self.tmp.name) / 'private$path\\with-slash'
         args = self.args()
