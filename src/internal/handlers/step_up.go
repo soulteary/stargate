@@ -166,7 +166,7 @@ func StepUpAPI(store *session.Store) func(c fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "additional authentication failed")
 		}
 		sess.Set("step_up_verified_at", time.Now().Unix())
-		if err := sess.Save(); err != nil {
+		if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, "failed to save additional authentication")
 		}
 		return ctx.Redirect().Status(fiber.StatusFound).To(stepUpReturnURL(ctx.FormValue("callback_proto"), ctx.FormValue("callback_host"), ctx.FormValue("callback")))

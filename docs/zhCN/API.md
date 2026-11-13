@@ -484,7 +484,7 @@ Prometheus 指标，文本展示格式。用于监控认证请求、会话创建
 
 ### `GET /log/level`
 
-返回当前日志级别。使用 `PUT /log/level` 或 `POST /log/level`，通过 JSON 请求体 `{"level":"debug"}` 或查询参数 `?level=debug` 修改日志级别。Stargate 将该端点限制为仅 `127.0.0.1` 可访问，不得通过公网反向代理暴露。
+返回当前日志级别。使用 `PUT /log/level` 或 `POST /log/level`，通过 JSON 请求体 `{"level":"debug"}` 或查询参数 `?level=debug` 修改日志级别。Stargate 将该端点限制为仅 `127.0.0.1` 可访问，不得通过公网反向代理暴露。自 v1.3.7 起，携带 `X-Forwarded-For`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`Forwarded` 或 `X-Real-IP` 任一请求头的请求会得到 `404 Not Found`，`PUT`/`POST` 还要通过跨站写入检查（否则为 `403 Forbidden`）。该检查依赖代理添加转发请求头，不添加这些请求头的同机代理无法被识别。
 
 ## 根端点
 

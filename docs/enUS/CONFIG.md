@@ -295,6 +295,10 @@ PROXY_HEADER=X-Forwarded-For
 
 Configure the narrowest proxy addresses possible. The proxy must remove client-supplied forwarding headers and write its own values before forwarding the request.
 
+Every element of the client-IP header must be a bare IPv4 or IPv6 address. Since v1.3.7 (Fiber v3.7.0) Stargate reads the header from right to left and stops at the first element that is not one, such as `203.0.113.7:51234` or `unknown`. The client is then taken to be the nearest trusted proxy, so all users behind that proxy share one login and verification rate limit and appear under the proxy address in audit records. Earlier versions skipped such an element and used the next one to its left.
+
+Send forwarding headers and browser headers such as `Origin` in the header section of the request. Since v1.3.7 a field sent as an HTTP trailer is not read as a header, and a request that announces more than 16 trailer names is answered with `431`.
+
 ### `COOKIE_DOMAIN`
 
 Cookie domain, used for cross-domain session sharing.

@@ -4,6 +4,31 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Fixed
+
+- Step-up confirmation and the start of TOTP enrollment now confirm that the
+  session still exists after saving it. With Fiber v3.7.0 a save for a session
+  that a logout had just ended returned no error, so these requests answered
+  with a redirect or the enrollment page for a session that no longer existed.
+  They now answer `500`.
+- The login page no longer marks debug mode as active when `COOKIE_SECURE` is
+  `true`. The debug code is not relayed in that configuration since v1.3.7, so
+  the page showed an empty debug field.
+
+### Documentation
+
+- Document the client-IP header format that v1.3.7 requires. Every element of
+  `X-Forwarded-For` (or the configured `PROXY_HEADER`) must be a bare IP
+  address. Behind a trusted proxy that writes `IP:port` or `unknown`, all users
+  share one rate limit and are recorded under the proxy address. Check the
+  proxy before upgrading from v1.3.6 or earlier.
+- Document that request trailers are not read as headers since v1.3.7.
+- Document the `revoke_not_confirmed` reason and the TOTP audit events.
+- `/log/level`: the forwarding-header check cannot detect a same-host proxy
+  that adds no forwarding header. Keep the path out of every proxied route.
+- Bring the `/log/level` and `debug_code` descriptions in the `zhCN` and `deDE`
+  documents in line with v1.3.7.
+
 ## [1.3.7] - 2026-11-13
 
 ### Changed
