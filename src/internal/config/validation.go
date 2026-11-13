@@ -101,7 +101,7 @@ func (v *EnvVariable) Validate() error {
 	}
 
 	if v.Required && v.Value == "" {
-		return NewValidationError(v.Name, i18n.TStatic("error.config_required_not_set"), v.PossibleValues)
+		return NewRequiredError(v.Name, v.PossibleValues)
 	}
 
 	if !v.Validator(*v) {
@@ -205,12 +205,22 @@ func ParsePasswords(raw string) (string, []string, bool) {
 	return algorithm, passwords, true
 }
 
+// ValidationError reports one rejected setting. It describes exactly one of
+// three cases: a value that is not accepted (ProvidedValue), a required
+// setting that is missing (Missing), or a rule the setting breaks (Reason),
+// such as a dependency on another setting.
 type ValidationError struct {
 	KeyName        string
 	AcceptedValues []string
 	ProvidedValue  string
+	// Reason states the rule that is broken, as a predicate of the setting
+	// ("requires WARDEN_ENABLED=true"). It is never a configured value.
+	Reason string
+	// Missing reports a required setting that is not set.
+	Missing bool
 }
 
+// NewValidationError reports a provided value that is not accepted.
 func NewValidationError(keyName, providedValue string, acceptedValues []string) *ValidationError {
 	return &ValidationError{
 		KeyName:        keyName,
@@ -219,11 +229,40 @@ func NewValidationError(keyName, providedValue string, acceptedValues []string) 
 	}
 }
 
+// NewRuleError reports a setting that breaks a rule, for example one that
+// needs another setting or a minimum length. The reason is rendered as the
+// explanation, not as the value the operator provided.
+func NewRuleError(keyName, reason string, acceptedValues []string) *ValidationError {
+	return &ValidationError{
+		KeyName:        keyName,
+		AcceptedValues: acceptedValues,
+		Reason:         reason,
+	}
+}
+
+// NewRequiredError reports a required setting that is not set.
+func NewRequiredError(keyName string, acceptedValues []string) *ValidationError {
+	return &ValidationError{
+		KeyName:        keyName,
+		AcceptedValues: acceptedValues,
+		Missing:        true,
+	}
+}
+
 func (e ValidationError) Error() string {
 	return e.String()
 }
 
 func (e ValidationError) String() string {
+	if e.Missing {
+		return i18n.TfStatic("error.config_required", e.KeyName)
+	}
+	if e.Reason != "" {
+		// The accepted values describe the setting's own format. They say
+		// nothing about a rule that involves another setting, so they are
+		// not listed here.
+		return i18n.TfStatic("error.config_rule", e.KeyName, e.Reason)
+	}
 	if len(e.AcceptedValues) > 0 && e.AcceptedValues[0] != "*" {
 		return i18n.TfStatic("error.config_invalid_values", e.KeyName, e.ProvidedValue, e.AcceptedValues)
 	}

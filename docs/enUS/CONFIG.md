@@ -1383,6 +1383,9 @@ Stargate validates all configuration items at startup:
 2. **Format Validation**: Incorrect password configuration format will cause startup failure
 3. **Algorithm Validation**: Unsupported password algorithms will cause startup failure
 4. **Value Validation**: Some configuration items have value restrictions (e.g., `LANGUAGE`, `DEBUG`)
+5. **Rule Validation**: Some configuration items depend on others or have a minimum length or format (e.g., `HERALD_ENABLED` requires `WARDEN_ENABLED=true`)
+
+The message names the variable and states which of these cases applies. A rule is reported as the reason; it is not shown as the configured value, and configured values of secrets are never printed.
 
 **Error Examples:**
 
@@ -1395,6 +1398,13 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 # Unsupported algorithm
 Error: Configuration error: invalid value for environment variable 'PASSWORDS': 'unknown:password'
+
+# Value outside the accepted set
+Error: Configuration error: invalid value for environment variable 'DEBUG': 'maybe'.
+  Accepted values: [true false]
+
+# Rule that involves another setting
+Error: Configuration error: environment variable 'HERALD_ENABLED': requires WARDEN_ENABLED=true to resolve authenticated users.
 ```
 
 ## Configuration Dependencies

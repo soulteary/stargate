@@ -11,7 +11,7 @@ import (
 )
 
 func strictValidationError(variable *EnvVariable, reason string) error {
-	return NewValidationError(variable.Name, reason, variable.PossibleValues)
+	return NewRuleError(variable.Name, reason, variable.PossibleValues)
 }
 
 func validateNonNegativeInteger(variable *EnvVariable) error {

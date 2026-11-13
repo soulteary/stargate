@@ -686,32 +686,32 @@ func loadConfiguration() error {
 
 func validatePasswordSettings() error {
 	if SessionExchangeSecret.Value != "" && len(SessionExchangeSecret.Value) < 32 {
-		return NewValidationError(SessionExchangeSecret.Name, "must contain at least 32 characters", SessionExchangeSecret.PossibleValues)
+		return NewRuleError(SessionExchangeSecret.Name, "must contain at least 32 characters", SessionExchangeSecret.PossibleValues)
 	}
 	// The demo secret is published in this repository. It stays usable for the
 	// local HTTP demo (COOKIE_SECURE=false) and is refused anywhere else.
 	if CookieSecure.ToBool() && strings.TrimSpace(SessionExchangeSecret.Value) == PublishedDemoSessionExchangeSecret {
-		return NewValidationError(SessionExchangeSecret.Name, "must not be the published demo value when COOKIE_SECURE is true; generate at least 32 random characters", SessionExchangeSecret.PossibleValues)
+		return NewRuleError(SessionExchangeSecret.Name, "must not be the published demo value when COOKIE_SECURE is true; generate at least 32 random characters", SessionExchangeSecret.PossibleValues)
 	}
 
 	// PASSWORDS is required when not using Warden (password-only mode). When WardenEnabled=true, pure Warden deployment may omit PASSWORDS.
 	if !WardenEnabled.ToBool() && Passwords.Value == "" {
-		return NewValidationError(Passwords.Name, i18n.TStatic("error.config_required_not_set"), Passwords.PossibleValues)
+		return NewRequiredError(Passwords.Name, Passwords.PossibleValues)
 	}
 	if PasswordHeaderAuthEnabled.ToBool() && Passwords.Value == "" {
-		return NewValidationError(PasswordHeaderAuthEnabled.Name, "requires PASSWORDS", PasswordHeaderAuthEnabled.PossibleValues)
+		return NewRuleError(PasswordHeaderAuthEnabled.Name, "requires PASSWORDS", PasswordHeaderAuthEnabled.PossibleValues)
 	}
 	// Step-up needs a proof for every session: Warden sessions use Herald,
 	// shared-password sessions use PASSWORDS.
 	if StepUpEnabled.ToBool() && Passwords.Value == "" && !HeraldEnabled.ToBool() {
-		return NewValidationError(StepUpEnabled.Name, "requires PASSWORDS or HERALD_ENABLED=true for re-authentication", StepUpEnabled.PossibleValues)
+		return NewRuleError(StepUpEnabled.Name, "requires PASSWORDS or HERALD_ENABLED=true for re-authentication", StepUpEnabled.PossibleValues)
 	}
 	return nil
 }
 
 func validateStepUpSettings() error {
 	if StepUpEnabled.ToBool() && strings.TrimSpace(StepUpPaths.Value) == "" {
-		return NewValidationError(StepUpPaths.Name, "must contain at least one protected path when step-up is enabled", StepUpPaths.PossibleValues)
+		return NewRuleError(StepUpPaths.Name, "must contain at least one protected path when step-up is enabled", StepUpPaths.PossibleValues)
 	}
 	if StepUpEnabled.ToBool() {
 		usablePatterns := 0
@@ -721,15 +721,15 @@ func validateStepUpSettings() error {
 			}
 			usablePatterns++
 			if !ValidStepUpPathPattern(pattern) {
-				return NewValidationError(StepUpPaths.Name, "must contain only local absolute path patterns without control characters, fragments, backslashes, or dot segments", StepUpPaths.PossibleValues)
+				return NewRuleError(StepUpPaths.Name, "must contain only local absolute path patterns without control characters, fragments, backslashes, or dot segments", StepUpPaths.PossibleValues)
 			}
 		}
 		if usablePatterns == 0 {
-			return NewValidationError(StepUpPaths.Name, "must contain at least one usable protected path", StepUpPaths.PossibleValues)
+			return NewRuleError(StepUpPaths.Name, "must contain at least one usable protected path", StepUpPaths.PossibleValues)
 		}
 	}
 	if StepUpEnabled.ToBool() && strings.TrimSpace(TrustedProxies.Value) == "" {
-		return NewValidationError(TrustedProxies.Name, "must identify the proxies allowed to provide the original request URI when step-up is enabled", TrustedProxies.PossibleValues)
+		return NewRuleError(TrustedProxies.Name, "must identify the proxies allowed to provide the original request URI when step-up is enabled", TrustedProxies.PossibleValues)
 	}
 	return nil
 }
@@ -737,14 +737,14 @@ func validateStepUpSettings() error {
 func validateServiceSettings() error {
 	if WardenEnabled.ToBool() {
 		if strings.TrimSpace(WardenURL.Value) == "" {
-			return NewValidationError(WardenURL.Name, i18n.TStatic("error.config_required_not_set"), WardenURL.PossibleValues)
+			return NewRequiredError(WardenURL.Name, WardenURL.PossibleValues)
 		}
 	}
 	if (WardenHMACKeyID.Value == "") != (WardenHMACSecret.Value == "") {
-		return NewValidationError(WardenHMACSecret.Name, "HMAC key ID and secret must be configured together", WardenHMACSecret.PossibleValues)
+		return NewRuleError(WardenHMACSecret.Name, "HMAC key ID and secret must be configured together", WardenHMACSecret.PossibleValues)
 	}
 	if (WardenTLSClientCert.Value == "") != (WardenTLSClientKey.Value == "") {
-		return NewValidationError(WardenTLSClientCert.Name, "client certificate and key must be configured together", WardenTLSClientCert.PossibleValues)
+		return NewRuleError(WardenTLSClientCert.Name, "client certificate and key must be configured together", WardenTLSClientCert.PossibleValues)
 	}
 	return validateHeraldSettings()
 }
@@ -752,10 +752,10 @@ func validateServiceSettings() error {
 func validateHeaderAuthentication() error {
 	if HeaderAuthEnabled.ToBool() {
 		if !WardenEnabled.ToBool() {
-			return NewValidationError(HeaderAuthEnabled.Name, "requires WARDEN_ENABLED=true", HeaderAuthEnabled.PossibleValues)
+			return NewRuleError(HeaderAuthEnabled.Name, "requires WARDEN_ENABLED=true", HeaderAuthEnabled.PossibleValues)
 		}
 		if strings.TrimSpace(HeaderAuthSharedSecret.Value) == "" {
-			return NewValidationError(HeaderAuthSharedSecret.Name, i18n.TStatic("error.config_required_not_set"), HeaderAuthSharedSecret.PossibleValues)
+			return NewRequiredError(HeaderAuthSharedSecret.Name, HeaderAuthSharedSecret.PossibleValues)
 		}
 	}
 
@@ -764,21 +764,21 @@ func validateHeaderAuthentication() error {
 
 func validateHeraldSettings() error {
 	if HeraldEnabled.ToBool() && !WardenEnabled.ToBool() {
-		return NewValidationError(HeraldEnabled.Name, "requires WARDEN_ENABLED=true to resolve authenticated users", HeraldEnabled.PossibleValues)
+		return NewRuleError(HeraldEnabled.Name, "requires WARDEN_ENABLED=true to resolve authenticated users", HeraldEnabled.PossibleValues)
 	}
 	if HeraldEnabled.ToBool() {
 		if strings.TrimSpace(HeraldURL.Value) == "" {
-			return NewValidationError(HeraldURL.Name, i18n.TStatic("error.config_required_not_set"), HeraldURL.PossibleValues)
+			return NewRequiredError(HeraldURL.Name, HeraldURL.PossibleValues)
 		}
 	}
 	if HeraldTOTPEnabled.ToBool() && !HeraldEnabled.ToBool() {
-		return NewValidationError(HeraldTOTPEnabled.Name, "requires HERALD_ENABLED=true", HeraldTOTPEnabled.PossibleValues)
+		return NewRuleError(HeraldTOTPEnabled.Name, "requires HERALD_ENABLED=true", HeraldTOTPEnabled.PossibleValues)
 	}
 	if WardenEnabled.ToBool() && Passwords.Value == "" && !HeraldEnabled.ToBool() && !HeaderAuthEnabled.ToBool() {
-		return NewValidationError(WardenEnabled.Name, "requires PASSWORDS or an enabled Herald/header authentication path", WardenEnabled.PossibleValues)
+		return NewRuleError(WardenEnabled.Name, "requires PASSWORDS or an enabled Herald/header authentication path", WardenEnabled.PossibleValues)
 	}
 	if (HeraldTLSClientCert.Value == "") != (HeraldTLSClientKey.Value == "") {
-		return NewValidationError(HeraldTLSClientCert.Name, "client certificate and key must be configured together", HeraldTLSClientCert.PossibleValues)
+		return NewRuleError(HeraldTLSClientCert.Name, "client certificate and key must be configured together", HeraldTLSClientCert.PossibleValues)
 	}
 	return nil
 }
