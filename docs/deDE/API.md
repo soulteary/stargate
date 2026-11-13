@@ -442,7 +442,7 @@ Liefert Prometheus-Metriken im Textformat. Der Endpunkt erfordert keine Authenti
 
 ### `GET /log/level`
 
-Gibt die aktuelle Protokollstufe zurück. `PUT /log/level` oder `POST /log/level` ändert sie mit dem JSON-Body `{"level":"debug"}` oder dem Query-Parameter `?level=debug`. Stargate beschränkt diesen Endpunkt auf `127.0.0.1`; er darf nicht über den öffentlichen Reverse Proxy erreichbar sein.
+Gibt die aktuelle Protokollstufe zurück. `PUT /log/level` oder `POST /log/level` ändert sie mit dem JSON-Body `{"level":"debug"}` oder dem Query-Parameter `?level=debug`. Stargate beschränkt diesen Endpunkt auf `127.0.0.1`; er darf nicht über den öffentlichen Reverse Proxy erreichbar sein. Seit v1.3.7 erhält eine Anfrage mit `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded` oder `X-Real-IP` die Antwort `404 Not Found`, und `PUT`/`POST` unterliegen der Cross-Site-Schreibprüfung (`403 Forbidden`). Die Prüfung setzt voraus, dass der Proxy Weiterleitungs-Header setzt; ein Proxy auf demselben Host, der keine setzt, wird nicht erkannt.
 
 ## Root-Endpunkt
 

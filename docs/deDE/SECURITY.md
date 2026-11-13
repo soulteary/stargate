@@ -28,7 +28,7 @@ Garantie für bereinigte Antworten oder gegen Offenlegung verstanden werden.
 Wenn Stargate mit `DEBUG=true` läuft und der konfigurierte Herald-Dienst im Testmodus
 (`HERALD_TEST_MODE`) einen nicht leeren `debug_code` zurückgibt, nimmt Stargate diesen
 Testcode als `debug_code` in die erfolgreiche Antwort auf `POST /_send_verify_code` auf.
-Die mitgelieferte Anmeldeseite zeigt den Code an und füllt ihn automatisch in das Prüffeld ein.
+Die mitgelieferte Anmeldeseite zeigt den Code an und füllt ihn automatisch in das Prüffeld ein. Seit v1.3.7 wird `debug_code` bei `COOKIE_SECURE=true` auch mit `DEBUG=true` nicht zurückgegeben; das Verhalten steht nur für lokale HTTP-Tests mit `COOKIE_SECURE=false` zur Verfügung.
 
 Diese Kombination legt dem anfragenden Client einen einem Berechtigungsnachweis gleichwertigen
 Prüfcode offen. Verwenden Sie sie nur für lokale Entwicklung oder Tests, niemals in der Produktion.

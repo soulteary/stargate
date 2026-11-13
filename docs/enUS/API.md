@@ -445,7 +445,8 @@ Confirms TOTP unbind (removes TOTP from the account).
 
 - **Authentication**: Required (session cookie).
 - **Request Body**: `password` or a valid current TOTP `code` is required to prove recent authentication.
-- **Response**: JSON. Success returns `{"ok":true,"subject":"..."}`; failed reauthentication returns `401 Unauthorized`, and an upstream revoke failure returns `502 Bad Gateway`.
+- **Response**: JSON. Success returns `{"ok":true,"subject":"..."}`; failed reauthentication returns `401 Unauthorized`, and an upstream revoke failure returns `502 Bad Gateway`. When Herald answers without confirming the revocation, the response is `502 Bad Gateway` with reason `revoke_not_confirmed`; the factor may still be bound.
+- **Audit**: when audit logging is enabled, a successful enrollment or revocation is recorded as `user_updated` with `action` `totp_enrolled` or `totp_revoked`. Refused and unconfirmed revocations are recorded as failures.
 
 **Notes:** TOTP creation and verification are performed by Herald (which may proxy to herald-totp). Stargate only orchestrates the UI and session; it does not implement OTP algorithms.
 

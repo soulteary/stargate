@@ -110,7 +110,7 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 		sess.Set(totpEnrollmentIDKey, startResp.EnrollID)
 		sess.Set(totpEnrollmentSubjectKey, userID)
 		sess.Set(totpEnrollmentStartedKey, time.Now().Unix())
-		if err := sess.Save(); err != nil {
+		if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
 		ctx.Set("Cache-Control", "no-store")

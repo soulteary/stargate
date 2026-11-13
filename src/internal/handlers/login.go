@@ -334,7 +334,7 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 		"LoginEmailEnabled":    config.LoginEmailEnabled.ToBool(),
 		"PhoneLabel":           translatedLoginIdentifierLabel(ctx, "label.phone_number"),
 		"MailLabel":            translatedLoginIdentifierLabel(ctx, "label.email_address"),
-		"Debug":                config.Debug.ToBool(),
+		"Debug":                debugCodeRelayEnabled(),
 	})
 }
 

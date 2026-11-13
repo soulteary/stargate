@@ -187,7 +187,7 @@ Stargate 不提供 `MODE` 配置。错误响应由各端点分别定义。运行
 当 Stargate 使用 `DEBUG=true` 运行，并且所配置的 Herald 服务启用了测试模式
 （`HERALD_TEST_MODE`）且返回非空 `debug_code` 时，Stargate 会在成功的
 `POST /_send_verify_code` 响应中以 `debug_code` 返回该测试验证码。内置登录页会显示该验证码，
-并自动填入验证码输入框。
+并自动填入验证码输入框。自 v1.3.7 起，`COOKIE_SECURE=true` 时即使 `DEBUG=true` 也不会返回 `debug_code`；该行为仅在 `COOKIE_SECURE=false` 的本地 HTTP 测试中可用。
 
 该组合会向请求客户端披露等同认证凭据的验证码，只能用于本地开发或测试，绝不能用于生产。
 生产环境应设置 Stargate `DEBUG=false`，并保持 Herald `HERALD_TEST_MODE` 关闭。

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -65,7 +66,9 @@ func TestRedisBackedStoresTreatTypedNilClientAsAbsent(t *testing.T) {
 
 	t.Run("session exchange replay", func(t *testing.T) {
 		store := NewSessionExchangeReplayStore(client)
-		first, err := store.Consume(context.Background(), "typed-nil", time.Minute)
+		// The fallback store is process-wide, so the key must be unique per run.
+		ticket := fmt.Sprintf("typed-nil-%d", time.Now().UnixNano())
+		first, err := store.Consume(context.Background(), ticket, time.Minute)
 		testza.AssertNoError(t, err)
 		testza.AssertTrue(t, first, "a ticket should be consumable once")
 	})
