@@ -4,14 +4,24 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.3.7] - 2026-11-13
+
 ### Changed
 
 - Key login and verification rate limits on the /64 prefix for IPv6 clients.
   A client that rotates addresses inside its own prefix no longer receives a
   fresh quota for each address. IPv4 keys are unchanged.
-- Update `middleware-kit/v3` to v3.0.5, `audit-kit/v2` to v2.1.5, the Herald SDK
-  to v1.5.2, the Warden SDK to v1.6.3, fasthttp to v1.78.0, and indirect
-  dependencies.
+- Update the Herald SDK to v1.5.2 and the Warden SDK to v1.7.0. The Warden
+  client package used by Stargate is unchanged between v1.6.3 and v1.7.0.
+  Updating these SDKs does not replace independently deployed Herald or Warden
+  services.
+- Update `audit-kit/v2` to v2.1.6, `challenge-kit` to v1.11.2, `cli-kit` to
+  v1.9.4, `forwardauth-kit/v3` to v3.0.7, `health-kit/v4` to v4.0.7,
+  `i18n-kit/v4` to v4.0.6, `logger-kit/v3` to v3.0.6, `metrics-kit/v3` to
+  v3.0.6, `middleware-kit/v3` to v3.0.6, `redis-kit` to v1.8.2, `secure-kit/v2`
+  to v2.1.5, `tracing-kit/v2` to v2.0.4, `version-kit/v4` to v4.0.5, the Fiber
+  HTML template engine to v3.1.0, `gofiber/utils/v2` to v2.6.5, fasthttp to
+  v1.78.0, and indirect dependencies.
 - Update Fiber to v3.7.0 and `session-kit/v3` to v3.2.2, which keeps session
   storage keyed by the session ID under Fiber v3.7.0. Stored sessions need no
   migration. Fiber v3.7.0 no longer reports an error when a request saves a
@@ -52,6 +62,28 @@ This file records user-visible changes. For upgrade steps and configuration exam
   available for local HTTP testing with `COOKIE_SECURE=false`.
 - Update Go to 1.27.4, which fixes GO-2026-6859 in `net/http`. The build image is
   now `golang:1.27.4-alpine3.24`.
+
+### Upgrade and rollback
+
+- This release adds and removes no configuration options. Redis records,
+  stored sessions, pending bindings and absolute deadlines need no migration;
+  do not clear Redis during rollout or rollback.
+- Before upgrading an HTTPS deployment (`COOKIE_SECURE=true`), replace
+  `SESSION_EXCHANGE_SECRET` if it still holds the demo value from
+  `docker-compose.yml`; Stargate otherwise refuses to start.
+- Send `/log/level` requests from the local host directly to Stargate. Requests
+  relayed by a reverse proxy now receive `404 Not Found`.
+- Review `STEP_UP_PATHS`: case variants and paths with `;` parameters now
+  require step-up. IPv6 clients inside one /64 prefix now share one rate-limit
+  quota.
+- Stargate's own pages now carry a `Content-Security-Policy` that permits
+  scripts and styles only from Stargate's `/assets` path. Check external
+  template overrides that rely on inline scripts, inline styles or resources
+  from other origins.
+- Rolling back to v1.3.6 restores the previous behaviour, including the weaker
+  checks described under Security. Rebuild from the v1.3.6 source when rolling
+  back a source build, and do not independently downgrade Herald or Warden
+  services to make a rollback pass.
 
 ## [1.3.6] - 2026-11-09
 

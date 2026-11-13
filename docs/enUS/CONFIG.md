@@ -27,7 +27,7 @@ export PASSWORDS='plaintext:yourpassword'
 **Docker:**
 
 ```bash
-docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:1.3.5
+docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:1.3.7
 ```
 
 **Docker Compose:**
@@ -1158,7 +1158,7 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.5
+    image: ghcr.io/soulteary/stargate:1.3.7
     environment:
       # Required configuration
       - AUTH_HOST=auth.example.com
@@ -1188,7 +1188,7 @@ This documentation does not migrate or delete existing provider data or volumes.
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.5
+    image: ghcr.io/soulteary/stargate:1.3.7
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true

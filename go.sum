@@ -141,8 +141,8 @@ github.com/soulteary/tracing-kit/v2 v2.0.4 h1:djRfIb9+jBLme/1zEttETGErvhfADWitQ+
 github.com/soulteary/tracing-kit/v2 v2.0.4/go.mod h1:rZ1Xm996vTyF3PpahI4FielXR7wYFGP8we8v2kNgvKU=
 github.com/soulteary/version-kit/v4 v4.0.5 h1:HX+hV7wbsIvvWMBPjmsYL6DMA57JUDMhqb51W4wkrKI=
 github.com/soulteary/version-kit/v4 v4.0.5/go.mod h1:iNArqmQaX3FkwZh0cnbC40Ns22qgamPiYGWKn64H/Wo=
-github.com/soulteary/warden v1.6.3 h1:ZMiksZZ5N/33fKulzC2Tc07Jptcp7yaMl0gb1F0COzE=
-github.com/soulteary/warden v1.6.3/go.mod h1:fd7lkuD3Di2rvMMtUtkVMQh428aoeu2Z/a+2Gh5NDmM=
+github.com/soulteary/warden v1.7.0 h1:2MQdBXQZ8xXQXiVJY2iPPLG3k6UjcbQ1XYNBfxW/ju8=
+github.com/soulteary/warden v1.7.0/go.mod h1:xFBaxA/09/xZxwnijL7sR6QbnR5PeewuVfYwNS+0si8=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.3.0/go.mod h1:M5WIy9Dh21IEIfnGCwXGc5bZfKNJtfHm1UVUgZn+9EI=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=

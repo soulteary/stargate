@@ -7,7 +7,7 @@
 升级至 v1.3.4 前，请阅读[依赖补丁升级与回滚](#依赖补丁升级与回滚v134)。本次更新调整脱敏行为和依赖版本，保留既有会话与验证码状态。
 
 
-当前部署示例使用 v1.3.5。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
+当前部署示例使用 v1.3.7。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
 
 本文档提供 Stargate Forward Auth Service 的详细部署指南。
 
@@ -210,7 +210,7 @@ CI 输出不会自动改写；若其中实际包含凭据，应限制访问，�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.5
+    image: ghcr.io/soulteary/stargate:1.3.7
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -263,7 +263,7 @@ networks:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.5
+    image: ghcr.io/soulteary/stargate:1.3.7
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
@@ -329,7 +329,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.5
+    image: ghcr.io/soulteary/stargate:1.3.7
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -353,7 +353,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.5
+    image: ghcr.io/soulteary/stargate:1.3.7
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
