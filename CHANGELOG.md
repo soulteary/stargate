@@ -14,6 +14,16 @@ This file records user-visible changes. For upgrade steps and configuration exam
   empty: no header is sent and all users share one per-IP quota at Herald, as
   before.
 
+### Fixed
+
+- Include `step_up.html` in the Docker build context. The template was added
+  to the embedded resources without a matching `.dockerignore` line. The source
+  image (`docker/Dockerfile`) therefore failed to compile with
+  `pattern templates/step_up.html: no matching files found`, and an image built
+  with `docker/release.Dockerfile` carried a template directory without the
+  file. That directory takes precedence over the embedded templates, so
+  `/_step_up` could not render there. No published release contains the defect.
+
 ### Security
 
 - TOTP enrollment now requires a per-user proof. `GET`/`POST /totp/enroll` and
