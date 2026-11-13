@@ -995,7 +995,7 @@ func TestLoginAPI_NoCallback_SameDomain(t *testing.T) {
 	testza.AssertContains(t, body, "auth.example.com")
 }
 
-// TestLoginAPI_CallbackPriority tests that callback priority is: cookie > form > query
+// TestLoginAPI_CallbackPriority tests that callback priority is: form > cookie > query
 func TestLoginAPI_CallbackPriority(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -1005,7 +1005,8 @@ func TestLoginAPI_CallbackPriority(t *testing.T) {
 	store := setupTestStore()
 	handler := LoginAPI(store)
 
-	// Cookie callback should take priority over form and query
+	// The form callback is the one the login page was rendered with and takes
+	// priority over a cookie that may be left over from another tab.
 	ctx, app := createTestContext("POST", "/_login?callback=query.example.com", map[string]string{
 		"Content-Type":     "application/x-www-form-urlencoded",
 		"X-Forwarded-Host": "app.example.com",
@@ -1025,11 +1026,86 @@ func TestLoginAPI_CallbackPriority(t *testing.T) {
 	// Should redirect to session exchange endpoint
 	testza.AssertTrue(t, statusCode == fiber.StatusFound || statusCode == fiber.StatusMovedPermanently)
 
-	// Check redirect location uses cookie callback
+	// Check redirect location uses form callback
+	location := string(ctx.Response().Header.Peek("Location"))
+	testza.AssertContains(t, location, "form.example.com")
+	testza.AssertNotContains(t, location, "cookie.example.com")
+	testza.AssertNotContains(t, location, "query.example.com")
+
+	// The leftover cookie is still removed after a successful login.
+	setCookies := string(ctx.Response().Header.Peek("Set-Cookie"))
+	for _, cookie := range ctx.Response().Header.Cookies() {
+		setCookies += "\n" + string(cookie)
+	}
+	testza.AssertContains(t, setCookies, CallbackCookieName+"=;")
+}
+
+// Without a form field the cookie still decides, ahead of the query string.
+func TestLoginAPI_CallbackCookieUsedWithoutFormField(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+
+	ctx, app := createTestContext("POST", "/_login?callback=query.example.com", map[string]string{
+		"Content-Type":     "application/x-www-form-urlencoded",
+		"X-Forwarded-Host": "app.example.com",
+		"Host":             "auth.example.com",
+		"Cookie":           "stargate_callback=cookie.example.com",
+	}, "password=test123")
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertNoError(t, LoginAPI(setupTestStore())(ctx))
+	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
 	location := string(ctx.Response().Header.Peek("Location"))
 	testza.AssertContains(t, location, "cookie.example.com")
-	testza.AssertNotContains(t, location, "form.example.com")
 	testza.AssertNotContains(t, location, "query.example.com")
+}
+
+// The login page submits its forms as multipart/form-data; the callback field
+// of such a body takes the same priority.
+func TestLoginAPI_MultipartFormCallbackTakesPriorityOverCookie(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+
+	const boundary = "stargate-test-boundary"
+	body := "--" + boundary + "\r\nContent-Disposition: form-data; name=\"password\"\r\n\r\ntest123\r\n" +
+		"--" + boundary + "\r\nContent-Disposition: form-data; name=\"callback\"\r\n\r\nform.example.com\r\n" +
+		"--" + boundary + "--\r\n"
+	ctx, app := createTestContext("POST", "/_login?callback=query.example.com", map[string]string{
+		"Content-Type":     "multipart/form-data; boundary=" + boundary,
+		"X-Forwarded-Host": "app.example.com",
+		"Host":             "auth.example.com",
+		"Cookie":           "stargate_callback=cookie.example.com",
+	}, body)
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertNoError(t, LoginAPI(setupTestStore())(ctx))
+	testza.AssertEqual(t, fiber.StatusFound, ctx.Response().StatusCode())
+	location := string(ctx.Response().Header.Peek("Location"))
+	testza.AssertContains(t, location, "form.example.com")
+	testza.AssertNotContains(t, location, "cookie.example.com")
+	testza.AssertNotContains(t, location, "query.example.com")
+}
+
+// A form callback that is not allowed is refused. It must not fall back to
+// the cookie, and the cookie cannot make it acceptable.
+func TestLoginAPI_DisallowedFormCallbackIsNotReplacedByCookie(t *testing.T) {
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "plaintext:test123")
+	testza.AssertNoError(t, config.Initialize(testLogger()))
+
+	ctx, app := createTestContext("POST", "/_login", map[string]string{
+		"Content-Type":     "application/x-www-form-urlencoded",
+		"X-Forwarded-Host": "app.example.com",
+		"Host":             "auth.example.com",
+		"Cookie":           "stargate_callback=cookie.example.com",
+	}, "password=test123&callback=evil.example.net")
+	defer app.ReleaseCtx(ctx)
+
+	testza.AssertNoError(t, LoginAPI(setupTestStore())(ctx))
+	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+	testza.AssertEqual(t, "", string(ctx.Response().Header.Peek("Location")))
 }
 
 // TestLoginAPI_RedirectsToSessionExchange tests that redirect uses an opaque ticket.

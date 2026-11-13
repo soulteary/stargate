@@ -794,17 +794,21 @@ func storeLoginIdentity(sess *session.Session, authMethod string, identity *logi
 func completeLoginResponse(ctx fiber.Ctx, sess *session.Session, sessionGetter SessionGetter) error {
 	var err error
 
-	// Get callback parameter (priority: cookie, form data, query parameter)
+	// Get callback parameter (priority: form data, cookie, query parameter).
+	// The form field is what the login page was rendered with, so it states
+	// the intent of this sign-in. The cookie can be left over from another tab
+	// or an earlier attempt and must not override it.
 	callbackFromCookie := GetCallbackFromCookie(ctx)
-	callback := callbackFromCookie
+	callback := postedFormValue(ctx, "callback")
 	if callback == "" {
-		callback = ctx.FormValue("callback")
+		callback = callbackFromCookie
 	}
 	if callback == "" {
 		callback = ctx.Query("callback")
 	}
 
-	// If callback was retrieved from cookie, clear the cookie after successful login
+	// The cookie has served its purpose once login succeeds, whether or not
+	// its value was the one used.
 	if callbackFromCookie != "" {
 		ClearCallbackCookie(ctx)
 	}
@@ -857,6 +861,21 @@ func completeLoginResponse(ctx fiber.Ctx, sess *session.Session, sessionGetter S
 		"message": i18n.T(ctx, "success.login"),
 	}
 	return ctx.Status(fiber.StatusOK).JSON(response)
+}
+
+// postedFormValue returns a field from the request body only, for URL-encoded
+// and multipart forms. ctx.FormValue also answers from the query string and
+// prefers it, which would let a query parameter stand in for the form.
+func postedFormValue(ctx fiber.Ctx, key string) string {
+	if value := ctx.Request().PostArgs().Peek(key); len(value) > 0 {
+		return string(value)
+	}
+	if form, err := ctx.MultipartForm(); err == nil && form != nil {
+		if values := form.Value[key]; len(values) > 0 {
+			return values[0]
+		}
+	}
+	return ""
 }
 
 func redirectAfterLogin(ctx fiber.Ctx, sess *session.Session, sessionGetter SessionGetter, callback string) error {
