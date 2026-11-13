@@ -1,5 +1,5 @@
 FROM golang:1.27.4-alpine3.24 AS builder
-RUN apk add git bash gcc musl-dev upx
+RUN apk add git bash upx
 WORKDIR /app
 ENV GO111MODULE=on
 COPY go.mod .
