@@ -2,6 +2,7 @@
 import io
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import subprocess
@@ -9,8 +10,13 @@ import tarfile
 import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
-RESOURCES = ['login.html', 'login.warden.html', 'account.html', 'totp_start.html', 'totp_enroll.html', 'totp_revoke.html',
-             'assets/auth-ui.js', 'assets/auth-ui.css', 'assets/qrcode.min.js', 'assets/favicon.ico']
+# The files the binary embeds are the files the image must carry: the source
+# build compiles the same go:embed directive, and the release image serves the
+# copied template directory in preference to the embedded one.
+EMBED = re.search(r'^//go:embed (.+)$', (ROOT/'src/internal/web/resources.go').read_text(), re.MULTILINE)
+if not EMBED:
+    raise RuntimeError('go:embed directive not found in src/internal/web/resources.go')
+RESOURCES = [name.removeprefix('templates/') for name in EMBED.group(1).split()]
 allowed = ['go.mod', 'go.sum', 'dist/stargate-linux-amd64', 'dist/stargate-linux-arm64']
 tracked = subprocess.check_output(['git', '-C', str(ROOT), 'ls-files', '-z', '--', 'src']).decode().split('\0')
 allowed += [name for name in tracked if name.endswith('.go') and not name.endswith('_test.go')]

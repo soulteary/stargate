@@ -10,6 +10,7 @@
 !src/internal/web/templates/totp_start.html
 !src/internal/web/templates/totp_enroll.html
 !src/internal/web/templates/totp_revoke.html
+!src/internal/web/templates/step_up.html
 !src/internal/web/templates/assets/auth-ui.js
 !src/internal/web/templates/assets/auth-ui.css
 !src/internal/web/templates/assets/qrcode.min.js
