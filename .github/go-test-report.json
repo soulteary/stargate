@@ -1,31 +1,31 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 608,
-    "passed": 597,
+    "total": 626,
+    "passed": 615,
     "failed": 0,
     "skipped": 11
   },
   "coverage": {
-    "covered_statements": 2894,
-    "total_statements": 3032,
-    "percentage": 95.45,
+    "covered_statements": 2957,
+    "total_statements": 3101,
+    "percentage": 95.36,
     "threshold": 95
   },
   "packages": [
     {
       "name": "src/cmd/stargate",
       "status": "pass",
-      "tests": 68,
+      "tests": 73,
       "failed": 0,
-      "coverage": 88.21
+      "coverage": 88.99
     },
     {
       "name": "src/internal/auditlog",
       "status": "pass",
       "tests": 7,
       "failed": 0,
-      "coverage": 98.7
+      "coverage": 90.48
     },
     {
       "name": "src/internal/auth",
@@ -37,9 +37,9 @@
     {
       "name": "src/internal/config",
       "status": "pass",
-      "tests": 78,
+      "tests": 84,
       "failed": 0,
-      "coverage": 96.53
+      "coverage": 96.9
     },
     {
       "name": "src/internal/doctor",
@@ -51,9 +51,9 @@
     {
       "name": "src/internal/handlers",
       "status": "pass",
-      "tests": 309,
+      "tests": 316,
       "failed": 0,
-      "coverage": 95.81
+      "coverage": 95.88
     },
     {
       "name": "src/internal/i18n",

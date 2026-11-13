@@ -1,10 +1,10 @@
 # Go Report Card
 
-**Grade: A+** (98.7%)
+**Grade: A+** (98.8%)
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 138 |
+| Files | 149 |
 | Issues | 16 |
 
 ## Checks
@@ -22,39 +22,39 @@
 
 ### gocyclo
 
-- `src/internal/handlers/work_im_bridge_integration_test.go`
-  - Line 27: cyclomatic complexity 44 for function TestWorkIMCurrentPair
-- `src/internal/doctor/checks.go`
-  - Line 132: cyclomatic complexity 31 for function inspectPair
-  - Line 51: cyclomatic complexity 26 for function Inspect
 - `src/internal/handlers/auth_refresh.go`
   - Line 24: cyclomatic complexity 25 for function refreshDirectoryAuthorization
 - `src/internal/handlers/check_precedence_test.go`
   - Line 15: cyclomatic complexity 24 for function TestCheckRouteRefreshesOnlySelectedSession
-- `src/internal/handlers/login_identifier_labels_test.go`
-  - Line 18: cyclomatic complexity 23 for function TestWardenLoginIdentifierLabelsMatchTheirRenderedFields
 - `src/internal/handlers/e2e_integration_test.go`
   - Line 145: cyclomatic complexity 22 for function setupHeraldMockServer
-- `src/internal/handlers/check.go`
-  - Line 93: cyclomatic complexity 26 for function CheckRoute
-- `src/internal/doctor/health.go`
-  - Line 65: cyclomatic complexity 19 for function probeHealth
-- `src/internal/auth/auth.go`
-  - Line 338: cyclomatic complexity 19 for function LookupUserInfo
-- `src/internal/handlers/totp_enroll.go`
-  - Line 132: cyclomatic complexity 16 for function TOTPEnrollConfirmAPI
-- `src/internal/handlers/verified_email.go`
-  - Line 34: cyclomatic complexity 29 for function canonicalEvidenceEmail
 - `src/internal/handlers/login.go`
   - Line 470: cyclomatic complexity 20 for function (*loginIdentity).verifyChallenge
   - Line 380: cyclomatic complexity 16 for function (*loginIdentity).authenticateWarden
+- `src/internal/handlers/account_test.go`
+  - Line 15: cyclomatic complexity 19 for function TestAccountPageRequiresSessionAndLogoutRemainsSameOrigin
+- `src/internal/doctor/health.go`
+  - Line 65: cyclomatic complexity 19 for function probeHealth
+- `src/internal/handlers/work_im_bridge_integration_test.go`
+  - Line 27: cyclomatic complexity 44 for function TestWorkIMCurrentPair
 - `src/internal/handlers/send_verify_code.go`
   - Line 93: cyclomatic complexity 23 for function SendVerifyCodeAPI
   - Line 43: cyclomatic complexity 17 for function selectVerificationDestination
 - `src/cmd/stargate/standalone_resources_test.go`
   - Line 17: cyclomatic complexity 20 for function TestStandaloneBinaryServesAuthenticationResources
-- `src/internal/handlers/account_test.go`
-  - Line 15: cyclomatic complexity 19 for function TestAccountPageRequiresSessionAndLogoutRemainsSameOrigin
+- `src/internal/handlers/totp_enroll.go`
+  - Line 133: cyclomatic complexity 16 for function TOTPEnrollConfirmAPI
+- `src/internal/auth/auth.go`
+  - Line 338: cyclomatic complexity 19 for function LookupUserInfo
+- `src/internal/handlers/verified_email.go`
+  - Line 34: cyclomatic complexity 29 for function canonicalEvidenceEmail
+- `src/internal/handlers/check.go`
+  - Line 95: cyclomatic complexity 26 for function CheckRoute
+- `src/internal/doctor/checks.go`
+  - Line 132: cyclomatic complexity 31 for function inspectPair
+  - Line 51: cyclomatic complexity 26 for function Inspect
+- `src/internal/handlers/login_identifier_labels_test.go`
+  - Line 18: cyclomatic complexity 23 for function TestWardenLoginIdentifierLabelsMatchTheirRenderedFields
 
 ### misspell
 
