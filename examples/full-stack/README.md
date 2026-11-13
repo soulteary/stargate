@@ -1,7 +1,7 @@
 # Mail OTP and authenticator example
 
 This example builds Stargate from this checkout and connects the published Warden
-1.6.2, Herald 1.5.0 and herald-totp 2.0.3 services. It uses actual SMTP delivery, shared persistent
+1.7.0, Herald 1.6.0 and herald-totp 2.0.4 services. It uses actual SMTP delivery, shared persistent
 Redis, explicit HMAC key IDs and three independent service credentials. It does not expose a test-code endpoint. For a password-only
 local demo, use the [root quick start](../../README.md#-quick-start).
 

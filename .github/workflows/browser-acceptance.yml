@@ -15,7 +15,7 @@ on:
         required: true
         type: string
       herald_image:
-        description: Verified Herald image canonical digest (retry metadata requires 1.5.0)
+        description: Verified Herald 1.6.0 image canonical digest (retry metadata requires 1.5.0 or later)
         required: true
         type: string
 permissions:
@@ -23,7 +23,7 @@ permissions:
 env:
   FULLSTACK_REF: ${{ inputs.fullstack_ref || '4714f7420af283e9c5ec1715c687bb2513aaf373' }}
   GATEWAY_REF: ${{ inputs.gateway_ref || '843e2301efb8d9dff35a67d26bc9755a33e45654' }}
-  HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:89eb2dba787b7d7a22a39b43ffb12118631b62ba6e8779d9bff8cc7c82f79765' }}
+  HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:f2ca281f15d43be1bd5a1304fb7db535c4f53b00fc343162476343dbd3f04dee' }}
 jobs:
   chromium:
     runs-on: ubuntu-latest
