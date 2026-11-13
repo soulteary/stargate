@@ -1,7 +1,7 @@
 # 邮件验证码与验证器完整示例
 
-本示例从当前源码目录构建 Stargate，连接正式发布的 Warden 1.6.2、Herald 1.5.0 和
-herald-totp 2.0.3，使用真实 SMTP 投递、持久 Redis、显式 HMAC key ID 及三条独立服务凭据。
+本示例从当前源码目录构建 Stargate，连接正式发布的 Warden 1.7.0、Herald 1.6.0 和
+herald-totp 2.0.4，使用真实 SMTP 投递、持久 Redis、显式 HMAC key ID 及三条独立服务凭据。
 不提供读取验证码的测试接口。仅需密码演示时，请使用[根目录快速开始](../../README.zhCN.md#-快速开始)。
 
 ## 本地邮件 OTP

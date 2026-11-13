@@ -2,8 +2,10 @@
 
 Dispatch `Real browser acceptance` with reviewed full 40-character
 `fullstack_ref` and `gateway_ref` commits and an independently verified canonical
-Herald image digest. Herald 1.5.0 and a gateway consuming its metadata SDK are
-required for the known cooldown timing assertion. Do not substitute mutable tags.
+Herald image digest. The verified image is Herald 1.6.0; the HTTPS profile accepts
+only that digest. Retry metadata (Herald 1.5.0 or later) and a gateway consuming
+its metadata SDK are required for the known cooldown timing assertion. Do not
+substitute mutable tags.
 The workflow source is the selected dispatch ref; results also bind both built
 checkout identities. It builds a local gateway image, not a published artifact.
 
