@@ -85,6 +85,7 @@ services:
 | `HERALD_API_KEY` | String | 空 | 否 |
 | `HERALD_HMAC_KEY_ID` | String | 空 | 否 |
 | `HERALD_HMAC_SECRET` | String | 空 | 否 |
+| `HERALD_CLIENT_IP_HEADER` | HTTP 请求头名称 | 空 | 否 |
 | `HERALD_TLS_CA_CERT_FILE` | 路径 | 空 | 否 |
 | `HERALD_TLS_CLIENT_CERT_FILE` | 路径 | 空 | 否 |
 | `HERALD_TLS_CLIENT_KEY_FILE` | 路径 | 空 | 否 |

@@ -311,6 +311,7 @@ PORT=8080
 | `HERALD_API_KEY` | 秘密値 | 空 | API キー認証 |
 | `HERALD_HMAC_KEY_ID` | 文字列 | 空 | HMAC キー ID |
 | `HERALD_HMAC_SECRET` | 秘密値 | 空 | HMAC 署名秘密 |
+| `HERALD_CLIENT_IP_HEADER` | ヘッダー名 | 空 | Stargate がクライアントのアドレスを Herald に送るヘッダー。Herald の `HERALD_TRUSTED_PROXY_HEADER` と一致させ、Stargate を `HERALD_TRUSTED_PROXIES` に含める必要があります |
 | `HERALD_TLS_CA_CERT_FILE` | パス | 空 | カスタム CA |
 | `HERALD_TLS_CLIENT_CERT_FILE` | パス | 空 | mTLS クライアント証明書 |
 | `HERALD_TLS_CLIENT_KEY_FILE` | パス | 空 | mTLS クライアント鍵 |
