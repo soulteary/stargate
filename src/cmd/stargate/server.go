@@ -261,9 +261,12 @@ func setupRoutes(app *fiber.App, store *fibersession.Store, healthAggregator *he
 	// Liveness deliberately excludes dependencies so an external outage does not
 	// cause the container runtime to restart an otherwise healthy process.
 	app.Get(RouteHealthz, healthfiber.SimpleHandler("stargate"))
-	app.Get(RouteReadyz, healthfiber.Handler(healthAggregator))
+	// Readiness calls Herald, Warden and Redis. Both routes share one short
+	// cache so unauthenticated requests cannot fan out to them one for one.
+	readiness := newReadinessCache(healthAggregator, readinessCacheTTL).handler()
+	app.Get(RouteReadyz, readiness)
 	// Keep /health as a backwards-compatible alias for readiness.
-	app.Get(RouteHealth, healthfiber.Handler(healthAggregator))
+	app.Get(RouteHealth, readiness)
 	app.Get(RouteRoot, handlers.IndexRoute(store))
 	app.Get(RouteLogin, handlers.LoginRoute(store))
 	app.Get("/_account", handlers.AccountRoute(store))
