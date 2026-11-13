@@ -9,7 +9,7 @@ import (
 // Keep this list explicit: generated files and configuration must never be
 // included by a wildcard when the resource directory grows.
 //
-//go:embed templates/login.html templates/login.warden.html templates/account.html templates/totp_start.html templates/totp_enroll.html templates/totp_revoke.html templates/assets/auth-ui.js templates/assets/auth-ui.css templates/assets/qrcode.min.js templates/assets/favicon.ico
+//go:embed templates/login.html templates/login.warden.html templates/account.html templates/totp_start.html templates/totp_enroll.html templates/totp_revoke.html templates/step_up.html templates/assets/auth-ui.js templates/assets/auth-ui.css templates/assets/qrcode.min.js templates/assets/favicon.ico
 var resources embed.FS
 
 // Templates returns the immutable built-in template tree. Callers may continue

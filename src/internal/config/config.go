@@ -548,6 +548,16 @@ func warnPlaintextPasswords() {
 	}
 }
 
+// warnSharedPasswordStepUp reports a deployment in which step-up can still be
+// passed with the shared password. Warden sessions must present a per-user
+// proof, but a session created by the PASSWORDS login keeps that password as
+// its only factor, so anyone who holds it can sign in and pass step-up.
+func warnSharedPasswordStepUp() {
+	if StepUpEnabled.ToBool() && WardenEnabled.ToBool() && HeraldEnabled.ToBool() && Passwords.Value != "" {
+		log.Warn().Msg("STEP_UP_ENABLED with WARDEN_ENABLED and PASSWORDS: sessions created with the shared password still pass step-up with that password. Remove PASSWORDS to require a per-user proof for every session.")
+	}
+}
+
 func Initialize(l *logger.Logger) error {
 	log = l
 
@@ -564,6 +574,7 @@ func Initialize(l *logger.Logger) error {
 
 	warnUnattributableRateLimits()
 	warnPlaintextPasswords()
+	warnSharedPasswordStepUp()
 
 	// Initialize step-up matcher after configuration is loaded
 	InitStepUpMatcher()
@@ -643,8 +654,10 @@ func validatePasswordSettings() error {
 	if PasswordHeaderAuthEnabled.ToBool() && Passwords.Value == "" {
 		return NewValidationError(PasswordHeaderAuthEnabled.Name, "requires PASSWORDS", PasswordHeaderAuthEnabled.PossibleValues)
 	}
-	if StepUpEnabled.ToBool() && Passwords.Value == "" {
-		return NewValidationError(StepUpEnabled.Name, "requires PASSWORDS for re-authentication", StepUpEnabled.PossibleValues)
+	// Step-up needs a proof for every session: Warden sessions use Herald,
+	// shared-password sessions use PASSWORDS.
+	if StepUpEnabled.ToBool() && Passwords.Value == "" && !HeraldEnabled.ToBool() {
+		return NewValidationError(StepUpEnabled.Name, "requires PASSWORDS or HERALD_ENABLED=true for re-authentication", StepUpEnabled.PossibleValues)
 	}
 	return nil
 }

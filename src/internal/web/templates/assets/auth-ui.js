@@ -68,9 +68,9 @@
     if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) throw new Error('ambiguous');
     root.location.assign(url.href);
   }
-  function freeze(form, frozen) {
+  function freeze(form, frozen, controls) {
     form.setAttribute('aria-busy', String(frozen));
-    form.querySelectorAll('input, select, button').forEach(el => {
+    form.querySelectorAll(controls || 'input, select, button').forEach(el => {
       if (frozen) { el.dataset.previousDisabled = String(el.disabled); el.disabled = true; }
       else { el.disabled = el.dataset.previousDisabled === 'true'; delete el.dataset.previousDisabled; }
     });
@@ -189,10 +189,24 @@
     if(action.origin === root.location.origin) { action.searchParams.set('lang',config.dataset.locale);nativeForm.action=action.href; }
     nativeForm.addEventListener('submit', event => {
     if(managementBusy) { event.preventDefault();return; }
-    managementBusy=true;nativeForms.forEach(f=>freeze(f,true));
+    // A disabled field is left out of a native submission, so only buttons are locked here.
+    managementBusy=true;nativeForms.forEach(f=>freeze(f,true,'button'));
     });
   });
   root.addEventListener('pageshow', event => { if(event.persisted) { managementBusy=false;nativeForms.forEach(f=>freeze(f,false)); } });
+  const reauthSend = document.getElementById('reauthSendBtn');
+  if (reauthSend) {
+    let sending = false;
+    reauthSend.addEventListener('click', async () => {
+      if (sending || managementBusy) return;
+      sending = true; reauthSend.disabled = true; reauthSend.textContent = text('sending'); clearMessage();
+      const data = new FormData(), channel = document.getElementById('deliver_via');
+      if (channel) data.set('deliver_via', channel.value);
+      try { const { response, result } = await request('/_send_reauth_code', data); announce(response.ok && result.success === true ? 'sent' : reasonFor(result, response.status)); }
+      catch (_) { announce('unknown_result'); }
+      finally { sending = false; reauthSend.disabled = false; reauthSend.textContent = text('send'); }
+    });
+  }
   const management = document.getElementById('confirmForm') || document.getElementById('revokeForm');
   if (management) {
     let pending = false;

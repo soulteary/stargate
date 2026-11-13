@@ -73,3 +73,38 @@ func TestInitializeWarnsAboutPlaintextPasswordsWhenCookieSecure(t *testing.T) {
 		})
 	}
 }
+
+func TestInitializeWarnsWhenSharedPasswordCanPassStepUp(t *testing.T) {
+	const warning = "sessions created with the shared password still pass step-up"
+
+	for _, tc := range []struct {
+		name        string
+		herald      bool
+		passwords   string
+		wantWarning bool
+	}{
+		{name: "Warden, Herald and shared password", herald: true, passwords: "plaintext:test123", wantWarning: true},
+		{name: "Warden and Herald only", herald: true, passwords: "", wantWarning: false},
+		{name: "password-only deployment", herald: false, passwords: "plaintext:test123", wantWarning: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Setenv("AUTH_HOST", "auth.example.com")
+			t.Setenv("PASSWORDS", tc.passwords)
+			t.Setenv("COOKIE_SECURE", "false")
+			t.Setenv("STEP_UP_ENABLED", "true")
+			t.Setenv("STEP_UP_PATHS", "/admin")
+			t.Setenv("TRUSTED_PROXIES", "127.0.0.1")
+			if tc.herald {
+				t.Setenv("WARDEN_ENABLED", "true")
+				t.Setenv("WARDEN_URL", "http://warden.test")
+				t.Setenv("HERALD_ENABLED", "true")
+				t.Setenv("HERALD_URL", "http://herald.test")
+			}
+			var output bytes.Buffer
+			log := logger.New(logger.Config{Level: logger.InfoLevel, Format: logger.FormatJSON, Output: &output})
+
+			testza.AssertNoError(t, Initialize(log))
+			testza.AssertEqual(t, tc.wantWarning, bytes.Contains(output.Bytes(), []byte(warning)))
+		})
+	}
+}

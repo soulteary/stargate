@@ -188,7 +188,7 @@ Operational details are normally recorded through the logger, but do not treat
 When Stargate runs with `DEBUG=true` and `COOKIE_SECURE=false`, and the configured Herald service runs in
 test mode (`HERALD_TEST_MODE`) and returns a non-empty `debug_code`, Stargate includes
 that test verification code as `debug_code` in the successful `POST /_send_verify_code`
-response. The bundled login page displays the code and fills it into the verification
+response; `POST /_send_reauth_code` relays it under the same conditions. The bundled login page displays the code and fills it into the verification
 code field automatically. With `COOKIE_SECURE=true` (the default, used by HTTPS
 deployments) the code is never relayed, regardless of `DEBUG`.
 
@@ -231,6 +231,22 @@ When using Herald integration for OTP authentication:
 - In production, Herald requires the selected HMAC or API-key request credentials; optional mTLS adds transport protection and does not replace them.
 - **Rate Limiting**: Herald handles rate limiting
 - **Audit Logging**: Herald maintains audit logs
+
+## Re-authentication for Sensitive Operations
+
+Step-up (`/_step_up`), TOTP enrollment and TOTP revocation require a proof that belongs to the session's user, not only a valid session cookie:
+
+- A Warden user with TOTP enrolled must present a current TOTP code.
+- Any other Warden user must present a one-time code sent through Herald to the contact registered in Warden. The request cannot name a destination.
+- A session created with the shared `PASSWORDS` secret has no user identity and re-enters that password. This is the only case in which the shared password is accepted.
+
+A session cookie that is stolen shortly after login can therefore not enroll an authenticator, and the shared password cannot pass step-up or remove TOTP for a Warden user. TOTP enrollment accepts a proof for 5 minutes; step-up records its own result for 10 minutes.
+
+Limits of this control:
+
+- In a deployment that enables both Warden and `PASSWORDS`, anyone who holds the shared password can sign in with it and pass step-up in that session. Such a session carries no user identity. Remove `PASSWORDS` to close this path; `STEP_UP_ENABLED` no longer requires it when Herald is enabled.
+- A user who has lost the authenticator and its backup codes cannot pass step-up or remove TOTP. An administrator must remove the factor in Herald.
+- Re-authentication codes are created in Herald with purpose `login`. Stargate keeps them apart from sign-in codes with its own challenge binding, but the delivered message and Herald's limits are those of a sign-in code.
 
 ## Vulnerability Reporting
 

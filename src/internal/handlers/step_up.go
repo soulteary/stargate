@@ -1,13 +1,13 @@
 package handlers
 
 import (
-	"html"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/session"
+	"github.com/soulteary/stargate/src/internal/auditlog"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 )
@@ -145,7 +145,15 @@ func StepUpRoute(store *session.Store) func(c fiber.Ctx) error {
 		if callbackProto != "http" && callbackProto != "https" {
 			callbackProto = ""
 		}
-		return ctx.Type("html").SendString(`<!doctype html><html><body><form method="post" action="/_step_up"><input type="password" name="password" autocomplete="current-password" required><input type="hidden" name="callback" value="` + html.EscapeString(callback) + `"><input type="hidden" name="callback_host" value="` + html.EscapeString(callbackHost) + `"><input type="hidden" name="callback_proto" value="` + html.EscapeString(callbackProto) + `"><button type="submit">Verify</button></form></body></html>`)
+		proof, failure := requiredReauthProof(ctx.Context(), sess)
+		if failure != nil {
+			return SendErrorResponse(ctx, failure.status, failure.message)
+		}
+		view := reauthView(authenticationView(ctx, "step_up"), proof)
+		view["Callback"] = callback
+		view["CallbackHost"] = callbackHost
+		view["CallbackProto"] = callbackProto
+		return ctx.Render("step_up", view)
 	}
 }
 
@@ -162,8 +170,12 @@ func StepUpAPI(store *session.Store) func(c fiber.Ctx) error {
 		if allowed, err := authorizeSensitiveSession(ctx, store, sess); !allowed {
 			return err
 		}
-		if !auth.CheckPassword(ctx.FormValue("password")) {
-			return SendErrorResponse(ctx, fiber.StatusUnauthorized, "additional authentication failed")
+		if failure := reauthenticate(ctx, sess); failure != nil {
+			if failure == reauthFailed {
+				userID, _ := sess.Get("user_id").(string)
+				auditlog.LogLogin(ctx.Context(), userID, "step_up", ctx.IP(), false, "reauthentication_failed")
+			}
+			return SendErrorResponse(ctx, failure.status, failure.message)
 		}
 		sess.Set("step_up_verified_at", time.Now().Unix())
 		if err := saveLiveSession(ctx.Context(), store, sess); err != nil {

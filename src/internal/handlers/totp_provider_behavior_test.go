@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/template/html/v3"
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
+	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/stretchr/testify/require"
 	"github.com/valyala/fasthttp"
@@ -34,6 +35,7 @@ func authenticatedTOTPContext(t *testing.T, store *session.Store, path, body str
 	sess.Set(totpEnrollmentIDKey, "enroll-1")
 	sess.Set(totpEnrollmentSubjectKey, "user-1")
 	sess.Set(totpEnrollmentStartedKey, time.Now().Unix())
+	sess.Set(reauthVerifiedAtKey, time.Now().Unix())
 	require.NoError(t, auth.Authenticate(sess))
 	next := rebindSessionContext(t, app, ctx, sess)
 	sess.Release()
@@ -126,6 +128,7 @@ func TestTOTPEnrollmentStartPersistsProviderEnrollment(t *testing.T) {
 func TestTOTPRevokeRequiresFreshCodeAndHandlesProviderFailure(t *testing.T) {
 	previous := heraldClient
 	t.Cleanup(func() { heraldClient = previous })
+	setConfigValue(t, &config.HeraldTOTPEnabled, "true")
 	for _, tc := range []struct {
 		name           string
 		verify, revoke bool
@@ -137,6 +140,10 @@ func TestTOTPRevokeRequiresFreshCodeAndHandlesProviderFailure(t *testing.T) {
 			calls := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
+				if strings.HasSuffix(r.URL.Path, "/status") {
+					_, _ = w.Write([]byte(`{"totp_enabled":true}`))
+					return
+				}
 				if strings.HasSuffix(r.URL.Path, "/verify") {
 					_ = json.NewEncoder(w).Encode(map[string]any{"ok": tc.verify})
 					return

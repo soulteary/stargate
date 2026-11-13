@@ -350,6 +350,10 @@ Das Sitzungs-Cookie wird gelöscht.
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+### `POST /_send_reauth_code`
+
+Sendet einen Einmalcode an den in Warden hinterlegten Kontakt des Sitzungsbenutzers, zur erneuten Authentifizierung vor Step-up sowie vor dem Einrichten oder Entfernen von TOTP. Erfordert das Sitzungs-Cookie; das optionale `deliver_via` wählt nur den Kanal, das Ziel stammt immer aus Warden. Die Antwort hat dasselbe Format wie `POST /_send_verify_code`. Der Code ist an die anfragende Sitzung gebunden und kann nicht zur Anmeldung verwendet werden.
+
 ## Step-up-Authentifizierungs-Endpunkt
 
 ### `GET /_step_up`

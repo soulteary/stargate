@@ -370,15 +370,39 @@ The session cookie will be cleared.
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## Re-authentication
+
+Step-up, TOTP enrollment and TOTP revocation require a fresh proof from the person who owns the session. Stargate selects exactly one proof from the session and from Herald's TOTP state; the client cannot choose it:
+
+| Session | Proof | Form field |
+|---------|-------|------------|
+| Warden user with TOTP enrolled (`HERALD_TOTP_ENABLED=true`) | A current TOTP code, verified by Herald | `code` |
+| Any other Warden user | A one-time code sent by `POST /_send_reauth_code` to the contact registered in Warden | `code` |
+| Session created with the shared password (no user identity) | The shared `PASSWORDS` secret | `password` |
+
+The shared password is never accepted for a session that carries a user identity. A user session for which no Herald client is available is refused with `403 Forbidden` (`reauthentication_unavailable`). If Herald's TOTP state cannot be read the request is refused with `502 Bad Gateway`; it does not fall back to a delivered code. A failed proof returns `401 Unauthorized`.
+
+A successful proof records `reauth_verified_at` in the session. TOTP enrollment accepts that record for 5 minutes. Step-up and TOTP revocation always require the proof in the same request.
+
+### `POST /_send_reauth_code`
+
+Sends a one-time code for re-authentication to the session's user.
+
+- **Authentication**: Required (session cookie). The session must be one whose proof is a delivered code (see the table above); other sessions receive `400 Bad Request`.
+- **Request Body**: optional `deliver_via` (`sms`, `email` or `dingtalk`) selects the channel, as on `POST /_send_verify_code`. The destination always comes from Warden; identifiers or destinations in the request are ignored.
+- **Response**: JSON in the same shape as `POST /_send_verify_code`, including `429 Too Many Requests` and `next_resend_in` when Herald applies its limits. The challenge is bound to the session that requested it, to the user and to re-authentication: it cannot be used to sign in, and a sign-in code cannot be used here.
+
+The route is same-origin protected and shares the `RATE_LIMIT_VERIFICATION_MAX` quota. The challenge is created in Herald with purpose `login`, the only purpose a default Herald deployment allows, so the message text and Herald's per-user and per-destination limits are those of a sign-in code.
+
 ## Step-up Authentication Endpoint
 
 ### `GET /_step_up`
 
-Displays a password re-verification form for an authenticated session. The optional `callback` query parameter must be a local path; unsafe values fall back to `/`.
+Displays the re-authentication form for an authenticated session: a TOTP code field, a "send code" button with a code field, or a password field, as selected in [Re-authentication](#re-authentication). The optional `callback` query parameter must be a local path; unsafe values fall back to `/`.
 
 ### `POST /_step_up`
 
-Re-verifies the password and records successful step-up authentication in the session for 10 minutes. Submit form fields `password` and optional local-path `callback`. This route is same-origin protected and rate limited.
+Verifies the proof and records successful step-up authentication in the session for 10 minutes. Submit the form field `code` or `password` that applies to the session, and the optional local-path `callback`. This route is same-origin protected and rate limited. A failed proof is recorded in the audit log as `login_failed` with method `step_up`.
 
 ## Session Exchange Endpoint
 
@@ -394,18 +418,18 @@ Open this endpoint in the same browser that completes login, for example `https:
 
 ## TOTP Endpoints
 
-When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`), Stargate provides TOTP (authenticator app) bind/unbind and verification as part of login. These endpoints require an authenticated session. Enrollment must start and finish within 10 minutes of the login that created the session.
+When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`), Stargate provides TOTP (authenticator app) bind/unbind and verification as part of login. These endpoints require an authenticated session and a per-user proof as described in [Re-authentication](#re-authentication). A recent login is not sufficient. Enrollment must be confirmed within 5 minutes of the proof.
 
 ### `GET /totp/enroll`
 
-Displays a confirmation page without creating enrollment state. It requires a session created by a successful login within the last 10 minutes; unauthenticated users are redirected with `302 Found` to `/_login`, while an older session receives `401 Unauthorized`.
+Displays a confirmation page without creating enrollment state. Unless the session holds a proof from the last 5 minutes, the page includes the re-authentication fields that apply to the session. Unauthenticated users are redirected with `302 Found` to `/_login`; a session whose user the directory no longer authorizes receives `401 Unauthorized`. An enrollment started from this page must be confirmed within 10 minutes.
 
 ### `POST /totp/enroll`
 
 Starts enrollment and displays the TOTP bind page. POST prevents cross-site navigation from creating enrollment state.
 
-- **Authentication**: A session created by a successful login within the last 10 minutes. Unauthenticated users are redirected with `302 Found` to `/_login`; older sessions receive `401 Unauthorized`.
-- **Response**: 200 OK with enrollment page HTML; `302 Found` to `/_login` if not authenticated; or 400/502/503 on configuration or Herald errors.
+- **Authentication**: An authenticated session with either a proof from the last 5 minutes or a valid proof in this request (form field `code`). Unauthenticated users are redirected with `302 Found` to `/_login`; a missing or failed proof returns `401 Unauthorized`. The enrollment state this request creates is valid for 10 minutes.
+- **Response**: 200 OK with enrollment page HTML; `302 Found` to `/_login` if not authenticated; `302 Found` to `/totp/revoke` when TOTP is already enrolled (after a valid TOTP code); or 400/502/503 on configuration or Herald errors.
 
 Upstream TOTP status/start errors return `502 Bad Gateway`.
 
@@ -413,7 +437,7 @@ Upstream TOTP status/start errors return `502 Bad Gateway`.
 
 Confirms TOTP binding with the code from the authenticator app.
 
-- **Authentication**: A session created by a successful login within the last 10 minutes.
+- **Authentication**: An authenticated session holding a proof from the last 5 minutes. The proof is normally the one given to `POST /totp/enroll`. Without it the response is `401 Unauthorized`. Enrollment state older than 10 minutes is refused with `400 Bad Request`.
 
 <!-- api-contract: totp-enroll-confirm-request-body -->
 #### Request Body
@@ -428,7 +452,7 @@ The form must contain the `enroll_id` returned by the enrollment page and the 6-
 
 #### Response
 
-JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400 Bad Request`, and missing recent authentication returns `401 Unauthorized`.
+JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400 Bad Request`, and a missing proof or one older than 5 minutes returns `401 Unauthorized` with `recent_authentication_required`.
 
 Confirmation quota returns `429 Too Many Requests` with `rate_limited`; pending enrollment is retained. An invalid provider response returns `502`. Do not automatically retry a code.
 
@@ -437,16 +461,16 @@ Confirmation quota returns `429 Too Many Requests` with `rate_limited`; pending 
 Displays the TOTP unbind confirmation page.
 
 - **Authentication**: Required (session cookie). Unauthenticated users are redirected with `302 Found` to `/_login`.
-- **Response**: 200 OK with revoke confirmation page; or `302 Found` to `/_login` if not authenticated.
+- **Response**: 200 OK with revoke confirmation page, including the re-authentication fields that apply to the session; or `302 Found` to `/_login` if not authenticated.
 
 ### `POST /totp/revoke`
 
 Confirms TOTP unbind (removes TOTP from the account).
 
 - **Authentication**: Required (session cookie).
-- **Request Body**: `password` or a valid current TOTP `code` is required to prove recent authentication.
+- **Request Body**: `code` with a current TOTP code, or with a delivered code when the user has no TOTP enrolled. The `password` field is not read for a session that carries a user identity. See [Re-authentication](#re-authentication).
 - **Response**: JSON. Success returns `{"ok":true,"subject":"..."}`; failed reauthentication returns `401 Unauthorized`, and an upstream revoke failure returns `502 Bad Gateway`. When Herald answers without confirming the revocation, the response is `502 Bad Gateway` with reason `revoke_not_confirmed`; the factor may still be bound.
-- **Audit**: when audit logging is enabled, a successful enrollment or revocation is recorded as `user_updated` with `action` `totp_enrolled` or `totp_revoked`. Refused and unconfirmed revocations are recorded as failures.
+- **Audit**: when audit logging is enabled, a successful enrollment or revocation is recorded as `user_updated` with `action` `totp_enrolled` or `totp_revoked`. Refused and unconfirmed revocations are recorded as failures, as are enrollment requests refused for a missing or failed proof.
 
 **Notes:** TOTP creation and verification are performed by Herald (which may proxy to herald-totp). Stargate only orchestrates the UI and session; it does not implement OTP algorithms.
 

@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
@@ -204,9 +206,17 @@ func TestTOTPRevokeConfirmAPI_RequiresRecentAuthentication(t *testing.T) {
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	testza.AssertNoError(t, config.Initialize(testLogger()))
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"totp_enabled":true}`))
+	}))
+	defer server.Close()
 	originalClient := heraldClient
-	heraldClient = &herald.Client{}
 	t.Cleanup(func() { heraldClient = originalClient })
+	var err error
+	heraldClient, err = herald.NewClient(herald.DefaultOptions().WithBaseURL(server.URL))
+	testza.AssertNoError(t, err)
+	setConfigValue(t, &config.HeraldTOTPEnabled, "true")
 
 	store := setupTestStore()
 	ctx, app := createTestContext("POST", "/totp/revoke", nil, "")

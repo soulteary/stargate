@@ -350,6 +350,10 @@ Logged out
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+### `POST /_send_reauth_code`
+
+セッションのユーザーについて Warden に登録された連絡先へワンタイムコードを送信します。step-up、TOTP の登録・解除の前の再認証に使用します。セッション Cookie が必要です。任意の `deliver_via` はチャネルのみを選択し、宛先は常に Warden から取得されます。レスポンス形式は `POST /_send_verify_code` と同じです。コードは要求したセッションに紐づけられ、ログインには使用できません。
+
 ## Step-up 認証エンドポイント
 
 ### `GET /_step_up`

@@ -351,6 +351,10 @@ Le cookie de session sera effacé.
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+### `POST /_send_reauth_code`
+
+Envoie un code à usage unique au contact enregistré dans Warden pour l'utilisateur de la session, pour la ré-authentification avant le step-up et avant l'ajout ou la suppression de TOTP. Nécessite le cookie de session ; le champ facultatif `deliver_via` ne choisit que le canal, la destination vient toujours de Warden. La réponse a le même format que `POST /_send_verify_code`. Le code est lié à la session qui l'a demandé et ne peut pas servir à se connecter.
+
 ## Point de Terminaison d'Authentification Renforcée
 
 ### `GET /_step_up`

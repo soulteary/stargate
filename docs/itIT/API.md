@@ -350,6 +350,10 @@ Il cookie di sessione sarà cancellato.
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+### `POST /_send_reauth_code`
+
+Invia un codice monouso al contatto registrato in Warden per l'utente della sessione, per la ri-autenticazione prima dello step-up e prima di aggiungere o rimuovere TOTP. Richiede il cookie di sessione; il campo facoltativo `deliver_via` sceglie solo il canale, la destinazione proviene sempre da Warden. La risposta ha lo stesso formato di `POST /_send_verify_code`. Il codice è legato alla sessione che lo ha richiesto e non può essere usato per accedere.
+
 ## Endpoint di Autenticazione Step-up
 
 ### `GET /_step_up`

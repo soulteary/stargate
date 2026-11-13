@@ -64,9 +64,13 @@ func TOTPRevokeRoute(store *session.Store) func(c fiber.Ctx) error {
 		if userID == "" {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, "user_id not in session")
 		}
+		proof, failure := requiredReauthProof(ctx.Context(), sess)
+		if failure != nil {
+			return SendErrorResponse(ctx, failure.status, failure.message)
+		}
 		ctx.Set("Cache-Control", "no-store")
 		uiWords, uiJSON := authenticationUIData(ctx)
-		return ctx.Render("totp_revoke", fiber.Map{
+		return ctx.Render("totp_revoke", reauthView(fiber.Map{
 			"Title":             config.LoginPageTitle.Value,
 			"UI":                uiWords,
 			"PageTitle":         uiWords["revoke"],
@@ -75,7 +79,7 @@ func TOTPRevokeRoute(store *session.Store) func(c fiber.Ctx) error {
 			"SupportURL":        config.LoginSupportURL.String(),
 			"FooterText":        config.LoginPageFooterText.Value,
 			"HeraldTOTPEnabled": config.HeraldTOTPEnabled.ToBool(),
-		})
+		}, proof))
 	}
 }
 
@@ -101,22 +105,16 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 		if userID == "" {
 			return ctx.Status(fiber.StatusBadRequest).JSON(fiber.Map{"ok": false, "error": "user_id not in session"})
 		}
-		reauthenticated := false
-		if password := ctx.FormValue("password"); password != "" {
-			reauthenticated = auth.CheckPassword(password)
-		}
-		if !reauthenticated {
-			if code := ctx.FormValue("code"); code != "" {
-				verifyResp, verifyErr := client.TOTPVerify(ctx.Context(), &herald.TOTPVerifyRequest{
-					Subject: userID,
-					Code:    code,
-				})
-				reauthenticated = verifyErr == nil && verifyResp != nil && verifyResp.OK
+		// The proof is the user's own factor. The shared password is not
+		// accepted for a session that carries a user identity.
+		if failure := reauthenticate(ctx, sess); failure != nil {
+			if failure == reauthFailed {
+				auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionRevoked, ctx.IP(), false, "reauthentication_failed")
 			}
+			return ctx.Status(failure.status).JSON(fiber.Map{"ok": false, "error": failure.code})
 		}
-		if !reauthenticated {
-			auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionRevoked, ctx.IP(), false, "reauthentication_failed")
-			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "recent_authentication_required"})
+		if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
+			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"ok": false, "error": "session_save_failed"})
 		}
 		revokeResp, err := client.TOTPRevoke(ctx.Context(), userID)
 		notConfirmed := revokeNotConfirmed(err)

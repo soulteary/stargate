@@ -15,6 +15,9 @@ type challengeContext struct {
 	UserID      string `json:"user_id"`
 	Channel     string `json:"channel"`
 	Destination string `json:"destination"`
+	// Purpose is empty for login challenges and names any other flow the
+	// challenge was created for, so one flow cannot consume another's code.
+	Purpose string `json:"purpose,omitempty"`
 }
 
 type ChallengeContextStore interface {
