@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"strings"
 
 	"github.com/gofiber/fiber/v3"
@@ -31,6 +32,14 @@ func revokeErrorReason(err error) string {
 	default:
 		return "service_error"
 	}
+}
+
+// revokeNotConfirmed reports whether the Herald SDK returned its
+// "revoke_not_confirmed" error: Herald answered 200 without confirming the
+// revocation. SDK releases before v1.6.0 returned no error in that case.
+func revokeNotConfirmed(err error) bool {
+	var heraldErr *herald.HeraldError
+	return errors.As(err, &heraldErr) && heraldErr.Reason == "revoke_not_confirmed"
 }
 
 // TOTPRevokeRoute handles GET /totp/revoke - shows TOTP unbind confirm page (requires auth).
@@ -110,7 +119,8 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 			return ctx.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"ok": false, "error": "recent_authentication_required"})
 		}
 		revokeResp, err := client.TOTPRevoke(ctx.Context(), userID)
-		if err != nil {
+		notConfirmed := revokeNotConfirmed(err)
+		if err != nil && !notConfirmed {
 			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP revoke failed")
 			reason := revokeErrorReason(err)
 			auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionRevoked, ctx.IP(), false, reason)
@@ -118,7 +128,7 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 		}
 		// Herald can answer 200 without confirming the revocation. Reporting
 		// success then would tell the user the factor is gone when it is not.
-		if revokeResp == nil || !revokeResp.OK {
+		if notConfirmed || revokeResp == nil || !revokeResp.OK {
 			log.Warn().Str("user_id", userID).Msg("TOTP revoke was not confirmed by Herald")
 			auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionRevoked, ctx.IP(), false, "revoke_not_confirmed")
 			return ctx.Status(fiber.StatusBadGateway).JSON(fiber.Map{"ok": false, "error": "revoke_failed", "reason": "revoke_not_confirmed"})
