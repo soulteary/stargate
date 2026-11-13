@@ -583,6 +583,28 @@ func warnSharedPasswordStepUp() {
 	}
 }
 
+// warnPlaintextServiceURLs reports an enabled Warden or Herald integration that
+// is reached over http:// while it authenticates with a key or HMAC secret.
+// An API key is then sent in clear text with every request. HMAC keeps the
+// secret itself off the wire, but directory records and verification codes
+// are still readable and replayable inside the signature window. This is
+// acceptable only on a private network, so it stays a warning.
+func warnPlaintextServiceURLs() {
+	for _, service := range []struct {
+		name    string
+		enabled bool
+		url     string
+		keyed   bool
+	}{
+		{"WARDEN_URL", WardenEnabled.ToBool(), WardenURL.Value, WardenAPIKey.Value != "" || WardenHMACSecret.Value != ""},
+		{"HERALD_URL", HeraldEnabled.ToBool(), HeraldURL.Value, HeraldAPIKey.Value != "" || HeraldHMACSecret.Value != ""},
+	} {
+		if service.enabled && service.keyed && strings.HasPrefix(strings.ToLower(service.url), "http://") {
+			log.Warn().Str("name", service.name).Msg("Service URL uses http:// while an API key or HMAC secret is configured: an API key and all request and response data cross the network unencrypted. Use https:// unless the connection stays on a private network.")
+		}
+	}
+}
+
 // warnUniformResponses reports the configurations in which
 // LOGIN_UNIFORM_RESPONSES does less than an operator may expect.
 func warnUniformResponses() {
@@ -622,6 +644,7 @@ func Initialize(l *logger.Logger) error {
 	warnPlaintextPasswords()
 	warnSharedPasswordStepUp()
 	warnUniformResponses()
+	warnPlaintextServiceURLs()
 
 	// Initialize step-up matcher after configuration is loaded
 	InitStepUpMatcher()
