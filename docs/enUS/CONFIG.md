@@ -1253,6 +1253,7 @@ Stargate supports plaintext (development only) and bcrypt password verification.
 - **Testing environment only**
 - Strongly not recommended for production use
 - Stargate logs a startup warning when it is used while `COOKIE_SECURE` is `true`
+- The demo passwords published in this repository's Compose example (`test1234`, `test1337`) are refused at startup when `COOKIE_SECURE` is `true`; they are accepted only for the local HTTP demo
 
 **Example:**
 
