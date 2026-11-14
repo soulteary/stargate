@@ -50,6 +50,7 @@ func redisTestCertificate(t *testing.T) (tls.Certificate, string) {
 
 func setSessionRedisOptions(t *testing.T, addr, username, password, tlsEnabled, caFile, serverName string) {
 	t.Helper()
+	isolateGlobalState(t)
 	for variable, value := range map[*config.EnvVariable]string{
 		&config.SessionStorageRedisAddr:          addr,
 		&config.SessionStorageRedisUsername:      username,

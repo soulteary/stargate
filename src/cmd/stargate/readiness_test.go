@@ -31,6 +31,7 @@ func countingAggregator(cfg health.Config, runs *atomic.Int64, healthy *atomic.B
 
 // Requests to /readyz and /health must not each reach the dependencies.
 func TestReadinessRoutesShareOneDependencyCheck(t *testing.T) {
+	isolateGlobalState(t)
 	initLogger()
 	setupTestConfig(t)
 

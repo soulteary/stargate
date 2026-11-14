@@ -32,6 +32,7 @@ func testLoggerMain() *logger.Logger {
 }
 
 func setupTestConfig(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("DEBUG", "false")
@@ -40,6 +41,7 @@ func setupTestConfig(t *testing.T) {
 }
 
 func TestParseTrustedProxies(t *testing.T) {
+	isolateGlobalState(t)
 	original := config.TrustedProxies.Value
 	t.Cleanup(func() { config.TrustedProxies.Value = original })
 	config.TrustedProxies.Value = "127.0.0.1, 10.0.0.0/8,::1"
@@ -154,6 +156,7 @@ func TestSetupTemplates(t *testing.T) {
 }
 
 func TestSetupSessionStore_WithoutCookieDomain(t *testing.T) {
+	isolateGlobalState(t)
 	setupTestConfig(t)
 
 	// Clear cookie domain
@@ -165,6 +168,7 @@ func TestSetupSessionStore_WithoutCookieDomain(t *testing.T) {
 }
 
 func TestSetupSessionStore_WithCookieDomain(t *testing.T) {
+	isolateGlobalState(t)
 	setupTestConfig(t)
 
 	// Set cookie domain
@@ -179,6 +183,7 @@ func TestSetupSessionStore_WithCookieDomain(t *testing.T) {
 // when SESSION_STORAGE_REDIS_DB is set but Redis is disabled. The "invalid REDIS_DB" log path
 // is only hit when SESSION_STORAGE_ENABLED=true (requires Redis connection).
 func TestSetupSessionStore_WithInvalidRedisDBEnv_RedisDisabled(t *testing.T) {
+	isolateGlobalState(t)
 	setupTestConfig(t)
 	t.Setenv("SESSION_STORAGE_ENABLED", "false")
 	t.Setenv("SESSION_STORAGE_REDIS_DB", "not_a_number")
@@ -191,6 +196,7 @@ func TestSetupSessionStore_WithInvalidRedisDBEnv_RedisDisabled(t *testing.T) {
 // TestSetupHealthChecker_Combinations covers Herald/Warden/session-storage branches.
 // The branch "SessionStorageEnabled && redisClient != nil" is covered when running with Redis enabled (e.g. integration).
 func TestSetupHealthChecker_Combinations(t *testing.T) {
+	isolateGlobalState(t)
 	tests := []struct {
 		name string
 		env  map[string]string
@@ -216,6 +222,7 @@ func TestSetupHealthChecker_Combinations(t *testing.T) {
 }
 
 func TestSetupHealthCheckerReportsTLSConfigurationFailure(t *testing.T) {
+	isolateGlobalState(t)
 	setupTestConfig(t)
 	previousEnabled := config.HeraldEnabled.Value
 	previousURL := config.HeraldURL.Value
@@ -550,6 +557,7 @@ func TestSetupMiddleware_FaviconNotFound(t *testing.T) {
 // deployment, and every rate-limited POST used to panic inside the rate-limit
 // store and come back as a 500 from the recover middleware.
 func TestCreateApp_LoginWorksWithoutRedis(t *testing.T) {
+	isolateGlobalState(t)
 	ensureTestWorkingDir(t)
 	initLogger()
 	t.Setenv("SESSION_STORAGE_ENABLED", "false")
@@ -586,6 +594,7 @@ func TestCreateApp_LoginWorksWithoutRedis(t *testing.T) {
 // Existing ordinary sessions intentionally do not migrate into it: older
 // instances must not write records that bypass atomic revocation.
 func TestSetupSessionStoreRedisKeyPrefix(t *testing.T) {
+	isolateGlobalState(t)
 	for _, tc := range []struct {
 		name   string
 		prefix string

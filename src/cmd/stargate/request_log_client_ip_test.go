@@ -17,6 +17,7 @@ import (
 // returns the request log line it produced.
 func requestLogLine(t *testing.T, trustedProxies, forwardedFor string) map[string]any {
 	t.Helper()
+	isolateGlobalState(t)
 	ensureTestWorkingDir(t)
 	t.Setenv("SESSION_STORAGE_ENABLED", "false")
 	t.Setenv("TRUSTED_PROXIES", trustedProxies)

@@ -37,6 +37,7 @@ func TestShowBanner_ContainsVersion(t *testing.T) {
 }
 
 func TestInitLogger(t *testing.T) {
+	isolateGlobalState(t)
 	// Test that initLogger sets up the logger correctly
 	testza.AssertNotPanics(t, func() {
 		initLogger()
@@ -47,6 +48,7 @@ func TestInitLogger(t *testing.T) {
 }
 
 func TestInitLogger_MultipleCalls(t *testing.T) {
+	isolateGlobalState(t)
 	// Test that initLogger can be called multiple times without issues
 	testza.AssertNotPanics(t, func() {
 		initLogger()
@@ -55,6 +57,7 @@ func TestInitLogger_MultipleCalls(t *testing.T) {
 }
 
 func TestInitConfig_Success(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -69,6 +72,7 @@ func TestInitConfig_Success(t *testing.T) {
 }
 
 func TestInitConfig_WithDebug(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -86,6 +90,7 @@ func TestInitConfig_WithDebug(t *testing.T) {
 }
 
 func TestInitConfig_ConfigInitializationError(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -102,6 +107,7 @@ func TestInitConfig_ConfigInitializationError(t *testing.T) {
 }
 
 func TestInitConfig_MissingRequiredConfig(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -118,6 +124,7 @@ func TestInitConfig_MissingRequiredConfig(t *testing.T) {
 }
 
 func TestInitConfig_ReturnsWardenClientInitializationError(t *testing.T) {
+	isolateGlobalState(t)
 	initLogger()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -134,6 +141,7 @@ func TestInitConfig_ReturnsWardenClientInitializationError(t *testing.T) {
 }
 
 func TestInitConfig_ReturnsHeraldClientInitializationError(t *testing.T) {
+	isolateGlobalState(t)
 	initLogger()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -153,6 +161,7 @@ func TestInitConfig_ReturnsHeraldClientInitializationError(t *testing.T) {
 }
 
 func TestInitConfig_DebugFalse(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -170,6 +179,7 @@ func TestInitConfig_DebugFalse(t *testing.T) {
 }
 
 func TestInitConfig_DebugCaseInsensitive(t *testing.T) {
+	isolateGlobalState(t)
 	// Test that DEBUG value is case insensitive
 	tests := []struct {
 		name     string
@@ -204,6 +214,7 @@ func TestInitConfig_DebugCaseInsensitive(t *testing.T) {
 }
 
 func TestInitConfig_EmptyDebugValue(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -221,6 +232,7 @@ func TestInitConfig_EmptyDebugValue(t *testing.T) {
 }
 
 func TestInitConfig_InvalidDebugValue(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -238,6 +250,7 @@ func TestInitConfig_InvalidDebugValue(t *testing.T) {
 }
 
 func TestInitConfig_LogLevelTransition(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -262,6 +275,7 @@ func TestInitConfig_LogLevelTransition(t *testing.T) {
 }
 
 func TestInitConfig_ConfigInitializationSuccessPath(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -280,6 +294,7 @@ func TestInitConfig_ConfigInitializationSuccessPath(t *testing.T) {
 
 // TestRunApplication_ConfigError tests that runApplication returns error when config initialization fails
 func TestRunApplication_ConfigError(t *testing.T) {
+	isolateGlobalState(t)
 	// Setup invalid environment variables to cause initialization error
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
@@ -307,6 +322,7 @@ func runApplicationWithApp(app *fiber.App) error {
 
 // TestRunApplicationWithApp_ConfigError tests that runApplicationWithApp returns error when config initialization fails
 func TestRunApplicationWithApp_ConfigError(t *testing.T) {
+	isolateGlobalState(t)
 	// Setup invalid environment variables to cause initialization error
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
@@ -325,6 +341,7 @@ func TestRunApplicationWithApp_ConfigError(t *testing.T) {
 
 // TestRunApplicationWithApp_Success tests that runApplicationWithApp works with valid config
 func TestRunApplicationWithApp_Success(t *testing.T) {
+	isolateGlobalState(t)
 	// Setup valid environment variables
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -340,6 +357,7 @@ func TestRunApplicationWithApp_Success(t *testing.T) {
 
 // TestRunApplication_SuccessPath tests the complete success path
 func TestRunApplication_SuccessPath(t *testing.T) {
+	isolateGlobalState(t)
 	// Setup valid environment variables
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -356,6 +374,7 @@ func TestRunApplication_SuccessPath(t *testing.T) {
 
 // TestGetLogger_ReturnsNonNilAfterInit covers GetLogger for coverage (used by other packages).
 func TestGetLogger_ReturnsNonNilAfterInit(t *testing.T) {
+	isolateGlobalState(t)
 	initLogger()
 	l := GetLogger()
 	testza.AssertNotNil(t, l, "GetLogger() must not be nil after initLogger()")
@@ -395,6 +414,7 @@ func TestShowBanner_ContentStructure(t *testing.T) {
 
 // TestInitConfig_AllPaths tests all code paths in initConfig
 func TestInitConfig_AllPaths(t *testing.T) {
+	isolateGlobalState(t)
 	tests := []struct {
 		name        string
 		setup       func(*testing.T)
@@ -458,6 +478,7 @@ func TestInitConfig_AllPaths(t *testing.T) {
 
 // TestRunApplication_ConfigErrorPath tests the error path when config initialization fails
 func TestRunApplication_ConfigErrorPath(t *testing.T) {
+	isolateGlobalState(t)
 	// Setup invalid environment variables
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
@@ -474,6 +495,7 @@ func TestRunApplication_ConfigErrorPath(t *testing.T) {
 
 // TestRunApplicationWithApp_ConfigErrorPath tests the error path when config initialization fails
 func TestRunApplicationWithApp_ConfigErrorPath(t *testing.T) {
+	isolateGlobalState(t)
 	// Setup invalid environment variables
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
@@ -492,6 +514,7 @@ func TestRunApplicationWithApp_ConfigErrorPath(t *testing.T) {
 
 // TestRunApplication_ServerErrorPath tests that runApplication handles server start errors
 func TestRunApplication_ServerErrorPath(t *testing.T) {
+	isolateGlobalState(t)
 	// Setup valid environment variables
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -507,6 +530,7 @@ func TestRunApplication_ServerErrorPath(t *testing.T) {
 
 // TestMainFunction_CodeStructure tests that main function has the expected structure
 func TestMainFunction_CodeStructure(t *testing.T) {
+	isolateGlobalState(t)
 	// Verify all functions called by main() exist and are testable
 	testza.AssertNotNil(t, showBanner, "showBanner should be defined")
 	testza.AssertNotNil(t, initLogger, "initLogger should be defined")
@@ -541,6 +565,7 @@ func TestShowBanner_VersionIntegration(t *testing.T) {
 
 // TestInitLogger_Creates_Logger tests that initLogger creates a valid logger
 func TestInitLogger_Creates_Logger(t *testing.T) {
+	isolateGlobalState(t)
 	initLogger()
 
 	// Verify logger is created
@@ -549,6 +574,7 @@ func TestInitLogger_Creates_Logger(t *testing.T) {
 
 // TestInitConfig_ErrorReturn tests that initConfig returns error correctly
 func TestInitConfig_ErrorReturn(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 
@@ -564,6 +590,7 @@ func TestInitConfig_ErrorReturn(t *testing.T) {
 
 // TestInitConfig_SuccessReturn tests that initConfig returns nil on success
 func TestInitConfig_SuccessReturn(t *testing.T) {
+	isolateGlobalState(t)
 	// Initialize logger first
 	initLogger()
 

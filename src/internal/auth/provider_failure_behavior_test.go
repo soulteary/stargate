@@ -12,6 +12,7 @@ import (
 )
 
 func TestWardenLookupFailsClosedWithoutClientOrOnProviderFailure(t *testing.T) {
+	isolateGlobalState(t)
 	previousClient, previousEnabled := wardenClient, config.WardenEnabled.Value
 	t.Cleanup(func() { wardenClient = previousClient; config.WardenEnabled.Value = previousEnabled })
 	log = testLogger()
@@ -34,6 +35,7 @@ func TestWardenLookupFailsClosedWithoutClientOrOnProviderFailure(t *testing.T) {
 }
 
 func TestInvalidPasswordConfigurationFailsClosed(t *testing.T) {
+	isolateGlobalState(t)
 	previous := config.Passwords.Value
 	t.Cleanup(func() { config.Passwords.Value = previous })
 	log = testLogger()
@@ -45,6 +47,7 @@ func TestInvalidPasswordConfigurationFailsClosed(t *testing.T) {
 }
 
 func TestWardenInitializationRequiresURLAndRetainsTLSSettings(t *testing.T) {
+	isolateGlobalState(t)
 	variables := []*config.EnvVariable{&config.WardenEnabled, &config.WardenURL, &config.WardenHMACKeyID, &config.WardenHMACSecret, &config.WardenTLSServerName}
 	old := make([]string, len(variables))
 	for i, v := range variables {

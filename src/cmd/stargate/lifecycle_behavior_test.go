@@ -15,6 +15,7 @@ import (
 )
 
 func TestApplicationReportsListenFailure(t *testing.T) {
+	isolateGlobalState(t)
 	listener, err := net.Listen("tcp4", "0.0.0.0:0")
 	require.NoError(t, err)
 	defer func() { require.NoError(t, listener.Close()) }()
@@ -30,6 +31,7 @@ func TestApplicationReportsListenFailure(t *testing.T) {
 }
 
 func TestApplicationShutsDownOnTerminationSignal(t *testing.T) {
+	isolateGlobalState(t)
 	if runtime.GOOS == "windows" {
 		t.Skip("process termination signals require Unix")
 	}
@@ -76,6 +78,7 @@ func TestApplicationShutsDownOnTerminationSignal(t *testing.T) {
 }
 
 func TestStartServerAcceptsPrefixedPort(t *testing.T) {
+	isolateGlobalState(t)
 	initLogger()
 	previous := config.Port.Value
 	t.Cleanup(func() { config.Port.Value = previous })
