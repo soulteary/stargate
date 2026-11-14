@@ -234,6 +234,9 @@ var (
 		Validator:      ValidateNotEmptyString,
 	}
 
+	// WardenCacheTTL is accepted and validated for compatibility. The Warden
+	// client uses it only for its user-list cache, which Stargate never reads:
+	// every lookup here is a per-identifier request and is not cached.
 	WardenCacheTTL = EnvVariable{
 		Name:           "WARDEN_CACHE_TTL",
 		Required:       false,

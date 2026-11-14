@@ -76,7 +76,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `HEADER_AUTH_ENABLED` | true/false | false | No |
 | `HEADER_AUTH_SHARED_SECRET` | Secret string (at least 32 characters) | empty | Yes when header auth enabled |
 | `HEADER_AUTH_SECRET_HEADER` | HTTP header name | X-Stargate-Header-Auth | No |
-| `WARDEN_CACHE_TTL` | String | 300 | No |
+| `WARDEN_CACHE_TTL` | positive integer (seconds); no effect | 300 | No |
 | `WARDEN_SOURCE_MAX_AGE` | duration | 0s (compatibility) | No |
 | `WARDEN_SOURCE_CLOCK_SKEW` | duration | 0s | No |
 | `METRICS_API_KEY` | secret | empty (metrics disabled) | No |
@@ -472,20 +472,21 @@ WARDEN_API_KEY=your-warden-api-key-here
 
 #### `WARDEN_CACHE_TTL`
 
-TTL (Time To Live) for Warden user information cache.
+Accepted for compatibility. It has no effect on Stargate's behaviour.
 
 | Attribute | Value |
 |-----------|-------|
 | **Type** | Integer |
 | **Required** | No |
-| **Default** | `300` (5 minutes) |
+| **Default** | `300` |
 | **Unit** | Seconds |
 
 **Description:**
 
-- Time to cache user information locally
-- Reduces request frequency to Warden service
-- Improves authentication performance
+- The value is passed to the Warden client as the lifetime of its user-list cache. Stargate never requests the user list: sign-in, sending a code, trusted header authentication and the authorization refresh each look up one user by phone number or mail address, and those lookups are not cached. Every one of them is a request to Warden, whatever this value is.
+- It does not delay revocation. How soon a disabled or removed user loses an existing session is set by [`AUTH_REFRESH_INTERVAL`](#auth_refresh_interval), which is also the setting that bounds how often a session causes a Warden request.
+- With `HEADER_AUTH_ENABLED=true`, every forwarded request that carries a trusted identity header causes one Warden lookup.
+- The value must still be a positive integer; Stargate does not start otherwise.
 
 **Example:**
 
@@ -1470,8 +1471,8 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
    - Set `DEBUG=false` in production environment to reduce log output
 
 7. **Performance Optimization**:
-   - Set `WARDEN_CACHE_TTL` to reduce requests to Warden
-   - Adjust cache time according to actual needs
+   - Raise `AUTH_REFRESH_INTERVAL` to reduce requests to Warden; a longer interval also delays the effect of disabling a user
+   - `WARDEN_CACHE_TTL` does not reduce them: per-user lookups are not cached
 
 ## Legacy Password Header Authentication
 
