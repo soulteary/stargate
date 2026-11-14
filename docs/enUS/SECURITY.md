@@ -8,7 +8,7 @@ This document explains Stargate's security features, security configuration, and
 
 1. **Forward Auth Protection**: Centralized authentication layer for protecting backend services
 2. **Password Verification**: Support for bcrypt and plaintext (local development only); MD5 and unsalted SHA-512 are rejected
-3. **Secure Session Management**: Cookie-based sessions with configurable domain and expiration
+3. **Secure Session Management**: Cookie-based sessions with a configurable cookie domain; sessions last a fixed 24 hours
 4. **Service Integration Security**: In production, Herald requires the selected HMAC or API-key request credentials; optional mTLS adds transport protection and does not replace them. Warden retains its own configured API-key/HMAC/mTLS policy.
 5. **Session Sharing Security**: Secure cross-domain session exchange mechanism
 6. **Input Validation**: Strict validation of all input parameters
