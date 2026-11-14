@@ -540,7 +540,7 @@ scrape_configs:
       - targets: ["stargate:8080"]
 ```
 
-`/metrics`, `/healthz`, `/readyz` and `/health` are excluded from request logging.
+`/metrics`, `/healthz`, `/readyz` and `/health` are excluded from request logging and from tracing.
 
 ## Monitoring and Maintenance
 

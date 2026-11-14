@@ -19,6 +19,12 @@ This file records user-visible changes. For upgrade steps and configuration exam
   least Herald's `RESEND_COOLDOWN`; if it is lower, a resend inside Herald's
   window shows "sent" and sends nothing, and the earlier code keeps working
   for a client that presents its current handle, which the login page does.
+- Add `SESSION_STORAGE_REDIS_TLS_ENABLED`,
+  `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE`,
+  `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` and `SESSION_STORAGE_REDIS_USERNAME`
+  for a session Redis that requires TLS or an ACL user.
+- Request log lines carry `client_ip`, the address resolved through
+  `TRUSTED_PROXIES` and `PROXY_HEADER`. The existing `ip` field is unchanged.
 
 ### Fixed
 
@@ -29,6 +35,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
   with `docker/release.Dockerfile` carried a template directory without the
   file. That directory takes precedence over the embedded templates, so
   `/_step_up` could not render there. No published release contains the defect.
+- Startup configuration errors report a broken rule as the reason instead of as
+  the provided value.
+- `POST /_login` prefers the form's `callback` over the `stargate_callback`
+  cookie. The API reference stated the opposite order.
+- XML error responses escape `&`, `<` and `>` in the message.
 
 ### Security
 
@@ -87,6 +98,15 @@ This file records user-visible changes. For upgrade steps and configuration exam
   still be told apart by latency. Password sign-in, `/_auth`,
   re-authentication, step-up and TOTP management are unchanged. See
   `docs/enUS/SECURITY.md` for what the mode does not cover.
+- Failed `Stargate-Password` attempts on `/_auth` are counted against
+  `RATE_LIMIT_LOGIN_MAX`. Once it is used up, requests from that client
+  carrying the header get `429` with `Retry-After`. They were not counted
+  before.
+- `/readyz` and `/health` answer from a readiness result refreshed at most
+  every 5 seconds, so repeated requests no longer each probe the dependencies.
+  The health IP allow list is checked on every request.
+- Stargate no longer starts with `COOKIE_SECURE=true` when `PASSWORDS` lists
+  the published demo passwords (`test1234`, `test1337`) in plaintext.
 
 ### Changed
 
@@ -96,6 +116,13 @@ This file records user-visible changes. For upgrade steps and configuration exam
   still passes step-up with that password.
 - The step-up page uses the same template, styles and translations as the
   other account pages (`step_up.html`).
+- With `OTLP_ENABLED=true`, `/healthz`, `/readyz`, `/health` and `/metrics` no
+  longer create spans.
+- The `TRUSTED_PROXIES` warnings say that behind an unlisted proxy the login
+  redirect loses its callback and uses `http://`.
+- A startup warning is logged when `WARDEN_URL` or `HERALD_URL` uses `http://`
+  while that integration has an API key or HMAC secret.
+- `WARDEN_CACHE_TTL` is documented as having no effect.
 
 ### Upgrade notes
 
@@ -136,6 +163,12 @@ This file records user-visible changes. For upgrade steps and configuration exam
   fields. The official image ships the updated templates.
 - Clients that call `POST /totp/revoke` with `password`, or `POST /_step_up`
   with `password` for a Warden session, must send `code` instead.
+- A deployment with `COOKIE_SECURE=true` whose `PASSWORDS` still lists
+  `test1234` or `test1337` in plaintext does not start after the upgrade.
+  Replace them before upgrading.
+- A client that relied on the `stargate_callback` cookie taking precedence over
+  the `callback` form field on `POST /_login` is now redirected to the form's
+  value.
 
 ## [1.3.8] - 2026-11-13
 
