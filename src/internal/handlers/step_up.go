@@ -107,14 +107,28 @@ func redirectToStepUp(ctx fiber.Ctx) error {
 	return ctx.Redirect().Status(fiber.StatusFound).To(stepUpURL.String())
 }
 
+// stepUpReturnProto returns the scheme the browser may be sent back to after
+// step-up, or "" when the submitted value is not accepted. The value arrives
+// in the query string and in a form field, so a crafted link can set it. With
+// COOKIE_SECURE=true the session cookie is only ever sent over HTTPS, so no
+// legitimate request asks to return over http; accepting it would send a user
+// who has just proved their identity to a plaintext URL.
+func stepUpReturnProto(raw string) string {
+	proto := strings.ToLower(strings.TrimSpace(raw))
+	if proto == "https" || (proto == "http" && !config.CookieSecure.ToBool()) {
+		return proto
+	}
+	return ""
+}
+
 func stepUpReturnURL(rawProto, rawHost, rawCallback string) string {
 	callback := safeStepUpCallback(rawCallback)
 	host, err := ValidateCallbackHost(rawHost)
 	if err != nil {
 		return callback
 	}
-	proto := strings.ToLower(strings.TrimSpace(rawProto))
-	if proto != "http" && proto != "https" {
+	proto := stepUpReturnProto(rawProto)
+	if proto == "" {
 		return callback
 	}
 	parsed, err := url.ParseRequestURI(callback)
@@ -141,10 +155,7 @@ func StepUpRoute(store *session.Store) func(c fiber.Ctx) error {
 		}
 		callback := safeStepUpCallback(ctx.Query("callback"))
 		callbackHost, _ := ValidateCallbackHost(ctx.Query("callback_host"))
-		callbackProto := strings.ToLower(strings.TrimSpace(ctx.Query("callback_proto")))
-		if callbackProto != "http" && callbackProto != "https" {
-			callbackProto = ""
-		}
+		callbackProto := stepUpReturnProto(ctx.Query("callback_proto"))
 		proof, failure := requiredReauthProof(ctx.Context(), sess)
 		if failure != nil {
 			return SendErrorResponse(ctx, failure.status, failure.message)

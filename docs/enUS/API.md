@@ -512,7 +512,9 @@ Displays the re-authentication form for an authenticated session: a TOTP code fi
 
 ### `POST /_step_up`
 
-Verifies the proof and records successful step-up authentication in the session for 10 minutes. Submit the form field `code` or `password` that applies to the session, and the optional local-path `callback`. This route is same-origin protected and rate limited. A failed proof is recorded in the audit log as `login_failed` with method `step_up`.
+Verifies the proof and records successful step-up authentication in the session for 10 minutes. Submit the form field `code` or `password` that applies to the session, and the optional local-path `callback`. This route is same-origin protected and rate limited.
+
+On success the response is `302 Found` to `callback`. When the step-up was started by `/_auth` for another host, the form also carries `callback_host` and `callback_proto`, and the redirect goes to that host; the host must be the auth host, within `COOKIE_DOMAIN` or listed in `CALLBACK_ALLOWED_HOSTS`, and `callback_proto` must be `http` or `https`. With `COOKIE_SECURE=true` only `https` is accepted. A host or scheme that is not accepted is ignored and the redirect goes to the local path `callback` on the auth host. A failed proof is recorded in the audit log as `login_failed` with method `step_up`.
 
 ## Session Exchange Endpoint
 

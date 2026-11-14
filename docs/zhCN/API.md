@@ -388,6 +388,8 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 复核密码，并在会话中记录 10 分钟有效的 Step-up 认证状态。表单字段为 `password` 和可选的本地路径 `callback`。该路由受同源校验和限流保护。
 
+成功后以 `302 Found` 跳转到 `callback`。当 Step-up 由其他主机的 `/_auth` 发起时，表单还带有 `callback_host` 和 `callback_proto`，跳转目标为该主机；主机必须是认证主机、属于 `COOKIE_DOMAIN` 或列在 `CALLBACK_ALLOWED_HOSTS` 中，`callback_proto` 必须是 `http` 或 `https`。`COOKIE_SECURE=true` 时只接受 `https`。不被接受的主机或协议会被忽略，跳转到认证主机上的本地路径 `callback`。
+
 ## 会话交换端点
 
 ### `GET /_session_exchange`
