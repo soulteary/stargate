@@ -104,10 +104,12 @@ const (
 // its proxy: once per process, rather than on every request.
 var untrustedForwardedWarning sync.Once
 
-// warnUntrustedForwardedHeaders reports the misconfiguration that silently
-// collapses per-client rate limiting: a reverse proxy sits in front of
-// Stargate but its address is absent from TRUSTED_PROXIES, so every client is
-// attributed to the proxy and the whole deployment shares one quota.
+// warnUntrustedForwardedHeaders reports a reverse proxy that sits in front of
+// Stargate while its address is absent from TRUSTED_PROXIES. Its forwarded
+// headers are ignored, which silently breaks two things: the login redirect
+// from /_auth is built without the original host and scheme, and every client
+// is attributed to the proxy, so the whole deployment shares one rate-limit
+// quota.
 func warnUntrustedForwardedHeaders(ctx fiber.Ctx) {
 	if log == nil || trustForwardedHeaders(ctx) {
 		return
@@ -118,7 +120,7 @@ func warnUntrustedForwardedHeaders(ctx fiber.Ctx) {
 	untrustedForwardedWarning.Do(func() {
 		log.Warn().
 			Str("peer", ctx.IP()).
-			Msg("Received forwarded headers from an untrusted peer: rate limits are keyed by the proxy address, so every client shares one quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
+			Msg("Received forwarded headers from an untrusted peer and ignored them: the login redirect from /_auth loses its callback and uses http://, so users are not returned to the application after sign-in, and rate limits are keyed by the proxy address, so every client shares one quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
 	})
 }
 

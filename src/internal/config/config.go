@@ -579,20 +579,17 @@ var (
 	}
 )
 
-// warnUnattributableRateLimits reports the configuration in which rate limits
-// stop being per-client. With an empty TRUSTED_PROXIES, forwarded headers are
-// ignored and the client address is the direct peer. That is correct for a
-// directly exposed deployment, but behind a reverse proxy every client is
-// attributed to the proxy and therefore shares a single quota.
-func warnUnattributableRateLimits() {
+// warnEmptyTrustedProxies reports what an empty TRUSTED_PROXIES means behind a
+// reverse proxy. Forwarded headers are then ignored, which is correct for a
+// directly exposed deployment. Behind a proxy it has two effects: Stargate
+// does not learn the original host and scheme, so the login redirect from
+// /_auth carries no callback and is built with http://, and every client is
+// attributed to the proxy and shares a single rate-limit quota.
+func warnEmptyTrustedProxies() {
 	if strings.TrimSpace(TrustedProxies.Value) != "" {
 		return
 	}
-	if RateLimitLoginMax.ToInt(DefaultRateLimitLoginMax) <= 0 &&
-		RateLimitVerificationMax.ToInt(DefaultRateLimitVerificationMax) <= 0 {
-		return
-	}
-	log.Warn().Msg("TRUSTED_PROXIES is empty: the client address is the direct peer, so behind a reverse proxy every client shares one rate-limit quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
+	log.Warn().Msg("TRUSTED_PROXIES is empty: X-Forwarded-Host, X-Forwarded-Proto and the client-IP header are ignored. Behind a reverse proxy the login redirect from /_auth then loses its callback and uses http://, so users are not returned to the application after sign-in, and every client shares one rate-limit quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
 }
 
 // PublishedDemoSessionExchangeSecret is the value shipped in the repository's
@@ -679,7 +676,7 @@ func Initialize(l *logger.Logger) error {
 		log.Info().Str("name", Language.Name).Str("value", Language.Value).Msg("Config loaded")
 	}
 
-	warnUnattributableRateLimits()
+	warnEmptyTrustedProxies()
 	warnPlaintextPasswords()
 	warnSharedPasswordStepUp()
 	warnUniformResponses()

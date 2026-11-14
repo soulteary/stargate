@@ -67,6 +67,9 @@ func trustedHeaderAuthResult(ctx context.Context, phone, mail string) (*forwarda
 }
 
 func handleNotAuthenticated(ctx fiber.Ctx) error {
+	// This is where ignored forwarded headers show: the redirect below is
+	// built from the request Stargate received, not the one the user made.
+	warnUntrustedForwardedHeaders(ctx)
 	if IsHTMLRequest(ctx) {
 		return ctx.Redirect().Status(fiber.StatusFound).To(BuildCallbackURL(ctx))
 	}
