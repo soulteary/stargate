@@ -15,6 +15,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 )
 
 // testLoggerSendVerifyCode creates a logger instance for testing
@@ -279,7 +280,7 @@ func TestSendVerifyCodeAPI_Success(t *testing.T) {
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Accept-Language", "fr-FR,fr;q=0.9")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 
@@ -375,7 +376,7 @@ func TestSendVerifyCodeAPI_IdempotencyKeyPassthrough(t *testing.T) {
 			req.Header.Set("Accept", "application/json")
 			req.Header.Set("Idempotency-Key", idemKey)
 
-			resp, err := app.Test(req)
+			resp, err := app.Test(req, testsupport.RequestAllowance)
 			testza.AssertNoError(t, err)
 			testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 			testza.AssertEqual(t, idemKey, receivedIdempotencyKey, "Idempotency-Key should be forwarded to Herald")
@@ -452,7 +453,7 @@ func TestSendVerifyCodeAPI_LocaleFromConfig(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 	testza.AssertEqual(t, "de-DE", receivedLocale, "locale should come from getLocaleFromConfig when Accept-Language is not set")
@@ -536,7 +537,7 @@ func TestSendVerifyCodeAPI_GetLocaleFromConfig_AllLanguages(t *testing.T) {
 			req.Header.Set("Accept", "application/json")
 			// No Accept-Language so locale comes from getLocaleFromConfig()
 
-			resp, err := app.Test(req)
+			resp, err := app.Test(req, testsupport.RequestAllowance)
 			testza.AssertNoError(t, err)
 			testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 			testza.AssertEqual(t, wantLocale, receivedLocale, "getLocaleFromConfig(LANGUAGE=%s) should produce %s", lang, wantLocale)
@@ -598,7 +599,7 @@ func TestSendVerifyCodeAPI_HeraldRateLimited(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, http.StatusTooManyRequests, resp.StatusCode)
 	body, _ := io.ReadAll(resp.Body)
@@ -641,7 +642,7 @@ func TestSendVerifyCodeAPIRejectsUntrustedFallbackDestination(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusBadRequest, resp.StatusCode)
 	testza.AssertFalse(t, heraldCalled)
@@ -680,7 +681,7 @@ func TestSendVerifyCodeAPIRedactsProviderErrorDetails(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusInternalServerError, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)

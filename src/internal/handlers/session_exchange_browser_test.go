@@ -16,6 +16,7 @@ import (
 	sessionfiber "github.com/soulteary/session-kit/v3/fiberadapter"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/publicsuffix"
 )
@@ -29,7 +30,7 @@ func (t browserExchangeTransport) RoundTrip(request *http.Request) (*http.Respon
 	cloned := request.Clone(request.Context())
 	cloned.Header.Set("X-Forwarded-Host", request.URL.Host)
 	cloned.Header.Set("X-Forwarded-Proto", request.URL.Scheme)
-	response, err := t.app.Test(cloned)
+	response, err := t.app.Test(cloned, testsupport.RequestAllowance)
 	if err == nil {
 		response.Request = request
 	}

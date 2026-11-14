@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	logger "github.com/soulteary/logger-kit/v3"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,7 +48,7 @@ func sameOriginWarningStatus(t *testing.T, app *fiber.App, headers map[string]st
 	for name, value := range headers {
 		request.Header.Set(name, value)
 	}
-	response, err := app.Test(request)
+	response, err := app.Test(request, testsupport.RequestAllowance)
 	require.NoError(t, err)
 	return response.StatusCode
 }

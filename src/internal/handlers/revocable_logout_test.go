@@ -16,6 +16,7 @@ import (
 	sessionfiber "github.com/soulteary/session-kit/v3/fiberadapter"
 	"github.com/soulteary/session-kit/v3/redisstore"
 	"github.com/soulteary/stargate/src/internal/auth"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/warden/pkg/warden"
 	"github.com/stretchr/testify/require"
 )
@@ -54,7 +55,7 @@ func TestAnonymousLogoutDoesNotAllocateRevocationMarkers(t *testing.T) {
 					if cookie != "" {
 						request.AddCookie(&http.Cookie{Name: auth.SessionCookieName, Value: cookie})
 					}
-					response, err := app.Test(request)
+					response, err := app.Test(request, testsupport.RequestAllowance)
 					require.NoError(t, err)
 					require.Equal(t, 200, response.StatusCode)
 					require.NoError(t, response.Body.Close())

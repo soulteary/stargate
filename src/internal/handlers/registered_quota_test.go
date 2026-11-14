@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 	"net/http/httptest"
 	"strings"
@@ -24,7 +25,7 @@ func TestLoginQuotaUsesRegisteredRouteIdentity(t *testing.T) {
 	request := func(path string) int {
 		r := httptest.NewRequest("POST", "http://auth.example.com"+path, strings.NewReader("password=wrong-password"))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		response, err := app.Test(r)
+		response, err := app.Test(r, testsupport.RequestAllowance)
 		require.NoError(t, err)
 		require.NoError(t, response.Body.Close())
 		return response.StatusCode

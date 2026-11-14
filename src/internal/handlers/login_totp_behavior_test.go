@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,7 +75,7 @@ func TestLoginTOTPRequiresEnrolledIdentityAndSuccessfulVerification(t *testing.T
 			})
 			request := httptest.NewRequest("POST", "/", strings.NewReader("otp_code="+tc.code+"&challenge_id=test-challenge"))
 			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			response, err := app.Test(request)
+			response, err := app.Test(request, testsupport.RequestAllowance)
 			require.NoError(t, err)
 			require.Equal(t, tc.want, response.StatusCode)
 			require.NoError(t, response.Body.Close())

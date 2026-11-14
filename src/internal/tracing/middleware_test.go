@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/stargate/src/internal/requestcontext"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/tracing-kit/v2/tracingtest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,7 +32,7 @@ func TestTracingMiddleware(t *testing.T) {
 
 	t.Run("Success Request", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/test", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		assert.NoError(t, err)
 		assert.Equal(t, 200, resp.StatusCode)
 
@@ -41,7 +42,7 @@ func TestTracingMiddleware(t *testing.T) {
 
 	t.Run("Error Request", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/error", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		assert.NoError(t, err)
 		assert.Equal(t, 500, resp.StatusCode)
 
@@ -55,7 +56,7 @@ func TestTracingMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest("GET", "/bad", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		assert.NoError(t, err)
 		assert.Equal(t, 400, resp.StatusCode)
 		assert.NotEmpty(t, resp.Header.Get("traceparent"))
@@ -67,7 +68,7 @@ func TestTracingMiddleware(t *testing.T) {
 		})
 
 		req := httptest.NewRequest("GET", "/", nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		assert.NoError(t, err)
 		assert.Equal(t, 200, resp.StatusCode)
 	})
@@ -97,7 +98,7 @@ func TestTracingMiddlewarePreservesDeadlineCancellationAndValues(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/context", nil))
+	resp, err := app.Test(httptest.NewRequest("GET", "/context", nil), testsupport.RequestAllowance)
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 	require.NotNil(t, captured)
@@ -147,7 +148,7 @@ func TestTracingMiddlewareSkipsConfiguredPaths(t *testing.T) {
 	}
 
 	for _, path := range []string{"/healthz", "/metrics"} {
-		resp, err := app.Test(httptest.NewRequest("GET", path, nil))
+		resp, err := app.Test(httptest.NewRequest("GET", path, nil), testsupport.RequestAllowance)
 		assert.NoError(t, err)
 		assert.Equal(t, 200, resp.StatusCode)
 		assert.Empty(t, resp.Header.Get("traceparent"), path)
@@ -157,7 +158,7 @@ func TestTracingMiddlewareSkipsConfiguredPaths(t *testing.T) {
 
 	// Only exact paths are skipped.
 	for _, path := range []string{"/healthz/detail", "/_auth"} {
-		resp, err := app.Test(httptest.NewRequest("GET", path, nil))
+		resp, err := app.Test(httptest.NewRequest("GET", path, nil), testsupport.RequestAllowance)
 		assert.NoError(t, err)
 		assert.NotEmpty(t, resp.Header.Get("traceparent"), path)
 	}

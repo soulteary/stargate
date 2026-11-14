@@ -20,6 +20,7 @@ import (
 	"github.com/soulteary/session-kit/v3/redisstore"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/warden/pkg/warden"
 	"github.com/stretchr/testify/require"
 )
@@ -256,7 +257,7 @@ func TestVerifiedEmailRedisSessionRoundTrip(t *testing.T) {
 		return auth.Authenticate(sess)
 	})
 	app.Get("/_auth", CheckRoute(store))
-	login, err := app.Test(httptest.NewRequest("GET", "http://localhost/seed", nil))
+	login, err := app.Test(httptest.NewRequest("GET", "http://localhost/seed", nil), testsupport.RequestAllowance)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, login.Body.Close()) }()
 	require.NotEmpty(t, login.Cookies())
@@ -265,7 +266,7 @@ func TestVerifiedEmailRedisSessionRoundTrip(t *testing.T) {
 	for _, cookie := range login.Cookies() {
 		request.AddCookie(cookie)
 	}
-	response, err := app.Test(request)
+	response, err := app.Test(request, testsupport.RequestAllowance)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, response.Body.Close()) }()
 	require.Equal(t, 200, response.StatusCode)

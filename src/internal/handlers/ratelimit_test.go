@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/redis/go-redis/v9"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 )
 
 func withRateLimitConfig(t *testing.T, loginMax, verificationMax, window string) {
@@ -158,12 +159,12 @@ func TestEndpointRateLimitHonoursConfiguredMaximum(t *testing.T) {
 	})
 
 	for i := 0; i < 2; i++ {
-		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 		testza.AssertNoError(t, err)
 		testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 	}
 
-	resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+	resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusTooManyRequests, resp.StatusCode)
 	testza.AssertNotEqual(t, "", resp.Header.Get(fiber.HeaderRetryAfter))
@@ -180,7 +181,7 @@ func TestEndpointRateLimitDisabledByZero(t *testing.T) {
 	})
 
 	for i := 0; i < 20; i++ {
-		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_send_verify_code"))
+		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_send_verify_code"), testsupport.RequestAllowance)
 		testza.AssertNoError(t, err)
 		testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 	}
@@ -200,11 +201,11 @@ func TestEndpointRateLimitIsScopedPerPath(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+	resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 
-	resp, err = app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_send_verify_code"))
+	resp, err = app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_send_verify_code"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 }
@@ -233,13 +234,13 @@ func TestLoginRateLimitSharedAcrossReplicas(t *testing.T) {
 	secondReplica := newReplica()
 
 	for _, replica := range []*fiber.App{firstReplica, secondReplica} {
-		resp, err := replica.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+		resp, err := replica.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 		testza.AssertNoError(t, err)
 		testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 	}
 
 	// The configured quota is two requests in total, not two per replica.
-	resp, err := secondReplica.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+	resp, err := secondReplica.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusTooManyRequests, resp.StatusCode)
 }
@@ -260,7 +261,7 @@ func TestWarnUntrustedForwardedHeadersDoesNotPanicWithoutLogger(t *testing.T) {
 	req := newRequestProtectionTestRequest(fiber.MethodPost, "/_login")
 	req.Header.Set("X-Forwarded-For", "203.0.113.7")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 }
@@ -305,11 +306,11 @@ func TestUntrustedForwardedClientsShareOneQuota(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	resp, err := app.Test(newForwardedRequest(t, "/_login"))
+	resp, err := app.Test(newForwardedRequest(t, "/_login"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 
-	resp, err = app.Test(newForwardedRequest(t, "/_login"))
+	resp, err = app.Test(newForwardedRequest(t, "/_login"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusTooManyRequests, resp.StatusCode)
 }
@@ -326,18 +327,18 @@ func TestEndpointRateLimitKeepsRateLimitHeaders(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+	resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "2", resp.Header.Get(xRateLimitLimit))
 	testza.AssertEqual(t, "1", resp.Header.Get(xRateLimitRemaining))
 	testza.AssertNotEqual(t, "", resp.Header.Get(xRateLimitReset))
 
-	resp, err = app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+	resp, err = app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, "0", resp.Header.Get(xRateLimitRemaining))
 
 	// Remaining saturates at zero rather than going negative once over quota.
-	resp, err = app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+	resp, err = app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusTooManyRequests, resp.StatusCode)
 	testza.AssertEqual(t, "0", resp.Header.Get(xRateLimitRemaining))

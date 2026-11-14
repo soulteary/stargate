@@ -10,6 +10,7 @@ import (
 	views "github.com/gofiber/template/html/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"golang.org/x/net/html"
 )
 
@@ -39,7 +40,7 @@ func TestWardenLoginIdentifierLabelsMatchTheirRenderedFields(t *testing.T) {
 				})
 			}
 			app.Get("/_login", LoginRoute(setupTestStore()))
-			response, err := app.Test(httptest.NewRequest("GET", "http://auth.example.invalid/_login", nil))
+			response, err := app.Test(httptest.NewRequest("GET", "http://auth.example.invalid/_login", nil), testsupport.RequestAllowance)
 			if err != nil {
 				t.Fatal(err)
 			}

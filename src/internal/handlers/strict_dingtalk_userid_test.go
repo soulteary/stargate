@@ -16,6 +16,7 @@ import (
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/warden/pkg/warden"
 	"github.com/stretchr/testify/require"
 )
@@ -147,7 +148,7 @@ func TestStrictDingtalkCreationHTTP(t *testing.T) {
 				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 				req.Header.Set("Accept", "application/json")
 				req.Header.Set("Idempotency-Key", "synthetic-retry-key")
-				resp, err := app.Test(req, fiber.TestConfig{Timeout: 5 * time.Second})
+				resp, err := app.Test(req, testsupport.RequestAllowance)
 				require.NoError(t, err)
 				body, err := io.ReadAll(resp.Body)
 				require.NoError(t, err)
@@ -166,7 +167,7 @@ func TestStrictDingtalkCreationHTTP(t *testing.T) {
 			loginRequest := httptest.NewRequest("POST", "/_login", strings.NewReader(loginForm.Encode()))
 			loginRequest.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			loginRequest.Header.Set("Accept", "application/json")
-			loginResponse, err := app.Test(loginRequest, fiber.TestConfig{Timeout: 5 * time.Second})
+			loginResponse, err := app.Test(loginRequest, testsupport.RequestAllowance)
 			require.NoError(t, err)
 			loginBody, err := io.ReadAll(loginResponse.Body)
 			require.NoError(t, err)

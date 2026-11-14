@@ -14,6 +14,7 @@ import (
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 )
 
@@ -67,7 +68,7 @@ func TestSendVerifyCodeRetryMetadataHTTP(t *testing.T) {
 			req := httptest.NewRequest("POST", "/_send_verify_code", strings.NewReader("phone=13800138000"))
 			req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			req.Header.Set("Idempotency-Key", "same-operation")
-			response, err := app.Test(req)
+			response, err := app.Test(req, testsupport.RequestAllowance)
 			require.NoError(t, err)
 			defer func() { _ = response.Body.Close() }()
 			require.Equal(t, 429, response.StatusCode)
