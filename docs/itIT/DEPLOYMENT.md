@@ -116,6 +116,8 @@ docker run -d \
   stargate:latest
 ```
 
+Questo comando avvia il container per una verifica diretta su `http://localhost:8080`. `COOKIE_SECURE` è `true` per impostazione predefinita, quindi un browser conserva il cookie di sessione solo su HTTPS. Dietro un reverse proxy, impostare anche `TRUSTED_PROXIES` sull'indirizzo sorgente o sulla rete del proxy, ad esempio `-e TRUSTED_PROXIES=172.18.0.0/16`. Senza questo valore Stargate ignora `X-Forwarded-Proto` e `X-Forwarded-Host`: dietro un proxy che termina HTTPS a ogni accesso si risponde con `403 cross-site request rejected`, e il reindirizzamento al login perde il callback. Vedere [`TRUSTED_PROXIES`](CONFIG.md#trusted_proxies-e-proxy_header).
+
 #### Esecuzione con Configurazione Completa
 
 ```bash
@@ -478,7 +480,7 @@ services:
 
 #### 2. Endpoint Verifica Salute
 
-Usare `/healthz` per la liveness del processo e `/readyz` per la readiness delle dipendenze. `/health` è solo un alias di readiness deprecato.
+Usare `/healthz` per la liveness del processo e `/readyz` per la readiness delle dipendenze. `/health` è solo un alias di readiness deprecato. Entrambe le route di readiness condividono un unico risultato, aggiornato al massimo ogni 5 secondi: interrogarle più spesso non aggiunge quindi richieste a Redis, Warden o Herald, e un cambiamento di stato viene segnalato con un ritardo fino a 5 secondi.
 
 ```bash
 # Script verifica salute
@@ -492,7 +494,20 @@ fi
 
 #### 3. Integrazione Prometheus
 
-Stargate espone le metriche Prometheus su `GET /metrics`. Configurare Prometheus per lo scrape di questo endpoint. L'endpoint metriche è escluso per default da log e tracing delle richieste.
+Stargate espone le metriche Prometheus su `GET /metrics` una volta impostato `METRICS_API_KEY` su un segreto di almeno 32 byte. Senza questo valore l'endpoint risponde `404 Not Found`. Configurare Prometheus per lo scrape di questo endpoint con `Authorization: Bearer <METRICS_API_KEY>`; a un token mancante o errato si risponde con `401 Unauthorized`.
+
+```yaml
+scrape_configs:
+  - job_name: stargate
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/stargate-metrics-key
+    static_configs:
+      - targets: ["stargate:8080"]
+```
+
+`/metrics`, `/healthz`, `/readyz` e `/health` sono esclusi da log e tracing delle richieste.
 
 ## Monitoraggio e Manutenzione
 
@@ -507,6 +522,10 @@ docker logs -f stargate
 # Docker Compose
 docker compose logs -f stargate
 ```
+
+#### Indirizzi nel Log delle Richieste
+
+Ogni riga del log delle richieste (`"message":"HTTP request"`) contiene due indirizzi. `ip` è il peer diretto, che dietro un reverse proxy è il proxy. `client_ip` è l'indirizzo del client risolto tramite `TRUSTED_PROXIES` e `PROXY_HEADER`; è l'indirizzo usato dai record di audit e dai limiti di frequenza, quindi va usato per correlare i log delle richieste con i log di audit. Senza un proxy attendibile entrambi i campi contengono l'indirizzo del peer.
 
 #### Livelli di Registrazione
 

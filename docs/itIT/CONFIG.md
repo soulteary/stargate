@@ -214,6 +214,19 @@ Nome dell'intestazione utente impostato dopo autenticazione riuscita.
 USER_HEADER_NAME=X-Authenticated-User
 ```
 
+### `TRUSTED_PROXIES` e `PROXY_HEADER`
+
+`TRUSTED_PROXIES` elenca gli IP sorgente o gli intervalli CIDR dei reverse proxy di cui Stargate accetta gli header inoltrati. Il valore predefinito è vuoto; `PROXY_HEADER` indica l'header che contiene l'IP del client (predefinito: `X-Forwarded-For`).
+
+Dietro un reverse proxy, impostare `TRUSTED_PROXIES` anche se Stargate si avvia senza. Finché il proxy non è elencato, Stargate vede solo la richiesta che il proxy ha inviato a `/_auth`, non quella dell'utente:
+
+- il reindirizzamento al login non contiene `callback` ed è costruito con `http://`, quindi dopo l'accesso gli utenti restano sull'host di autenticazione invece di tornare all'applicazione;
+- quando il proxy termina HTTPS, gli utenti non possono accedere affatto: il browser invia `Origin: https://...`, Stargate lo confronta con la richiesta `http://` ricevuta dal proxy, e a `POST /_login`, `/_logout`, `/_step_up`, `/_send_verify_code`, `/_send_reauth_code` e `/totp/*` si risponde con `403` e `cross-site request rejected`;
+- le regole di percorso step-up non possono essere valutate (per questo `STEP_UP_ENABLED=true` richiede `TRUSTED_PROXIES`);
+- ogni client viene attribuito all'indirizzo del proxy e condivide un'unica quota di limitazione della frequenza e un unico indirizzo nei record di audit.
+
+Stargate registra un avviso all'avvio quando `TRUSTED_PROXIES` è vuoto, e un altro la prima volta che ignora gli header inoltrati da un peer non elencato. Registra inoltre un avviso, una sola volta, quando rifiuta come cross-site una richiesta il cui `Origin` corrisponde agli header `X-Forwarded-Proto` e `X-Forwarded-Host` ignorati; la risposta `403` in sé non indica la causa.
+
 ### `COOKIE_DOMAIN`
 
 Dominio del cookie, utilizzato per condivisione sessione cross-domain.
@@ -302,7 +315,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `WARDEN_TLS_CLIENT_CERT_FILE` | percorso | vuoto | Certificato client mTLS |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | percorso | vuoto | Chiave client mTLS |
 | `WARDEN_TLS_SERVER_NAME` | stringa | vuoto | Nome server TLS atteso |
-| `WARDEN_CACHE_TTL` | secondi | 300 | Durata cache Warden |
+| `WARDEN_CACHE_TTL` | intero positivo (secondi) | 300 | Accettato solo per compatibilità; senza effetto |
 | `WARDEN_SOURCE_MAX_AGE` | durata | 0s | Età massima dei dati Warden; 0s disabilita il controllo |
 | `WARDEN_SOURCE_CLOCK_SKEW` | durata | 0s | Tolleranza dell’orologio, inferiore all’età massima |
 | `METRICS_API_KEY` | segreto | vuoto | Chiave Bearer separata per /metrics, almeno 32 byte |
@@ -350,9 +363,17 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 
 Warden richiede ID e segreto HMAC insieme. Per Herald, impostare un ID esplicito se il server usa `HERALD_HMAC_KEYS`; un singolo `HMAC_SECRET` mantiene il valore implicito. Certificato e chiave client mTLS devono formare una coppia completa per entrambi i servizi.
 
+Se `WARDEN_URL` o `HERALD_URL` è un URL `http://` ed è configurata una chiave API o un segreto HMAC, Stargate registra un avviso all'avvio: la chiave API e tutti i dati di richiesta e risposta attraversano allora la rete non cifrati. Usare `https://`, a meno che la connessione a Warden o a Herald resti su una rete privata, ad esempio una rete interna di Compose.
+
+`WARDEN_CACHE_TTL` è accettato solo per compatibilità e non ha alcun effetto sul comportamento di Stargate. Il valore viene passato al client Warden come durata della sua cache dell'elenco utenti, ma Stargate non richiede mai quell'elenco: il login, l'invio di un codice, l'autenticazione tramite header attendibile e l'aggiornamento dell'autorizzazione cercano ciascuno un solo utente per numero di telefono o indirizzo e-mail, e queste ricerche non vengono memorizzate nella cache. Ognuna è una richiesta a Warden. Dopo quanto tempo un utente disabilitato o rimosso perde una sessione esistente, e con quale frequenza una sessione provoca una richiesta a Warden, dipende da `AUTH_REFRESH_INTERVAL`; un intervallo più lungo riduce le richieste a Warden ma ritarda anche l'effetto della disabilitazione. Con `HEADER_AUTH_ENABLED=true`, ogni richiesta inoltrata che contiene un header di identità attendibile provoca una ricerca su Warden. Il valore deve comunque essere un intero positivo, altrimenti Stargate non si avvia.
+
+Le impostazioni `SESSION_STORAGE_REDIS_*` hanno effetto solo con `SESSION_STORAGE_ENABLED=true`. Se una di esse ha un valore diverso da quello predefinito mentre `SESSION_STORAGE_ENABLED` è `false`, Stargate si avvia, mantiene sessioni e contatori di limitazione della frequenza in memoria e registra all'avvio un avviso che elenca le variabili ignorate.
+
+L'utente indicato in `SESSION_STORAGE_REDIS_USERNAME` necessita dei permessi di lettura, scrittura e script (`EVAL`/`EVALSHA`) sulle chiavi sotto `SESSION_STORAGE_REDIS_KEY_PREFIX`. Senza `SESSION_STORAGE_REDIS_TLS_ENABLED=true`, sessioni, contesti di verifica e contatori di limitazione della frequenza viaggiano verso Redis non cifrati; usarlo così solo su una rete privata. Con TLS (1.2 o successivo) il certificato viene verificato rispetto alle radici di sistema e all'host in `SESSION_STORAGE_REDIS_ADDR`, salvo diversa indicazione di `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE` (file PEM con certificati CA aggiuntivi) e `SESSION_STORAGE_REDIS_TLS_SERVER_NAME`. La verifica non può essere disattivata; i certificati client non sono supportati.
+
 ## Configurazione Password
 
-Stargate accetta `bcrypt` in produzione e `plaintext` solo per test locali. MD5 e SHA-512 senza salt vengono rifiutati durante la validazione. Le password distinguono maiuscole e minuscole e conservano gli spazi.
+Stargate accetta `bcrypt` in produzione e `plaintext` solo per test locali. MD5 e SHA-512 senza salt vengono rifiutati durante la validazione. Le password distinguono maiuscole e minuscole e conservano gli spazi. Le password dimostrative pubblicate nell'esempio Compose di questo repository (`test1234`, `test1337`) vengono rifiutate all'avvio quando `COOKIE_SECURE` è `true`; sono accettate solo per la demo HTTP locale.
 
 ```bash
 PASSWORDS='bcrypt:<bcrypt-hash>'
@@ -430,6 +451,9 @@ Stargate valida tutti gli elementi di configurazione all'avvio:
 2. **Validazione Formato**: Un formato di configurazione password errato causerà un fallimento all'avvio
 3. **Validazione Algoritmo**: Algoritmi password non supportati causeranno un fallimento all'avvio
 4. **Validazione Valore**: Alcuni elementi di configurazione hanno restrizioni di valore (es., `LANGUAGE`, `DEBUG`)
+5. **Validazione Regola**: Alcuni elementi di configurazione dipendono da altri o hanno una lunghezza minima o un formato obbligatorio (es., `HERALD_ENABLED` richiede `WARDEN_ENABLED=true`)
+
+Il messaggio indica la variabile e specifica quale di questi casi si applica. Una regola viene riportata come motivo; non viene mostrata come valore configurato, e i valori configurati dei segreti non vengono mai stampati.
 
 **Esempi di Errori:**
 
@@ -442,6 +466,13 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 # Algoritmo non supportato
 Error: Configuration error: invalid value for environment variable 'PASSWORDS': 'unknown:password'
+
+# Valore fuori dall'insieme accettato
+Error: Configuration error: invalid value for environment variable 'DEBUG': 'maybe'.
+  Accepted values: [true false]
+
+# Regola che coinvolge un'altra impostazione
+Error: Configuration error: environment variable 'HERALD_ENABLED': requires WARDEN_ENABLED=true to resolve authenticated users.
 ```
 
 ## Best Practice di Configurazione
@@ -469,6 +500,13 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## Autenticazione legacy tramite header password
 
 L'autenticazione `Stargate-Password` è disabilitata per impostazione predefinita. Abilitarla solo per client legacy attendibili con `PASSWORD_HEADER_AUTH_ENABLED=true`. Usare HTTPS, applicare limiti di frequenza e rimuovere l'header nel reverse proxy prima di inoltrare la richiesta al backend.
+
+I tentativi falliti con questo header su `/_auth` vengono conteggiati per indirizzo del client nella quota `RATE_LIMIT_LOGIN_MAX`. Restano conteggiati solo i valori errati. Esaurita la quota, a ogni richiesta da quell'indirizzo che contiene l'header si risponde con `429` e `Retry-After` prima del confronto della password, fino al termine della finestra, anche con la password corretta. Una richiesta viene conteggiata mentre la sua password viene confrontata e scalata quando la password è corretta; valori errati inviati contemporaneamente non possono quindi superare insieme la quota. Per lo stesso motivo, un client che ha in corso più richieste con l'header di quante la quota ne consenta ancora riceve `429` per quelle in eccesso e può ripeterle. I client che condividono un indirizzo condividono questa quota:
+
+- i client dietro lo stesso NAT o proxy in uscita sono un unico indirizzo; se uno di essi invia valori errati, blocca gli altri per il resto della finestra e può ripeterlo a ogni finestra;
+- con `TRUSTED_PROXIES` vuoto, o dietro un proxy o una CDN non elencati, ogni richiesta viene attribuita al proxy, quindi ciò vale per tutti i client del deployment che usano l'header. Stargate registra un avviso all'avvio per `PASSWORD_HEADER_AUTH_ENABLED=true` con `TRUSTED_PROXIES` vuoto.
+
+Impostare `TRUSTED_PROXIES` affinché la quota si applichi per client. Le sessioni basate su cookie non sono interessate da questa quota.
 
 ## Validità della fonte e monitoraggio
 

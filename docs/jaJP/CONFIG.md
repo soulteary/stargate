@@ -214,6 +214,19 @@ LOGIN_PAGE_FOOTER_TEXT='© 2024 私の会社'
 USER_HEADER_NAME=X-Authenticated-User
 ```
 
+### `TRUSTED_PROXIES` と `PROXY_HEADER`
+
+`TRUSTED_PROXIES` には、Stargate が転送ヘッダーを信頼するリバースプロキシの送信元 IP または CIDR を列挙します。デフォルトは空です。`PROXY_HEADER` はクライアント IP を運ぶヘッダー名です（デフォルト: `X-Forwarded-For`）。
+
+`TRUSTED_PROXIES` がなくても Stargate は起動しますが、リバースプロキシの背後では必ず設定してください。プロキシが列挙されていない間、Stargate に見えるのはプロキシが `/_auth` に送ったリクエストだけで、ユーザーが送ったリクエストは見えません：
+
+- ログインへのリダイレクトに `callback` が付かず、`http://` で組み立てられるため、ユーザーはログイン後にアプリケーションへ戻らず、認証ホストに留まります。
+- プロキシが HTTPS を終端している場合、ユーザーはまったくログインできません。ブラウザは `Origin: https://...` を送り、Stargate はそれをプロキシから受け取った `http://` のリクエストと比較するため、`POST /_login`、`/_logout`、`/_step_up`、`/_send_verify_code`、`/_send_reauth_code`、`/totp/*` には `403` と `cross-site request rejected` が返されます。
+- step-up のパスルールを評価できません（`STEP_UP_ENABLED=true` が `TRUSTED_PROXIES` を必須とするのはこのためです）。
+- すべてのクライアントがプロキシのアドレスとして扱われ、1 つのレート制限枠と、監査記録上の 1 つのアドレスを共有します。
+
+Stargate は、`TRUSTED_PROXIES` が空の場合に起動時に警告をログに記録し、列挙されていない接続元からの転送ヘッダーを最初に無視したときにもう一度警告を記録します。また、無視した `X-Forwarded-Proto` および `X-Forwarded-Host` と `Origin` が一致するリクエストをクロスサイトとして拒否したときにも、1 回だけ警告を記録します。`403` レスポンス自体には原因は示されません。
+
 ### `COOKIE_DOMAIN`
 
 Cookie ドメイン。クロスドメインセッション共有に使用されます。
@@ -302,7 +315,7 @@ PORT=8080
 | `WARDEN_TLS_CLIENT_CERT_FILE` | パス | 空 | mTLS クライアント証明書 |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | パス | 空 | mTLS クライアント鍵 |
 | `WARDEN_TLS_SERVER_NAME` | 文字列 | 空 | 期待する TLS サーバー名 |
-| `WARDEN_CACHE_TTL` | 秒 | 300 | Warden キャッシュ時間 |
+| `WARDEN_CACHE_TTL` | 正の整数（秒） | 300 | 互換性のためにのみ受け付ける。効果なし |
 | `WARDEN_SOURCE_MAX_AGE` | 期間 | 0s | Warden ソースの最大経過時間。0s で検証を無効化 |
 | `WARDEN_SOURCE_CLOCK_SKEW` | 期間 | 0s | 許容する時刻差。最大経過時間未満 |
 | `METRICS_API_KEY` | シークレット | 空 | /metrics 専用 Bearer キー。32 バイト以上 |
@@ -350,9 +363,17 @@ PORT=8080
 
 Warden の HMAC Key ID と Secret は同時に設定します。Herald サーバーが `HERALD_HMAC_KEYS` を使う場合は明示的な ID が必要ですが、単一の `HMAC_SECRET` は暗黙の既定値を利用できます。両サービスとも mTLS クライアント証明書と鍵は完全な組で設定します。
 
+`WARDEN_URL` または `HERALD_URL` が `http://` の URL で、API キーまたは HMAC シークレットが設定されている場合、Stargate は起動時に警告をログに記録します。この場合、API キーとすべてのリクエスト・レスポンスのデータが暗号化されずにネットワークを流れます。Warden または Herald への接続が Compose の内部ネットワークのようなプライベートネットワーク内に留まる場合を除き、`https://` を使用してください。
+
+`WARDEN_CACHE_TTL` は互換性のためにのみ受け付けられ、Stargate の動作には影響しません。この値はユーザー一覧キャッシュの有効期間として Warden クライアントに渡されますが、Stargate がユーザー一覧を取得することはありません。ログイン、コード送信、信頼済みヘッダー認証、認可の更新はいずれも電話番号またはメールアドレスで 1 人のユーザーを検索し、これらの検索はキャッシュされません。検索のたびに Warden へのリクエストが発生します。無効化または削除されたユーザーが既存のセッションを失うまでの時間と、1 つのセッションが Warden へのリクエストを発生させる頻度は、`AUTH_REFRESH_INTERVAL` で決まります。間隔を長くすると Warden へのリクエストは減りますが、ユーザー無効化の反映も遅くなります。`HEADER_AUTH_ENABLED=true` の場合、信頼済み ID ヘッダーを含む転送リクエストごとに Warden の検索が 1 回発生します。値は引き続き正の整数である必要があり、そうでない場合 Stargate は起動しません。
+
+`SESSION_STORAGE_REDIS_*` の設定は、`SESSION_STORAGE_ENABLED=true` の場合にのみ有効です。`SESSION_STORAGE_ENABLED` が `false` のまま、いずれかにデフォルト以外の値が設定されていると、Stargate は起動し、セッションとレート制限カウンターをメモリに保持し、無視された変数を列挙した警告を起動時にログに記録します。
+
+`SESSION_STORAGE_REDIS_USERNAME` のユーザーには、`SESSION_STORAGE_REDIS_KEY_PREFIX` 配下のキーに対する読み取り、書き込み、スクリプト（`EVAL`/`EVALSHA`）の権限が必要です。`SESSION_STORAGE_REDIS_TLS_ENABLED=true` でない場合、セッション、検証コンテキスト、レート制限カウンターは暗号化されずに Redis へ送られるため、プライベートネットワークでのみ使用してください。TLS（1.2 以降）では、`SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE`（追加の CA 証明書を含む PEM ファイル）と `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` で変更しない限り、証明書はシステムのルート証明書と `SESSION_STORAGE_REDIS_ADDR` のホストに対して検証されます。検証を無効にすることはできず、クライアント証明書には対応していません。
+
 ## パスワード設定
 
-本番環境では `bcrypt`、ローカルテストでのみ `plaintext` を使用できます。MD5 とソルトなし SHA-512 は設定検証で拒否されます。パスワードは大文字と小文字を区別し、空白も保持します。
+本番環境では `bcrypt`、ローカルテストでのみ `plaintext` を使用できます。MD5 とソルトなし SHA-512 は設定検証で拒否されます。パスワードは大文字と小文字を区別し、空白も保持します。このリポジトリの Compose サンプルで公開されているデモ用パスワード（`test1234`、`test1337`）は、`COOKIE_SECURE` が `true` の場合、起動時に拒否されます。ローカルの HTTP デモでのみ受け付けられます。
 
 ```bash
 PASSWORDS='bcrypt:<bcrypt-hash>'
@@ -430,6 +451,9 @@ Stargate は起動時にすべての設定項目を検証します：
 2. **形式の検証**: パスワード設定形式が正しくない場合、起動に失敗します
 3. **アルゴリズムの検証**: サポートされていないパスワードアルゴリズムは起動に失敗します
 4. **値の検証**: 一部の設定項目には値の制限があります（例: `LANGUAGE`、`DEBUG`）
+5. **ルールの検証**: 一部の設定項目は他の設定項目に依存するか、最小長または形式の要件があります（例: `HERALD_ENABLED` には `WARDEN_ENABLED=true` が必要）
+
+メッセージは変数名を示し、上記のどの場合に当たるかを示します。ルールは理由として報告され、設定値として表示されることはありません。また、シークレットの設定値が出力されることはありません。
 
 **エラーの例:**
 
@@ -442,6 +466,13 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 # サポートされていないアルゴリズム
 Error: Configuration error: invalid value for environment variable 'PASSWORDS': 'unknown:password'
+
+# 受け付けられる値の範囲外
+Error: Configuration error: invalid value for environment variable 'DEBUG': 'maybe'.
+  Accepted values: [true false]
+
+# 他の設定に関係するルール
+Error: Configuration error: environment variable 'HERALD_ENABLED': requires WARDEN_ENABLED=true to resolve authenticated users.
 ```
 
 ## 設定のベストプラクティス
@@ -469,6 +500,13 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## レガシー・パスワードヘッダー認証
 
 `Stargate-Password` 認証はデフォルトで無効です。信頼できるレガシークライアントに限り `PASSWORD_HEADER_AUTH_ENABLED=true` で有効化してください。HTTPS とレート制限を使用し、バックエンドへ転送する前にリバースプロキシでこのヘッダーを削除してください。
+
+`/_auth` でこのヘッダーによる認証に失敗した回数は、クライアントアドレスごとに `RATE_LIMIT_LOGIN_MAX` の枠に数えられます。数えられたまま残るのは誤った値だけです。枠を使い切ると、ウィンドウが終わるまで、そのアドレスからのこのヘッダーを含むすべてのリクエストに、パスワードを比較する前に `429` と `Retry-After` が返されます。パスワードが正しくても同じです。リクエストはパスワードの比較中に数えられ、パスワードが正しければ取り消されます。そのため、同時に送られた誤った値が合わせて枠を超えることはありません。同じ理由で、このヘッダーを含むリクエストを枠の残りより多く同時に送ったクライアントは、超過分に `429` を受け取りますが、再送できます。同じアドレスを共有するクライアントは、この枠を共有します：
+
+- 同じ NAT または送信プロキシの背後にあるクライアントは 1 つのアドレスになります。そのうちの 1 つが誤った値を送ると、ウィンドウの残りの間ほかのクライアントも締め出され、これはウィンドウごとに繰り返せます。
+- `TRUSTED_PROXIES` が空の場合、またはそこに列挙されていないプロキシや CDN の背後では、すべてのリクエストがプロキシのものとして扱われるため、このヘッダーを使うデプロイ内のすべてのクライアントが影響を受けます。`PASSWORD_HEADER_AUTH_ENABLED=true` で `TRUSTED_PROXIES` が空の場合、Stargate は起動時に警告をログに記録します。
+
+枠がクライアントごとに適用されるよう、`TRUSTED_PROXIES` を設定してください。Cookie セッションはこの枠の影響を受けません。
 
 ## ソースの鮮度と監視
 

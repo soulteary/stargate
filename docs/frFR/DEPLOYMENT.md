@@ -116,6 +116,8 @@ docker run -d \
   stargate:latest
 ```
 
+Cette commande démarre le conteneur pour une vérification directe sur `http://localhost:8080`. `COOKIE_SECURE` vaut `true` par défaut ; un navigateur ne conserve donc le cookie de session qu'en HTTPS. Derrière un proxy inverse, définissez aussi `TRUSTED_PROXIES` avec l'adresse source ou le réseau du proxy, par exemple `-e TRUSTED_PROXIES=172.18.0.0/16`. Sans cette valeur, Stargate ignore `X-Forwarded-Proto` et `X-Forwarded-Host` : derrière un proxy qui termine HTTPS, chaque connexion reçoit `403 cross-site request rejected`, et la redirection vers la connexion perd son callback. Voir [`TRUSTED_PROXIES`](CONFIG.md#trusted_proxies-et-proxy_header).
+
 #### Exécution avec Configuration Complète
 
 ```bash
@@ -478,7 +480,7 @@ services:
 
 #### 2. Point de Terminaison de Vérification de Santé
 
-Utilisez `/healthz` pour la liveness du processus et `/readyz` pour la disponibilité des dépendances. `/health` n'est plus qu'un alias de disponibilité obsolète.
+Utilisez `/healthz` pour la liveness du processus et `/readyz` pour la disponibilité des dépendances. `/health` n'est plus qu'un alias de disponibilité obsolète. Les deux routes de disponibilité partagent un même résultat, actualisé au plus toutes les 5 secondes : les sonder plus souvent n'ajoute donc pas de requêtes vers Redis, Warden ou Herald, et un changement d'état est signalé avec un retard pouvant atteindre 5 secondes.
 
 ```bash
 # Script de vérification de santé
@@ -492,7 +494,20 @@ fi
 
 #### 3. Intégration Prometheus
 
-Stargate expose les métriques Prometheus sur `GET /metrics`. Configurez Prometheus pour scraper cet endpoint. L'endpoint métriques est exclu par défaut de la journalisation et du tracing des requêtes.
+Stargate expose les métriques Prometheus sur `GET /metrics` une fois `METRICS_API_KEY` défini avec un secret d'au moins 32 octets. Sans cette valeur, l'endpoint répond `404 Not Found`. Configurez Prometheus pour scraper cet endpoint avec `Authorization: Bearer <METRICS_API_KEY>` ; un jeton absent ou incorrect reçoit `401 Unauthorized`.
+
+```yaml
+scrape_configs:
+  - job_name: stargate
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/stargate-metrics-key
+    static_configs:
+      - targets: ["stargate:8080"]
+```
+
+`/metrics`, `/healthz`, `/readyz` et `/health` sont exclus de la journalisation et du tracing des requêtes.
 
 ## Surveillance et Maintenance
 
@@ -507,6 +522,10 @@ docker logs -f stargate
 # Docker Compose
 docker compose logs -f stargate
 ```
+
+#### Adresses dans le Journal des Requêtes
+
+Chaque ligne du journal des requêtes (`"message":"HTTP request"`) porte deux adresses. `ip` est le pair direct, c'est-à-dire le proxy lorsque Stargate est derrière un proxy inverse. `client_ip` est l'adresse du client résolue à l'aide de `TRUSTED_PROXIES` et `PROXY_HEADER` ; c'est l'adresse utilisée par les enregistrements d'audit et la limitation de débit, utilisez-la donc pour corréler les journaux de requêtes avec les journaux d'audit. Sans proxy de confiance, les deux champs contiennent l'adresse du pair.
 
 #### Niveaux de Journalisation
 

@@ -42,7 +42,7 @@ Stargate è perfetto per:
 ### 🔐 Controlli di Sicurezza
 
 - **Verifica password**: bcrypt in produzione; plaintext solo per test locali
-- **Gestione Sicura delle Sessioni**: Sessioni basate su Cookie con dominio e scadenza personalizzabili
+- **Gestione Sicura delle Sessioni**: Sessioni basate su Cookie con dominio del cookie configurabile; le sessioni durano 24 ore, durata fissa
 - **Autenticazione Flessibile**: Supporto per autenticazione basata su password e basata su sessione
 - **Supporto OTP/Codice di Verifica**: Integrazione con il servizio Herald per codici di verifica SMS/Email
 - **Gestione Whitelist Utenti**: Integrazione con il servizio Warden per il controllo di accesso utente
@@ -50,7 +50,7 @@ Stargate è perfetto per:
 ### 🌐 Capacità Avanzate
 
 - **Condivisione Sessioni Cross-Domain**: Condividere perfettamente le sessioni di autenticazione tra diversi domini/sottodomini
-- **Supporto Multilingue**: Interfacce integrate in inglese e cinese, facilmente estendibili per più lingue
+- **Supporto Multilingue**: Interfacce integrate in inglese, cinese, francese, italiano, giapponese, tedesco e coreano (`LANGUAGE=en|zh|fr|it|ja|de|ko`)
 - **Interfaccia Personalizzabile**: Personalizza la tua pagina di login con titoli e testi di piè di pagina personalizzati
 
 ### 🚀 Prestazioni e Affidabilità

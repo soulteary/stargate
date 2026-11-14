@@ -116,6 +116,8 @@ docker run -d \
   stargate:latest
 ```
 
+이 명령은 `http://localhost:8080`에서 직접 확인하기 위한 컨테이너를 시작합니다. `COOKIE_SECURE`의 기본값은 `true`이므로 브라우저는 HTTPS에서만 세션 Cookie를 유지합니다. 리버스 프록시 뒤에서는 `TRUSTED_PROXIES`도 프록시의 출발지 주소 또는 네트워크로 설정하세요(예: `-e TRUSTED_PROXIES=172.18.0.0/16`). 설정하지 않으면 Stargate는 `X-Forwarded-Proto`와 `X-Forwarded-Host`를 무시합니다. HTTPS를 종료하는 프록시 뒤에서는 모든 로그인이 `403 cross-site request rejected`로 응답되고, 로그인 리디렉션에서 콜백이 사라집니다. [`TRUSTED_PROXIES`](CONFIG.md#trusted_proxies-및-proxy_header)를 참조하세요.
+
 #### 완전한 설정으로 실행
 
 ```bash
@@ -478,7 +480,7 @@ services:
 
 #### 2. 헬스 체크 엔드포인트
 
-프로세스 liveness에는 `/healthz`, 의존성 readiness에는 `/readyz`를 사용합니다. `/health`는 더 이상 권장되지 않는 readiness 호환 별칭입니다.
+프로세스 liveness에는 `/healthz`, 의존성 readiness에는 `/readyz`를 사용합니다. `/health`는 더 이상 권장되지 않는 readiness 호환 별칭입니다. 두 readiness 경로는 하나의 결과를 공유하며, 이 결과는 최대 5초에 한 번만 갱신됩니다. 따라서 더 자주 프로브해도 Redis, Warden, Herald에 대한 요청은 늘지 않으며, 상태 변화는 최대 5초 늦게 보고됩니다.
 
 ```bash
 # 헬스 체크 스크립트
@@ -492,7 +494,20 @@ fi
 
 #### 3. Prometheus 통합
 
-Stargate는 `GET /metrics`에서 Prometheus 메트릭을 노출합니다. Prometheus 서버에서 이 엔드포인트를 스크래핑하도록 설정하세요. 메트릭 엔드포인트는 기본적으로 요청 로그 및 트레이싱에서 제외됩니다.
+`METRICS_API_KEY`를 32바이트 이상의 비밀값으로 설정하면 Stargate는 `GET /metrics`에서 Prometheus 메트릭을 노출합니다. 설정하지 않으면 이 엔드포인트는 `404 Not Found`로 응답합니다. Prometheus 서버가 `Authorization: Bearer <METRICS_API_KEY>`와 함께 이 엔드포인트를 스크래핑하도록 설정하세요. 토큰이 없거나 잘못되면 `401 Unauthorized`로 응답됩니다.
+
+```yaml
+scrape_configs:
+  - job_name: stargate
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/stargate-metrics-key
+    static_configs:
+      - targets: ["stargate:8080"]
+```
+
+`/metrics`, `/healthz`, `/readyz`, `/health`는 요청 로그와 트레이싱에서 제외됩니다.
 
 ## 모니터링 및 유지보수
 
@@ -507,6 +522,10 @@ docker logs -f stargate
 # Docker Compose
 docker compose logs -f stargate
 ```
+
+#### 요청 로그의 주소
+
+요청 로그의 각 줄(`"message":"HTTP request"`)에는 두 개의 주소가 있습니다. `ip`는 직접 연결된 피어이며, 리버스 프록시 뒤에서는 프록시입니다. `client_ip`는 `TRUSTED_PROXIES`와 `PROXY_HEADER`로 확인한 클라이언트 주소입니다. 감사 기록과 요청 속도 제한이 사용하는 주소이므로, 요청 로그와 감사 로그를 대조할 때는 이 값을 사용하세요. 신뢰할 수 있는 프록시가 없으면 두 필드 모두 피어 주소를 담습니다.
 
 #### 로그 레벨
 

@@ -63,6 +63,7 @@ Le nom de l'en-tête utilisateur peut être configuré via la variable d'environ
 | Code de Statut | Description | Corps de Réponse |
 |----------------|-------------|-------------------|
 | `401 Unauthorized` | Authentification échouée | Message d'erreur (format JSON pour les requêtes API) ou redirection vers la page de connexion (requêtes HTML) |
+| `429 Too Many Requests` | `RATE_LIMIT_LOGIN_MAX` tentatives `Stargate-Password` échouées depuis ce client dans la fenêtre en cours. Envoyé avec un en-tête `Retry-After` (secondes) pour toute requête qui porte l'en-tête, même avec le bon mot de passe, jusqu'à la fin de la fenêtre. Uniquement avec `PASSWORD_HEADER_AUTH_ENABLED=true` | Message d'erreur |
 | `503 Service Unavailable` | Autorisation de l’annuaire temporairement indisponible | — |
 | `500 Internal Server Error` | Erreur serveur | Message d'erreur |
 
@@ -70,6 +71,7 @@ Le nom de l'en-tête utilisateur peut être configuré via la variable d'environ
 
 - **Requêtes HTML** : Redirection vers `/_login?callback=<originalURL>` en cas d'échec d'authentification
 - **Requêtes API** (JSON/XML) : Retour d'une réponse d'erreur 401 en cas d'échec d'authentification
+- **Requêtes avec `Stargate-Password` au-delà du quota d'échecs** : Retour d'une réponse 429 avec `Retry-After`, pour les requêtes HTML comme pour les requêtes API ; il n'y a pas de redirection
 
 #### Exemples
 
@@ -166,10 +168,12 @@ La variante TOTP nécessite `HERALD_TOTP_ENABLED=true` et un utilisateur déjà 
 
 Le traitement de connexion récupère le callback dans l'ordre de priorité suivant :
 
-1. **Depuis le cookie** : Si le domaine différait lors de l'accès précédent à la page de connexion, le callback est stocké dans le cookie `stargate_callback`
-2. **Depuis les données du formulaire** : Le champ `callback` dans les données du formulaire de la requête POST
+1. **Depuis les données du formulaire** : Le champ `callback` dans les données du formulaire de la requête POST. La page de connexion le remplit avec le callback pour lequel elle a été ouverte
+2. **Depuis le cookie** : Si le formulaire ne contient pas de `callback`, le cookie `stargate_callback` enregistré lorsque la page de connexion a été ouverte pour un domaine différent
 3. **Depuis les paramètres de requête** : Le `callback` dans les paramètres de requête de l'URL
 4. **Inférence automatique** : Si aucun des éléments ci-dessus n'existe, et que le domaine d'origine (`X-Forwarded-Host`) diffère du domaine du service d'authentification, utiliser le domaine d'origine comme callback
+
+Quelle que soit la source de la valeur, elle doit passer la même validation de l'hôte du callback ; un champ `callback` non autorisé reçoit `400 Bad Request` et n'est pas remplacé par le cookie. Le cookie `stargate_callback` est supprimé après une connexion réussie, même lorsque la valeur du formulaire a été utilisée.
 
 #### Réponse
 
@@ -437,11 +441,13 @@ curl http://auth.example.com/readyz
 
 `GET /health` reste un alias de compatibilité obsolète de `GET /readyz`.
 
+Les vérifications des dépendances s'exécutent au plus une fois toutes les 5 secondes. Les deux routes répondent à partir de ce résultat jusqu'à son expiration : une dépendance qui tombe en panne ou se rétablit est donc signalée avec un retard pouvant atteindre 5 secondes, et les requêtes qui arrivent pendant l'exécution des vérifications attendent leur résultat au lieu de lancer les leurs.
+
 ## Point de Terminaison des Métriques
 
 ### `GET /metrics`
 
-Renvoie les métriques Prometheus au format texte. Ce point de terminaison ne requiert pas d'authentification et doit être protégé par des règles réseau ou de proxy.
+Renvoie les métriques Prometheus au format texte. Ce point de terminaison requiert `Authorization: Bearer <METRICS_API_KEY>` et reste désactivé tant que `METRICS_API_KEY` n'est pas configuré : sans `METRICS_API_KEY` il répond `404 Not Found`, et `401 Unauthorized` lorsque le jeton est absent ou incorrect. Restreignez aussi l'accès par des règles réseau ou de proxy.
 
 ## Point de Terminaison du Niveau de Journalisation
 
