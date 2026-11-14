@@ -98,10 +98,12 @@ This file records user-visible changes. For upgrade steps and configuration exam
   still be told apart by latency. Password sign-in, `/_auth`,
   re-authentication, step-up and TOTP management are unchanged. See
   `docs/enUS/SECURITY.md` for what the mode does not cover.
-- Failed `Stargate-Password` attempts on `/_auth` are counted against
-  `RATE_LIMIT_LOGIN_MAX`. Once it is used up, requests from that client
-  carrying the header get `429` with `Retry-After`. They were not counted
-  before.
+- `Stargate-Password` attempts on `/_auth` are counted against
+  `RATE_LIMIT_LOGIN_MAX` before the password is compared, and a correct
+  password is released afterwards. Only failures stay counted, and guesses sent
+  at the same time cannot exceed the quota. Once it is used up, requests from
+  that client carrying the header get `429` with `Retry-After`. Attempts were
+  not counted before.
 - `/readyz` and `/health` answer from a readiness result refreshed at most
   every 5 seconds, so repeated requests no longer each probe the dependencies.
 - Stargate no longer starts with `COOKIE_SECURE=true` when `PASSWORDS` lists
@@ -122,6 +124,16 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - A startup warning is logged when `WARDEN_URL` or `HERALD_URL` uses `http://`
   while that integration has an API key or HMAC secret.
 - `WARDEN_CACHE_TTL` is documented as having no effect.
+- A startup warning is logged when `PASSWORD_HEADER_AUTH_ENABLED=true` and
+  `TRUSTED_PROXIES` is empty: the `Stargate-Password` failure quota is then
+  shared by every client behind the proxy, and one client can use it up for all
+  of them.
+- A warning is logged, once per process, when a same-origin POST is rejected
+  because forwarded headers from an unlisted proxy were ignored. The
+  `TRUSTED_PROXIES` warning and the documentation state that sign-in is
+  rejected with `403` behind a proxy that terminates HTTPS and is not listed.
+- A startup warning lists the `SESSION_STORAGE_REDIS_*` settings that are
+  ignored because `SESSION_STORAGE_ENABLED` is not `true`.
 
 ### Upgrade notes
 
@@ -168,6 +180,10 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - A client that relied on the `stargate_callback` cookie taking precedence over
   the `callback` form field on `POST /_login` is now redirected to the form's
   value.
+- A client that sends more than `RATE_LIMIT_LOGIN_MAX` requests with
+  `Stargate-Password` at the same time from one address gets `429` for the
+  excess, also when every password is correct. With `TRUSTED_PROXIES` empty,
+  all clients behind the proxy share that quota.
 
 ## [1.3.8] - 2026-11-13
 
