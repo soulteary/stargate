@@ -331,7 +331,7 @@ Step-up (`/_step_up`), TOTP enrollment and TOTP revocation require a proof that 
 
 A session cookie that is stolen shortly after login can therefore not enroll an authenticator, and the shared password cannot pass step-up or remove TOTP for a Warden user.
 
-A proof counts only for the operation it was given to. The proof given to `POST /totp/enroll` starts one enrollment and allows that enrollment to be confirmed for 5 minutes; passing step-up or removing TOTP does not allow the session to enroll an authenticator. A session cookie that is stolen after its owner passed step-up can therefore not bind the thief's authenticator either. Step-up records its own result for 10 minutes: during that time the session, and so a copy of its cookie, reaches the paths that require step-up.
+A proof counts only for the operation it was given to. The proof given to `POST /totp/enroll` starts one enrollment, in the request that carries it, and that enrollment can be confirmed for 5 minutes; passing step-up or removing TOTP does not allow the session to enroll an authenticator. The session never holds a proof that a later request could start an enrollment with. If Herald fails after the proof was accepted, nothing is kept: the user requests a new code and submits it again, subject to the resend cooldown and Herald's limits. A session cookie that is stolen after its owner passed step-up, or after a start request of its owner failed at Herald, can therefore not bind the thief's authenticator either. Step-up records its own result for 10 minutes: during that time the session, and so a copy of its cookie, reaches the paths that require step-up.
 
 Limits of this control:
 

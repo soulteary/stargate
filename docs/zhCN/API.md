@@ -408,13 +408,13 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 ### `GET /totp/enroll`
 
-显示绑定确认页，但不创建绑定状态。页面包含适用于该会话的重新认证字段；只有当会话持有最近 5 分钟内取得、且尚未用于启动绑定的绑定证明时，才省略这些字段。未认证用户以 `302 Found` 重定向到 `/_login`；目录不再授权的会话返回 `401 Unauthorized`。从该页面启动的绑定必须在 10 分钟内完成确认。
+显示绑定确认页，但不创建绑定状态。页面始终包含适用于该会话的重新认证字段。未认证用户以 `302 Found` 重定向到 `/_login`；目录不再授权的会话返回 `401 Unauthorized`。从该页面启动的绑定必须在 10 分钟内完成确认。
 
 ### `POST /totp/enroll`
 
 启动绑定并展示 TOTP 页面。使用 POST 可避免跨站导航创建绑定状态。
 
-- **认证**：要求已认证会话，并在本次请求中提交有效证明（表单字段 `code`）。证明在绑定启动时即被使用：之后每次 `POST /totp/enroll` 都需要新的证明，即使仍在 5 分钟内，或会话刚通过 Step-up。唯一的例外是：此前 5 分钟内的 `POST /totp/enroll` 已通过证明但调用 Herald 失败，此时可不带证明重试一次。未认证用户以 `302 Found` 重定向到 `/_login`，缺少证明或证明无效返回 `401 Unauthorized`。本次请求创建的绑定状态 10 分钟内有效。
+- **认证**：要求已认证会话，并在本次请求中提交有效证明（表单字段 `code`）。证明只对携带它的这一次请求有效，会话中不保存任何可用于启动绑定的证明：之后每次 `POST /totp/enroll` 都需要新的证明，即使仍在 5 分钟内，或会话刚通过 Step-up。如果证明通过后调用 Herald 失败（TOTP 状态查询或绑定启动出错，返回 `502 Bad Gateway`），会话不保留本次请求的任何结果，此前在该会话中启动的绑定也不能再确认；此时已发送的验证码已被使用，用户必须通过 `POST /_send_reauth_code` 重新获取验证码并再次提交。重新获取时受 Stargate 的 `RATE_LIMIT_VERIFICATION_MAX` 配额以及 Herald 的重发冷却和限流约束，可能需要等待后才能再次发送。未认证用户以 `302 Found` 重定向到 `/_login`，缺少证明或证明无效返回 `401 Unauthorized`。本次请求创建的绑定状态 10 分钟内有效。
 - **响应**：200 OK 返回绑定页 HTML；未认证时以 `302 Found` 跳转到 `/_login`；配置或 Herald 错误时 400/502/503。
 
 上游 TOTP 状态查询或注册启动错误返回 `502 Bad Gateway`。
@@ -423,7 +423,7 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 使用认证器应用生成的 6 位码确认 TOTP 绑定。
 
-- **认证**：要求已认证会话持有提交给 `POST /totp/enroll` 的证明，且不超过 5 分钟，否则返回 `401 Unauthorized`。`enroll_id` 必须是 `POST /totp/enroll` 为该会话签发的值；超过 10 分钟的绑定状态返回 `400 Bad Request`。确认成功后，该证明从会话中移除。
+- **认证**：要求已认证会话，且本次绑定是 `POST /totp/enroll` 在最近 5 分钟内凭证明启动的。`POST /totp/enroll` 启动绑定时在会话中记录 `totp_enroll_proof_at`，该记录只允许确认这一次绑定，不能用于启动绑定；没有该记录时返回 `401 Unauthorized`。`enroll_id` 必须是 `POST /totp/enroll` 为该会话签发的值；超过 10 分钟的绑定状态返回 `400 Bad Request`。确认成功后，该记录从会话中移除。
 
 <!-- api-contract: totp-enroll-confirm-request-body -->
 #### 请求体
@@ -438,7 +438,7 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 #### 响应
 
-JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`；绑定状态无效或过期返回 `400 Bad Request`，缺少绑定证明或证明超过 5 分钟返回 `401 Unauthorized` 和 `recent_authentication_required`。
+JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`；绑定状态无效或过期返回 `400 Bad Request`，绑定不是在最近 5 分钟内凭证明启动的，返回 `401 Unauthorized` 和 `recent_authentication_required`。
 
 确认配额耗尽时返回 `429 Too Many Requests` 和 `rate_limited`，保留待确认绑定；无效的上游响应返回 `502`。不要自动重试验证码。
 

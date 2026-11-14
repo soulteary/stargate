@@ -18,18 +18,17 @@ import (
 )
 
 const (
-	// reauthValidity is how long a proof given to start TOTP enrollment
-	// authorizes that enrollment.
+	// reauthValidity is how long an enrollment started with a proof can be
+	// confirmed.
 	reauthValidity = 5 * time.Minute
-	// reauthVerifiedAtKey holds the time of a proof given to POST /totp/enroll.
-	// Only that request writes it: a login, a step-up and a TOTP revocation do
-	// not. The key is not the "reauth_verified_at" of earlier releases, which
-	// any proof set, so a record written before an upgrade is not accepted.
+	// reauthVerifiedAtKey holds the time at which POST /totp/enroll started an
+	// enrollment with a proof carried by that request. It is written together
+	// with the enrollment state and authorizes only the confirmation of that
+	// enrollment; no request reads it to start one. A login, a step-up and a
+	// TOTP revocation do not write it. The key is not the "reauth_verified_at"
+	// of earlier releases, which any proof set, so a record written before an
+	// upgrade is not accepted.
 	reauthVerifiedAtKey = "totp_enroll_proof_at"
-	// reauthUsedAtKey marks the proof as spent: an enrollment was started
-	// with it. A spent proof still covers the confirmation of that enrollment
-	// but starts no other.
-	reauthUsedAtKey = "totp_enroll_proof_used_at"
 	// reauthChallengeIDKey binds the delivered code to the session it was
 	// requested from.
 	reauthChallengeIDKey = "reauth_challenge_id"
@@ -148,35 +147,22 @@ func reauthenticate(ctx fiber.Ctx, sess *session.Session) *reauthFailure {
 	return nil
 }
 
-// recordEnrollmentProof stores a proof that was given to start TOTP
-// enrollment and has not started one yet.
-func recordEnrollmentProof(sess *session.Session) {
+// markEnrollmentProven records that the enrollment now stored in the session
+// was started by a request that carried a proof.
+func markEnrollmentProven(sess *session.Session) {
 	sess.Set(reauthVerifiedAtKey, time.Now().Unix())
-	sess.Delete(reauthUsedAtKey)
 }
 
-// spendEnrollmentProof marks the stored proof as used by an enrollment start.
-func spendEnrollmentProof(sess *session.Session) {
-	sess.Set(reauthUsedAtKey, time.Now().Unix())
-}
-
-// discardEnrollmentProof removes the stored proof.
+// discardEnrollmentProof removes the record that an enrollment was started
+// with a proof.
 func discardEnrollmentProof(sess *session.Session) {
 	sess.Delete(reauthVerifiedAtKey)
-	sess.Delete(reauthUsedAtKey)
 }
 
-// enrollmentProofUnspent reports whether the session holds a proof that was
-// given to start TOTP enrollment, is at most reauthValidity old and has not
-// started an enrollment. Such a proof exists only between a start request
-// whose proof was accepted and whose call to Herald failed, and the retry.
-func enrollmentProofUnspent(sess *session.Session) bool {
-	return sess.Get(reauthUsedAtKey) == nil && reauthenticatedRecently(sess)
-}
-
-// reauthenticatedRecently reports whether the session holds an enrollment
-// proof, spent or not, that is at most reauthValidity old.
-func reauthenticatedRecently(sess *session.Session) bool {
+// enrollmentProvenRecently reports whether the enrollment stored in the
+// session was started with a proof at most reauthValidity ago. It authorizes
+// the confirmation of that enrollment and nothing else.
+func enrollmentProvenRecently(sess *session.Session) bool {
 	verifiedAt, ok := sess.Get(reauthVerifiedAtKey).(int64)
 	age := time.Since(time.Unix(verifiedAt, 0))
 	return ok && age >= 0 && age <= reauthValidity

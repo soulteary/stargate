@@ -101,7 +101,6 @@ func TestTOTPEnrollProofStartsOneEnrollment(t *testing.T) {
 	require.Equal(t, fiber.StatusOK, ctx.Response().StatusCode())
 	require.Contains(t, string(ctx.Response().Body()), "backup-code-1")
 	require.Nil(t, reauthSessionValue(t, store, bob, reauthVerifiedAtKey))
-	require.Nil(t, reauthSessionValue(t, store, bob, reauthUsedAtKey))
 
 	// A new proof starts a new enrollment.
 	sendReauthCode(t, store, bob, "deliver_via=email")
@@ -110,13 +109,12 @@ func TestTOTPEnrollProofStartsOneEnrollment(t *testing.T) {
 	require.Equal(t, 2, fake.count("/v1/totp/enroll/start"))
 }
 
-// A delivered code is consumed when it is verified. When Herald then fails to
-// start the enrollment, the user retries without a new code, once.
-func TestTOTPEnrollProofSurvivesFailedStartOnce(t *testing.T) {
-	fake := setupReauthDeployment(t)
-	var failStart atomic.Bool
+// failingHerald puts a server in front of fake that answers 502 for the
+// requests fail selects, and makes it the Herald client of the test.
+func failingHerald(t *testing.T, fake *fakeHerald, fail func(path string) bool) {
+	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/v1/totp/enroll/start" && failStart.Load() {
+		if fail(r.URL.Path) {
 			w.WriteHeader(http.StatusBadGateway)
 			return
 		}
@@ -126,25 +124,98 @@ func TestTOTPEnrollProofSurvivesFailedStartOnce(t *testing.T) {
 	client, err := herald.NewClient(herald.DefaultOptions().WithBaseURL(server.URL))
 	require.NoError(t, err)
 	heraldClient = client // restored by the cleanup newFakeHerald registered
+}
 
+// A proof authorizes the request that carries it. When Herald fails after the
+// proof was accepted, the session keeps nothing: the next start needs a new
+// proof, although the delivered code of the failed request is used up.
+func TestTOTPEnrollProofIsNotKeptWhenHeraldFails(t *testing.T) {
+	for _, failing := range []string{"/v1/totp/status", "/v1/totp/enroll/start"} {
+		t.Run(failing, func(t *testing.T) {
+			fake := setupReauthDeployment(t)
+			// The first status request of a start selects the proof. The
+			// request after the proof was accepted is the one that fails.
+			var armed atomic.Bool
+			var statusRequests atomic.Int32
+			failingHerald(t, fake, func(path string) bool {
+				if !armed.Load() || path != failing {
+					return false
+				}
+				return path != "/v1/totp/status" || statusRequests.Add(1) == 2
+			})
+			store := setupTestStore()
+			bob := wardenReauthSession(t, store, "bob")
+			challengeID := sendReauthCode(t, store, bob, "deliver_via=email")
+
+			armed.Store(true)
+			ctx := reauthRequest(t, bob, "POST", "/totp/enroll", "code="+reauthTestDeliveredCode, TOTPEnrollRoute(store))
+			require.Equal(t, fiber.StatusBadGateway, ctx.Response().StatusCode())
+			require.True(t, fake.challenge(challengeID).consumed)
+			armed.Store(false)
+
+			for _, body := range []string{"", "code=" + reauthTestDeliveredCode} {
+				ctx = reauthRequest(t, bob, "POST", "/totp/enroll", body, TOTPEnrollRoute(store))
+				require.Equal(t, fiber.StatusUnauthorized, ctx.Response().StatusCode(), body)
+				require.NotContains(t, string(ctx.Response().Body()), "otpauth://")
+			}
+			require.Zero(t, fake.count("/v1/totp/enroll/start"))
+			page := reauthRequest(t, bob, "GET", "/totp/enroll", "", TOTPEnrollPageRoute(store))
+			require.Contains(t, string(page.Response().Body()), `id="reauthSendBtn"`)
+			for _, key := range []string{reauthVerifiedAtKey, totpEnrollmentIDKey, totpEnrollmentSubjectKey, totpEnrollmentStartedKey} {
+				require.Nil(t, reauthSessionValue(t, store, bob, key), key)
+			}
+
+			// A new code starts the enrollment, which can then be confirmed.
+			sendReauthCode(t, store, bob, "deliver_via=email")
+			ctx = reauthRequest(t, bob, "POST", "/totp/enroll", "code="+reauthTestDeliveredCode, TOTPEnrollRoute(store))
+			require.Equal(t, fiber.StatusOK, ctx.Response().StatusCode())
+			require.Contains(t, string(ctx.Response().Body()), "enroll-bob")
+			ctx = reauthRequest(t, bob, "POST", "/totp/enroll/confirm", "enroll_id=enroll-bob&code=123456", TOTPEnrollConfirmAPI(store))
+			require.Equal(t, fiber.StatusOK, ctx.Response().StatusCode())
+			require.Contains(t, string(ctx.Response().Body()), "backup-code-1")
+		})
+	}
+}
+
+// A start whose proof was accepted replaces the enrollment started before it.
+// When Herald fails that start, the earlier enrollment cannot be confirmed.
+func TestTOTPEnrollFailedStartDropsEarlierEnrollment(t *testing.T) {
+	fake := setupReauthDeployment(t)
+	var failStart atomic.Bool
+	failingHerald(t, fake, func(path string) bool { return path == "/v1/totp/enroll/start" && failStart.Load() })
 	store := setupTestStore()
 	bob := wardenReauthSession(t, store, "bob")
+
+	sendReauthCode(t, store, bob, "deliver_via=email")
+	ctx := reauthRequest(t, bob, "POST", "/totp/enroll", "code="+reauthTestDeliveredCode, TOTPEnrollRoute(store))
+	require.Equal(t, fiber.StatusOK, ctx.Response().StatusCode())
+
 	sendReauthCode(t, store, bob, "deliver_via=email")
 	failStart.Store(true)
-	ctx := reauthRequest(t, bob, "POST", "/totp/enroll", "code="+reauthTestDeliveredCode, TOTPEnrollRoute(store))
+	ctx = reauthRequest(t, bob, "POST", "/totp/enroll", "code="+reauthTestDeliveredCode, TOTPEnrollRoute(store))
 	require.Equal(t, fiber.StatusBadGateway, ctx.Response().StatusCode())
-	require.Nil(t, reauthSessionValue(t, store, bob, totpEnrollmentIDKey))
 
-	failStart.Store(false)
-	page := reauthRequest(t, bob, "GET", "/totp/enroll", "", TOTPEnrollPageRoute(store))
-	require.NotContains(t, string(page.Response().Body()), `id="reauthSendBtn"`)
-	ctx = reauthRequest(t, bob, "POST", "/totp/enroll", "", TOTPEnrollRoute(store))
-	require.Equal(t, fiber.StatusOK, ctx.Response().StatusCode())
-	require.Contains(t, string(ctx.Response().Body()), "enroll-bob")
-
-	ctx = reauthRequest(t, bob, "POST", "/totp/enroll", "", TOTPEnrollRoute(store))
+	ctx = reauthRequest(t, bob, "POST", "/totp/enroll/confirm", "enroll_id=enroll-bob&code=123456", TOTPEnrollConfirmAPI(store))
 	require.Equal(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
-	require.Equal(t, 1, fake.count("/v1/totp/enroll/start"))
+	require.Zero(t, fake.count("/v1/totp/enroll/confirm"))
+}
+
+// A proof recorded by the release that kept it after a failed start is not
+// accepted: the record alone, without an enrollment, authorizes nothing.
+func TestTOTPEnrollIgnoresStoredProofWithoutEnrollment(t *testing.T) {
+	fake := setupReauthDeployment(t)
+	store := setupTestStore()
+	bob := wardenReauthSession(t, store, "bob")
+	setReauthSessionValue(t, store, bob, reauthVerifiedAtKey, time.Now().Unix())
+
+	page := reauthRequest(t, bob, "GET", "/totp/enroll", "", TOTPEnrollPageRoute(store))
+	require.Contains(t, string(page.Response().Body()), `id="reauthSendBtn"`)
+	ctx := reauthRequest(t, bob, "POST", "/totp/enroll", "", TOTPEnrollRoute(store))
+	require.Equal(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
+	ctx = reauthRequest(t, bob, "POST", "/totp/enroll/confirm", "enroll_id=enroll-bob&code=123456", TOTPEnrollConfirmAPI(store))
+	require.Equal(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
+	require.Zero(t, fake.count("/v1/totp/enroll/start"))
+	require.Zero(t, fake.count("/v1/totp/enroll/confirm"))
 }
 
 // The record that releases before this change wrote for any proof is not an
