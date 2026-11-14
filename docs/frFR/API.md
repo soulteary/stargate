@@ -363,11 +363,11 @@ Envoie un code à usage unique au contact enregistré dans Warden pour l'utilisa
 
 ### `GET /_step_up`
 
-Affiche un formulaire de revérification du mot de passe pour une session authentifiée. Le paramètre de requête facultatif `callback` doit être un chemin local ; les valeurs non sûres sont remplacées par `/`.
+Affiche le formulaire de réauthentification pour une session authentifiée : selon la session, un champ pour le code TOTP, un bouton d'envoi de code avec un champ de code, ou un champ de mot de passe. Le paramètre de requête facultatif `callback` doit être un chemin local ; les valeurs non sûres sont remplacées par `/`.
 
 ### `POST /_step_up`
 
-Revérifie le mot de passe et enregistre l'authentification renforcée dans la session pendant 10 minutes. Champs du formulaire : `password` et `callback` local facultatif. La route est protégée par un contrôle same-origin et une limitation de débit.
+Vérifie la preuve et enregistre l'authentification renforcée dans la session pendant 10 minutes. Champs du formulaire : `code` ou `password`, et `callback` local facultatif. Un utilisateur Warden qui a configuré TOTP envoie dans `code` un code TOTP actuel ; tout autre utilisateur Warden envoie le code à usage unique obtenu par `POST /_send_reauth_code`. Le mot de passe partagé (`password`) n'est accepté que pour une session créée avec ce mot de passe, qui n'a pas d'identité d'utilisateur. Une preuve refusée renvoie `401 Unauthorized`. La route est protégée par un contrôle same-origin et une limitation de débit.
 
 ## Point de Terminaison d'Échange de Session
 
@@ -383,21 +383,21 @@ Commencer dans le même navigateur : `https://app.example.com/_session_exchange?
 
 ## Points de Terminaison TOTP
 
-Ces points de terminaison sont disponibles lorsque Herald et Herald TOTP sont activés. Ils exigent tous une session authentifiée. L'inscription doit commencer et se terminer dans les 10 minutes suivant la connexion qui a créé la session.
+Ces points de terminaison sont disponibles lorsque Herald et Herald TOTP sont activés. Ils exigent tous une session authentifiée. Pour ajouter ou supprimer TOTP, l'utilisateur doit en plus fournir une preuve : un code TOTP actuel ou un code à usage unique envoyé au contact enregistré dans Warden (`POST /_send_reauth_code`). Une connexion récente ne suffit pas. Les détails se trouvent dans le document anglais : [Re-authentication](../enUS/API.md#re-authentication).
 
 ### `GET /totp/enroll`
 
-Affiche une page de confirmation sans créer d'état d'inscription. Nécessite une session créée par une connexion réussie au cours des 10 dernières minutes. Un utilisateur non authentifié est redirigé avec `302 Found` vers `/_login` ; une session plus ancienne reçoit `401 Unauthorized`.
+Affiche une page de confirmation sans créer d'état d'inscription. La page contient le champ de la preuve. Un utilisateur non authentifié est redirigé avec `302 Found` vers `/_login` ; une session dont l'utilisateur n'est plus autorisé par l'annuaire reçoit `401 Unauthorized`. L'état d'inscription est valable 10 minutes ; l'inscription doit toutefois être confirmée dans les 5 minutes qui suivent son démarrage.
 
 ### `POST /totp/enroll`
 
-Démarre l'inscription et affiche la page d'association TOTP. Nécessite une session créée par une connexion réussie au cours des 10 dernières minutes. Un utilisateur non authentifié est redirigé avec `302 Found` vers `/_login` ; une session plus ancienne reçoit `401 Unauthorized`.
+Démarre l'inscription et affiche la page d'association TOTP. La requête doit contenir la preuve de l'utilisateur dans le champ de formulaire `code` : un code TOTP actuel ou un code à usage unique envoyé au contact enregistré dans Warden. Une connexion au cours des 10 dernières minutes n'est ni nécessaire ni suffisante. Un utilisateur non authentifié est redirigé avec `302 Found` vers `/_login` ; un démarrage sans preuve ou avec une preuve invalide reçoit `401 Unauthorized`. L'état d'inscription est valable 10 minutes ; l'inscription doit toutefois être confirmée dans les 5 minutes qui suivent son démarrage.
 
 Les erreurs du statut TOTP ou du démarrage d’inscription en amont donnent `502 Bad Gateway`.
 
 ### `POST /totp/enroll/confirm`
 
-Confirme l'inscription. Une session authentifiée créée au cours des 10 dernières minutes est obligatoire.
+Confirme l'inscription. Il faut une session authentifiée dans laquelle `POST /totp/enroll` a démarré cette inscription avec une preuve il y a 5 minutes au plus ; sinon la réponse est `401 Unauthorized`. Un état d'inscription de plus de 10 minutes est refusé avec `400 Bad Request`.
 
 <!-- api-contract: totp-enroll-confirm-request-body -->
 #### Corps de Requête
@@ -412,17 +412,17 @@ Le formulaire doit contenir `enroll_id` et le `code` TOTP à six chiffres.
 
 #### Réponse
 
-Une authentification absente ou trop ancienne renvoie `401 Unauthorized` ; en cas de succès, la réponse JSON inclut les codes de secours affichés une seule fois.
+Si l'inscription n'a pas été démarrée avec une preuve au cours des 5 dernières minutes, la réponse est `401 Unauthorized` ; en cas de succès, la réponse JSON inclut les codes de secours affichés une seule fois.
 
 Le quota de confirmation donne `429 Too Many Requests` avec `rate_limited` ; l’inscription en attente est conservée. Une réponse invalide du fournisseur donne `502`. Ne pas réessayer un code automatiquement.
 
 ### `GET /totp/revoke`
 
-Affiche la page de confirmation de suppression de l'association TOTP. Une session authentifiée est requise ; un utilisateur non authentifié est redirigé avec `302 Found` vers `/_login`. La limite de 10 minutes ne s'applique pas à cette page.
+Affiche la page de confirmation de suppression de l'association TOTP. Une session authentifiée est requise ; un utilisateur non authentifié est redirigé avec `302 Found` vers `/_login`. La page contient le champ de la preuve.
 
 ### `POST /totp/revoke`
 
-Supprime l'association TOTP. Une session authentifiée est requise et le client doit se réauthentifier avec `password` ou un `code` TOTP actuel valide. Une réauthentification absente ou échouée renvoie `401 Unauthorized`.
+Supprime l'association TOTP. Une session authentifiée est requise et l'utilisateur doit envoyer un code TOTP actuel dans le champ de formulaire `code`. Le champ `password` n'est pas lu pour la session d'un utilisateur Warden ; le mot de passe partagé n'y est plus accepté. Une preuve absente ou refusée renvoie `401 Unauthorized`.
 
 ## Points de Terminaison de Santé
 

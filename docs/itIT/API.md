@@ -362,11 +362,11 @@ Invia un codice monouso al contatto registrato in Warden per l'utente della sess
 
 ### `GET /_step_up`
 
-Mostra un modulo di riverifica della password per una sessione autenticata. Il parametro di query facoltativo `callback` deve essere un percorso locale; i valori non sicuri vengono sostituiti con `/`.
+Mostra il modulo di riautenticazione per una sessione autenticata: a seconda della sessione, un campo per il codice TOTP, un pulsante per inviare un codice con un campo per il codice, oppure un campo per la password. Il parametro di query facoltativo `callback` deve essere un percorso locale; i valori non sicuri vengono sostituiti con `/`.
 
 ### `POST /_step_up`
 
-Riverifica la password e registra l'autenticazione step-up nella sessione per 10 minuti. Campi del modulo: `password` e `callback` locale facoltativo. La route è protetta dal controllo same-origin e dal rate limit.
+Verifica la prova e registra l'autenticazione step-up nella sessione per 10 minuti. Campi del modulo: `code` oppure `password`, e `callback` locale facoltativo. Un utente Warden con TOTP configurato invia in `code` un codice TOTP corrente; ogni altro utente Warden invia il codice monouso ottenuto con `POST /_send_reauth_code`. La password condivisa (`password`) è accettata solo per una sessione creata con quella password, che non ha un'identità utente. Una prova non valida restituisce `401 Unauthorized`. La route è protetta dal controllo same-origin e dal rate limit.
 
 ## Endpoint Scambio Sessione
 
@@ -382,21 +382,21 @@ Iniziare nello stesso browser: `https://app.example.com/_session_exchange?start=
 
 ## Endpoint TOTP
 
-Questi endpoint sono disponibili quando Herald e Herald TOTP sono abilitati. Tutti richiedono una sessione autenticata. La registrazione deve iniziare e terminare entro 10 minuti dal login che ha creato la sessione.
+Questi endpoint sono disponibili quando Herald e Herald TOTP sono abilitati. Tutti richiedono una sessione autenticata. Per aggiungere o rimuovere TOTP l'utente deve inoltre fornire una prova: un codice TOTP corrente oppure un codice monouso inviato al contatto registrato in Warden (`POST /_send_reauth_code`). Un login recente non è sufficiente. I dettagli si trovano nel documento inglese: [Re-authentication](../enUS/API.md#re-authentication).
 
 ### `GET /totp/enroll`
 
-Mostra una pagina di conferma senza creare lo stato di registrazione. Richiede una sessione creata da un login riuscito negli ultimi 10 minuti. Un utente non autenticato viene reindirizzato con `302 Found` a `/_login`; una sessione più vecchia riceve `401 Unauthorized`.
+Mostra una pagina di conferma senza creare lo stato di registrazione. La pagina contiene il campo per la prova. Un utente non autenticato viene reindirizzato con `302 Found` a `/_login`; una sessione il cui utente non è più autorizzato dalla directory riceve `401 Unauthorized`. Lo stato di registrazione è valido per 10 minuti; la registrazione deve però essere confermata entro 5 minuti dall'avvio.
 
 ### `POST /totp/enroll`
 
-Avvia la registrazione e mostra la pagina di associazione TOTP. Richiede una sessione creata da un login riuscito negli ultimi 10 minuti. Un utente non autenticato viene reindirizzato con `302 Found` a `/_login`; una sessione più vecchia riceve `401 Unauthorized`.
+Avvia la registrazione e mostra la pagina di associazione TOTP. La richiesta deve contenere la prova dell'utente nel campo del modulo `code`: un codice TOTP corrente oppure un codice monouso inviato al contatto registrato in Warden. Un login negli ultimi 10 minuti non è né necessario né sufficiente. Un utente non autenticato viene reindirizzato con `302 Found` a `/_login`; un avvio senza prova o con una prova non valida riceve `401 Unauthorized`. Lo stato di registrazione è valido per 10 minuti; la registrazione deve però essere confermata entro 5 minuti dall'avvio.
 
 Gli errori dello stato TOTP o dell’avvio della registrazione a monte restituiscono `502 Bad Gateway`.
 
 ### `POST /totp/enroll/confirm`
 
-Conferma la registrazione. È richiesta una sessione autenticata creata negli ultimi 10 minuti.
+Conferma la registrazione. È richiesta una sessione autenticata nella quale `POST /totp/enroll` ha avviato questa registrazione con una prova da non più di 5 minuti; altrimenti la risposta è `401 Unauthorized`. Uno stato di registrazione più vecchio di 10 minuti viene rifiutato con `400 Bad Request`.
 
 <!-- api-contract: totp-enroll-confirm-request-body -->
 #### Corpo Richiesta
@@ -411,17 +411,17 @@ Il modulo deve contenere `enroll_id` e il `code` TOTP a sei cifre.
 
 #### Risposta
 
-Un'autenticazione assente o non recente restituisce `401 Unauthorized`; in caso di successo la risposta JSON include i codici di backup mostrati una sola volta.
+Se la registrazione non è stata avviata con una prova negli ultimi 5 minuti, la risposta è `401 Unauthorized`; in caso di successo la risposta JSON include i codici di backup mostrati una sola volta.
 
 La quota di conferma restituisce `429 Too Many Requests` con `rate_limited`; la registrazione in sospeso viene conservata. Una risposta non valida del fornitore restituisce `502`. Non ritentare automaticamente un codice.
 
 ### `GET /totp/revoke`
 
-Mostra la pagina di conferma per rimuovere l'associazione TOTP. È richiesta una sessione autenticata; un utente non autenticato viene reindirizzato con `302 Found` a `/_login`. A questa pagina non si applica il limite di 10 minuti.
+Mostra la pagina di conferma per rimuovere l'associazione TOTP. È richiesta una sessione autenticata; un utente non autenticato viene reindirizzato con `302 Found` a `/_login`. La pagina contiene il campo per la prova.
 
 ### `POST /totp/revoke`
 
-Rimuove l'associazione TOTP. È richiesta una sessione autenticata e il client deve riautenticarsi con `password` o con un `code` TOTP corrente valido. Una riautenticazione assente o fallita restituisce `401 Unauthorized`.
+Rimuove l'associazione TOTP. È richiesta una sessione autenticata e l'utente deve inviare un codice TOTP corrente nel campo del modulo `code`. Il campo `password` non viene letto per la sessione di un utente Warden; la password condivisa non vi è più accettata. Una prova assente o non valida restituisce `401 Unauthorized`.
 
 ## Endpoint di Salute
 
