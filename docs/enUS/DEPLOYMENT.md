@@ -513,7 +513,7 @@ services:
 
 #### 2. Health Check Endpoint
 
-Use `/healthz` for process liveness. Use `/readyz` separately when traffic should only be sent after Redis, Warden, and Herald dependencies are ready. The legacy `/health` endpoint remains a deprecated readiness alias.
+Use `/healthz` for process liveness. Use `/readyz` separately when traffic should only be sent after Redis, Warden, and Herald dependencies are ready. The legacy `/health` endpoint remains a deprecated readiness alias. Both readiness routes share one result that is refreshed at most every 5 seconds, so probing them more often does not add requests to Redis, Warden, or Herald, and a state change is reported up to 5 seconds late.
 
 ```bash
 # Health check script

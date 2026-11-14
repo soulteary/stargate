@@ -598,6 +598,8 @@ curl http://auth.example.com/readyz
 
 `GET /health` remains a deprecated compatibility alias for `GET /readyz`.
 
+The dependency checks run at most once every 5 seconds. Both routes answer from that result until it expires, so a dependency that fails or recovers is reported up to 5 seconds late, and requests that arrive while the checks run wait for them instead of starting their own.
+
 ## Metrics Endpoint
 
 ### `GET /metrics`
