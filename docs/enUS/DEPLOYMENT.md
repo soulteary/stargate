@@ -132,6 +132,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 - **Runtime Image**: `alpine:3.24` (runtime stage; includes CA certificates and BusyBox `wget` for HTTPS and health checks)
 - **Working Directory**: `/app`
 - **Exposed Port**: `8080`
+- **User**: UID/GID `10001` (not root). The image sets `PORT=8080` because an unprivileged process cannot bind ports below 1024 on every runtime; see [`PORT`](CONFIG.md#port)
 
 ### Run Container
 
@@ -169,7 +170,7 @@ docker run -d \
 
 - `-d`: Run in background
 - `--name stargate`: Container name
-- `-p 8080:8080`: Port mapping (host port:container port)
+- `-p 8080:8080`: Port mapping (host port:container port). The container port is the value of `PORT`, `8080` in the image. To publish another host port change the left side only, for example `-p 80:8080`
 - `-e`: Environment variable
 - `--restart unless-stopped`: Auto-restart policy
 
@@ -628,6 +629,7 @@ docker inspect stargate | grep -A 20 Env
 - Missing required configuration (`AUTH_HOST`, `PASSWORDS`)
 - Incorrect password configuration format
 - Port is occupied
+- `PORT` set below 1024 (or unset for a native binary, which then uses `:80`) while the process is not root: the log ends with a `permission denied` bind error. Use `PORT=8080`; see [`PORT`](CONFIG.md#port)
 
 #### 2. Authentication Fails
 
