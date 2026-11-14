@@ -100,3 +100,58 @@ class HelloFormat(unittest.TestCase):
             self.assertEqual(parsed.scheme, urlparse(base).scheme)
             self.assertEqual(parsed.path, "/")
             self.assertEqual(parse_qs(parsed.query), {"format": ["text"]})
+
+
+class WorkflowFollowsProduct(unittest.TestCase):
+    """The workflow tests the commit it runs for and runs when the product changes."""
+
+    def setUp(self):
+        import re
+        from pathlib import Path
+        self.repository = Path(__file__).parents[2]
+        self.workflow = (self.repository / ".github/workflows/browser-acceptance.yml").read_text()
+        triggers = self.workflow.split("  pull_request:\n    paths:\n", 1)[1].split("  workflow_dispatch:", 1)[0]
+        self.paths = re.findall(r'^      - "([^"]+)"$', triggers, re.M)
+
+    def triggered(self, changed):
+        # GitHub's rule for `paths`: the last pattern that matches a file
+        # decides, and a pattern that starts with "!" excludes it.
+        import re
+        result = False
+        for pattern in self.paths:
+            glob = pattern.lstrip("!")
+            expression = re.escape(glob).replace(r"\*\*/", "(?:.*/)?").replace(r"\*\*", ".*").replace(r"\*", "[^/]*")
+            if re.fullmatch(expression, changed):
+                result = not pattern.startswith("!")
+        return result
+
+    def test_product_refs_default_to_the_commit_under_test(self):
+        import re
+        for key, source in (("FULLSTACK_REF", "fullstack_ref"), ("GATEWAY_REF", "gateway_ref")):
+            self.assertIn("  %s: ${{ inputs.%s || github.sha }}\n" % (key, source), self.workflow)
+        defaults = self.workflow.split("\nenv:\n", 1)[1].split("\njobs:\n", 1)[0]
+        self.assertIsNone(re.search(r"\b[0-9a-f]{40}\b", defaults))
+        self.assertNotIn("pull_request_target", self.workflow)
+        self.assertIn("\npermissions:\n  contents: read\n", self.workflow)
+        self.assertNotIn("secrets.", self.workflow)
+
+    def test_trigger_paths_exist(self):
+        self.assertGreaterEqual(len(self.paths), 8)
+        for pattern in self.paths:
+            if not pattern.startswith("!"):
+                with self.subTest(pattern=pattern):
+                    self.assertTrue((self.repository / pattern.split("*", 1)[0]).exists())
+
+    def test_product_changes_trigger_and_other_changes_do_not(self):
+        for changed in (".github/browser/run.py", ".github/workflows/browser-acceptance.yml",
+                        "src/internal/handlers/totp_enroll.go", "src/internal/web/templates/totp_start.html",
+                        "src/internal/web/templates/assets/auth-ui.js", "src/cmd/stargate/server.go",
+                        "src/internal/config/config.go", "go.mod", "go.sum", "docker/Dockerfile", ".dockerignore",
+                        "examples/full-stack/configure.py", "examples/full-stack/compose.yml"):
+            with self.subTest(changed=changed):
+                self.assertTrue(self.triggered(changed))
+        for changed in ("src/internal/handlers/totp_enroll_test.go", "src/cmd/stargate/server_test.go",
+                        "examples/full-stack/README.md", "docs/enUS/API.md", "README.md", "CHANGELOG.md",
+                        "docker/release.Dockerfile", ".github/workflows/ci.yml"):
+            with self.subTest(changed=changed):
+                self.assertFalse(self.triggered(changed))
