@@ -35,10 +35,9 @@ func TestTOTPEnrollPageRouteRequiresAuthentication(t *testing.T) {
 }
 
 func TestTOTPEnrollPageRouteRendersPostForm(t *testing.T) {
+	setupReauthDeployment(t)
 	store := setupTestStore()
-	ctx := authenticatedTOTPContext(t, store, "/totp/enroll", "")
-	ctx.Request().Header.SetMethod("GET")
-	testza.AssertNoError(t, TOTPEnrollPageRoute(store)(ctx))
+	ctx := reauthRequest(t, wardenReauthSession(t, store, "bob"), "GET", "/totp/enroll", "", TOTPEnrollPageRoute(store))
 	testza.AssertEqual(t, fiber.StatusOK, ctx.Response().StatusCode())
 	testza.AssertContains(t, string(ctx.Response().Body()), `method="post" action="/totp/enroll"`)
 	testza.AssertEqual(t, "no-store", string(ctx.Response().Header.Peek("Cache-Control")))
@@ -111,7 +110,9 @@ func TestTOTPEnrollRoute_Authenticated_NoUserID_400(t *testing.T) {
 	testza.AssertEqual(t, fiber.StatusBadRequest, ctx.Response().StatusCode())
 }
 
-func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
+// Without a Herald client a user session has no proof to give, so the start is
+// refused before any enrollment step.
+func TestTOTPEnrollRoute_Authenticated_ClientNil_403(t *testing.T) {
 	ResetHeraldClientForTest()
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -133,7 +134,6 @@ func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	sess.Set("user_id", "u_test")
-	sess.Set(reauthVerifiedAtKey, time.Now().Unix())
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
 	ctx = rebindSessionContext(t, app, ctx, sess)
@@ -141,18 +141,23 @@ func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
 
 	err = handler(ctx)
 	testza.AssertNoError(t, err)
-	testza.AssertEqual(t, fiber.StatusServiceUnavailable, ctx.Response().StatusCode())
+	testza.AssertEqual(t, fiber.StatusForbidden, ctx.Response().StatusCode())
 }
 
 func TestTOTPEnrollRoute_AlreadyBound_RedirectsToRevoke(t *testing.T) {
 	isolateGlobalState(t)
-	// Mock Herald TOTP proxy: GET /v1/totp/status returns totp_enabled true
+	// Mock Herald TOTP proxy: GET /v1/totp/status returns totp_enabled true,
+	// and POST /v1/totp/verify accepts the code the request carries as proof.
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path == "/v1/totp/verify" {
+			_ = json.NewEncoder(w).Encode(herald.TOTPVerifyResponse{OK: true})
+			return
+		}
 		if r.URL.Path != "/v1/totp/status" {
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(herald.TOTPStatusResponse{
 			Subject:     "u_test",
 			TotpEnabled: true,
@@ -178,7 +183,9 @@ func TestTOTPEnrollRoute_AlreadyBound_RedirectsToRevoke(t *testing.T) {
 	app := fiber.New()
 	ctx := app.AcquireCtx(&fasthttp.RequestCtx{})
 	ctx.Request().SetRequestURI("/totp/enroll")
-	ctx.Request().Header.SetMethod("GET")
+	ctx.Request().Header.SetMethod("POST")
+	ctx.Request().Header.SetContentType("application/x-www-form-urlencoded")
+	ctx.Request().SetBodyString("code=111111")
 	ctx.Locals("i18n-bundle", i18n.GetBundle())
 	ctx.Locals("i18n-language", i18n.LangEN)
 	defer app.ReleaseCtx(ctx)
@@ -186,7 +193,6 @@ func TestTOTPEnrollRoute_AlreadyBound_RedirectsToRevoke(t *testing.T) {
 	sess, err := store.Get(ctx)
 	testza.AssertNoError(t, err)
 	sess.Set("user_id", "u_test")
-	sess.Set(reauthVerifiedAtKey, time.Now().Unix())
 	err = auth.Authenticate(sess)
 	testza.AssertNoError(t, err)
 	ctx.Request().Header.Set("Cookie", auth.SessionCookieName+"="+sess.ID())

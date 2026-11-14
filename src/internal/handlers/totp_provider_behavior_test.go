@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -90,37 +91,26 @@ func TestTOTPEnrollmentProviderFailuresPreserveBinding(t *testing.T) {
 }
 
 func TestTOTPEnrollmentStartPersistsProviderEnrollment(t *testing.T) {
-	previous := heraldClient
-	t.Cleanup(func() { heraldClient = previous })
 	for _, fail := range []string{"status", "start", ""} {
 		t.Run("failure="+fail, func(t *testing.T) {
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				status := strings.HasSuffix(r.URL.Path, "/status")
-				if (status && fail == "status") || (!status && fail == "start") {
-					w.WriteHeader(400)
-					_, _ = w.Write([]byte(`{"error":"unavailable"}`))
-					return
-				}
-				if status {
-					_, _ = w.Write([]byte(`{"totp_enabled":false}`))
-					return
-				}
-				_, _ = w.Write([]byte(`{"enroll_id":"new-enrollment","otpauth_uri":"otpauth://totp/test?secret=TEST"}`))
-			}))
-			defer server.Close()
-			var err error
-			heraldClient, err = herald.NewClient(herald.DefaultOptions().WithBaseURL(server.URL))
-			require.NoError(t, err)
+			fake := setupReauthDeployment(t)
+			var armed atomic.Bool
+			failingHerald(t, fake, func(path string) bool {
+				return armed.Load() && fail != "" && strings.HasSuffix(path, "/"+fail)
+			})
 			store := setupTestStore()
-			ctx := authenticatedTOTPContext(t, store, "/totp/enroll", "")
-			require.NoError(t, TOTPEnrollRoute(store)(ctx))
+			bob := wardenReauthSession(t, store, "bob")
+			sendReauthCode(t, store, bob, "deliver_via=email")
+			armed.Store(true)
+			ctx := reauthRequest(t, bob, "POST", "/totp/enroll", "code="+reauthTestDeliveredCode, TOTPEnrollRoute(store))
 			if fail != "" {
 				require.Equal(t, 502, ctx.Response().StatusCode())
+				require.Nil(t, reauthSessionValue(t, store, bob, totpEnrollmentIDKey))
 				return
 			}
 			require.Equal(t, 200, ctx.Response().StatusCode())
-			require.Contains(t, string(ctx.Response().Body()), "new-enrollment")
+			require.Contains(t, string(ctx.Response().Body()), "enroll-bob")
+			require.Equal(t, "enroll-bob", reauthSessionValue(t, store, bob, totpEnrollmentIDKey))
 		})
 	}
 }

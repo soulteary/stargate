@@ -477,9 +477,12 @@ func TestTOTPEnrollRequiresFreshProofDespiteRecentLogin(t *testing.T) {
 	require.Zero(t, fake.count("/v1/totp/enroll/start"))
 	require.Zero(t, fake.count("/v1/totp/enroll/confirm"))
 
+	// A record that is recent enough covers the confirmation of the enrollment
+	// it was written with. It does not start another enrollment.
 	setReauthSessionValue(t, store, bob, reauthVerifiedAtKey, time.Now().Add(-4*time.Minute).Unix())
 	ctx := reauthRequest(t, bob, "POST", "/totp/enroll", "", TOTPEnrollRoute(store))
-	require.Equal(t, fiber.StatusOK, ctx.Response().StatusCode())
+	require.Equal(t, fiber.StatusUnauthorized, ctx.Response().StatusCode())
+	require.Zero(t, fake.count("/v1/totp/enroll/start"))
 	ctx = reauthRequest(t, bob, "POST", "/totp/enroll/confirm", "enroll_id=enroll-bob&code=123456", TOTPEnrollConfirmAPI(store))
 	require.Equal(t, fiber.StatusOK, ctx.Response().StatusCode())
 	require.Contains(t, string(ctx.Response().Body()), "backup-code-1")
@@ -611,10 +614,11 @@ func TestReauthPagesRenderTheApplicableProof(t *testing.T) {
 		}
 	}
 
-	// With a recent proof the enrollment page asks for nothing more.
+	// The enrollment page asks for the proof also when the session holds the
+	// record of a recent one.
 	bob := wardenReauthSession(t, store, "bob")
 	setReauthSessionValue(t, store, bob, reauthVerifiedAtKey, time.Now().Unix())
 	body := string(reauthRequest(t, bob, "GET", "/totp/enroll", "", TOTPEnrollPageRoute(store)).Response().Body())
 	require.Contains(t, body, `action="/totp/enroll"`)
-	require.NotContains(t, body, codeField)
+	require.Contains(t, body, codeField)
 }
