@@ -66,6 +66,7 @@ The user header name can be configured via the `USER_HEADER_NAME` environment va
 | Status Code | Description | Response Body |
 |-------------|-------------|---------------|
 | `401 Unauthorized` | Authentication failed | Error message (JSON format for API requests) or redirect to login page (HTML requests) |
+| `429 Too Many Requests` | `RATE_LIMIT_LOGIN_MAX` failed `Stargate-Password` attempts from this client in the current window. Sent with a `Retry-After` header (seconds) for every request that carries the header, with the correct password too, until the window ends. Only with `PASSWORD_HEADER_AUTH_ENABLED=true` | Error message |
 | `503 Service Unavailable` | Directory authorization temporarily unavailable | — |
 | `500 Internal Server Error` | Server error | Error message |
 
@@ -73,6 +74,7 @@ The user header name can be configured via the `USER_HEADER_NAME` environment va
 
 - **HTML requests**: Redirect to `/_login?callback=<originalURL>` on authentication failure
 - **API requests** (JSON/XML): Return 401 error response on authentication failure
+- **Requests with `Stargate-Password` over the failure quota**: Return 429 with `Retry-After` for HTML and API requests alike; there is no redirect
 
 #### Examples
 
