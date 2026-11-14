@@ -925,6 +925,8 @@ Enable Redis session storage.
 | **Default** | `false` |
 | **Possible Values** | `true`, `false` |
 
+The `SESSION_STORAGE_REDIS_*` settings below have no effect unless this is `true`. When any of them is set to a non-default value while it is `false`, Stargate starts, keeps sessions and rate-limit counters in memory, and logs a startup warning that lists the ignored variables.
+
 #### `SESSION_STORAGE_REDIS_ADDR`
 
 Redis address.
