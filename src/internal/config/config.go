@@ -84,6 +84,18 @@ var (
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
 
+	// Opt-in: a Stargate-Password request is compared only when a proxy in
+	// TRUSTED_PROXIES delivered it together with the client address. Without
+	// it such a request is counted against the address of the peer, which
+	// behind an unlisted proxy is one address for every client.
+	PasswordHeaderRequireTrustedProxy = EnvVariable{
+		Name:           "PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY",
+		Required:       false,
+		DefaultValue:   "false",
+		PossibleValues: []string{"true", "false"},
+		Validator:      ValidateCaseInsensitivePossibleValues,
+	}
+
 	UserHeaderName = EnvVariable{
 		Name:           "USER_HEADER_NAME",
 		Required:       false,
@@ -796,7 +808,7 @@ func loadConfiguration() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldClientIPHeader, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &SessionStorageRedisUsername, &SessionStorageRedisTLSEnabled, &SessionStorageRedisTLSCACertFile, &SessionStorageRedisTLSServerName, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID, &LoginUniformResponses, &LoginUniformResendCooldown}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &PasswordHeaderRequireTrustedProxy, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldClientIPHeader, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &SessionStorageRedisUsername, &SessionStorageRedisTLSEnabled, &SessionStorageRedisTLSCACertFile, &SessionStorageRedisTLSServerName, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID, &LoginUniformResponses, &LoginUniformResendCooldown}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
@@ -839,6 +851,11 @@ func validatePasswordSettings() error {
 	}
 	if PasswordHeaderAuthEnabled.ToBool() && Passwords.Value == "" {
 		return NewRuleError(PasswordHeaderAuthEnabled.Name, "requires PASSWORDS", PasswordHeaderAuthEnabled.PossibleValues)
+	}
+	// With no trusted proxy every header request would be refused at run
+	// time. Refuse to start instead, so the missing setting is found at once.
+	if PasswordHeaderAuthEnabled.ToBool() && PasswordHeaderRequireTrustedProxy.ToBool() && strings.TrimSpace(TrustedProxies.Value) == "" {
+		return NewRuleError(TrustedProxies.Name, "must identify the proxies allowed to provide the client address when PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY is true", TrustedProxies.PossibleValues)
 	}
 	// Step-up needs a proof for every session: Warden sessions use Herald,
 	// shared-password sessions use PASSWORDS.

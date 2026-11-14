@@ -148,6 +148,9 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		passwordAttempt := config.PasswordHeaderAuthEnabled.ToBool() && ctx.Get("Stargate-Password") != ""
 		var releasePasswordAttempt func()
 		if passwordAttempt {
+			if refused, refuseErr := refuseUnattributedPasswordHeader(ctx); refused {
+				return refuseErr
+			}
 			// Count the attempt before the password is compared: once the
 			// quota is used up, neither a wrong nor a correct guess is
 			// answered, and attempts that arrive together cannot exceed it.
