@@ -18,6 +18,10 @@ type RateLimitStore interface {
 	// Incr records one request against key and returns the running count for
 	// the current window together with the time remaining in that window.
 	Incr(ctx context.Context, key string, window time.Duration) (int, time.Duration, error)
+	// Count returns the running count for key and the time remaining in its
+	// window without recording a request. A key with no live window counts
+	// zero.
+	Count(ctx context.Context, key string) (int, time.Duration, error)
 }
 
 type rateLimitBucket struct {
@@ -61,6 +65,19 @@ func (s *memoryRateLimitStore) Incr(_ context.Context, key string, window time.D
 	s.buckets[key] = bucket
 
 	return bucket.count, time.Until(bucket.resets), nil
+}
+
+func (s *memoryRateLimitStore) Count(_ context.Context, key string) (int, time.Duration, error) {
+	now := time.Now()
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	bucket, ok := s.buckets[key]
+	if !ok || !now.Before(bucket.resets) {
+		return 0, 0, nil
+	}
+	return bucket.count, bucket.resets.Sub(now), nil
 }
 
 // redisRateLimitStore shares one fixed-window counter across replicas.
@@ -108,6 +125,29 @@ func (s *redisRateLimitStore) Incr(ctx context.Context, key string, window time.
 		return count, retryAfter, err
 	}
 	return int(result[0]), time.Duration(result[1]) * time.Millisecond, nil
+}
+
+// Count reads the shared counter. Like Incr it answers from the process-local
+// store when Redis cannot be read, so an outage neither hides the failures
+// counted locally nor rejects every request.
+func (s *redisRateLimitStore) Count(ctx context.Context, key string) (int, time.Duration, error) {
+	count, err := s.client.Get(ctx, s.prefix+key).Int()
+	if errors.Is(err, redis.Nil) {
+		return 0, 0, nil
+	}
+	var remaining time.Duration
+	if err == nil {
+		remaining, err = s.client.PTTL(ctx, s.prefix+key).Result()
+	}
+	if err != nil {
+		count, remaining, _ = s.fallback.Count(ctx, key)
+		return count, remaining, err
+	}
+	if remaining < 0 {
+		// The key expired between the two commands or carries no expiry yet.
+		remaining = 0
+	}
+	return count, remaining, nil
 }
 
 // A typed reply avoids generic RESP integers and a second slice conversion.

@@ -229,10 +229,50 @@ func VerificationRateLimit() fiber.Handler {
 	})
 }
 
-// rateLimitPasswordHeaderFailure throttles repeated Stargate-Password
-// failures. It shares the login quota and, like every other endpoint limit,
-// the shared store, so a credential-stuffing client cannot simply move to
-// another replica.
+// passwordHeaderFailureKey is the quota that counts wrong Stargate-Password
+// values for one client.
+func passwordHeaderFailureKey(ctx fiber.Ctx) string {
+	return "password-failure:" + rateLimitClientKey(ctx.IP())
+}
+
+// passwordHeaderQuotaExhausted reports whether the client has already used up
+// its failed Stargate-Password attempts for the current window. It is checked
+// before the password is evaluated, so a client that is over quota learns
+// nothing about further guesses, including a correct one. It records nothing:
+// only failures are counted, by recordPasswordHeaderFailure.
+func passwordHeaderQuotaExhausted(ctx fiber.Ctx) (bool, error) {
+	max := config.RateLimitLoginMax.ToInt(config.DefaultRateLimitLoginMax)
+	if max <= 0 {
+		return false, nil
+	}
+
+	count, retryAfter, err := getRateLimitStore().Count(ctx.Context(), passwordHeaderFailureKey(ctx))
+	if err != nil && log != nil {
+		log.Warn().Err(err).Msg("Shared rate-limit store is unavailable, falling back to per-replica limits")
+	}
+	if count < max {
+		return false, nil
+	}
+
+	ctx.Set(fiber.HeaderRetryAfter, retryAfterSeconds(retryAfter))
+	return true, SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many failed password attempts")
+}
+
+// recordPasswordHeaderFailure counts one wrong Stargate-Password value against
+// the login quota. It shares that quota's store, so a credential-stuffing
+// client cannot simply move to another replica.
+func recordPasswordHeaderFailure(ctx fiber.Ctx) {
+	max := config.RateLimitLoginMax.ToInt(config.DefaultRateLimitLoginMax)
+	if max <= 0 {
+		return
+	}
+	consumeRateLimit(ctx, passwordHeaderFailureKey(ctx), max)
+}
+
+// rateLimitPasswordHeaderFailure counts one Stargate-Password failure and
+// answers 429 once the count exceeds the login quota. CheckRoute counts
+// failures itself; this covers a password error that reaches the failure
+// handler directly.
 func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) (bool, error) {
 	if strings.TrimSpace(ctx.Get("Stargate-Password")) == "" {
 		return false, nil
@@ -245,7 +285,7 @@ func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) (bool, error) {
 
 	// The forward-auth path deliberately keeps its original response shape and
 	// does not advertise quota state through X-RateLimit-* headers.
-	exceeded, _, retryAfter := consumeRateLimit(ctx, "password-failure:"+rateLimitClientKey(ctx.IP()), max)
+	exceeded, _, retryAfter := consumeRateLimit(ctx, passwordHeaderFailureKey(ctx), max)
 	if !exceeded {
 		return false, nil
 	}

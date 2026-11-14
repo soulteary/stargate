@@ -143,6 +143,13 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		var result *forwardauth.AuthResult
 		var headerDeadline time.Time
 		passwordAttempt := config.PasswordHeaderAuthEnabled.ToBool() && ctx.Get("Stargate-Password") != ""
+		if passwordAttempt {
+			// Refuse before the password is compared: once the quota is used
+			// up, neither a wrong nor a correct guess is answered.
+			if limited, limitErr := passwordHeaderQuotaExhausted(ctx); limited {
+				return limitErr
+			}
+		}
 		if trustedIdentity && !passwordAttempt {
 			result, headerDeadline, err = trustedHeaderAuthResult(spanCtx, ctx.Get("X-User-Phone"), ctx.Get("X-User-Mail"))
 			if result == nil && err == nil {
@@ -150,6 +157,14 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 			}
 		} else {
 			result, err = handler.Check(faCtx, faSess)
+		}
+		// The password checker runs first and a correct password always selects
+		// it. Any other outcome means the supplied password was wrong, even when
+		// the session checker then replaced the error or accepted the request.
+		// ErrInvalidPassword itself is counted by handleForwardAuthFailure.
+		if passwordAttempt && !errors.Is(err, forwardauth.ErrInvalidPassword) &&
+			(err != nil || result == nil || result.AuthMethod != forwardauth.AuthMethodPassword) {
+			recordPasswordHeaderFailure(ctx)
 		}
 		// A cookie cannot override an explicit authentication method. Refresh
 		// directory authorization only after the session checker is selected.
