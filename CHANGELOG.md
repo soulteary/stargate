@@ -104,7 +104,6 @@ This file records user-visible changes. For upgrade steps and configuration exam
   before.
 - `/readyz` and `/health` answer from a readiness result refreshed at most
   every 5 seconds, so repeated requests no longer each probe the dependencies.
-  The health IP allow list is checked on every request.
 - Stargate no longer starts with `COOKIE_SECURE=true` when `PASSWORDS` lists
   the published demo passwords (`test1234`, `test1337`) in plaintext.
 
