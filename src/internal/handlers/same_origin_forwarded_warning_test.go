@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 
@@ -16,6 +17,15 @@ const sameOriginForwardedWarningText = "Rejected a same-origin request as cross-
 
 func sameOriginWarningApp(t *testing.T, trustedProxies string) (*fiber.App, *bytes.Buffer) {
 	t.Helper()
+	// t.Setenv puts the environment back when the test ends, but not the
+	// configuration that was read from it. Cleanups run last in, first out, so
+	// this one, registered before the variables are set, reads the
+	// configuration again once the environment is back.
+	t.Cleanup(func() {
+		if err := config.Initialize(testLogger()); err != nil {
+			t.Errorf("restore configuration: %v", err)
+		}
+	})
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("TRUSTED_PROXIES", trustedProxies)
@@ -73,6 +83,19 @@ func TestRequireSameOriginWarnsWhenIgnoredForwardedHeadersCauseTheRejection(t *t
 	// Once per process, not once per request.
 	require.Equal(t, fiber.StatusForbidden, sameOriginWarningStatus(t, app, browser))
 	require.Equal(t, 1, strings.Count(output.String(), sameOriginForwardedWarningText))
+}
+
+// The helper changes TRUSTED_PROXIES for one test. The package's other tests
+// run with the value TestMain configured and must find it again afterwards,
+// whatever order or selection the tests run in.
+func TestSameOriginWarningTestsRestoreTrustedProxies(t *testing.T) {
+	for _, trustedProxies := range []string{"", "0.0.0.0"} {
+		t.Run("TRUSTED_PROXIES="+trustedProxies, func(t *testing.T) {
+			sameOriginWarningApp(t, trustedProxies)
+			require.Equal(t, trustedProxies, config.TrustedProxies.Value)
+		})
+		require.Equal(t, os.Getenv("TRUSTED_PROXIES"), config.TrustedProxies.Value)
+	}
 }
 
 func TestRequireSameOriginDoesNotWarnForOtherRejections(t *testing.T) {
