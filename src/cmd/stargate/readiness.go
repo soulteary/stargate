@@ -19,6 +19,11 @@ const readinessCacheTTL = 5 * time.Second
 // readinessCache evaluates the dependency checks at most once per TTL.
 // Requests that arrive while an evaluation is running wait for it and share
 // its result instead of starting their own.
+//
+// The cache holds one result for all clients. Stargate configures no health
+// IP allow list (see setupHealthChecker), so no per-client rule is applied
+// here. An allow list added later must be checked for every request before
+// the cached result is returned.
 type readinessCache struct {
 	aggregator *health.Aggregator
 	ttl        time.Duration
@@ -34,14 +39,6 @@ func newReadinessCache(aggregator *health.Aggregator, ttl time.Duration) *readin
 }
 
 func (r *readinessCache) decide(c fiber.Ctx) health.Decision {
-	// The address rule belongs to one client. Apply it to every request
-	// before the shared result is consulted, so a result evaluated for an
-	// allowed address is never served to a refused one.
-	config := r.aggregator.Config()
-	if len(config.IPWhitelist) > 0 && !config.IsIPAllowed(config.ClientIP(healthfiber.Source{C: c})) {
-		return health.Decision{Forbidden: true, StatusCode: fiber.StatusForbidden}
-	}
-
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
