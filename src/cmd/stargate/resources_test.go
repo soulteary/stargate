@@ -12,6 +12,7 @@ import (
 )
 
 func TestEmbeddedResourcesFallbackAndExternalOverrides(t *testing.T) {
+	isolateGlobalState(t)
 	log = testLoggerMain()
 	t.Chdir(t.TempDir())
 	app := fiber.New(fiber.Config{Views: setupTemplates()})

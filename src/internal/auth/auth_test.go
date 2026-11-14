@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -21,11 +20,6 @@ import (
 	"github.com/valyala/fasthttp"
 )
 
-func TestMain(m *testing.M) {
-	_ = os.Setenv("WARDEN_URL", "http://warden.test")
-	os.Exit(m.Run())
-}
-
 // testLogger creates a logger instance for testing
 func testLogger() *logger.Logger {
 	return logger.New(logger.Config{
@@ -36,6 +30,7 @@ func testLogger() *logger.Logger {
 }
 
 func TestGetValidPasswords(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:pass1|pass2|pass3")
 
@@ -52,6 +47,7 @@ func TestGetValidPasswords(t *testing.T) {
 }
 
 func TestGetValidPasswords_WithSpaces(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext: pass1 | pass2 | pass3 ")
 
@@ -105,6 +101,7 @@ func TestIsValidPhone(t *testing.T) {
 }
 
 func TestCheckPassword_Plaintext_Success(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123|test456")
 
@@ -118,6 +115,7 @@ func TestCheckPassword_Plaintext_Success(t *testing.T) {
 }
 
 func TestCheckPassword_Plaintext_Failure(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123|test456")
 
@@ -129,6 +127,7 @@ func TestCheckPassword_Plaintext_Failure(t *testing.T) {
 }
 
 func TestCheckPassword_Bcrypt(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "bcrypt:$2a$10$k8fBIpJInrE70BzYy5rO/OUSt1w2.IX0bWhiMdb2mJEhjheVHDhvK")
 
@@ -140,6 +139,7 @@ func TestCheckPassword_Bcrypt(t *testing.T) {
 }
 
 func TestCheckPassword_MD5IsRejected(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	// Note: CheckPassword converts input to uppercase and removes spaces
 	// "test123" becomes "TEST123", so we use the MD5 hash of "TEST123"
@@ -153,6 +153,7 @@ func TestCheckPassword_MD5IsRejected(t *testing.T) {
 }
 
 func TestCheckPassword_SHA512IsRejected(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	// Note: CheckPassword converts input to uppercase and removes spaces
 	// "test123" becomes "TEST123", so we use the SHA512 hash of "TEST123"
@@ -252,6 +253,7 @@ func TestIsAuthenticated_NotAuthenticated(t *testing.T) {
 }
 
 func TestGetValidPasswords_Empty(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "")
 
@@ -265,6 +267,7 @@ func TestGetValidPasswords_Empty(t *testing.T) {
 }
 
 func TestGetValidPasswords_InvalidFormat_NoColon(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintextpass1")
 
@@ -278,6 +281,7 @@ func TestGetValidPasswords_InvalidFormat_NoColon(t *testing.T) {
 }
 
 func TestGetValidPasswords_EmptyPasswordList(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:")
 
@@ -291,6 +295,7 @@ func TestGetValidPasswords_EmptyPasswordList(t *testing.T) {
 }
 
 func TestGetValidPasswords_SinglePassword(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:singlepass")
 
@@ -304,6 +309,7 @@ func TestGetValidPasswords_SinglePassword(t *testing.T) {
 }
 
 func TestCheckPassword_EmptyAlgorithm(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "")
 
@@ -316,6 +322,7 @@ func TestCheckPassword_EmptyAlgorithm(t *testing.T) {
 }
 
 func TestCheckPassword_DoesNotNormalizeWhitespace(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 
@@ -327,6 +334,7 @@ func TestCheckPassword_DoesNotNormalizeWhitespace(t *testing.T) {
 }
 
 func TestCheckPassword_EmptyPasswordList(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:")
 
@@ -339,6 +347,7 @@ func TestCheckPassword_EmptyPasswordList(t *testing.T) {
 }
 
 func TestCheckPassword_WithSpacesInPassword(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test 123")
 
@@ -350,6 +359,7 @@ func TestCheckPassword_WithSpacesInPassword(t *testing.T) {
 }
 
 func TestCheckPassword_CaseSensitive(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:TestPassword")
 
@@ -416,6 +426,7 @@ func TestIsAuthenticated_WithNilValue(t *testing.T) {
 
 // TestInitWardenClient_NotEnabled tests that InitWardenClient does nothing when Warden is not enabled
 func TestInitWardenClient_NotEnabled(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -431,6 +442,7 @@ func TestInitWardenClient_NotEnabled(t *testing.T) {
 
 // TestInitWardenClient_NoURL tests that InitWardenClient does nothing when URL is not set
 func TestInitWardenClient_NoURL(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -441,6 +453,7 @@ func TestInitWardenClient_NoURL(t *testing.T) {
 }
 
 func TestInitWardenClient_ReturnsAndRemembersTLSConfigurationError(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -462,6 +475,7 @@ func TestInitWardenClient_ReturnsAndRemembersTLSConfigurationError(t *testing.T)
 
 // TestInitWardenClient_CustomTTL tests that InitWardenClient uses custom TTL when provided
 func TestInitWardenClient_CustomTTL(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -481,6 +495,7 @@ func TestInitWardenClient_CustomTTL(t *testing.T) {
 
 // TestInitWardenClient_InvalidTTL tests that startup rejects an invalid cache TTL.
 func TestInitWardenClient_InvalidTTL(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -494,6 +509,7 @@ func TestInitWardenClient_InvalidTTL(t *testing.T) {
 
 // TestInitWardenClient_NegativeTTL tests that startup rejects a negative cache TTL.
 func TestInitWardenClient_NegativeTTL(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -507,6 +523,7 @@ func TestInitWardenClient_NegativeTTL(t *testing.T) {
 
 // TestInitWardenClient_ZeroTTL tests that startup rejects a zero cache TTL.
 func TestInitWardenClient_ZeroTTL(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -520,6 +537,7 @@ func TestInitWardenClient_ZeroTTL(t *testing.T) {
 
 // TestGetWardenClient_NotInitialized tests that getWardenClient returns nil when client is not initialized
 func TestGetWardenClient_NotInitialized(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -542,6 +560,7 @@ func userInAllowList(ctx context.Context, phone, mail string) bool {
 
 // TestUserInAllowList_NotEnabled tests that the lookup returns false when Warden is not enabled
 func TestUserInAllowList_NotEnabled(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -558,6 +577,7 @@ func TestUserInAllowList_NotEnabled(t *testing.T) {
 
 // TestUserInAllowList_NoClient tests that the lookup returns false when client is not initialized
 func TestUserInAllowList_NoClient(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -569,6 +589,7 @@ func TestUserInAllowList_NoClient(t *testing.T) {
 
 // TestUserInAllowList_NilContext tests that the lookup handles nil context correctly
 func TestUserInAllowList_NilContext(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -585,6 +606,7 @@ func TestUserInAllowList_NilContext(t *testing.T) {
 
 // TestUserInAllowList_EmptyPhoneAndMail tests that the lookup handles empty phone and mail
 func TestUserInAllowList_EmptyPhoneAndMail(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -601,6 +623,7 @@ func TestUserInAllowList_EmptyPhoneAndMail(t *testing.T) {
 
 // TestGetValidPasswords_MultipleColons tests edge case with multiple colons in password config
 func TestGetValidPasswords_MultipleColons(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:pass1:extra|pass2")
 
@@ -615,6 +638,7 @@ func TestGetValidPasswords_MultipleColons(t *testing.T) {
 
 // TestGetValidPasswords_EmptyPasswordInList tests that empty password in the list is rejected
 func TestGetValidPasswords_EmptyPasswordInList(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:pass1||pass3")
 
@@ -626,6 +650,7 @@ func TestGetValidPasswords_EmptyPasswordInList(t *testing.T) {
 
 // TestCheckPassword_EmptyInput tests that CheckPassword handles empty input correctly
 func TestCheckPassword_EmptyInput(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 
@@ -638,6 +663,7 @@ func TestCheckPassword_EmptyInput(t *testing.T) {
 
 // TestCheckPassword_WhitespaceOnly tests that CheckPassword handles whitespace-only input
 func TestCheckPassword_WhitespaceOnly(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 
@@ -726,6 +752,7 @@ func TestIsAuthenticated_WithNonBoolValue(t *testing.T) {
 
 // TestInitWardenClient_Success tests that InitWardenClient successfully initializes with valid config
 func TestInitWardenClient_Success(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -756,6 +783,7 @@ func TestInitWardenClient_Success(t *testing.T) {
 
 // TestUserInAllowList_Success_WithPhone tests the lookup with valid phone when Warden is enabled
 func TestUserInAllowList_Success_WithPhone(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -833,6 +861,7 @@ func TestUserInAllowList_Success_WithPhone(t *testing.T) {
 
 // TestUserInAllowList_PhoneWithSpaces 验证带空格的手机号（如系统自动填充 "138 0013 8000"）会被规范化后与 Warden 比对
 func TestUserInAllowList_PhoneWithSpaces(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -882,6 +911,7 @@ func TestUserInAllowList_PhoneWithSpaces(t *testing.T) {
 
 // TestUserInAllowList_Success_WithMail tests the lookup with valid email when Warden is enabled
 func TestUserInAllowList_Success_WithMail(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -959,6 +989,7 @@ func TestUserInAllowList_Success_WithMail(t *testing.T) {
 
 // TestUserInAllowList_Success_WithBoth tests the lookup with both phone and email when Warden is enabled
 func TestUserInAllowList_Success_WithBoth(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1044,6 +1075,7 @@ func TestUserInAllowList_Success_WithBoth(t *testing.T) {
 
 // TestUserInAllowList_Success_WithBoth_FallbackToMail tests the lookup fallback to mail when phone is not found
 func TestUserInAllowList_Success_WithBoth_FallbackToMail(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1111,6 +1143,7 @@ func TestUserInAllowList_Success_WithBoth_FallbackToMail(t *testing.T) {
 
 // TestUserInAllowList_Failure_UserNotInList tests the lookup when user is not in list
 func TestUserInAllowList_Failure_UserNotInList(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1167,6 +1200,7 @@ func TestUserInAllowList_Failure_UserNotInList(t *testing.T) {
 
 // TestUserInAllowList_WithContext tests the lookup with a custom context
 func TestUserInAllowList_WithContext(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1238,6 +1272,7 @@ func TestUserInAllowList_WithContext(t *testing.T) {
 
 // TestGetUserInfo_PrefersPhone ensures GetUserInfo only queries by phone when both identifiers are provided.
 func TestGetUserInfo_PrefersPhone(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1292,6 +1327,7 @@ func TestGetUserInfo_PrefersPhone(t *testing.T) {
 
 // TestGetUserInfo_FallbackToMail ensures GetUserInfo falls back to mail when phone is not found.
 func TestGetUserInfo_FallbackToMail(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1350,6 +1386,7 @@ func TestGetUserInfo_FallbackToMail(t *testing.T) {
 
 // TestGetUserInfo_InactiveUser ensures inactive users are rejected.
 func TestGetUserInfo_InactiveUser(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1390,6 +1427,7 @@ func TestGetUserInfo_InactiveUser(t *testing.T) {
 
 // TestGetUserInfo_WardenDisabled ensures GetUserInfo returns nil when Warden is disabled.
 func TestGetUserInfo_WardenDisabled(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "false")
@@ -1404,6 +1442,7 @@ func TestGetUserInfo_WardenDisabled(t *testing.T) {
 
 // TestGetUserInfo_EmptyIdentifiers ensures GetUserInfo returns nil when both phone and mail are empty.
 func TestGetUserInfo_EmptyIdentifiers(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -1419,6 +1458,7 @@ func TestGetUserInfo_EmptyIdentifiers(t *testing.T) {
 
 // TestGetUserInfo_WithContext ensures GetUserInfo works with a valid context (e.g. context.TODO()).
 func TestGetUserInfo_WithContext(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")

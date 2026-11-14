@@ -13,6 +13,7 @@ import (
 // With tracing enabled the health probes and the metrics scrape are left out
 // of traces, as they are left out of request logs.
 func TestProbeAndMetricsRoutesAreNotTraced(t *testing.T) {
+	isolateGlobalState(t)
 	initLogger()
 	setupTestConfig(t)
 	original := config.OTLPEnabled.Value

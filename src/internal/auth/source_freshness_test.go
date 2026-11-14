@@ -127,6 +127,7 @@ func TestFreshnessTransportRejectsRedirectOriginsAndInvalidEvidence(t *testing.T
 }
 
 func TestStrictWardenLookupNegotiatesAndPreservesSourceDeadline(t *testing.T) {
+	isolateGlobalState(t)
 	vars := []*config.EnvVariable{&config.WardenEnabled, &config.WardenURL, &config.WardenAPIKey, &config.WardenHMACKeyID, &config.WardenHMACSecret, &config.WardenSourceMaxAge, &config.WardenSourceClockSkew, &config.WardenTLSCACertFile, &config.WardenTLSClientCert, &config.WardenTLSClientKey, &config.WardenTLSServerName}
 	previous := make([]string, len(vars))
 	for i, v := range vars {
@@ -218,6 +219,7 @@ func (b *expiringBody) Read(p []byte) (int, error) {
 func (b *expiringBody) Close() error { return nil }
 
 func TestStrictLookupRechecksEvidenceBeforeClassifyingResponse(t *testing.T) {
+	isolateGlobalState(t)
 	previousClient, previousEnabled, previousMax := wardenClient, config.WardenEnabled.Value, config.WardenSourceMaxAge.Value
 	t.Cleanup(func() {
 		wardenClient = previousClient

@@ -17,6 +17,7 @@
 !src/internal/i18n/*.go
 !src/internal/metrics/*.go
 !src/internal/requestcontext/*.go
+!src/internal/testsupport/*.go
 !src/internal/tlsconfig/*.go
 !src/internal/tracing/*.go
 !src/internal/web/*.go

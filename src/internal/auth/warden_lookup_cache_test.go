@@ -16,6 +16,7 @@ import (
 // lookups: authorization decisions are never served from a cache, so a user
 // disabled in Warden is seen by the next lookup. This pins that behaviour.
 func TestLookupUserInfoIsNotCachedByWardenCacheTTL(t *testing.T) {
+	isolateGlobalState(t)
 	var requests atomic.Int64
 	var status atomic.Value
 	status.Store("active")
