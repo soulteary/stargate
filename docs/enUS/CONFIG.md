@@ -453,6 +453,7 @@ Base URL of the Warden service.
 - Full base URL of the Warden service (without trailing slash)
 - Must be set if `WARDEN_ENABLED=true`
 - Used for querying user information and whitelist verification
+- With an `http://` URL and an API key or HMAC secret configured, Stargate logs a startup warning: an API key and all request and response data then cross the network unencrypted. Use `https://` unless the connection to Warden stays on a private network such as a Compose-internal one
 
 **Example:**
 
@@ -738,6 +739,7 @@ Base URL of the Herald service.
 - Full base URL of the Herald service (without trailing slash)
 - Must be set if `HERALD_ENABLED=true`
 - Used for creating challenges and verifying codes
+- With an `http://` URL and an API key or HMAC secret configured, Stargate logs a startup warning: an API key and all request and response data then cross the network unencrypted. Use `https://` unless the connection to Herald stays on a private network such as a Compose-internal one
 
 **Example:**
 
