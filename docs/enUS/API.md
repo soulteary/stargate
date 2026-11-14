@@ -169,10 +169,12 @@ The TOTP variant requires `HERALD_TOTP_ENABLED=true` and an already enrolled use
 
 Login processing retrieves the callback in the following priority order:
 
-1. **From cookie**: If the domain differed when previously accessing the login page, the callback is stored in the `stargate_callback` cookie
-2. **From form data**: The `callback` field in the POST request form data
+1. **From form data**: The `callback` field in the POST request form data. The login page fills it with the callback it was opened for
+2. **From cookie**: If the form has no `callback`, the `stargate_callback` cookie that was stored when the login page was opened for a different domain
 3. **From query parameters**: The `callback` in the URL query parameters
 4. **Auto-inference**: If none of the above exist, and the origin domain (`X-Forwarded-Host`) differs from the authentication service domain, use the origin domain as the callback
+
+Whichever source supplies the value, it must pass the same callback host validation; a `callback` field that is not allowed is answered `400 Bad Request` and is not replaced by the cookie. The `stargate_callback` cookie is cleared after a successful login even when the form value was used.
 
 #### Response
 
