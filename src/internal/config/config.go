@@ -778,7 +778,7 @@ func validatePasswordSettings() error {
 	// The demo passwords are published like the demo secret. Other plaintext
 	// passwords keep the startup warning below.
 	if CookieSecure.ToBool() && usesPublishedDemoPassword() {
-		return NewValidationError(Passwords.Name, "must not contain the published demo passwords when COOKIE_SECURE is true; choose your own and store them with bcrypt", Passwords.PossibleValues)
+		return NewRuleError(Passwords.Name, "must not contain the published demo passwords when COOKIE_SECURE is true; choose your own and store them with bcrypt", Passwords.PossibleValues)
 	}
 
 	// PASSWORDS is required when not using Warden (password-only mode). When WardenEnabled=true, pure Warden deployment may omit PASSWORDS.

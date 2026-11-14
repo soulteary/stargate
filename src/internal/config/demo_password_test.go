@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/MarvinJWendt/testza"
@@ -30,6 +31,11 @@ func TestInitializeRejectsPublishedDemoPasswordsWhenCookieSecure(t *testing.T) {
 				testza.AssertNotNil(t, err)
 				testza.AssertContains(t, err.Error(), "PASSWORDS")
 				testza.AssertContains(t, err.Error(), "published demo passwords")
+				// The rule is reported as a reason, not as a provided value.
+				var validationErr *ValidationError
+				testza.AssertTrue(t, errors.As(err, &validationErr))
+				testza.AssertContains(t, validationErr.Reason, "published demo passwords")
+				testza.AssertEqual(t, "", validationErr.ProvidedValue)
 				// The configured value never appears in the error.
 				testza.AssertNotContains(t, err.Error(), "own-password")
 			})
