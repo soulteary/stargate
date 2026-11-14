@@ -592,6 +592,39 @@ func warnEmptyTrustedProxies() {
 	log.Warn().Msg("TRUSTED_PROXIES is empty: X-Forwarded-Host, X-Forwarded-Proto and the client-IP header are ignored. Behind a reverse proxy the login redirect from /_auth then loses its callback and uses http://, so users are not returned to the application after sign-in, and every client shares one rate-limit quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
 }
 
+// ignoredSessionRedisSettings returns the SESSION_STORAGE_REDIS_* variables
+// that are set to something other than their default while
+// SESSION_STORAGE_ENABLED is false. Stargate then keeps sessions in memory and
+// never connects to Redis, so none of them has an effect.
+func ignoredSessionRedisSettings() []string {
+	if SessionStorageEnabled.ToBool() {
+		return nil
+	}
+	var ignored []string
+	for _, variable := range []*EnvVariable{
+		&SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB,
+		&SessionStorageRedisKeyPrefix, &SessionStorageRedisUsername, &SessionStorageRedisTLSEnabled,
+		&SessionStorageRedisTLSCACertFile, &SessionStorageRedisTLSServerName,
+	} {
+		if variable.Value != variable.DefaultValue {
+			ignored = append(ignored, variable.Name)
+		}
+	}
+	return ignored
+}
+
+// warnIgnoredSessionRedisSettings reports Redis settings without
+// SESSION_STORAGE_ENABLED=true. The settings are accepted, and logged as
+// loaded, while sessions and rate-limit counters stay in the memory of each
+// process: they are lost on restart and not shared between replicas.
+func warnIgnoredSessionRedisSettings() {
+	ignored := ignoredSessionRedisSettings()
+	if len(ignored) == 0 {
+		return
+	}
+	log.Warn().Strs("ignored", ignored).Msg("Redis session settings are set but SESSION_STORAGE_ENABLED is not true: they are ignored, and sessions and rate-limit counters are kept in memory, per process. Set SESSION_STORAGE_ENABLED=true to use Redis.")
+}
+
 // PublishedDemoSessionExchangeSecret is the value shipped in the repository's
 // docker-compose.yml, start-local.sh and deployment examples. It is public, so
 // it must never protect an HTTPS deployment.
@@ -703,6 +736,7 @@ func Initialize(l *logger.Logger) error {
 	warnSharedPasswordStepUp()
 	warnUniformResponses()
 	warnPlaintextServiceURLs()
+	warnIgnoredSessionRedisSettings()
 
 	// Initialize step-up matcher after configuration is loaded
 	InitStepUpMatcher()
