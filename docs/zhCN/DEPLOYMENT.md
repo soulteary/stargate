@@ -142,6 +142,8 @@ docker run -d \
   stargate:latest
 ```
 
+这样启动的容器用于在 `http://localhost:8080` 上直接检查。`COOKIE_SECURE` 默认为 `true`，因此浏览器只会在 HTTPS 下保留会话 Cookie。位于反向代理之后时，还要把 `TRUSTED_PROXIES` 设置为代理的来源地址或网段，例如 `-e TRUSTED_PROXIES=172.18.0.0/16`。不设置时 Stargate 会忽略 `X-Forwarded-Proto` 和 `X-Forwarded-Host`：在终结 HTTPS 的代理之后，每次登录都会返回 `403 cross-site request rejected`，登录重定向也会丢失 callback。参见 [`TRUSTED_PROXIES`](CONFIG.md#trusted_proxies-与-proxy_header)。
+
 #### 完整配置运行
 
 ```bash
@@ -538,7 +540,7 @@ services:
 
 #### 2. 健康检查端点
 
-使用 `/healthz` 检查进程存活。需要在 Redis、Warden 和 Herald 依赖就绪后才接收流量时，另用 `/readyz`；旧的 `/health` 端点保留为弃用的就绪检查别名。
+使用 `/healthz` 检查进程存活。需要在 Redis、Warden 和 Herald 依赖就绪后才接收流量时，另用 `/readyz`；旧的 `/health` 端点保留为弃用的就绪检查别名。两个就绪路由共用同一份结果，该结果最多每 5 秒刷新一次，因此更频繁地探测不会增加对 Redis、Warden 或 Herald 的请求，状态变化最多延迟 5 秒才会反映出来。
 
 ```bash
 # 健康检查脚本
@@ -552,7 +554,20 @@ fi
 
 #### 3. Prometheus 集成
 
-Stargate 通过 `GET /metrics` 暴露 Prometheus 指标。在 Prometheus 服务中配置抓取该端点即可。该端点默认已从请求日志与追踪中排除。
+将 `METRICS_API_KEY` 设置为至少 32 字节的密钥后，Stargate 通过 `GET /metrics` 暴露 Prometheus 指标；未设置时该端点返回 `404 Not Found`。在 Prometheus 服务中配置抓取该端点，并携带 `Authorization: Bearer <METRICS_API_KEY>`；令牌缺失或错误时返回 `401 Unauthorized`。
+
+```yaml
+scrape_configs:
+  - job_name: stargate
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/stargate-metrics-key
+    static_configs:
+      - targets: ["stargate:8080"]
+```
+
+`/metrics`、`/healthz`、`/readyz` 和 `/health` 不记入请求日志，也不参与追踪。
 
 ## 监控和维护
 
@@ -567,6 +582,10 @@ docker logs -f stargate
 # Docker Compose
 docker compose logs -f stargate
 ```
+
+#### 请求日志中的地址
+
+每条请求日志（`"message":"HTTP request"`）包含两个地址。`ip` 是直接对端，位于反向代理之后时就是代理地址。`client_ip` 是通过 `TRUSTED_PROXIES` 和 `PROXY_HEADER` 解析出的客户端地址；审计记录和限流使用的就是这个地址，因此应使用它来关联请求日志与审计日志。没有受信任代理时，两个字段都是对端地址。
 
 #### 日志级别
 
