@@ -602,8 +602,8 @@ curl http://auth.example.com/readyz
 
 Prometheus metrics in text exposition format. Used for monitoring authentication requests, session creation/destruction, and Herald/Warden call latency and results.
 
-- **Authentication**: None (endpoint is typically not exposed to the public; restrict access via network or reverse proxy if needed).
-- **Response**: 200 OK with `Content-Type: text/plain` and Prometheus exposition format.
+- **Authentication**: `Authorization: Bearer <METRICS_API_KEY>`. The endpoint is disabled until `METRICS_API_KEY` is configured. Also restrict access via network or reverse proxy.
+- **Response**: `200 OK` with `Content-Type: text/plain` and Prometheus exposition format; `404 Not Found` when `METRICS_API_KEY` is not set; `401 Unauthorized` when the token is missing or wrong.
 
 **Typical Uses:**
 

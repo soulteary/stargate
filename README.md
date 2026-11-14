@@ -53,14 +53,14 @@ Stargate is perfect for:
 
 ### 🔐 Security Controls
 - **Explicit Password Verification Modes**: Use bcrypt in production or plaintext only for local testing
-- **Secure Session Management**: Cookie-based sessions with customizable domain and expiration
+- **Secure Session Management**: Cookie-based sessions with a configurable cookie domain; sessions last a fixed 24 hours
 - **Flexible Authentication**: Support for both password-based and session-based authentication
 - **OTP/Verification Code Support**: Integration with Herald service for SMS/Email verification codes
 - **User Whitelist Management**: Integration with Warden service for user access control
 
 ### 🌐 Advanced Capabilities
 - **Cross-Domain Session Sharing**: Seamlessly share authentication sessions across different domains/subdomains
-- **Multi-Language Support**: Built-in English and Chinese interfaces, easily extensible for more languages
+- **Multi-Language Support**: Built-in English, Chinese, French, Italian, Japanese, German and Korean interfaces (`LANGUAGE=en|zh|fr|it|ja|de|ko`)
 - **Customizable UI**: Brand your login page with custom titles and footer text
 
 ### 🚀 Performance & Reliability

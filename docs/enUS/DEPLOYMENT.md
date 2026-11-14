@@ -527,7 +527,20 @@ fi
 
 #### 3. Prometheus Integration
 
-Stargate exposes Prometheus metrics at `GET /metrics`. Configure your Prometheus server to scrape this endpoint. The metrics endpoint is excluded from request logging and tracing by default.
+Stargate exposes Prometheus metrics at `GET /metrics` once `METRICS_API_KEY` is set to a secret of at least 32 bytes. Without it the endpoint answers `404 Not Found`. Configure your Prometheus server to scrape this endpoint with `Authorization: Bearer <METRICS_API_KEY>`; a missing or wrong token is answered `401 Unauthorized`.
+
+```yaml
+scrape_configs:
+  - job_name: stargate
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/stargate-metrics-key
+    static_configs:
+      - targets: ["stargate:8080"]
+```
+
+`/metrics`, `/healthz`, `/readyz` and `/health` are excluded from request logging.
 
 ## Monitoring and Maintenance
 
