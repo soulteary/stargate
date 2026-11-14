@@ -146,12 +146,16 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		var result *forwardauth.AuthResult
 		var headerDeadline time.Time
 		passwordAttempt := config.PasswordHeaderAuthEnabled.ToBool() && ctx.Get("Stargate-Password") != ""
+		var releasePasswordAttempt func()
 		if passwordAttempt {
-			// Refuse before the password is compared: once the quota is used
-			// up, neither a wrong nor a correct guess is answered.
-			if limited, limitErr := passwordHeaderQuotaExhausted(ctx); limited {
+			// Count the attempt before the password is compared: once the
+			// quota is used up, neither a wrong nor a correct guess is
+			// answered, and attempts that arrive together cannot exceed it.
+			release, limited, limitErr := reservePasswordHeaderAttempt(ctx)
+			if limited {
 				return limitErr
 			}
+			releasePasswordAttempt = release
 		}
 		if trustedIdentity && !passwordAttempt {
 			result, headerDeadline, err = trustedHeaderAuthResult(spanCtx, ctx.Get("X-User-Phone"), ctx.Get("X-User-Mail"))
@@ -163,11 +167,12 @@ func CheckRoute(store SessionStoreForCheck) func(c fiber.Ctx) error {
 		}
 		// The password checker runs first and a correct password always selects
 		// it. Any other outcome means the supplied password was wrong, even when
-		// the session checker then replaced the error or accepted the request.
-		// ErrInvalidPassword itself is counted by handleForwardAuthFailure.
-		if passwordAttempt && !errors.Is(err, forwardauth.ErrInvalidPassword) &&
-			(err != nil || result == nil || result.AuthMethod != forwardauth.AuthMethodPassword) {
-			recordPasswordHeaderFailure(ctx)
+		// the session checker then replaced the error or accepted the request,
+		// and the counted attempt stays as a failure. ErrInvalidPassword is
+		// counted by handleForwardAuthFailure instead, so it is not kept here.
+		if releasePasswordAttempt != nil && (errors.Is(err, forwardauth.ErrInvalidPassword) ||
+			(err == nil && result != nil && result.AuthMethod == forwardauth.AuthMethodPassword)) {
+			releasePasswordAttempt()
 		}
 		// A cookie cannot override an explicit authentication method. Refresh
 		// directory authorization only after the session checker is selected.

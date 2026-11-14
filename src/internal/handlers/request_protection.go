@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/netip"
 	"net/url"
 	"strconv"
@@ -237,44 +238,46 @@ func passwordHeaderFailureKey(ctx fiber.Ctx) string {
 	return "password-failure:" + rateLimitClientKey(ctx.IP())
 }
 
-// passwordHeaderQuotaExhausted reports whether the client has already used up
-// its failed Stargate-Password attempts for the current window. It is checked
-// before the password is evaluated, so a client that is over quota learns
-// nothing about further guesses, including a correct one. It records nothing:
-// only failures are counted, by recordPasswordHeaderFailure.
-func passwordHeaderQuotaExhausted(ctx fiber.Ctx) (bool, error) {
+// reservePasswordHeaderAttempt counts one Stargate-Password attempt against the
+// login quota before the password is compared. The count and the decision are
+// one step in the store, so attempts that arrive together cannot all be
+// compared: at most the quota is, on every replica together when the store is
+// shared.
+//
+// It reports limited once the quota is used up; the response is then written
+// and the attempt is not kept. Otherwise the caller compares the password and
+// calls release when it was correct, so only failures stay counted. A nil
+// release means the quota is disabled.
+func reservePasswordHeaderAttempt(ctx fiber.Ctx) (release func(), limited bool, err error) {
 	max := config.RateLimitLoginMax.ToInt(config.DefaultRateLimitLoginMax)
 	if max <= 0 {
-		return false, nil
+		return nil, false, nil
+	}
+	warnUntrustedForwardedHeaders(ctx)
+
+	// A release must still reach the store when the request context has ended.
+	storeCtx := context.WithoutCancel(ctx.Context())
+	count, retryAfter, releaseAttempt, storeErr := getRateLimitStore().Reserve(ctx.Context(), passwordHeaderFailureKey(ctx), rateLimitWindow())
+	if storeErr != nil && log != nil {
+		log.Warn().Err(storeErr).Msg("Shared rate-limit store is unavailable, falling back to per-replica limits")
+	}
+	if count <= max {
+		return func() { releaseAttempt(storeCtx) }, false, nil
 	}
 
-	count, retryAfter, err := getRateLimitStore().Count(ctx.Context(), passwordHeaderFailureKey(ctx))
-	if err != nil && log != nil {
-		log.Warn().Err(err).Msg("Shared rate-limit store is unavailable, falling back to per-replica limits")
-	}
-	if count < max {
-		return false, nil
-	}
-
+	// An attempt that is refused was not a guess. Taking it back keeps the
+	// counter at the failures and the attempts still being compared.
+	releaseAttempt(storeCtx)
+	// The forward-auth path deliberately keeps its original response shape and
+	// does not advertise quota state through X-RateLimit-* headers.
 	ctx.Set(fiber.HeaderRetryAfter, retryAfterSeconds(retryAfter))
-	return true, SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many failed password attempts")
-}
-
-// recordPasswordHeaderFailure counts one wrong Stargate-Password value against
-// the login quota. It shares that quota's store, so a credential-stuffing
-// client cannot simply move to another replica.
-func recordPasswordHeaderFailure(ctx fiber.Ctx) {
-	max := config.RateLimitLoginMax.ToInt(config.DefaultRateLimitLoginMax)
-	if max <= 0 {
-		return
-	}
-	consumeRateLimit(ctx, passwordHeaderFailureKey(ctx), max)
+	return nil, true, SendErrorResponse(ctx, fiber.StatusTooManyRequests, "too many failed password attempts")
 }
 
 // rateLimitPasswordHeaderFailure counts one Stargate-Password failure and
 // answers 429 once the count exceeds the login quota. CheckRoute counts
-// failures itself; this covers a password error that reaches the failure
-// handler directly.
+// attempts itself with reservePasswordHeaderAttempt; this covers a password
+// error that reaches the failure handler directly.
 func rateLimitPasswordHeaderFailure(ctx fiber.Ctx) (bool, error) {
 	if strings.TrimSpace(ctx.Get("Stargate-Password")) == "" {
 		return false, nil

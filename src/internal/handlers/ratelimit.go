@@ -18,10 +18,13 @@ type RateLimitStore interface {
 	// Incr records one request against key and returns the running count for
 	// the current window together with the time remaining in that window.
 	Incr(ctx context.Context, key string, window time.Duration) (int, time.Duration, error)
-	// Count returns the running count for key and the time remaining in its
-	// window without recording a request. A key with no live window counts
-	// zero.
-	Count(ctx context.Context, key string) (int, time.Duration, error)
+	// Reserve records one request against key like Incr and also returns a
+	// function that takes that one request back. A caller that only wants to
+	// count failures reserves before it evaluates the request and releases
+	// when the request turns out to be good, so requests that are evaluated
+	// at the same time cannot exceed the limit between them. Release is safe
+	// to call once; it does nothing when the window has ended.
+	Reserve(ctx context.Context, key string, window time.Duration) (count int, remaining time.Duration, release func(context.Context), err error)
 }
 
 type rateLimitBucket struct {
@@ -40,10 +43,17 @@ func newMemoryRateLimitStore() *memoryRateLimitStore {
 }
 
 func (s *memoryRateLimitStore) Incr(_ context.Context, key string, window time.Duration) (int, time.Duration, error) {
-	now := time.Now()
-
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	bucket := s.incrLocked(key, window)
+	return bucket.count, time.Until(bucket.resets), nil
+}
+
+// incrLocked records one request against key and returns its bucket. The
+// caller holds s.mu.
+func (s *memoryRateLimitStore) incrLocked(key string, window time.Duration) rateLimitBucket {
+	now := time.Now()
 
 	// Expired buckets are only reachable through their own key, so a periodic
 	// sweep is enough to keep an idle process from retaining every address it
@@ -63,21 +73,27 @@ func (s *memoryRateLimitStore) Incr(_ context.Context, key string, window time.D
 	}
 	bucket.count++
 	s.buckets[key] = bucket
-
-	return bucket.count, time.Until(bucket.resets), nil
+	return bucket
 }
 
-func (s *memoryRateLimitStore) Count(_ context.Context, key string) (int, time.Duration, error) {
-	now := time.Now()
-
+func (s *memoryRateLimitStore) Reserve(_ context.Context, key string, window time.Duration) (int, time.Duration, func(context.Context), error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	reserved := s.incrLocked(key, window)
+	s.mu.Unlock()
 
-	bucket, ok := s.buckets[key]
-	if !ok || !now.Before(bucket.resets) {
-		return 0, 0, nil
+	release := func(context.Context) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		// A bucket with another reset time is a later window, which this
+		// reservation was never counted in.
+		bucket, ok := s.buckets[key]
+		if !ok || !bucket.resets.Equal(reserved.resets) || bucket.count <= 0 {
+			return
+		}
+		bucket.count--
+		s.buckets[key] = bucket
 	}
-	return bucket.count, bucket.resets.Sub(now), nil
+	return reserved.count, time.Until(reserved.resets), release, nil
 }
 
 // redisRateLimitStore shares one fixed-window counter across replicas.
@@ -127,27 +143,40 @@ func (s *redisRateLimitStore) Incr(ctx context.Context, key string, window time.
 	return int(result[0]), time.Duration(result[1]) * time.Millisecond, nil
 }
 
-// Count reads the shared counter. Like Incr it answers from the process-local
-// store when Redis cannot be read, so an outage neither hides the failures
-// counted locally nor rejects every request.
-func (s *redisRateLimitStore) Count(ctx context.Context, key string) (int, time.Duration, error) {
-	count, err := s.client.Get(ctx, s.prefix+key).Int()
-	if errors.Is(err, redis.Nil) {
-		return 0, 0, nil
+// DECR keeps the expiry of the key. A missing key or a counter at zero is left
+// alone: the window ended, and DECR would otherwise create a counter without
+// an expiry.
+const releaseRateLimitSource = `
+local count = tonumber(redis.call('GET', KEYS[1]) or '0')
+if count > 0 then
+    return redis.call('DECR', KEYS[1])
+end
+return 0
+`
+
+var releaseRateLimit = redis.NewScript(releaseRateLimitSource)
+
+// Reserve counts in Redis and releases there. When Redis cannot be reached the
+// request is counted in the process-local store, like Incr, and released from
+// the same place. A release that Redis does not accept is dropped: the request
+// then stays counted until the window ends, which errs towards the limit.
+func (s *redisRateLimitStore) Reserve(ctx context.Context, key string, window time.Duration) (int, time.Duration, func(context.Context), error) {
+	milliseconds := window.Milliseconds()
+	if milliseconds < 1 {
+		milliseconds = 1
 	}
-	var remaining time.Duration
-	if err == nil {
-		remaining, err = s.client.PTTL(ctx, s.prefix+key).Result()
+	result, err := s.increment(ctx, s.prefix+key, milliseconds)
+	if err == nil && len(result) != 2 {
+		err = errors.New("unexpected rate-limit script reply length")
 	}
 	if err != nil {
-		count, remaining, _ = s.fallback.Count(ctx, key)
-		return count, remaining, err
+		count, remaining, release, _ := s.fallback.Reserve(ctx, key, window)
+		return count, remaining, release, err
 	}
-	if remaining < 0 {
-		// The key expired between the two commands or carries no expiry yet.
-		remaining = 0
+	release := func(ctx context.Context) {
+		_ = releaseRateLimit.Run(ctx, s.client, []string{s.prefix + key}).Err()
 	}
-	return count, remaining, nil
+	return int(result[0]), time.Duration(result[1]) * time.Millisecond, release, nil
 }
 
 // A typed reply avoids generic RESP integers and a second slice conversion.
