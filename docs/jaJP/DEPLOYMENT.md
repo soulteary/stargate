@@ -116,6 +116,8 @@ docker run -d \
   stargate:latest
 ```
 
+このコマンドは、`http://localhost:8080` で直接確認するためのコンテナを起動します。`COOKIE_SECURE` のデフォルトは `true` のため、ブラウザは HTTPS でのみセッション Cookie を保持します。リバースプロキシの背後では、`TRUSTED_PROXIES` にもプロキシの送信元アドレスまたはネットワークを設定してください（例: `-e TRUSTED_PROXIES=172.18.0.0/16`）。設定しない場合、Stargate は `X-Forwarded-Proto` と `X-Forwarded-Host` を無視します。HTTPS を終端するプロキシの背後ではすべてのログインに `403 cross-site request rejected` が返され、ログインへのリダイレクトからコールバックが失われます。[`TRUSTED_PROXIES`](CONFIG.md#trusted_proxies-と-proxy_header) を参照してください。
+
 #### 完全設定での実行
 
 ```bash
@@ -478,7 +480,7 @@ services:
 
 #### 2. ヘルスチェックエンドポイント
 
-プロセスの liveness には `/healthz`、依存関係の readiness には `/readyz` を使用します。`/health` は非推奨の readiness 互換エイリアスです。
+プロセスの liveness には `/healthz`、依存関係の readiness には `/readyz` を使用します。`/health` は非推奨の readiness 互換エイリアスです。2 つの readiness ルートは 1 つの結果を共有し、その結果は最大でも 5 秒に 1 回しか更新されません。そのため、より頻繁にプローブしても Redis、Warden、Herald へのリクエストは増えず、状態の変化が反映されるまで最大 5 秒の遅れが生じます。
 
 ```bash
 # ヘルスチェックスクリプト
@@ -492,7 +494,20 @@ fi
 
 #### 3. Prometheus 統合
 
-Stargate は `GET /metrics` で Prometheus メトリクスを公開しています。Prometheus サーバーでこのエンドポイントをスクレープするよう設定してください。メトリクスエンドポイントはデフォルトでリクエストログ・トレースから除外されます。
+`METRICS_API_KEY` に 32 バイト以上のシークレットを設定すると、Stargate は `GET /metrics` で Prometheus メトリクスを公開します。未設定の場合、このエンドポイントは `404 Not Found` を返します。Prometheus サーバーで、`Authorization: Bearer <METRICS_API_KEY>` を付けてこのエンドポイントをスクレープするよう設定してください。トークンがない、または誤っている場合は `401 Unauthorized` が返されます。
+
+```yaml
+scrape_configs:
+  - job_name: stargate
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/stargate-metrics-key
+    static_configs:
+      - targets: ["stargate:8080"]
+```
+
+`/metrics`、`/healthz`、`/readyz`、`/health` はリクエストログとトレースから除外されます。
 
 ## 監視とメンテナンス
 
@@ -507,6 +522,10 @@ docker logs -f stargate
 # Docker Compose
 docker compose logs -f stargate
 ```
+
+#### リクエストログのアドレス
+
+リクエストログの各行（`"message":"HTTP request"`）には 2 つのアドレスが含まれます。`ip` は直接の接続元で、リバースプロキシの背後ではプロキシになります。`client_ip` は `TRUSTED_PROXIES` と `PROXY_HEADER` によって解決されたクライアントアドレスです。監査記録とレート制限が使用するのはこのアドレスなので、リクエストログと監査ログを突き合わせる際はこちらを使用してください。信頼済みプロキシがない場合、両方のフィールドに接続元のアドレスが入ります。
 
 #### ログレベル
 

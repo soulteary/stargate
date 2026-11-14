@@ -214,6 +214,19 @@ LOGIN_PAGE_FOOTER_TEXT='© 2024 내 회사'
 USER_HEADER_NAME=X-Authenticated-User
 ```
 
+### `TRUSTED_PROXIES` 및 `PROXY_HEADER`
+
+`TRUSTED_PROXIES`에는 Stargate가 전달 헤더를 신뢰할 리버스 프록시의 출발지 IP 또는 CIDR을 나열합니다. 기본값은 비어 있습니다. `PROXY_HEADER`는 클라이언트 IP를 담는 헤더 이름입니다(기본값: `X-Forwarded-For`).
+
+`TRUSTED_PROXIES` 없이도 Stargate는 시작되지만, 리버스 프록시 뒤에서는 반드시 설정하세요. 프록시가 목록에 없는 동안 Stargate는 프록시가 `/_auth`로 보낸 요청만 볼 수 있고 사용자가 보낸 요청은 볼 수 없습니다:
+
+- 로그인 리디렉션에 `callback`이 없고 `http://`로 만들어지므로, 사용자는 로그인 후 애플리케이션으로 돌아가지 못하고 인증 호스트에 머무릅니다.
+- 프록시가 HTTPS를 종료하는 경우 사용자는 아예 로그인할 수 없습니다. 브라우저는 `Origin: https://...`를 보내고 Stargate는 이를 프록시로부터 받은 `http://` 요청과 비교하므로, `POST /_login`, `/_logout`, `/_step_up`, `/_send_verify_code`, `/_send_reauth_code`, `/totp/*`는 `403`과 `cross-site request rejected`로 응답됩니다.
+- step-up 경로 규칙을 평가할 수 없습니다(`STEP_UP_ENABLED=true`가 `TRUSTED_PROXIES`를 요구하는 이유입니다).
+- 모든 클라이언트가 프록시 주소로 취급되어 하나의 요청 속도 제한 할당량과 감사 기록의 주소 하나를 공유합니다.
+
+Stargate는 `TRUSTED_PROXIES`가 비어 있으면 시작 시 경고를 기록하고, 목록에 없는 피어의 전달 헤더를 처음 무시할 때 한 번 더 경고를 기록합니다. 또한 무시된 `X-Forwarded-Proto` 및 `X-Forwarded-Host`와 `Origin`이 일치하는 요청을 교차 사이트 요청으로 거부할 때에도 경고를 한 번만 기록합니다. `403` 응답 자체에는 원인이 표시되지 않습니다.
+
 ### `COOKIE_DOMAIN`
 
 Cookie 도메인. 크로스 도메인 세션 공유에 사용됩니다.
@@ -303,7 +316,7 @@ PORT=8080
 | `WARDEN_TLS_CLIENT_CERT_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 인증서 |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 키 |
 | `WARDEN_TLS_SERVER_NAME` | 문자열 | 비어 있음 | 예상 TLS 서버 이름 |
-| `WARDEN_CACHE_TTL` | 초 | 300 | Warden 캐시 시간 |
+| `WARDEN_CACHE_TTL` | 양의 정수(초) | 300 | 호환성을 위해서만 허용됨. 효과 없음 |
 | `WARDEN_SOURCE_MAX_AGE` | 기간 | 0s | Warden 원본 데이터의 최대 경과 시간; 0s는 검사 비활성화 |
 | `WARDEN_SOURCE_CLOCK_SKEW` | 기간 | 0s | 허용 시계 오차; 최대 경과 시간보다 작아야 함 |
 | `METRICS_API_KEY` | 비밀 값 | 비어 있음 | /metrics 전용 Bearer 키; 32바이트 이상 |
@@ -351,9 +364,17 @@ PORT=8080
 
 Warden의 HMAC Key ID와 Secret은 함께 설정합니다. Herald 서버가 `HERALD_HMAC_KEYS`를 사용하면 명시적 ID가 필요하지만 단일 `HMAC_SECRET`은 암시적 기본값을 지원합니다. 두 서비스 모두 mTLS 클라이언트 인증서와 키를 완전한 쌍으로 설정해야 합니다.
 
+`WARDEN_URL` 또는 `HERALD_URL`이 `http://` URL이고 API 키 또는 HMAC Secret이 설정되어 있으면 Stargate는 시작 시 경고를 기록합니다. 이 경우 API 키와 모든 요청 및 응답 데이터가 암호화되지 않은 채 네트워크를 지나갑니다. Warden 또는 Herald와의 연결이 Compose 내부 네트워크 같은 사설 네트워크 안에만 머무르는 경우가 아니라면 `https://`를 사용하세요.
+
+`WARDEN_CACHE_TTL`은 호환성을 위해서만 허용되며 Stargate의 동작에 영향을 주지 않습니다. 이 값은 사용자 목록 캐시의 수명으로 Warden 클라이언트에 전달되지만, Stargate는 사용자 목록을 요청하지 않습니다. 로그인, 코드 전송, 신뢰할 수 있는 헤더 인증, 권한 갱신은 모두 전화번호 또는 메일 주소로 사용자 한 명을 조회하며, 이 조회는 캐시되지 않습니다. 조회할 때마다 Warden에 요청이 발생합니다. 비활성화되거나 삭제된 사용자가 기존 세션을 잃기까지의 시간과 하나의 세션이 Warden 요청을 발생시키는 빈도는 `AUTH_REFRESH_INTERVAL`로 정해집니다. 간격을 늘리면 Warden 요청은 줄지만 사용자 비활성화가 반영되는 시점도 늦어집니다. `HEADER_AUTH_ENABLED=true`인 경우 신뢰할 수 있는 ID 헤더를 포함한 전달 요청마다 Warden 조회가 한 번 발생합니다. 값은 여전히 양의 정수여야 하며, 그렇지 않으면 Stargate가 시작되지 않습니다.
+
+`SESSION_STORAGE_REDIS_*` 설정은 `SESSION_STORAGE_ENABLED=true`일 때만 적용됩니다. `SESSION_STORAGE_ENABLED`가 `false`인 상태에서 그중 하나라도 기본값이 아닌 값으로 설정되어 있으면, Stargate는 시작되고 세션과 요청 속도 제한 카운터를 메모리에 보관하며, 무시된 변수를 나열한 경고를 시작 시 기록합니다.
+
+`SESSION_STORAGE_REDIS_USERNAME`의 사용자에게는 `SESSION_STORAGE_REDIS_KEY_PREFIX` 아래 키에 대한 읽기, 쓰기, 스크립트(`EVAL`/`EVALSHA`) 권한이 필요합니다. `SESSION_STORAGE_REDIS_TLS_ENABLED=true`가 아니면 세션, 인증 컨텍스트, 요청 속도 제한 카운터가 암호화되지 않은 채 Redis로 전송되므로 사설 네트워크에서만 사용하세요. TLS(1.2 이상)에서는 `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE`(추가 CA 인증서가 담긴 PEM 파일)과 `SESSION_STORAGE_REDIS_TLS_SERVER_NAME`으로 변경하지 않는 한, 인증서를 시스템 루트 인증서와 `SESSION_STORAGE_REDIS_ADDR`의 호스트에 대해 검증합니다. 검증은 끌 수 없으며 클라이언트 인증서는 지원하지 않습니다.
+
 ## 비밀번호 설정
 
-운영 환경에서는 `bcrypt`를 사용하며 `plaintext`는 로컬 테스트에서만 사용할 수 있습니다. MD5와 salt 없는 SHA-512는 설정 검증에서 거부됩니다. 비밀번호는 대소문자와 공백을 그대로 구분합니다.
+운영 환경에서는 `bcrypt`를 사용하며 `plaintext`는 로컬 테스트에서만 사용할 수 있습니다. MD5와 salt 없는 SHA-512는 설정 검증에서 거부됩니다. 비밀번호는 대소문자와 공백을 그대로 구분합니다. 이 저장소의 Compose 예제에 공개된 데모 비밀번호(`test1234`, `test1337`)는 `COOKIE_SECURE`가 `true`이면 시작 시 거부되며, 로컬 HTTP 데모에서만 허용됩니다.
 
 ```bash
 PASSWORDS='bcrypt:<bcrypt-hash>'
@@ -431,6 +452,9 @@ Stargate는 시작 시 모든 설정 항목을 검증합니다:
 2. **형식 검증**: 비밀번호 설정 형식이 올바르지 않은 경우, 시작에 실패합니다
 3. **알고리즘 검증**: 지원되지 않는 비밀번호 알고리즘은 시작에 실패합니다
 4. **값 검증**: 일부 설정 항목에는 값 제한이 있습니다 (예: `LANGUAGE`, `DEBUG`)
+5. **규칙 검증**: 일부 설정 항목은 다른 설정 항목에 의존하거나 최소 길이 또는 형식 요건이 있습니다 (예: `HERALD_ENABLED`는 `WARDEN_ENABLED=true` 필요)
+
+메시지는 변수 이름을 표시하고 위의 경우 중 어느 것에 해당하는지 알려 줍니다. 규칙은 이유로 보고되며 설정된 값처럼 표시되지 않습니다. 비밀값의 설정 값은 절대 출력되지 않습니다.
 
 **오류 예제:**
 
@@ -443,6 +467,13 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 # 지원되지 않는 알고리즘
 Error: Configuration error: invalid value for environment variable 'PASSWORDS': 'unknown:password'
+
+# 허용되는 값 집합을 벗어난 값
+Error: Configuration error: invalid value for environment variable 'DEBUG': 'maybe'.
+  Accepted values: [true false]
+
+# 다른 설정과 관련된 규칙
+Error: Configuration error: environment variable 'HERALD_ENABLED': requires WARDEN_ENABLED=true to resolve authenticated users.
 ```
 
 ## 설정 모범 사례
@@ -470,6 +501,13 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 ## 레거시 비밀번호 헤더 인증
 
 `Stargate-Password` 인증은 기본적으로 비활성화됩니다. 신뢰할 수 있는 레거시 클라이언트에만 `PASSWORD_HEADER_AUTH_ENABLED=true`로 활성화하세요. HTTPS와 요청 속도 제한을 사용하고, 백엔드로 전달하기 전에 리버스 프록시에서 이 헤더를 제거하세요.
+
+`/_auth`에서 이 헤더로 실패한 시도는 클라이언트 주소별로 `RATE_LIMIT_LOGIN_MAX` 할당량에 집계됩니다. 잘못된 값만 집계에 남습니다. 할당량을 다 쓰면 윈도우가 끝날 때까지 해당 주소에서 이 헤더를 포함해 보낸 모든 요청은 비밀번호를 비교하기 전에 `429`와 `Retry-After`로 응답되며, 비밀번호가 올바른 경우도 마찬가지입니다. 요청은 비밀번호를 비교하는 동안 집계되고 비밀번호가 올바르면 집계에서 빠집니다. 따라서 동시에 보낸 잘못된 값들이 합쳐서 할당량을 넘을 수 없습니다. 같은 이유로, 남은 할당량보다 많은 헤더 포함 요청을 동시에 보낸 클라이언트는 초과분에 `429`를 받지만 다시 보낼 수 있습니다. 같은 주소를 공유하는 클라이언트는 이 할당량을 공유합니다:
+
+- 같은 NAT 또는 아웃바운드 프록시 뒤의 클라이언트는 하나의 주소입니다. 그중 하나가 잘못된 값을 보내면 윈도우의 남은 시간 동안 다른 클라이언트도 차단되며, 이는 윈도우마다 반복될 수 있습니다.
+- `TRUSTED_PROXIES`가 비어 있거나 거기에 나열되지 않은 프록시 또는 CDN 뒤에 있으면 모든 요청이 프록시의 것으로 취급되므로, 배포에서 이 헤더를 사용하는 모든 클라이언트가 영향을 받습니다. `PASSWORD_HEADER_AUTH_ENABLED=true`이고 `TRUSTED_PROXIES`가 비어 있으면 Stargate는 시작 시 경고를 기록합니다.
+
+할당량이 클라이언트별로 적용되도록 `TRUSTED_PROXIES`를 설정하세요. Cookie 세션은 이 할당량의 영향을 받지 않습니다.
 
 ## 원본 데이터 유효성 및 모니터링
 

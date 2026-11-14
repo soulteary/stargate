@@ -116,6 +116,8 @@ docker run -d \
   stargate:latest
 ```
 
+Damit startet der Container für eine direkte Prüfung unter `http://localhost:8080`. `COOKIE_SECURE` ist standardmäßig `true`, daher behält ein Browser das Sitzungs-Cookie nur über HTTPS. Setzen Sie hinter einem Reverse Proxy zusätzlich `TRUSTED_PROXIES` auf die Quelladresse oder das Netz des Proxys, zum Beispiel `-e TRUSTED_PROXIES=172.18.0.0/16`. Ohne diesen Wert ignoriert Stargate `X-Forwarded-Proto` und `X-Forwarded-Host`: Hinter einem Proxy, der HTTPS terminiert, wird jede Anmeldung mit `403 cross-site request rejected` beantwortet, und die Weiterleitung zur Anmeldung verliert ihren Callback. Siehe [`TRUSTED_PROXIES`](CONFIG.md#trusted_proxies-und-proxy_header).
+
 #### Ausführung mit vollständiger Konfiguration
 
 ```bash
@@ -478,7 +480,7 @@ services:
 
 #### 2. Gesundheitsprüfungs-Endpunkt
 
-Verwenden Sie `/healthz` für die Prozess-Liveness und `/readyz` für die Bereitschaft der Abhängigkeiten. `/health` ist nur ein veralteter Bereitschafts-Alias.
+Verwenden Sie `/healthz` für die Prozess-Liveness und `/readyz` für die Bereitschaft der Abhängigkeiten. `/health` ist nur ein veralteter Bereitschafts-Alias. Beide Bereitschaftsrouten teilen sich ein Ergebnis, das höchstens alle 5 Sekunden aktualisiert wird. Häufigere Abfragen erzeugen daher keine zusätzlichen Anfragen an Redis, Warden oder Herald, und eine Zustandsänderung wird bis zu 5 Sekunden verzögert gemeldet.
 
 ```bash
 # Gesundheitsprüfungs-Skript
@@ -492,7 +494,20 @@ fi
 
 #### 3. Prometheus-Integration
 
-Stargate stellt Prometheus-Metriken unter `GET /metrics` bereit. Konfigurieren Sie Ihren Prometheus-Server zum Scrapen dieses Endpunkts. Der Metriken-Endpunkt wird standardmäßig von Anforderungsprotokollierung und Tracing ausgeschlossen.
+Stargate stellt Prometheus-Metriken unter `GET /metrics` bereit, sobald `METRICS_API_KEY` auf ein Geheimnis mit mindestens 32 Bytes gesetzt ist. Ohne diesen Wert antwortet der Endpunkt mit `404 Not Found`. Konfigurieren Sie Ihren Prometheus-Server so, dass er diesen Endpunkt mit `Authorization: Bearer <METRICS_API_KEY>` abruft; ein fehlendes oder falsches Token wird mit `401 Unauthorized` beantwortet.
+
+```yaml
+scrape_configs:
+  - job_name: stargate
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /run/secrets/stargate-metrics-key
+    static_configs:
+      - targets: ["stargate:8080"]
+```
+
+`/metrics`, `/healthz`, `/readyz` und `/health` sind von Anforderungsprotokollierung und Tracing ausgeschlossen.
 
 ## Überwachung und Wartung
 
@@ -507,6 +522,10 @@ docker logs -f stargate
 # Docker Compose
 docker compose logs -f stargate
 ```
+
+#### Adressen im Anforderungsprotokoll
+
+Jede Zeile des Anforderungsprotokolls (`"message":"HTTP request"`) enthält zwei Adressen. `ip` ist die direkte Gegenstelle, hinter einem Reverse Proxy also der Proxy. `client_ip` ist die über `TRUSTED_PROXIES` und `PROXY_HEADER` ermittelte Client-Adresse; sie ist die Adresse, die Audit-Einträge und Rate Limits verwenden. Nutzen Sie sie daher, um Anforderungsprotokolle mit Audit-Protokollen zu korrelieren. Ohne vertrauenswürdigen Proxy enthalten beide Felder die Adresse der Gegenstelle.
 
 #### Protokollierungsebenen
 

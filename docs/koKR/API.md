@@ -62,6 +62,7 @@ X-Forwarded-User: authenticated
 | 상태 코드 | 설명 | 응답 본문 |
 |-----------|------|-----------|
 | `401 Unauthorized` | 인증 실패 | 오류 메시지 (API 요청의 경우 JSON 형식) 또는 로그인 페이지로 리디렉션 (HTML 요청) |
+| `429 Too Many Requests` | 현재 윈도우에서 이 클라이언트의 `Stargate-Password` 실패가 `RATE_LIMIT_LOGIN_MAX`회에 도달함. 윈도우가 끝날 때까지 이 헤더를 포함한 모든 요청에, 비밀번호가 올바른 경우에도, `Retry-After` 헤더(초)와 함께 반환됨. `PASSWORD_HEADER_AUTH_ENABLED=true`인 경우에만 해당 | 오류 메시지 |
 | `503 Service Unavailable` | 디렉터리 인가를 일시적으로 사용할 수 없음 | — |
 | `500 Internal Server Error` | 서버 오류 | 오류 메시지 |
 
@@ -69,6 +70,7 @@ X-Forwarded-User: authenticated
 
 - **HTML 요청**: 인증 실패 시 `/_login?callback=<originalURL>`로 리디렉션
 - **API 요청** (JSON/XML): 인증 실패 시 401 오류 응답 반환
+- **실패 할당량을 초과한 `Stargate-Password` 요청**: HTML 요청과 API 요청 모두 `Retry-After`와 함께 429 반환. 리디렉션은 없음
 
 #### 예제
 
@@ -165,10 +167,12 @@ TOTP 방식에는 `HERALD_TOTP_ENABLED=true`와 이미 등록된 사용자가 �
 
 로그인 처리 시 다음 우선순위로 콜백을 가져옵니다:
 
-1. **Cookie에서**: 이전에 로그인 페이지에 액세스할 때 도메인이 달랐던 경우, 콜백은 Cookie `stargate_callback`에 저장됩니다
-2. **폼 데이터에서**: POST 요청의 폼 데이터 내 `callback` 필드
+1. **폼 데이터에서**: POST 요청의 폼 데이터 내 `callback` 필드. 로그인 페이지는 페이지를 열 때 지정된 콜백으로 이 필드를 채웁니다
+2. **Cookie에서**: 폼에 `callback`이 없는 경우, 다른 도메인을 대상으로 로그인 페이지를 열었을 때 저장된 Cookie `stargate_callback`
 3. **쿼리 매개변에서**: URL의 쿼리 매개변 내 `callback`
 4. **자동 추론**: 위 항목이 없고 원본 도메인 (`X-Forwarded-Host`)이 인증 서비스 도메인과 다른 경우, 원본 도메인을 콜백으로 사용
+
+값을 어느 출처에서 가져오든 동일한 콜백 호스트 검증을 통과해야 합니다. 허용되지 않는 `callback` 필드에는 `400 Bad Request`로 응답하며 Cookie 값으로 대체하지 않습니다. Cookie `stargate_callback`은 폼 값이 사용된 경우에도 로그인 성공 후 삭제됩니다.
 
 #### 응답
 
@@ -436,11 +440,13 @@ curl http://auth.example.com/readyz
 
 `GET /health`는 `GET /readyz`의 더 이상 권장되지 않는 호환 별칭으로 유지됩니다.
 
+의존성 검사는 최대 5초에 한 번만 실행됩니다. 두 경로 모두 결과가 만료될 때까지 그 결과로 응답합니다. 따라서 의존성의 장애나 복구는 최대 5초 늦게 보고되며, 검사가 실행되는 동안 도착한 요청은 자체 검사를 시작하지 않고 그 결과를 기다립니다.
+
 ## 메트릭 엔드포인트
 
 ### `GET /metrics`
 
-Prometheus 메트릭을 텍스트 형식으로 반환합니다. 인증이 필요하지 않으므로 네트워크 또는 프록시 규칙으로 보호해야 합니다.
+Prometheus 메트릭을 텍스트 형식으로 반환합니다. `Authorization: Bearer <METRICS_API_KEY>`가 필요하며, `METRICS_API_KEY`를 설정하기 전에는 엔드포인트가 비활성화됩니다. `METRICS_API_KEY`가 설정되지 않으면 `404 Not Found`를, 토큰이 없거나 잘못된 경우 `401 Unauthorized`를 반환합니다. 네트워크 또는 프록시 규칙으로도 접근을 제한하세요.
 
 ## 런타임 로그 레벨 엔드포인트
 

@@ -62,6 +62,7 @@ Il nome dell'header utente può essere configurato tramite la variabile d'ambien
 | Codice di Stato | Descrizione | Corpo Risposta |
 |----------------|-------------|----------------|
 | `401 Unauthorized` | Autenticazione fallita | Messaggio di errore (formato JSON per richieste API) o reindirizzamento alla pagina di login (richieste HTML) |
+| `429 Too Many Requests` | `RATE_LIMIT_LOGIN_MAX` tentativi `Stargate-Password` falliti da questo client nella finestra corrente. Inviato con un header `Retry-After` (secondi) per ogni richiesta che contiene l'header, anche con la password corretta, fino al termine della finestra. Solo con `PASSWORD_HEADER_AUTH_ENABLED=true` | Messaggio di errore |
 | `503 Service Unavailable` | Autorizzazione della directory temporaneamente non disponibile | — |
 | `500 Internal Server Error` | Errore server | Messaggio di errore |
 
@@ -69,6 +70,7 @@ Il nome dell'header utente può essere configurato tramite la variabile d'ambien
 
 - **Richieste HTML**: Reindirizzamento a `/_login?callback=<originalURL>` in caso di fallimento autenticazione
 - **Richieste API** (JSON/XML): Restituzione di una risposta di errore 401 in caso di fallimento autenticazione
+- **Richieste con `Stargate-Password` oltre la quota di tentativi falliti**: Restituzione di 429 con `Retry-After`, sia per le richieste HTML sia per le richieste API; non c'è reindirizzamento
 
 #### Esempi
 
@@ -165,10 +167,12 @@ La variante TOTP richiede `HERALD_TOTP_ENABLED=true` e un utente già registrato
 
 L'elaborazione login recupera il callback nel seguente ordine di priorità:
 
-1. **Dal cookie**: Se il dominio differiva durante l'accesso precedente alla pagina di login, il callback è memorizzato nel cookie `stargate_callback`
-2. **Dai dati del form**: Il campo `callback` nei dati del form della richiesta POST
+1. **Dai dati del form**: Il campo `callback` nei dati del form della richiesta POST. La pagina di login lo compila con il callback per cui è stata aperta
+2. **Dal cookie**: Se il form non contiene `callback`, il cookie `stargate_callback` memorizzato quando la pagina di login è stata aperta per un dominio diverso
 3. **Dai parametri query**: Il `callback` nei parametri query dell'URL
 4. **Inferenza automatica**: Se nessuno dei precedenti esiste, e il dominio di origine (`X-Forwarded-Host`) differisce dal dominio del servizio di autenticazione, utilizzare il dominio di origine come callback
+
+Qualunque sia l'origine del valore, deve superare la stessa validazione dell'host del callback; a un campo `callback` non consentito si risponde con `400 Bad Request` e il valore non viene sostituito dal cookie. Il cookie `stargate_callback` viene cancellato dopo un login riuscito anche quando è stato usato il valore del form.
 
 #### Risposta
 
@@ -436,11 +440,13 @@ curl http://auth.example.com/readyz
 
 `GET /health` rimane un alias di compatibilità deprecato per `GET /readyz`.
 
+I controlli delle dipendenze vengono eseguiti al massimo una volta ogni 5 secondi. Entrambe le route rispondono con quel risultato finché non scade: una dipendenza che si guasta o si ripristina viene quindi segnalata con un ritardo fino a 5 secondi, e le richieste che arrivano mentre i controlli sono in corso ne attendono il risultato invece di avviarne di propri.
+
 ## Endpoint Metriche
 
 ### `GET /metrics`
 
-Restituisce metriche Prometheus in formato testo. L'endpoint non richiede autenticazione e deve essere protetto tramite regole di rete o del proxy.
+Restituisce metriche Prometheus in formato testo. L'endpoint richiede `Authorization: Bearer <METRICS_API_KEY>` ed è disabilitato finché `METRICS_API_KEY` non è configurato: senza `METRICS_API_KEY` risponde `404 Not Found`, con token mancante o errato `401 Unauthorized`. Limitare inoltre l'accesso tramite regole di rete o del proxy.
 
 ## Endpoint del Livello di Log a Runtime
 
