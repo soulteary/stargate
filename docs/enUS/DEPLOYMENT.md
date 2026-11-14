@@ -130,6 +130,7 @@ docker build -f docker/Dockerfile -t stargate:latest .
 
 - **Base Image**: `golang:1.27.4-alpine3.24` (build stage)
 - **Runtime Image**: `alpine:3.24` (runtime stage; includes CA certificates and BusyBox `wget` for HTTPS and health checks)
+- Both base images are referenced as `tag@sha256:digest` in `docker/*.Dockerfile`, so a build uses exactly the image the digest names; Dependabot proposes new digests. The runtime stage still runs `apk upgrade` at build time
 - **Working Directory**: `/app`
 - **Exposed Port**: `8080`
 

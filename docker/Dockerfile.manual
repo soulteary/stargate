@@ -1,9 +1,9 @@
-FROM golang:1.27.4-alpine3.24 AS Builder
+FROM golang:1.27.4-alpine3.24@sha256:0a5f7fe796599ff487605987432e7619ae45beeb2fba4c2ce0b907879932aebf AS Builder
 RUN echo '' > /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.24/main"         >> /etc/apk/repositories && \
     echo "https://mirror.tuna.tsinghua.edu.cn/alpine/v3.24/community"    >> /etc/apk/repositories && \
     echo "Asia/Shanghai" > /etc/timezone
-RUN apk add git bash upx
+RUN apk add git bash
 ENV TZ=Asia/Shanghai
 RUN apk add tzdata && \
     cp /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
@@ -29,12 +29,8 @@ RUN BUILD_DATE=${BUILD_DATE:-$(date +%FT%T%z)} && \
     ARCH=${TARGETARCH:-$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/;s/armv7l/arm/')} && \
     OS=${TARGETOS:-linux} && \
     GO111MODULE=on GOOS=$OS GOARCH=$ARCH CGO_ENABLED=0 go build -ldflags "-w -s -X 'github.com/soulteary/version-kit/v4.Version=$VERSION' -X 'github.com/soulteary/version-kit/v4.Commit=$COMMIT' -X 'github.com/soulteary/version-kit/v4.BuildDate=$BUILD_DATE'" -o stargate ./src/cmd/stargate
-# upx 压缩（如果失败则跳过，确保多平台构建兼容性）
-RUN if command -v upx > /dev/null 2>&1; then \
-      upx -9 -o stargate.minify stargate 2>/dev/null && mv stargate.minify stargate || true; \
-    fi
 
-FROM alpine:3.24
+FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf
 # Release builds override this value to invalidate the package layer on every run.
 ARG ALPINE_PACKAGE_REFRESH=local
 COPY --from=Builder /app/stargate /bin/stargate
