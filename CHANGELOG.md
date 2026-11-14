@@ -58,11 +58,13 @@ This file records user-visible changes. For upgrade steps and configuration exam
   10 minutes, so a session cookie stolen shortly after login could bind an
   attacker's authenticator and obtain backup codes. Enrollment now needs a
   current TOTP code or a one-time code sent to the contact registered in
-  Warden, given to `POST /totp/enroll` itself. The proof is used for one
-  enrollment and covers its confirmation for 5 minutes; a proof given for
-  step-up or for TOTP removal does not allow a session to enroll an
-  authenticator. Users see a "send code" step before "Start setup"; sessions
-  older than 10 minutes can now enroll after that step.
+  Warden, carried by the `POST /totp/enroll` request itself. The proof starts
+  one enrollment, which can be confirmed for 5 minutes; the session never holds
+  a proof that a later request could start an enrollment with, and a proof
+  given for step-up or for TOTP removal does not allow a session to enroll an
+  authenticator. If Herald fails after the proof was accepted, nothing is kept
+  and the user requests a new code. Users see a "send code" step before "Start
+  setup"; sessions older than 10 minutes can now enroll after that step.
 - Step-up (`/_step_up`) and `POST /totp/revoke` no longer accept the shared
   `PASSWORDS` secret for a session that belongs to a Warden user. The proof is
   a current TOTP code when the user has TOTP enrolled, otherwise a one-time
