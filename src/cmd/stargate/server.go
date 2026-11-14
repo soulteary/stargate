@@ -440,6 +440,7 @@ func setupMiddleware(app *fiber.App) {
 			IncludeRequestID: true,
 			IncludeLatency:   true,
 		},
+		CustomFields: requestLogClientIP,
 	}))
 	log.Debug().Msg("Request logging middleware enabled")
 

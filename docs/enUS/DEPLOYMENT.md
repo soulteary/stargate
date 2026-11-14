@@ -556,6 +556,10 @@ docker logs -f stargate
 docker compose logs -f stargate
 ```
 
+#### Request Log Addresses
+
+Each request log line (`"message":"HTTP request"`) carries two addresses. `ip` is the direct peer, which behind a reverse proxy is the proxy. `client_ip` is the client address resolved through `TRUSTED_PROXIES` and `PROXY_HEADER`; it is the address that audit records and rate limits use, so use it to correlate request logs with audit logs. Without a trusted proxy both fields hold the peer address.
+
 #### Log Levels
 
 - `DEBUG=true`: Detailed debug information
