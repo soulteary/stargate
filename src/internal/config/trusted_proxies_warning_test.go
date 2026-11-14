@@ -27,7 +27,7 @@ func TestInitializeWarnsWhatEmptyTrustedProxiesBreaks(t *testing.T) {
 	output := initializeForTrustedProxiesWarning(t, nil)
 
 	testza.AssertContains(t, output, "TRUSTED_PROXIES is empty")
-	for _, effect := range []string{"loses its callback", "uses http://", "not returned to the application", "one rate-limit quota"} {
+	for _, effect := range []string{"loses its callback", "uses http://", "not returned to the application", "one rate-limit quota", "terminates HTTPS", "cross-site request rejected"} {
 		testza.AssertContains(t, output, effect)
 	}
 }

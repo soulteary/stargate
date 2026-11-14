@@ -581,15 +581,17 @@ var (
 
 // warnEmptyTrustedProxies reports what an empty TRUSTED_PROXIES means behind a
 // reverse proxy. Forwarded headers are then ignored, which is correct for a
-// directly exposed deployment. Behind a proxy it has two effects: Stargate
+// directly exposed deployment. Behind a proxy it has three effects: Stargate
 // does not learn the original host and scheme, so the login redirect from
-// /_auth carries no callback and is built with http://, and every client is
-// attributed to the proxy and shares a single rate-limit quota.
+// /_auth carries no callback and is built with http://; every client is
+// attributed to the proxy and shares a single rate-limit quota; and when the
+// proxy terminates HTTPS, the browser's https:// Origin does not match the
+// http:// request Stargate received, so the same-origin check rejects sign-in.
 func warnEmptyTrustedProxies() {
 	if strings.TrimSpace(TrustedProxies.Value) != "" {
 		return
 	}
-	log.Warn().Msg("TRUSTED_PROXIES is empty: X-Forwarded-Host, X-Forwarded-Proto and the client-IP header are ignored. Behind a reverse proxy the login redirect from /_auth then loses its callback and uses http://, so users are not returned to the application after sign-in, and every client shares one rate-limit quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
+	log.Warn().Msg("TRUSTED_PROXIES is empty: X-Forwarded-Host, X-Forwarded-Proto and the client-IP header are ignored. Behind a reverse proxy the login redirect from /_auth then loses its callback and uses http://, so users are not returned to the application after sign-in, and every client shares one rate-limit quota. Behind a proxy that terminates HTTPS, sign-in and every other POST from the browser are also rejected with 403 \"cross-site request rejected\". Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
 }
 
 // PublishedDemoSessionExchangeSecret is the value shipped in the repository's

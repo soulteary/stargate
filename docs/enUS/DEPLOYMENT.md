@@ -146,6 +146,8 @@ docker run -d \
   stargate:latest
 ```
 
+This starts the container for a direct check on `http://localhost:8080`. `COOKIE_SECURE` defaults to `true`, so a browser keeps the session cookie only over HTTPS. Behind a reverse proxy, also set `TRUSTED_PROXIES` to the proxy's source address or network, for example `-e TRUSTED_PROXIES=172.18.0.0/16`. Without it Stargate ignores `X-Forwarded-Proto` and `X-Forwarded-Host`: behind a proxy that terminates HTTPS every sign-in is answered `403 cross-site request rejected`, and the login redirect loses its callback. See [`TRUSTED_PROXIES`](CONFIG.md#trusted_proxies-and-proxy_header).
+
 #### Full Configuration Run
 
 ```bash
