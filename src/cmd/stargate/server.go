@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net/http"
@@ -129,18 +130,10 @@ func setupSessionStore() (*fibersession.Store, *redis.Client) {
 			}
 		}
 
-		// Build the client here rather than letting redisstore build it and
-		// handing it back: redisstore.Client is an interface, while the
-		// challenge context store, the rate-limit store, the session exchange
-		// replay store and the health check all need the concrete
-		// *redis.Client. One client still serves all of them, so this stays a
-		// single connection.
-		redisCfg := rediskitclient.DefaultConfig().
-			WithAddr(config.SessionStorageRedisAddr.Value).
-			WithPassword(config.SessionStorageRedisPassword.Value).
-			WithDB(redisDB)
-		// Same bound redisstore applies to its own connectivity check.
-		redisCfg.DialTimeout = 5 * time.Second
+		redisCfg, cfgErr := sessionRedisConfig(redisDB)
+		if cfgErr != nil {
+			log.Fatal().Err(cfgErr).Msg("Failed to initialize Redis session storage")
+		}
 
 		// NewClient pings before it returns and closes the client if the server
 		// does not answer, so an unreachable Redis fails here at startup.
@@ -172,6 +165,38 @@ func setupSessionStore() (*fibersession.Store, *redis.Client) {
 	}
 
 	return fibersession.NewStore(fiberConfig), redisClient
+}
+
+// sessionRedisConfig builds the configuration of the one Redis client that
+// serves sessions, the challenge context store, the rate-limit store, the
+// session exchange replay store and the health check. They all need the
+// concrete *redis.Client, so the client is built here rather than by
+// redisstore, which only hands back an interface.
+func sessionRedisConfig(redisDB int) (rediskitclient.Config, error) {
+	redisCfg := rediskitclient.DefaultConfig().
+		WithAddr(config.SessionStorageRedisAddr.Value).
+		WithUsername(config.SessionStorageRedisUsername.Value).
+		WithPassword(config.SessionStorageRedisPassword.Value).
+		WithDB(redisDB)
+	// Same bound redisstore applies to its own connectivity check.
+	redisCfg.DialTimeout = 5 * time.Second
+
+	if config.SessionStorageRedisTLSEnabled.ToBool() {
+		tlsConfig, err := internal_tls.Build(
+			"Redis", config.SessionStorageRedisTLSCACertFile.Value, "", "",
+			config.SessionStorageRedisTLSServerName.Value,
+		)
+		if err != nil {
+			return redisCfg, err
+		}
+		if tlsConfig == nil {
+			// No CA file or server name: verify against the system roots and
+			// the host in SESSION_STORAGE_REDIS_ADDR.
+			tlsConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+		}
+		redisCfg = redisCfg.WithTLSConfig(tlsConfig)
+	}
+	return redisCfg, nil
 }
 
 // A separate namespace prevents older rolling-deployment writers from restoring

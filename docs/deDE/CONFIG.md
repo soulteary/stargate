@@ -327,6 +327,10 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `SESSION_STORAGE_REDIS_PASSWORD` | Geheimnis | leer | Redis-Passwort |
 | `SESSION_STORAGE_REDIS_DB` | Ganzzahl | 0 | Redis-Datenbank |
 | `SESSION_STORAGE_REDIS_KEY_PREFIX` | String | `stargate:session:` | Redis-Schlüsselpräfix |
+| `SESSION_STORAGE_REDIS_USERNAME` | String | leer | Redis-ACL-Benutzer; erfordert `SESSION_STORAGE_REDIS_PASSWORD` |
+| `SESSION_STORAGE_REDIS_TLS_ENABLED` | true/false | false | TLS für die Redis-Verbindung mit Prüfung des Serverzertifikats |
+| `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE` | Pfad | leer | Benutzerdefinierte CA für Redis; erfordert `SESSION_STORAGE_REDIS_TLS_ENABLED=true` |
+| `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` | String | leer | Erwarteter TLS-Servername für Redis; erfordert `SESSION_STORAGE_REDIS_TLS_ENABLED=true` |
 | `AUDIT_LOG_ENABLED` | true/false | true | Audit-Protokollierung |
 | `AUDIT_LOG_FORMAT` | json/text | json | Audit-Format |
 | `STEP_UP_ENABLED` | true/false | false | Zusätzliche Authentifizierung |

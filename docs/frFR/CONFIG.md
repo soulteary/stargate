@@ -327,6 +327,10 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `SESSION_STORAGE_REDIS_PASSWORD` | secret | vide | Mot de passe Redis |
 | `SESSION_STORAGE_REDIS_DB` | entier | 0 | Base Redis |
 | `SESSION_STORAGE_REDIS_KEY_PREFIX` | chaîne | `stargate:session:` | Préfixe des clés Redis |
+| `SESSION_STORAGE_REDIS_USERNAME` | chaîne | vide | Utilisateur ACL Redis ; nécessite `SESSION_STORAGE_REDIS_PASSWORD` |
+| `SESSION_STORAGE_REDIS_TLS_ENABLED` | true/false | false | TLS pour la connexion Redis, avec vérification du certificat du serveur |
+| `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE` | chemin | vide | Autorité de certification personnalisée pour Redis ; nécessite `SESSION_STORAGE_REDIS_TLS_ENABLED=true` |
+| `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` | chaîne | vide | Nom de serveur TLS attendu pour Redis ; nécessite `SESSION_STORAGE_REDIS_TLS_ENABLED=true` |
 | `AUDIT_LOG_ENABLED` | true/false | true | Journal d'audit |
 | `AUDIT_LOG_FORMAT` | json/text | json | Format du journal d'audit |
 | `STEP_UP_ENABLED` | true/false | false | Authentification renforcée |

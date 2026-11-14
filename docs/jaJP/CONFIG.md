@@ -327,6 +327,10 @@ PORT=8080
 | `SESSION_STORAGE_REDIS_PASSWORD` | 秘密値 | 空 | Redis パスワード |
 | `SESSION_STORAGE_REDIS_DB` | 整数 | 0 | Redis DB |
 | `SESSION_STORAGE_REDIS_KEY_PREFIX` | 文字列 | `stargate:session:` | Redis キープレフィックス |
+| `SESSION_STORAGE_REDIS_USERNAME` | 文字列 | 空 | Redis ACL ユーザー。`SESSION_STORAGE_REDIS_PASSWORD` が必要 |
+| `SESSION_STORAGE_REDIS_TLS_ENABLED` | true/false | false | Redis 接続に TLS を使用し、サーバー証明書を検証する |
+| `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE` | パス | 空 | Redis 用のカスタム CA。`SESSION_STORAGE_REDIS_TLS_ENABLED=true` が必要 |
+| `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` | 文字列 | 空 | Redis で期待する TLS サーバー名。`SESSION_STORAGE_REDIS_TLS_ENABLED=true` が必要 |
 | `AUDIT_LOG_ENABLED` | true/false | true | 監査ログ |
 | `AUDIT_LOG_FORMAT` | json/text | json | 監査ログ形式 |
 | `STEP_UP_ENABLED` | true/false | false | 追加認証 |

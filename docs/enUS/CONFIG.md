@@ -101,6 +101,10 @@ Below are all environment variables used in code. "Required" means the service w
 | `SESSION_STORAGE_REDIS_PASSWORD` | String | empty | No |
 | `SESSION_STORAGE_REDIS_DB` | String | 0 | No |
 | `SESSION_STORAGE_REDIS_KEY_PREFIX` | String | stargate:session: | No |
+| `SESSION_STORAGE_REDIS_USERNAME` | String | empty | No |
+| `SESSION_STORAGE_REDIS_TLS_ENABLED` | true/false | false | No |
+| `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE` | path | empty | No |
+| `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` | String | empty | No |
 | `AUDIT_LOG_ENABLED` | true/false | true | No |
 | `AUDIT_LOG_FORMAT` | json/text | json | No |
 | `STEP_UP_ENABLED` | true/false | false | No |
@@ -949,6 +953,62 @@ Key prefix for session keys (to separate multiple Stargate deployments or other 
 | **Type** | String |
 | **Required** | No |
 | **Default** | `stargate:session:` |
+
+#### `SESSION_STORAGE_REDIS_USERNAME`
+
+Redis ACL user name. Leave it empty for a Redis that only has a password (the `default` user).
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty |
+
+A user name requires `SESSION_STORAGE_REDIS_PASSWORD`; Stargate does not start with a user name alone. The user needs read, write and script (`EVAL`/`EVALSHA`) permissions on the keys under `SESSION_STORAGE_REDIS_KEY_PREFIX`.
+
+#### `SESSION_STORAGE_REDIS_TLS_ENABLED`
+
+Connect to Redis over TLS (1.2 or later) and verify the server certificate.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Boolean |
+| **Required** | No |
+| **Default** | `false` |
+| **Possible Values** | `true`, `false` |
+
+With the default `false`, sessions, verification contexts and rate-limit counters travel to Redis unencrypted; use that only on a private network. The certificate is checked against the system roots and the host in `SESSION_STORAGE_REDIS_ADDR` unless the two settings below change that. Verification cannot be turned off. Client certificates are not supported.
+
+#### `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE`
+
+Path of a PEM file with additional CA certificates that may sign the Redis server certificate. Requires `SESSION_STORAGE_REDIS_TLS_ENABLED=true`. Stargate does not start when the file cannot be read or holds no certificate.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | Path |
+| **Required** | No |
+| **Default** | Empty (system roots only) |
+
+#### `SESSION_STORAGE_REDIS_TLS_SERVER_NAME`
+
+Name the Redis server certificate must be valid for, when it differs from the host in `SESSION_STORAGE_REDIS_ADDR` (for example when the address is an IP). Requires `SESSION_STORAGE_REDIS_TLS_ENABLED=true`.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String (DNS name or IP address) |
+| **Required** | No |
+| **Default** | Empty |
+
+**Example:**
+
+```bash
+SESSION_STORAGE_ENABLED=true
+SESSION_STORAGE_REDIS_ADDR=redis.example.com:6380
+SESSION_STORAGE_REDIS_USERNAME=stargate
+SESSION_STORAGE_REDIS_PASSWORD='change-me'
+SESSION_STORAGE_REDIS_TLS_ENABLED=true
+SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE=/run/secrets/redis-ca.pem
+```
 
 ### Audit Log (Optional)
 

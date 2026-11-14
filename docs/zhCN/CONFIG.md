@@ -101,6 +101,10 @@ services:
 | `SESSION_STORAGE_REDIS_PASSWORD` | String | 空 | 否 |
 | `SESSION_STORAGE_REDIS_DB` | String | 0 | 否 |
 | `SESSION_STORAGE_REDIS_KEY_PREFIX` | String | stargate:session: | 否 |
+| `SESSION_STORAGE_REDIS_USERNAME` | String | 空 | 否 |
+| `SESSION_STORAGE_REDIS_TLS_ENABLED` | true/false | false | 否 |
+| `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE` | 路径 | 空 | 否 |
+| `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` | String | 空 | 否 |
 | `AUDIT_LOG_ENABLED` | true/false | true | 否 |
 | `AUDIT_LOG_FORMAT` | json/text | json | 否 |
 | `STEP_UP_ENABLED` | true/false | false | 否 |
@@ -789,6 +793,46 @@ Redis 数据库编号。
 | **类型** | String |
 | **必需** | 否 |
 | **默认值** | `stargate:session:` |
+
+#### `SESSION_STORAGE_REDIS_USERNAME`
+
+Redis ACL 用户名。只设置了密码的 Redis（`default` 用户）留空即可。设置用户名时必须同时设置 `SESSION_STORAGE_REDIS_PASSWORD`，否则服务拒绝启动。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String |
+| **必需** | 否 |
+| **默认值** | 空 |
+
+#### `SESSION_STORAGE_REDIS_TLS_ENABLED`
+
+使用 TLS（1.2 及以上）连接 Redis，并校验服务端证书。默认 `false` 时会话、验证码上下文和限流计数以明文传输，仅适用于私有网络。证书校验不可关闭，不支持客户端证书。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | Boolean |
+| **必需** | 否 |
+| **默认值** | `false` |
+
+#### `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE`
+
+用于校验 Redis 服务端证书的额外 CA 证书（PEM 文件路径）。需要 `SESSION_STORAGE_REDIS_TLS_ENABLED=true`；文件不可读或不含证书时服务拒绝启动。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | 路径 |
+| **必需** | 否 |
+| **默认值** | 空（仅使用系统根证书） |
+
+#### `SESSION_STORAGE_REDIS_TLS_SERVER_NAME`
+
+Redis 服务端证书应匹配的名称，用于与 `SESSION_STORAGE_REDIS_ADDR` 中的主机不一致的情况（例如地址为 IP）。需要 `SESSION_STORAGE_REDIS_TLS_ENABLED=true`。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String（DNS 名称或 IP 地址） |
+| **必需** | 否 |
+| **默认值** | 空 |
 
 #### 会话 Redis 配置建议（多场景）
 
