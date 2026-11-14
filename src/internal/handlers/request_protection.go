@@ -61,6 +61,9 @@ func RequireSameOrigin() fiber.Handler {
 		suppliedOrigin, suppliedOK := canonicalRequestOrigin(origin)
 		requestOrigin, requestOK := canonicalRequestOrigin(GetForwardedProto(ctx) + "://" + GetForwardedHost(ctx))
 		if !suppliedOK || !requestOK || suppliedOrigin != requestOrigin {
+			if suppliedOK {
+				warnSameOriginIgnoredForwardedHeaders(ctx, suppliedOrigin)
+			}
 			return SendErrorResponse(ctx, fiber.StatusForbidden, "cross-site request rejected")
 		}
 		return ctx.Next()
@@ -125,11 +128,53 @@ func warnUntrustedForwardedHeaders(ctx fiber.Ctx) {
 	})
 }
 
+// sameOriginForwardedWarning reports, once per process, a same-origin check
+// that failed only because forwarded headers were ignored.
+var sameOriginForwardedWarning sync.Once
+
+// warnSameOriginIgnoredForwardedHeaders explains a rejected write that the
+// browser sent to its own origin. Behind a proxy that terminates HTTPS and is
+// absent from TRUSTED_PROXIES, Stargate ignores X-Forwarded-Proto and
+// X-Forwarded-Host and compares the browser's https:// Origin with the
+// http:// request it received, so every sign-in is answered 403. The response
+// does not say why; the log has to.
+//
+// The warning is limited to requests whose Origin equals the origin the
+// forwarded headers describe, which is the case this configuration produces.
+// Other rejected requests are cross-site and are not reported.
+func warnSameOriginIgnoredForwardedHeaders(ctx fiber.Ctx, supplied requestOrigin) {
+	if log == nil || trustForwardedHeaders(ctx) {
+		return
+	}
+	proto := strings.ToLower(strings.TrimSpace(strings.Split(ctx.Get("X-Forwarded-Proto"), ",")[0]))
+	host := strings.TrimSpace(strings.Split(ctx.Get("X-Forwarded-Host"), ",")[0])
+	if proto == "" && host == "" {
+		return
+	}
+	if proto != "http" && proto != "https" {
+		proto = GetForwardedProto(ctx)
+	}
+	if host == "" {
+		host = GetForwardedHost(ctx)
+	}
+	forwarded, ok := canonicalRequestOrigin(proto + "://" + host)
+	if !ok || forwarded != supplied {
+		return
+	}
+	sameOriginForwardedWarning.Do(func() {
+		log.Warn().
+			Str("peer", ctx.IP()).
+			Str("path", ctx.Path()).
+			Msg("Rejected a same-origin request as cross-site because forwarded headers from an untrusted peer were ignored: the Origin header matches X-Forwarded-Proto and X-Forwarded-Host, but not the request Stargate received from the proxy. Sign-in and every other POST from the browser are answered 403 until TRUSTED_PROXIES lists the reverse-proxy source IPs or CIDRs.")
+	})
+}
+
 // resetRateLimitStateForTesting restores a pristine process-local store and
-// re-arms the one-shot proxy warning so ordering between tests cannot leak.
+// re-arms the one-shot proxy warnings so ordering between tests cannot leak.
 func resetRateLimitStateForTesting() {
 	SetRateLimitStore(newMemoryRateLimitStore())
 	untrustedForwardedWarning = sync.Once{}
+	sameOriginForwardedWarning = sync.Once{}
 }
 
 // rateLimitWindow returns the configured fixed window. Startup validation

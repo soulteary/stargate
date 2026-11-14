@@ -304,11 +304,12 @@ Configure the narrowest proxy addresses possible. The proxy must remove client-s
 
 Behind a reverse proxy, set `TRUSTED_PROXIES` even though Stargate starts without it. While the proxy is not listed, Stargate sees only the request the proxy sent to `/_auth`, not the one the user made:
 
-- the login redirect carries no `callback` and is built with `http://`, so after signing in users stay on the auth host instead of returning to the application, also on an HTTPS site;
+- the login redirect carries no `callback` and is built with `http://`, so after signing in users stay on the auth host instead of returning to the application;
+- when the proxy terminates HTTPS, users cannot sign in at all: the browser sends `Origin: https://...`, Stargate compares it with the `http://` request it received from the proxy, and `POST /_login`, `/_logout`, `/_step_up`, `/_send_verify_code`, `/_send_reauth_code` and `/totp/*` are answered `403` with `cross-site request rejected`;
 - step-up path rules cannot be evaluated (which is why `STEP_UP_ENABLED=true` requires `TRUSTED_PROXIES`);
 - every client is attributed to the proxy address and shares one rate-limit quota and one address in audit records.
 
-Stargate logs a warning at startup when `TRUSTED_PROXIES` is empty, and once more when it first ignores forwarded headers from a peer that is not listed.
+Stargate logs a warning at startup when `TRUSTED_PROXIES` is empty, and once more when it first ignores forwarded headers from a peer that is not listed. It also logs a warning, once, when it rejects a request as cross-site whose `Origin` matches the ignored `X-Forwarded-Proto` and `X-Forwarded-Host`; the `403` response itself does not name the cause.
 
 Every element of the client-IP header must be a bare IPv4 or IPv6 address. Since v1.3.7 (Fiber v3.7.0) Stargate reads the header from right to left and stops at the first element that is not one, such as `203.0.113.7:51234` or `unknown`. The client is then taken to be the nearest trusted proxy, so all users behind that proxy share one login and verification rate limit and appear under the proxy address in audit records. Earlier versions skipped such an element and used the next one to its left.
 
