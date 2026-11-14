@@ -21,12 +21,23 @@ func sanitizeTraceURL(rawURL string) string {
 	return path
 }
 
-// TracingMiddleware creates a Fiber middleware for OpenTelemetry tracing
-func TracingMiddleware(serviceName string) fiber.Handler {
+// TracingMiddleware creates a Fiber middleware for OpenTelemetry tracing.
+// Requests whose path is one of skipPaths get no span and no trace headers;
+// probe and scrape endpoints are called every few seconds and would otherwise
+// make up most of the exported traces.
+func TracingMiddleware(serviceName string, skipPaths ...string) fiber.Handler {
 	propagator := otel.GetTextMapPropagator()
 	tracer := common_tracing.GetTracer()
+	skipped := make(map[string]struct{}, len(skipPaths))
+	for _, path := range skipPaths {
+		skipped[path] = struct{}{}
+	}
 
 	return func(c fiber.Ctx) error {
+		if _, skip := skipped[c.Path()]; skip {
+			return c.Next()
+		}
+
 		// Extract trace context from request headers
 		reqHeaders := make(map[string]string)
 		for key, value := range c.Request().Header.All() {
