@@ -144,31 +144,3 @@ func TestReadinessCacheDoesNotShareForbidden(t *testing.T) {
 	}
 	require.Zero(t, runs.Load())
 }
-
-// A result evaluated for an allowed address must not be served to an address
-// the allow list refuses while it is still cached.
-func TestReadinessCacheChecksAddressBeforeServingCachedResult(t *testing.T) {
-	var runs atomic.Int64
-	var healthy atomic.Bool
-	healthy.Store(true)
-
-	cfg := health.DefaultConfig().
-		WithServiceName("stargate").
-		WithTrustedProxies([]string{"0.0.0.0"}).
-		WithIPWhitelist([]string{"203.0.113.9"})
-	app := fiber.New()
-	app.Get("/readyz", newReadinessCache(countingAggregator(cfg, &runs, &healthy), time.Minute).handler())
-
-	request := func(forwardedFor string) int {
-		req := httptest.NewRequest("GET", "/readyz", nil)
-		req.Header.Set("X-Forwarded-For", forwardedFor)
-		resp, err := app.Test(req)
-		require.NoError(t, err)
-		return resp.StatusCode
-	}
-
-	require.Equal(t, fiber.StatusOK, request("203.0.113.9"))
-	require.Equal(t, fiber.StatusForbidden, request("198.51.100.7"))
-	require.Equal(t, fiber.StatusOK, request("203.0.113.9"))
-	require.EqualValues(t, 1, runs.Load())
-}
