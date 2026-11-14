@@ -19,7 +19,7 @@ The HTTP profile never navigates Back to the enrollment POST document.
 A fresh task-owned stack is removed, including its volumes, in `finally`.
 
 Chromium tests password and delivered email login, wrong email code, TOTP
-enrollment, download/acknowledgement of the recovery set, authenticator login,
+enrollment with its proof, download/acknowledgement of the recovery set, authenticator login,
 backup recovery and refusal to reuse a backup. The mail path starts at the protected
 app, retains its callback, and must return to the actual hello page with200 and
 the published response contract; ForwardAuth must identify the stable account.
@@ -33,6 +33,20 @@ A natural 61-second quiet interval precedes consumed-code rejection, which must
 return 401; an unused-code positive control must then authenticate the expected
 user. Logout must use same-origin POST; cross-origin POST and GET are rejected.
 Authenticated pages must return `Cache-Control: no-store`.
+
+`POST /totp/enroll` needs the user's proof in the same request. The scenario's
+session is created by a delivered email code and the user has no authenticator,
+so the proof is a new code sent from the enrollment page to the address
+registered in Warden. Both profiles that enroll first send the start request
+with the session cookie and no proof and require 401 without an `otpauth://`
+URI, then request the code, read it from the captured mail and start the
+enrollment with it; the start must answer 200. Herald applies the resend
+cooldown of the sign-in code to the same address, so the first request for the
+proof code may be refused with 429. The harness then waits the reported time,
+at most 120 seconds, and asks once more. The refused request delivers nothing,
+so this is not a retry of a consumptive POST. The gateway source must contain
+the proof requirement (Stargate pull requests #295 and #334); with an older
+`gateway_ref` the enrollment page has no proof form and the run fails.
 
 Only a redacted outcome JSON and the allowlisted `browser-account.png` are uploaded.
 The account screenshot is taken only after verifying no secret controls or synthetic email appear. No HAR, trace, video, secret-page screenshot,

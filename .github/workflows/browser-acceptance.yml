@@ -21,8 +21,8 @@ on:
 permissions:
   contents: read
 env:
-  FULLSTACK_REF: ${{ inputs.fullstack_ref || '4714f7420af283e9c5ec1715c687bb2513aaf373' }}
-  GATEWAY_REF: ${{ inputs.gateway_ref || '843e2301efb8d9dff35a67d26bc9755a33e45654' }}
+  FULLSTACK_REF: ${{ inputs.fullstack_ref || '34d3c07fbe4339c2cbdd4003ecf898ead4753417' }}
+  GATEWAY_REF: ${{ inputs.gateway_ref || '34d3c07fbe4339c2cbdd4003ecf898ead4753417' }}
   HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:f2ca281f15d43be1bd5a1304fb7db535c4f53b00fc343162476343dbd3f04dee' }}
 jobs:
   chromium:

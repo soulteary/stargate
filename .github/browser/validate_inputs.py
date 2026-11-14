@@ -30,5 +30,23 @@ def callback_matches(raw, target):
         return False
 
 
+# Sent from the enrollment page with the session cookie and no proof. The
+# browser adds the same-origin Origin header, so only the missing proof can
+# refuse it.
+START_WITHOUT_PROOF = """async () => {
+  const response = await fetch('/totp/enroll', {method: 'POST', redirect: 'manual',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'code='});
+  return {status: response.status, secret: (await response.text()).includes('otpauth://')};
+}"""
+
+
+def resend_cooldown(status, body):
+    """Seconds to wait after a code request was refused for the resend cooldown, else None."""
+    wait = body.get("next_resend_in") if isinstance(body, dict) else None
+    if status == 429 and type(wait) is int and 1 <= wait <= 120:
+        return wait
+    return None
+
+
 if __name__ == "__main__":
     validate(os.environ)

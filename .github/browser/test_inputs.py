@@ -1,5 +1,5 @@
 import unittest
-from validate_inputs import validate, callback_matches, hello_text_url
+from validate_inputs import validate, callback_matches, hello_text_url, resend_cooldown
 
 
 class Inputs(unittest.TestCase):
@@ -28,6 +28,17 @@ class Inputs(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class ResendCooldown(unittest.TestCase):
+    def test_only_a_bounded_cooldown_refusal_is_waited_for(self):
+        self.assertEqual(resend_cooldown(429, {"next_resend_in": 42}), 42)
+        self.assertEqual(resend_cooldown(429, {"next_resend_in": 120}), 120)
+        for status, body in ((200, {"next_resend_in": 42}), (429, {}), (429, {"next_resend_in": 0}),
+                             (429, {"next_resend_in": 121}), (429, {"next_resend_in": "42"}),
+                             (429, {"next_resend_in": True}), (429, ["next_resend_in"]), (401, {"next_resend_in": 42})):
+            with self.subTest(status=status, body=body):
+                self.assertIsNone(resend_cooldown(status, body))
+
 
 class CompletionRecord(unittest.TestCase):
     def test_workflow_completion_record_remains_json(self):
