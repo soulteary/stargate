@@ -414,7 +414,7 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 启动绑定并展示 TOTP 页面。使用 POST 可避免跨站导航创建绑定状态。
 
-- **认证**：要求已认证会话，并在本次请求中提交有效证明（表单字段 `code`）。证明只对携带它的这一次请求有效，会话中不保存任何可用于启动绑定的证明：之后每次 `POST /totp/enroll` 都需要新的证明，即使仍在 5 分钟内，或会话刚通过 Step-up。如果证明通过后调用 Herald 失败（绑定启动出错，或 `HERALD_TOTP_ENABLED=false` 时在证明通过后进行的 TOTP 状态查询出错，返回 `502 Bad Gateway`），会话不保留本次请求的任何结果，此前在该会话中启动的绑定也不能再确认；此时已发送的验证码已被使用，用户必须通过 `POST /_send_reauth_code` 重新获取验证码并再次提交。重新获取时受 Stargate 的 `RATE_LIMIT_VERIFICATION_MAX` 配额以及 Herald 的重发冷却和限流约束，可能需要等待后才能再次发送。未认证用户以 `302 Found` 重定向到 `/_login`，缺少证明或证明无效返回 `401 Unauthorized`。本次请求创建的绑定状态 10 分钟内有效。
+- **认证**：要求已认证会话，并在本次请求中提交有效证明（表单字段 `code`）。证明只对携带它的这一次请求有效，会话中不保存任何可用于启动绑定的证明：之后每次 `POST /totp/enroll` 都需要新的证明，即使仍在 5 分钟内，或会话刚通过 Step-up。如果证明通过后调用 Herald 失败（TOTP 状态查询或绑定启动出错，返回 `502 Bad Gateway`），会话不保留本次请求的任何结果，此前在该会话中启动的绑定也不能再确认；此时已发送的验证码已被使用，用户必须通过 `POST /_send_reauth_code` 重新获取验证码并再次提交。重新获取时受 Stargate 的 `RATE_LIMIT_VERIFICATION_MAX` 配额以及 Herald 的重发冷却和限流约束，可能需要等待后才能再次发送。未认证用户以 `302 Found` 重定向到 `/_login`，缺少证明或证明无效返回 `401 Unauthorized`。本次请求创建的绑定状态 10 分钟内有效。
 - **响应**：200 OK 返回绑定页 HTML；未认证时以 `302 Found` 跳转到 `/_login`；配置或 Herald 错误时 400/502/503。
 
 上游 TOTP 状态查询或注册启动错误返回 `502 Bad Gateway`。
