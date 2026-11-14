@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/gofiber/fiber/v3"
 	"github.com/redis/go-redis/v9"
+	"github.com/soulteary/secure-kit/v2/passwd"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/stretchr/testify/require"
@@ -133,33 +135,152 @@ func TestCheckRoute_PasswordHeaderLimitDisabledByZero(t *testing.T) {
 	}
 }
 
-func TestMemoryRateLimitStoreCountDoesNotRecord(t *testing.T) {
+// concurrentPasswordHeaderStatuses sends the given Stargate-Password values
+// through CheckRoute at the same time and returns how often each status was
+// answered.
+func concurrentPasswordHeaderStatuses(handler func(fiber.Ctx) error, passwords []string) map[int]int {
+	statuses := make(chan int, len(passwords))
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for _, password := range passwords {
+		wg.Add(1)
+		go func(password string) {
+			defer wg.Done()
+			ctx, app := createTestContext(fiber.MethodGet, "/_auth", map[string]string{
+				"Stargate-Password": password,
+				"Accept":            "application/json",
+			}, "")
+			defer app.ReleaseCtx(ctx)
+			<-start
+			if err := handler(ctx); err != nil {
+				statuses <- -1
+				return
+			}
+			statuses <- ctx.Response().StatusCode()
+		}(password)
+	}
+	close(start)
+	wg.Wait()
+	close(statuses)
+
+	counts := make(map[int]int)
+	for status := range statuses {
+		counts[status]++
+	}
+	return counts
+}
+
+func setupBcryptPasswordHeaderLimitTest(t *testing.T) (func(fiber.Ctx) error, int) {
+	t.Helper()
+	hash, err := passwd.NewBcryptHasher().Hash("test123")
+	require.NoError(t, err)
+	t.Setenv("AUTH_HOST", "auth.example.com")
+	t.Setenv("PASSWORDS", "bcrypt:"+hash)
+	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
+	require.NoError(t, config.Initialize(testLogger()))
+	InitForwardAuthHandler(testLogger())
+
+	resetRateLimitStateForTesting()
+	t.Cleanup(resetRateLimitStateForTesting)
+
+	max := config.RateLimitLoginMax.ToInt(config.DefaultRateLimitLoginMax)
+	require.Positive(t, max)
+	return CheckRoute(setupTestStore()), max
+}
+
+// Wrong values that arrive together must not all be compared. A bcrypt
+// comparison takes long enough that, without counting the attempt first, every
+// request in the burst has passed the quota check before the first failure is
+// recorded.
+func TestCheckRoute_ConcurrentWrongPasswordHeadersStayWithinQuota(t *testing.T) {
+	handler, max := setupBcryptPasswordHeaderLimitTest(t)
+
+	const burst = 60
+	guesses := make([]string, burst)
+	for i := range guesses {
+		guesses[i] = "wrong-guess"
+	}
+	counts := concurrentPasswordHeaderStatuses(handler, guesses)
+
+	require.Equal(t, max, counts[fiber.StatusUnauthorized], "compared attempts: %v", counts)
+	require.Equal(t, burst-max, counts[fiber.StatusTooManyRequests], "refused attempts: %v", counts)
+
+	// The compared attempts were failures and stay counted.
+	require.Equal(t, fiber.StatusTooManyRequests, passwordHeaderCheckStatus(t, handler, "test123"))
+}
+
+// Correct values are counted only while they are compared. Up to the quota of
+// them may run at the same time, and none of them uses up quota afterwards.
+func TestCheckRoute_ConcurrentCorrectPasswordHeadersAreReleased(t *testing.T) {
+	handler, max := setupBcryptPasswordHeaderLimitTest(t)
+
+	correct := make([]string, max)
+	for i := range correct {
+		correct[i] = "test123"
+	}
+	for round := 1; round <= 3; round++ {
+		counts := concurrentPasswordHeaderStatuses(handler, correct)
+		require.Equal(t, max, counts[fiber.StatusOK], "round %d: %v", round, counts)
+	}
+
+	for attempt := 1; attempt <= max; attempt++ {
+		require.Equal(t, fiber.StatusUnauthorized, passwordHeaderCheckStatus(t, handler, "wrong-guess"), "attempt %d", attempt)
+	}
+	require.Equal(t, fiber.StatusTooManyRequests, passwordHeaderCheckStatus(t, handler, "wrong-guess"))
+}
+
+// A refused attempt is taken back, so requests sent while the quota is used up
+// do not push the counter further.
+func TestCheckRoute_RefusedPasswordHeaderAttemptIsNotKept(t *testing.T) {
+	handler, max := setupPasswordHeaderLimitTest(t)
+	store := newMemoryRateLimitStore()
+	SetRateLimitStore(store)
+
+	for attempt := 1; attempt <= max+5; attempt++ {
+		passwordHeaderCheckStatus(t, handler, "wrong-guess")
+	}
+
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	require.Len(t, store.buckets, 1)
+	for _, bucket := range store.buckets {
+		require.Equal(t, max, bucket.count)
+	}
+}
+
+func TestMemoryRateLimitStoreReserveAndRelease(t *testing.T) {
 	store := newMemoryRateLimitStore()
 	ctx := context.Background()
 
-	count, remaining, err := store.Count(ctx, "client")
+	count, remaining, releaseFirst, err := store.Reserve(ctx, "client", time.Minute)
 	require.NoError(t, err)
-	require.Zero(t, count)
-	require.Zero(t, remaining)
+	require.Equal(t, 1, count)
+	require.Positive(t, remaining)
 
-	_, _, err = store.Incr(ctx, "client", time.Minute)
+	count, _, _, err = store.Reserve(ctx, "client", time.Minute)
 	require.NoError(t, err)
-	for i := 0; i < 3; i++ {
-		count, remaining, err = store.Count(ctx, "client")
-		require.NoError(t, err)
-		require.Equal(t, 1, count)
-		require.Positive(t, remaining)
-	}
+	require.Equal(t, 2, count)
 
-	_, _, err = store.Incr(ctx, "expired", time.Nanosecond)
+	releaseFirst(ctx)
+	count, _, err = store.Incr(ctx, "client", time.Minute)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	// A release that arrives after its window ended must not take a request
+	// out of the next window.
+	_, _, releaseExpired, err := store.Reserve(ctx, "expired", time.Nanosecond)
 	require.NoError(t, err)
 	time.Sleep(time.Millisecond)
-	count, _, err = store.Count(ctx, "expired")
+	count, _, err = store.Incr(ctx, "expired", time.Minute)
 	require.NoError(t, err)
-	require.Zero(t, count)
+	require.Equal(t, 1, count)
+	releaseExpired(ctx)
+	count, _, err = store.Incr(ctx, "expired", time.Minute)
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
 }
 
-func TestRedisRateLimitStoreCountIsSharedAndDoesNotRecord(t *testing.T) {
+func TestRedisRateLimitStoreReserveIsSharedAndReleased(t *testing.T) {
 	server := miniredis.RunT(t)
 	clientA := redis.NewClient(&redis.Options{Addr: server.Addr()})
 	clientB := redis.NewClient(&redis.Options{Addr: server.Addr()})
@@ -170,35 +291,38 @@ func TestRedisRateLimitStoreCountIsSharedAndDoesNotRecord(t *testing.T) {
 	first, second := NewRateLimitStore(clientA), NewRateLimitStore(clientB)
 	ctx := context.Background()
 
-	count, remaining, err := second.Count(ctx, "client")
+	count, remaining, releaseFirst, err := first.Reserve(ctx, "client", time.Minute)
 	require.NoError(t, err)
-	require.Zero(t, count)
-	require.Zero(t, remaining)
+	require.Equal(t, 1, count)
+	require.Positive(t, remaining)
+	require.LessOrEqual(t, remaining, time.Minute)
 
-	_, _, err = first.Incr(ctx, "client", time.Minute)
+	count, _, _, err = second.Reserve(ctx, "client", time.Minute)
 	require.NoError(t, err)
-	_, _, err = first.Incr(ctx, "client", time.Minute)
-	require.NoError(t, err)
+	require.Equal(t, 2, count)
 
-	for i := 0; i < 3; i++ {
-		count, remaining, err = second.Count(ctx, "client")
-		require.NoError(t, err)
-		require.Equal(t, 2, count)
-		require.Positive(t, remaining)
-		require.LessOrEqual(t, remaining, time.Minute)
-	}
-
-	// A counter without an expiry is still reported; its window is unknown.
-	require.NoError(t, server.Set(first.(*redisRateLimitStore).prefix+"persistent", "4"))
-	count, remaining, err = second.Count(ctx, "persistent")
+	releaseFirst(ctx)
+	count, _, err = second.Incr(ctx, "client", time.Minute)
 	require.NoError(t, err)
-	require.Equal(t, 4, count)
-	require.Zero(t, remaining)
+	require.Equal(t, 2, count)
+
+	// The release keeps the expiry of the window.
+	key := first.(*redisRateLimitStore).prefix + "client"
+	require.Positive(t, server.TTL(key))
+
+	// A release after the window ended neither goes below zero nor leaves a
+	// counter without an expiry behind.
+	_, _, releaseExpired, err := first.Reserve(ctx, "expired", time.Minute)
+	require.NoError(t, err)
+	expiredKey := first.(*redisRateLimitStore).prefix + "expired"
+	server.Del(expiredKey)
+	releaseExpired(ctx)
+	require.False(t, server.Exists(expiredKey))
 }
 
-// During a Redis outage Incr counts in the process-local store, so Count has
-// to read the same place or the quota would never be reached.
-func TestRedisRateLimitStoreCountFallsBackWhenRedisIsUnavailable(t *testing.T) {
+// During a Redis outage the attempt is counted in the process-local store, so
+// the release has to go to the same place.
+func TestRedisRateLimitStoreReserveFallsBackWhenRedisIsUnavailable(t *testing.T) {
 	server := miniredis.RunT(t)
 	client := redis.NewClient(&redis.Options{Addr: server.Addr(), MaxRetries: -1})
 	t.Cleanup(func() { _ = client.Close() })
@@ -207,13 +331,19 @@ func TestRedisRateLimitStoreCountFallsBackWhenRedisIsUnavailable(t *testing.T) {
 	server.Close()
 	ctx := context.Background()
 
-	_, _, err := store.Incr(ctx, "client", time.Minute)
-	require.Error(t, err)
-
-	count, remaining, err := store.Count(ctx, "client")
+	count, remaining, release, err := store.Reserve(ctx, "client", time.Minute)
 	require.Error(t, err)
 	require.Equal(t, 1, count)
 	require.Positive(t, remaining)
+
+	count, _, _, err = store.Reserve(ctx, "client", time.Minute)
+	require.Error(t, err)
+	require.Equal(t, 2, count)
+
+	release(ctx)
+	count, _, err = store.Incr(ctx, "client", time.Minute)
+	require.Error(t, err)
+	require.Equal(t, 2, count)
 }
 
 func TestPasswordHeaderQuotaUsesLocalCountWhenRedisIsUnavailable(t *testing.T) {
