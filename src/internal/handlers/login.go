@@ -334,7 +334,6 @@ func loginRouteHandler(ctx fiber.Ctx, sessionGetter SessionGetter) error {
 		"UILanguage":           authenticationUILanguage(ctx),
 		"SupportURL":           config.LoginSupportURL.String(),
 		"Callback":             callback,
-		"SessionID":            sess.ID(),
 		"Title":                config.LoginPageTitle.Value,
 		"FooterText":           config.LoginPageFooterText.Value,
 		"WardenEnabled":        config.WardenEnabled.ToBool(),

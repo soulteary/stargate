@@ -54,7 +54,7 @@ func TestEnvVariable_Validate_RedactsSensitiveInvalidValue(t *testing.T) {
 		Name:           "SECRET_CONFIG",
 		Sensitive:      true,
 		PossibleValues: []string{"valid"},
-		Validator:      ValidateStrictPossibleValues,
+		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
 
 	err := v.Validate()
@@ -177,7 +177,7 @@ func TestEnvVariable_Validate_ValidatorFails(t *testing.T) {
 	v := EnvVariable{
 		Name:           "ENUM_VAR",
 		PossibleValues: []string{"a", "b"},
-		Validator:      ValidateStrictPossibleValues,
+		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
 	err := v.Validate()
 	testza.AssertNotNil(t, err)
@@ -209,30 +209,6 @@ func TestValidateAny(t *testing.T) {
 	v := EnvVariable{Value: "any-value"}
 	result := ValidateAny(v)
 	testza.AssertTrue(t, result)
-}
-
-func TestValidateStrictPossibleValues(t *testing.T) {
-	tests := []struct {
-		value        string
-		possibleVals []string
-		expected     bool
-	}{
-		{"value1", []string{"value1", "value2"}, true},
-		{"value2", []string{"value1", "value2"}, true},
-		{"value3", []string{"value1", "value2"}, false},
-		{"VALUE1", []string{"value1", "value2"}, false}, // case sensitive
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.value, func(t *testing.T) {
-			v := EnvVariable{
-				Value:          tt.value,
-				PossibleValues: tt.possibleVals,
-			}
-			result := ValidateStrictPossibleValues(v)
-			testza.AssertEqual(t, tt.expected, result)
-		})
-	}
 }
 
 func TestValidateCaseInsensitivePossibleValues(t *testing.T) {

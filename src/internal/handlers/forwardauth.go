@@ -5,8 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gofiber/fiber/v3"
-	"github.com/gofiber/fiber/v3/middleware/session"
 	"github.com/rs/zerolog"
 	forwardauth "github.com/soulteary/forwardauth-kit/v3"
 	fafiber "github.com/soulteary/forwardauth-kit/v3/fiberadapter"
@@ -180,10 +178,4 @@ func parseStepUpPaths() []string {
 // GetForwardAuthHandler returns the global ForwardAuth handler.
 func GetForwardAuthHandler() *forwardauth.Handler {
 	return forwardAuthHandler
-}
-
-// ForwardAuthCheckRoute creates a Fiber handler for the ForwardAuth check route.
-// This is the main entry point for Traefik/Nginx ForwardAuth integration.
-func ForwardAuthCheckRoute(store *session.Store) fiber.Handler {
-	return fafiber.CheckRoute(forwardAuthHandler, store)
 }

@@ -8,7 +8,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/gofiber/fiber/v3"
 	"github.com/pterm/pterm"
 	"github.com/pterm/pterm/putils"
 	logger "github.com/soulteary/logger-kit/v3"
@@ -93,28 +92,6 @@ func runApplication() error {
 		}
 
 		log.Info().Msg("Stargate service stopped")
-	}
-
-	return nil
-}
-
-// runApplicationWithApp allows injecting a custom app for testing.
-// This is useful for testing the application flow without actually starting a server.
-func runApplicationWithApp(app *fiber.App) error {
-	// Display startup banner
-	showBanner()
-
-	// Initialize logger
-	initLogger()
-
-	// Initialize configuration
-	if err := initConfig(); err != nil {
-		return err
-	}
-
-	// Start server with provided app
-	if err := startServer(app); err != nil {
-		return err
 	}
 
 	return nil

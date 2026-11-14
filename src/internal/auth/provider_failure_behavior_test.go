@@ -17,7 +17,7 @@ func TestWardenLookupFailsClosedWithoutClientOrOnProviderFailure(t *testing.T) {
 	log = testLogger()
 	config.WardenEnabled.Value = "true"
 	wardenClient = nil
-	require.False(t, CheckUserInList(context.Background(), "13800138000", ""))
+	require.False(t, userInAllowList(context.Background(), "13800138000", ""))
 	require.Nil(t, GetUserInfo(context.Background(), "13800138000", ""))
 	for _, status := range []int{400, 404} {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(status) }))
@@ -27,13 +27,13 @@ func TestWardenLookupFailsClosedWithoutClientOrOnProviderFailure(t *testing.T) {
 		require.Nil(t, GetUserInfo(context.Background(), "13800138000", ""))
 		require.Nil(t, GetUserInfo(context.Background(), "", "missing@example.com"))
 		require.Nil(t, GetUserInfo(context.Background(), "13800138000", "missing@example.com"))
-		require.False(t, CheckUserInList(context.Background(), "", ""))
+		require.False(t, userInAllowList(context.Background(), "", ""))
 		require.Nil(t, GetUserInfo(context.Background(), "", ""))
 		server.Close()
 	}
 }
 
-func TestInvalidPasswordConfigurationAndOTPFailClosed(t *testing.T) {
+func TestInvalidPasswordConfigurationFailsClosed(t *testing.T) {
 	previous := config.Passwords.Value
 	t.Cleanup(func() { config.Passwords.Value = previous })
 	log = testLogger()
@@ -42,7 +42,6 @@ func TestInvalidPasswordConfigurationAndOTPFailClosed(t *testing.T) {
 	require.Empty(t, algorithm)
 	require.Empty(t, passwords)
 	require.False(t, CheckPassword("password"))
-	require.False(t, VerifyOTP("JBSWY3DPEHPK3PXP", "abcdef"))
 }
 
 func TestWardenInitializationRequiresURLAndRetainsTLSSettings(t *testing.T) {
