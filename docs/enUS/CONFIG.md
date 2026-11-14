@@ -404,6 +404,7 @@ Service listening port for native and container deployments. Managed by the conf
 - Can be set in development or production deployments
 - Official container images listen on `8080` by default. Use a bare number such as `PORT=8080` for container overrides: the image healthcheck inserts it into a URL, so the native `:8080` form is unsuitable there.
 - Native binary format: port number (e.g., `8080`) or `:port` (e.g., `:8080`)
+- Ports below 1024 need privileges on Linux. A native binary started without `PORT` listens on `:80`, which only root or a process with `CAP_NET_BIND_SERVICE` can bind; run it with `PORT=8080` (or another port from 1024 up) under an unprivileged account. The official images run as UID `10001` and set `PORT=8080` for the same reason. Setting `PORT` below 1024 in a container works only where the runtime allows unprivileged low ports (Docker Engine 20.10 and later does by default; Podman and Kubernetes do not unless `net.ipv4.ip_unprivileged_port_start` is lowered). Elsewhere the process exits at startup with `listen tcp4 :80: bind: permission denied`. To serve on port 80 or 443, keep `PORT=8080` and map the port outside the container (`-p 80:8080`, a Service `port`/`targetPort`, or the reverse proxy).
 
 **Example:**
 

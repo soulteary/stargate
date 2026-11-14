@@ -156,7 +156,9 @@ var (
 		Validator:      ValidateCaseInsensitivePossibleValues,
 	}
 
-	// Port is the service listening port (local development only). When empty, server uses default ":80".
+	// Port is the service listening port, as a number or ":number". When empty
+	// the server listens on ":80", which an unprivileged process cannot bind on
+	// Linux; the container images therefore set PORT=8080.
 	Port = EnvVariable{
 		Name:           "PORT",
 		Required:       false,
