@@ -175,6 +175,8 @@ func resetRateLimitStateForTesting() {
 	SetRateLimitStore(newMemoryRateLimitStore())
 	untrustedForwardedWarning = sync.Once{}
 	sameOriginForwardedWarning = sync.Once{}
+	unattributedPasswordHeaderWarning.untrustedPeer = sync.Once{}
+	unattributedPasswordHeaderWarning.noClientAddress = sync.Once{}
 }
 
 // rateLimitWindow returns the configured fixed window. Startup validation
@@ -281,6 +283,71 @@ func VerificationRateLimit() fiber.Handler {
 // values for one client.
 func passwordHeaderFailureKey(ctx fiber.Ctx) string {
 	return "password-failure:" + rateLimitClientKey(ctx.IP())
+}
+
+// unattributedPasswordHeaderWarning reports, once per process and reason, a
+// Stargate-Password request that PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY refused.
+var unattributedPasswordHeaderWarning struct {
+	untrustedPeer   sync.Once
+	noClientAddress sync.Once
+}
+
+// refuseUnattributedPasswordHeader applies PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY.
+// The failure quota is keyed by client address. A request that reaches
+// Stargate from a peer outside TRUSTED_PROXIES, or from a trusted proxy that
+// supplied no client address, is attributed to the peer, so every client
+// behind that peer shares one quota and one of them can use it up for all.
+// With the setting on, such a request is answered 403 before the password is
+// compared and before it is counted: it gets no answer about the password and
+// cannot use up the quota of any address.
+//
+// Both conditions are read from the connection: whether the peer address is
+// in TRUSTED_PROXIES, and whether the resolved client address differs from the
+// peer address. A request header cannot change either of them for a peer that
+// is not trusted.
+func refuseUnattributedPasswordHeader(ctx fiber.Ctx) (bool, error) {
+	if !config.PasswordHeaderRequireTrustedProxy.ToBool() {
+		return false, nil
+	}
+	const message = "Stargate-Password is accepted only through a trusted proxy that supplies the client address"
+	if !trustForwardedHeaders(ctx) {
+		unattributedPasswordHeaderWarning.untrustedPeer.Do(func() {
+			if log != nil {
+				log.Warn().Str("peer", peerAddress(ctx)).
+					Msg("Refused a Stargate-Password request because PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY is true and the peer is not in TRUSTED_PROXIES. The password was not compared. Add the reverse-proxy source IPs or CIDRs to TRUSTED_PROXIES.")
+			}
+		})
+		return true, SendErrorResponse(ctx, fiber.StatusForbidden, message)
+	}
+	if sameAddress(ctx.IP(), peerAddress(ctx)) {
+		unattributedPasswordHeaderWarning.noClientAddress.Do(func() {
+			if log != nil {
+				log.Warn().Str("peer", peerAddress(ctx)).Str("proxy_header", config.ProxyHeader.String()).
+					Msg("Refused a Stargate-Password request because PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY is true and the trusted proxy supplied no client address other than its own. The password was not compared. Make the proxy send the client address in the header named by PROXY_HEADER.")
+			}
+		})
+		return true, SendErrorResponse(ctx, fiber.StatusForbidden, message)
+	}
+	return false, nil
+}
+
+// peerAddress returns the address of the connection the request arrived on.
+func peerAddress(ctx fiber.Ctx) string {
+	if ip := ctx.RequestCtx().RemoteIP(); ip != nil {
+		return ip.String()
+	}
+	return ""
+}
+
+// sameAddress compares two addresses by value, so that an IPv4-mapped IPv6
+// address equals its IPv4 form. Values that do not parse are compared as text.
+func sameAddress(a, b string) bool {
+	left, leftErr := netip.ParseAddr(a)
+	right, rightErr := netip.ParseAddr(b)
+	if leftErr != nil || rightErr != nil {
+		return a == b
+	}
+	return left.Unmap().WithZone("") == right.Unmap().WithZone("")
 }
 
 // reservePasswordHeaderAttempt counts one Stargate-Password attempt against the

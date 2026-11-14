@@ -289,6 +289,7 @@ PORT=8080
 | `SESSION_EXCHANGE_SECRET` | 32 文字以上の秘密値 | 空 | 短命なクロスドメインチケットの署名 |
 | `SESSION_EXCHANGE_REDIRECT_PATH` | パス | `/` | いいえ |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 信頼済みの旧パスワードヘッダーを有効化 |
+| `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | `TRUSTED_PROXIES` のプロキシ経由でクライアントアドレス付きで届かない `Stargate-Password` リクエストを拒否 |
 | `LOG_LEVEL` | debug/info/warn/error | info | 起動時のログレベル |
 | `HEADER_AUTH_ENABLED` | true/false | false | 信頼済みヘッダー認証 |
 | `HEADER_AUTH_SHARED_SECRET` | 32文字以上の秘密値 | 空 | ヘッダー認証の共有秘密 |

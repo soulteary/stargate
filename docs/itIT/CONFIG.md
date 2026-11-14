@@ -289,6 +289,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `SESSION_EXCHANGE_SECRET` | segreto, minimo 32 caratteri | vuoto | Firma ticket cross-domain di breve durata |
 | `SESSION_EXCHANGE_REDIRECT_PATH` | Percorso | `/` | No |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Abilita l'header password legacy attendibile |
+| `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | Rifiuta le richieste `Stargate-Password` che non arrivano tramite un proxy in `TRUSTED_PROXIES` che fornisce l'indirizzo del client |
 | `LOG_LEVEL` | debug/info/warn/error | info | Livello di log iniziale |
 | `HEADER_AUTH_ENABLED` | true/false | false | Autenticazione tramite header attendibili |
 | `HEADER_AUTH_SHARED_SECRET` | segreto, almeno 32 caratteri | vuoto | Segreto condiviso per header auth |

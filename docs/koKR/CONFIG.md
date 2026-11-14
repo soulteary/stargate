@@ -289,6 +289,7 @@ PORT=8080
 | `SESSION_EXCHANGE_SECRET` | 32자 이상 비밀값 | 비어 있음 | 단기 교차 도메인 티켓 서명 |
 | `SESSION_EXCHANGE_REDIRECT_PATH` | 경로 | `/` | 아니요 |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 신뢰된 레거시 비밀번호 헤더 활성화 |
+| `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | `TRUSTED_PROXIES`의 프록시를 통해 클라이언트 주소와 함께 전달되지 않은 `Stargate-Password` 요청을 거부 |
 | `LOG_LEVEL` | debug/info/warn/error | info | 시작 로그 레벨 |
 | `HEADER_AUTH_ENABLED` | true/false | false | 신뢰 헤더 인증 |
 | `HEADER_AUTH_SHARED_SECRET` | 최소 32자의 비밀값 | 비어 있음 | 헤더 인증 공유 비밀 |

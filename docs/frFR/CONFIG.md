@@ -289,6 +289,7 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `SESSION_EXCHANGE_SECRET` | secret, 32 caractères min. | vide | Signe les tickets inter-domaines à courte durée |
 | `SESSION_EXCHANGE_REDIRECT_PATH` | Chemin | `/` | Non |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Active l'en-tête de mot de passe historique de confiance |
+| `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | Refuse les requêtes `Stargate-Password` qui n'arrivent pas par un proxy de `TRUSTED_PROXIES` fournissant l'adresse du client |
 | `LOG_LEVEL` | debug/info/warn/error | info | Niveau de journalisation initial |
 | `HEADER_AUTH_ENABLED` | true/false | false | Authentification par en-têtes de confiance |
 | `HEADER_AUTH_SHARED_SECRET` | secret, 32 caractères min. | vide | Secret partagé de l'authentification par en-tête |

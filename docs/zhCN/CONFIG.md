@@ -49,6 +49,7 @@ services:
 | `AUTH_HOST` | String | — | 是 |
 | `PASSWORDS` | 见密码配置 | — | 未启用 Warden 时为是 |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 否 |
+| `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | 否 |
 | `DEBUG` | true/false | false | 否 |
 | `LOG_LEVEL` | debug/info/warn/error | info | 否 |
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | 否 |

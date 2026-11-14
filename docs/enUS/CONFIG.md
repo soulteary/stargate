@@ -49,6 +49,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `AUTH_HOST` | String | — | Yes |
 | `PASSWORDS` | See password config | — | Yes when Warden disabled |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | No |
+| `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | No |
 | `DEBUG` | true/false | false | No |
 | `LOG_LEVEL` | debug/info/warn/error | info | No |
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | No |
@@ -1586,6 +1587,26 @@ Failed header attempts on `/_auth` are counted per client address against [`RATE
 - with `TRUSTED_PROXIES` empty, or behind a proxy or CDN that is not listed in it, every request is attributed to the proxy, so this applies to all header clients of the deployment. Stargate logs a startup warning for `PASSWORD_HEADER_AUTH_ENABLED=true` with an empty `TRUSTED_PROXIES`.
 
 Set `TRUSTED_PROXIES` so the quota applies per client. Cookie sessions are not affected by this quota.
+
+### `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY`
+
+Optional, `false` by default. Set it to `true` when every `Stargate-Password` request reaches Stargate through a reverse proxy that is listed in `TRUSTED_PROXIES`:
+
+```bash
+PASSWORD_HEADER_AUTH_ENABLED=true
+PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY=true
+TRUSTED_PROXIES=10.20.0.10
+```
+
+With the setting on:
+
+- Stargate does not start when `PASSWORD_HEADER_AUTH_ENABLED=true` and `TRUSTED_PROXIES` is empty;
+- a request to `/_auth` that carries `Stargate-Password` is answered `403` when its peer is not in `TRUSTED_PROXIES`, or when the trusted proxy supplied no client address other than its own in the `PROXY_HEADER` header. The password is not compared and the request is not counted against any quota. Stargate logs a warning the first time each of the two cases occurs;
+- requests that a trusted proxy delivers with a client address are handled as before and counted per client address.
+
+This turns the second case in the list above, a proxy that is missing from `TRUSTED_PROXIES`, from a quota that all header clients share into a refusal that names the cause. It does not separate clients that really share one address, such as clients behind one NAT: nothing in a request identifies them apart that the sender could not also forge, so they keep sharing one quota. It also does not detect a client-IP header with an element that is not a bare address when more than one trusted proxy is in the path (see [`TRUSTED_PROXIES` and `PROXY_HEADER`](#trusted_proxies-and-proxy_header)).
+
+Do not turn it on when header clients connect to Stargate directly, or when a client and the trusted proxy have the same address: those requests are refused.
 
 ## Trusted Identity Header Authentication
 
