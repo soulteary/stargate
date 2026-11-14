@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"strings"
 	"sync"
 	"testing"
 
@@ -235,6 +236,7 @@ func TestTWithLang_AllLanguages_AllKeys(t *testing.T) {
 		"error.missing_session_id",
 		"error.config_invalid",
 		"error.config_invalid_values",
+		"error.config_rule",
 		"error.config_required",
 		"error.config_required_not_set",
 		"success.login",
@@ -249,6 +251,21 @@ func TestTWithLang_AllLanguages_AllKeys(t *testing.T) {
 				testza.AssertNotEqual(t, "", result, "translation should not be empty for key: %s", key)
 				testza.AssertNotNil(t, result, "translation should not be nil for key: %s", key)
 			}
+		})
+	}
+}
+
+// TestTfWithLang_AllLanguages_ConfigRule checks that the rule message takes
+// the variable name and the reason, in that order, in every language.
+func TestTfWithLang_AllLanguages_ConfigRule(t *testing.T) {
+	for _, lang := range []Language{LangEN, LangZH, LangFR, LangIT, LangJA, LangDE, LangKO} {
+		t.Run(string(lang), func(t *testing.T) {
+			result := TfWithLang(lang, "error.config_rule", "HERALD_ENABLED", "requires WARDEN_ENABLED=true")
+			testza.AssertContains(t, result, "'HERALD_ENABLED'")
+			testza.AssertContains(t, result, "requires WARDEN_ENABLED=true")
+			testza.AssertNotContains(t, result, "'requires WARDEN_ENABLED=true'")
+			testza.AssertNotContains(t, result, "%!")
+			testza.AssertTrue(t, strings.Index(result, "HERALD_ENABLED") < strings.Index(result, "requires"))
 		})
 	}
 }
