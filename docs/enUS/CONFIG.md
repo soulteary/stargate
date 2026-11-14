@@ -1571,6 +1571,13 @@ PASSWORDS='bcrypt:<hash>'
 
 Treat the header as a credential: require HTTPS, apply rate limits, and configure the reverse proxy to remove `Stargate-Password` before forwarding the request to the backend. Cookie sessions remain the recommended browser authentication method.
 
+Failed header attempts on `/_auth` are counted per client address against [`RATE_LIMIT_LOGIN_MAX`](#rate_limit_login_max). Once the quota is used up, every request from that address that carries the header is answered `429` until the window ends, with the correct password too. Clients that share an address share this quota:
+
+- clients behind one NAT or outbound proxy are one address, so one of them that sends wrong values locks the others out for the rest of the window, and can repeat that in every window;
+- with `TRUSTED_PROXIES` empty, or behind a proxy or CDN that is not listed in it, every request is attributed to the proxy, so this applies to all header clients of the deployment. Stargate logs a startup warning for `PASSWORD_HEADER_AUTH_ENABLED=true` with an empty `TRUSTED_PROXIES`.
+
+Set `TRUSTED_PROXIES` so the quota applies per client. Cookie sessions are not affected by this quota.
+
 ## Trusted Identity Header Authentication
 
 Trusted identity headers are disabled by default. This mode requires Warden and is intended only for a reverse proxy that authenticates the caller before forwarding the request.
