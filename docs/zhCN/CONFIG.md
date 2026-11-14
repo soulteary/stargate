@@ -1406,6 +1406,26 @@ PASSWORDS='bcrypt:<哈希>'
 
 请设置 `TRUSTED_PROXIES`，让配额按客户端生效。Cookie 会话不受这份配额影响。
 
+### `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY`
+
+可选，默认 `false`。当所有携带 `Stargate-Password` 的请求都经由 `TRUSTED_PROXIES` 中列出的反向代理到达 Stargate 时，可以设为 `true`：
+
+```bash
+PASSWORD_HEADER_AUTH_ENABLED=true
+PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY=true
+TRUSTED_PROXIES=10.20.0.10
+```
+
+开启后：
+
+- `PASSWORD_HEADER_AUTH_ENABLED=true` 而 `TRUSTED_PROXIES` 为空时，Stargate 拒绝启动；
+- 发往 `/_auth` 且携带 `Stargate-Password` 的请求，如果对端不在 `TRUSTED_PROXIES` 中，或可信代理在 `PROXY_HEADER` 指定的请求头里没有给出除自身以外的客户端地址，则返回 `403`。此时不比对密码，也不计入任何配额。两种情况各自首次出现时，Stargate 会记录一条警告日志；
+- 可信代理带着客户端地址转发的请求照常处理，并按客户端地址计数。
+
+这样，上面列出的第二种情况（代理未列入 `TRUSTED_PROXIES`）不再是所有客户端共用一份配额，而是直接被拒绝并说明原因。它无法区分确实共用同一地址的客户端，例如位于同一 NAT 之后的客户端：请求中没有哪一项信息既能区分它们、又不能被发送方伪造，所以它们仍然共用一份配额。
+
+如果客户端直接连接 Stargate，或者客户端与可信代理的地址相同，请不要开启：这些请求会被拒绝。
+
 ## 可信身份请求头认证
 
 可信身份请求头认证默认关闭。该模式依赖 Warden，只应由已完成调用方认证的反向代理使用。

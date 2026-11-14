@@ -25,6 +25,13 @@ This file records user-visible changes. For upgrade steps and configuration exam
   for a session Redis that requires TLS or an ACL user.
 - Request log lines carry `client_ip`, the address resolved through
   `TRUSTED_PROXIES` and `PROXY_HEADER`. The existing `ip` field is unchanged.
+- Add `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` (default `false`). When `true`,
+  Stargate refuses to start with `PASSWORD_HEADER_AUTH_ENABLED=true` and an
+  empty `TRUSTED_PROXIES`, and answers `403` without comparing the password to
+  `Stargate-Password` requests that a trusted proxy did not deliver together
+  with a client address. Such requests then cannot share and use up one failure
+  quota. Clients that really share one address, such as behind one NAT, still
+  share a quota.
 
 ### Fixed
 
@@ -134,6 +141,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
   rejected with `403` behind a proxy that terminates HTTPS and is not listed.
 - A startup warning lists the `SESSION_STORAGE_REDIS_*` settings that are
   ignored because `SESSION_STORAGE_ENABLED` is not `true`.
+- The Dockerfiles reference their base images by tag and digest. Images built
+  from `docker/Dockerfile` and `docker/Dockerfile.manual` no longer pack the
+  binary with UPX, so it can be inspected with `go version -m` and scanned; the
+  binary in those images grows from about 10 MB to about 30 MB. The published
+  release image never used UPX.
 
 ### Upgrade notes
 
