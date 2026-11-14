@@ -75,7 +75,7 @@ src/
 - `WARDEN_ENABLED`: 启用 Warden 集成（默认：false）
 - `WARDEN_URL`: Warden 服务基础 URL
 - `WARDEN_API_KEY`: Warden API Key（用于服务认证）
-- `WARDEN_CACHE_TTL`: Warden 缓存 TTL（秒，默认：300）
+- `WARDEN_CACHE_TTL`: 为兼容而保留；按用户进行的 Warden 查询不会被缓存，因此该配置不起作用（秒，默认：300）
 
 **Herald 集成配置：**
 - `HERALD_ENABLED`: 启用 Herald 集成（默认：false）

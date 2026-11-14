@@ -76,7 +76,7 @@ services:
 | `HEADER_AUTH_ENABLED` | true/false | false | 否 |
 | `HEADER_AUTH_SHARED_SECRET` | 至少 32 个字符的密钥字符串 | 空 | 启用请求头认证时为是 |
 | `HEADER_AUTH_SECRET_HEADER` | HTTP 头名称 | X-Stargate-Header-Auth | 否 |
-| `WARDEN_CACHE_TTL` | String | 300 | 否 |
+| `WARDEN_CACHE_TTL` | 正整数（秒）；不起作用 | 300 | 否 |
 | `WARDEN_SOURCE_MAX_AGE` | duration | 0s | 否 |
 | `WARDEN_SOURCE_CLOCK_SKEW` | duration | 0s | 否 |
 | `METRICS_API_KEY` | secret | 空（指标关闭） | 否 |
@@ -302,6 +302,15 @@ PROXY_HEADER=X-Forwarded-For
 
 应尽量只配置明确的代理地址；反向代理必须先删除客户端提供的转发头，再写入可信值。
 
+位于反向代理之后时，即使不设置 `TRUSTED_PROXIES` Stargate 也能启动，仍应设置它。代理未列入时，Stargate 只能看到代理发往 `/_auth` 的请求，看不到用户发出的原始请求：
+
+- 登录重定向不带 `callback`，并以 `http://` 拼接，用户登录后会停留在认证域名上，不会回到应用；
+- 代理终结 HTTPS 时，用户完全无法登录：浏览器发送 `Origin: https://...`，Stargate 把它与从代理收到的 `http://` 请求比较，于是 `POST /_login`、`/_logout`、`/_step_up`、`/_send_verify_code`、`/_send_reauth_code` 和 `/totp/*` 都返回 `403` 与 `cross-site request rejected`；
+- 无法判定 Step-up 路径规则（这正是 `STEP_UP_ENABLED=true` 要求配置 `TRUSTED_PROXIES` 的原因）；
+- 所有客户端都被归属到代理地址，共用一份限流配额，在审计记录中也显示为同一个地址。
+
+`TRUSTED_PROXIES` 为空时，Stargate 会在启动时记录告警；首次忽略来自未列入对端的转发头时会再次告警。当它以跨站请求为由拒绝某个请求，而该请求的 `Origin` 与被忽略的 `X-Forwarded-Proto` 和 `X-Forwarded-Host` 一致时，也会记录一次告警（仅一次）；`403` 响应本身不会说明原因。
+
 ### `COOKIE_DOMAIN`
 
 Cookie 域名，用于跨域会话共享。
@@ -441,6 +450,7 @@ Warden 服务的基础 URL。
 - Warden 服务的完整基础 URL（不带尾部斜杠）
 - 如果 `WARDEN_ENABLED=true` 则必须设置
 - 用于查询用户信息和白名单验证
+- URL 为 `http://` 且配置了 API Key 或 HMAC 密钥时，Stargate 会在启动时记录告警：此时 API Key 以及全部请求和响应数据都以明文经过网络。除非到 Warden 的连接始终位于私有网络内（例如 Compose 内部网络），否则应使用 `https://`
 
 **示例：**
 
@@ -472,20 +482,21 @@ WARDEN_API_KEY=your-warden-api-key-here
 
 #### `WARDEN_CACHE_TTL`
 
-Warden 用户信息缓存的 TTL（生存时间）。
+为兼容而保留，对 Stargate 的行为没有影响。
 
 | 属性 | 值 |
 |------|-----|
 | **类型** | Integer |
 | **必需** | 否 |
-| **默认值** | `300`（5 分钟） |
+| **默认值** | `300` |
 | **单位** | 秒 |
 
 **说明：**
 
-- 用户信息在本地缓存的时间
-- 减少对 Warden 服务的请求频率
-- 提高认证性能
+- 该值会作为用户列表缓存的有效期传给 Warden 客户端。但 Stargate 从不请求用户列表：登录、发送验证码、可信身份请求头认证和授权刷新都是按手机号或邮箱查询单个用户，这些查询不会被缓存。无论该值是多少，每次查询都会向 Warden 发起一次请求。
+- 它不会延迟撤权。被停用或删除的用户多久之后失去已有会话，由 [`AUTH_REFRESH_INTERVAL`](#auth_refresh_interval) 决定；该配置同时限定了一个会话触发 Warden 请求的最高频率。
+- `HEADER_AUTH_ENABLED=true` 时，每个携带可信身份请求头的转发请求都会触发一次 Warden 查询。
+- 该值仍必须是正整数，否则 Stargate 拒绝启动。
 
 **示例：**
 
@@ -603,6 +614,7 @@ Herald 服务的基础 URL。
 - Herald 服务的完整基础 URL（不带尾部斜杠）
 - 如果 `HERALD_ENABLED=true` 则必须设置
 - 用于创建 challenge 和验证验证码
+- URL 为 `http://` 且配置了 API Key 或 HMAC 密钥时，Stargate 会在启动时记录告警：此时 API Key 以及全部请求和响应数据都以明文经过网络。除非到 Herald 的连接始终位于私有网络内（例如 Compose 内部网络），否则应使用 `https://`
 
 **示例：**
 
@@ -754,6 +766,8 @@ TOTP 绑定与校验通过 **Herald** 完成（Herald 内部代理 herald-totp �
 | **默认值** | `false` |
 | **可选值** | `true`, `false` |
 
+只有该项为 `true` 时，下面的 `SESSION_STORAGE_REDIS_*` 配置才会生效。该项为 `false` 而其中任意一项被设为非默认值时，Stargate 仍会启动，会话和限流计数保存在内存中，并在启动时记录告警，列出被忽略的变量。
+
 #### `SESSION_STORAGE_REDIS_ADDR`
 
 Redis 地址。
@@ -796,7 +810,7 @@ Redis 数据库编号。
 
 #### `SESSION_STORAGE_REDIS_USERNAME`
 
-Redis ACL 用户名。只设置了密码的 Redis（`default` 用户）留空即可。设置用户名时必须同时设置 `SESSION_STORAGE_REDIS_PASSWORD`，否则服务拒绝启动。
+Redis ACL 用户名。只设置了密码的 Redis（`default` 用户）留空即可。设置用户名时必须同时设置 `SESSION_STORAGE_REDIS_PASSWORD`，否则服务拒绝启动。该用户需要对 `SESSION_STORAGE_REDIS_KEY_PREFIX` 前缀下的键拥有读、写和脚本（`EVAL`/`EVALSHA`）权限。
 
 | 属性 | 值 |
 |------|-----|
@@ -806,7 +820,7 @@ Redis ACL 用户名。只设置了密码的 Redis（`default` 用户）留空即
 
 #### `SESSION_STORAGE_REDIS_TLS_ENABLED`
 
-使用 TLS（1.2 及以上）连接 Redis，并校验服务端证书。默认 `false` 时会话、验证码上下文和限流计数以明文传输，仅适用于私有网络。证书校验不可关闭，不支持客户端证书。
+使用 TLS（1.2 及以上）连接 Redis，并校验服务端证书。默认 `false` 时会话、验证码上下文和限流计数以明文传输，仅适用于私有网络。证书默认按系统根证书和 `SESSION_STORAGE_REDIS_ADDR` 中的主机校验，下面两项配置可以调整这一点。证书校验不可关闭，不支持客户端证书。
 
 | 属性 | 值 |
 |------|-----|
@@ -833,6 +847,17 @@ Redis 服务端证书应匹配的名称，用于与 `SESSION_STORAGE_REDIS_ADDR`
 | **类型** | String（DNS 名称或 IP 地址） |
 | **必需** | 否 |
 | **默认值** | 空 |
+
+**示例：**
+
+```bash
+SESSION_STORAGE_ENABLED=true
+SESSION_STORAGE_REDIS_ADDR=redis.example.com:6380
+SESSION_STORAGE_REDIS_USERNAME=stargate
+SESSION_STORAGE_REDIS_PASSWORD='change-me'
+SESSION_STORAGE_REDIS_TLS_ENABLED=true
+SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE=/run/secrets/redis-ca.pem
+```
 
 #### 会话 Redis 配置建议（多场景）
 
@@ -989,7 +1014,11 @@ Fiber/fasthttp 在普通 HTTP 客户端断开时不会提供逐请求取消信�
 #### `RATE_LIMIT_LOGIN_MAX`
 
 单个客户端在 `RATE_LIMIT_WINDOW` 时间窗口内可以访问 `/_login` 与 `/_step_up` 的最大次数。
-重复的 `Stargate-Password` 请求头失败共用同一配额。设置为 `0` 可关闭登录配额。
+`/_auth` 上重复的 `Stargate-Password` 请求头失败共用同一配额：只有错误的值会留在计数中；配额用尽后，
+该客户端所有携带此请求头的请求都会在比较密码之前收到 `429` 和 `Retry-After`，因此在窗口结束前，
+正确的值同样会被拒绝。请求在比较密码期间先计入配额，密码正确时再撤回，因此同时发送的多个错误值
+无法合起来超出配额。正确的值也是如此：如果某个客户端同时在途的携带该请求头的请求数超过剩余配额，
+超出部分会收到 `429`，可以重试。设置为 `0` 可关闭登录配额。
 
 | 属性 | 值 |
 |-----------|-------|
@@ -1046,7 +1075,8 @@ Redis 计数器使用原子 Lua 脚本和毫秒级过期时间。请求不会延
 配额按客户端地址统计，而客户端地址只有在对端出现在 `TRUSTED_PROXIES` 中时才会取自转发头。
 如果反向代理没有列入 `TRUSTED_PROXIES`，所有客户端都会被归属到代理地址，整个部署因此共用
 一份配额。`TRUSTED_PROXIES` 为空时 Stargate 会在启动时告警，首次收到来自不受信任对端的
-转发头时会再次告警。请把 `TRUSTED_PROXIES` 设置为反向代理的来源 IP 或 CIDR，配额才能按
+转发头时会再次告警；这两条告警还会指出对登录重定向的影响，详见
+[`TRUSTED_PROXIES`](#trusted_proxies-与-proxy_header)。请把 `TRUSTED_PROXIES` 设置为反向代理的来源 IP 或 CIDR，配额才能按
 客户端生效。
 
 
@@ -1063,6 +1093,7 @@ Stargate 支持明文（仅开发环境）和 bcrypt 密码验证。配置格式
 - 明文存储，不进行加密
 - **仅用于测试环境**
 - 生产环境强烈不推荐使用
+- 本仓库 Compose 示例中公开的演示密码（`test1234`、`test1337`）在 `COOKIE_SECURE` 为 `true` 时会在启动时被拒绝；仅本地 HTTP 演示可以使用
 
 **示例：**
 
@@ -1256,6 +1287,9 @@ Stargate 在启动时会验证所有配置项：
 2. **格式验证**：密码配置格式不正确时会启动失败
 3. **算法验证**：不支持的密码算法会导致启动失败
 4. **值验证**：某些配置项有可选值限制（如 `LANGUAGE`、`DEBUG`）
+5. **规则验证**：某些配置项依赖其他配置项，或有最小长度、格式要求（如 `HERALD_ENABLED` 要求 `WARDEN_ENABLED=true`）
+
+错误消息会指出变量名，并说明属于上述哪种情况。规则以原因的形式给出，不会被显示成配置值；密钥类配置的实际值永远不会输出。
 
 **错误示例：**
 
@@ -1268,6 +1302,13 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
 
 # 不支持的算法
 Error: Configuration error: invalid value for environment variable 'PASSWORDS': 'unknown:password'
+
+# 取值不在可选范围内
+Error: Configuration error: invalid value for environment variable 'DEBUG': 'maybe'.
+  Accepted values: [true false]
+
+# 涉及其他配置项的规则
+Error: Configuration error: environment variable 'HERALD_ENABLED': requires WARDEN_ENABLED=true to resolve authenticated users.
 ```
 
 ## 配置依赖关系
@@ -1343,8 +1384,8 @@ Error: Configuration error: invalid value for environment variable 'PASSWORDS': 
    - 生产环境设置 `DEBUG=false` 减少日志输出
 
 7. **性能优化**：
-   - 设置 `WARDEN_CACHE_TTL` 以减少对 Warden 的请求
-   - 根据实际需求调整缓存时间
+   - 调大 `AUTH_REFRESH_INTERVAL` 可以减少对 Warden 的请求；间隔越长，停用用户生效得也越晚
+   - `WARDEN_CACHE_TTL` 不能减少这些请求：按用户进行的查询不会被缓存
 
 ## 旧版密码请求头认证
 
@@ -1356,6 +1397,13 @@ PASSWORDS='bcrypt:<哈希>'
 ```
 
 该请求头属于凭据：必须使用 HTTPS、配置限流，并让反向代理在转发到后端前删除 `Stargate-Password`。浏览器认证仍推荐使用 Cookie 会话。
+
+`/_auth` 上失败的请求头尝试按客户端地址计入 [`RATE_LIMIT_LOGIN_MAX`](#rate_limit_login_max)。配额用尽后，在窗口结束前，该地址所有携带此请求头的请求都返回 `429`，密码正确也不例外。共用同一地址的客户端共用这份配额：
+
+- 位于同一 NAT 或出站代理之后的客户端是同一个地址，其中一个客户端发送错误的值，就会让其他客户端在本窗口剩余时间内无法通过，而且可以在每个窗口重复这样做；
+- `TRUSTED_PROXIES` 为空，或位于未列入其中的代理或 CDN 之后时，所有请求都被归属到代理，因此部署中所有使用该请求头的客户端都会受影响。`PASSWORD_HEADER_AUTH_ENABLED=true` 而 `TRUSTED_PROXIES` 为空时，Stargate 会在启动时记录告警。
+
+请设置 `TRUSTED_PROXIES`，让配额按客户端生效。Cookie 会话不受这份配额影响。
 
 ## 可信身份请求头认证
 

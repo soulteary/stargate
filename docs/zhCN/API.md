@@ -66,6 +66,7 @@ X-Forwarded-User: authenticated
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
 | `401 Unauthorized` | 认证失败 | 错误消息（JSON 格式，API 请求）或重定向到登录页（HTML 请求） |
+| `429 Too Many Requests` | 该客户端在当前时间窗口内的 `Stargate-Password` 失败次数已达到 `RATE_LIMIT_LOGIN_MAX`。窗口结束前，凡是携带该请求头的请求（包括密码正确的请求）都会收到此响应，并带有 `Retry-After` 响应头（秒）。仅在 `PASSWORD_HEADER_AUTH_ENABLED=true` 时出现 | 错误消息 |
 | `503 Service Unavailable` | 目录授权暂时不可用 | — |
 | `500 Internal Server Error` | 服务器错误 | 错误消息 |
 
@@ -73,6 +74,7 @@ X-Forwarded-User: authenticated
 
 - **HTML 请求**：认证失败时重定向到 `/_login?callback=<原始URL>`
 - **API 请求**（JSON/XML）：认证失败时返回 401 错误响应
+- **携带 `Stargate-Password` 且已超出失败配额的请求**：无论 HTML 请求还是 API 请求，都返回 429 和 `Retry-After`，不会重定向
 
 #### 示例
 
@@ -169,10 +171,12 @@ TOTP 分支要求 `HERALD_TOTP_ENABLED=true` 且用户已经完成绑定；否�
 
 登录处理会按以下优先级获取 callback：
 
-1. **从 Cookie 获取**：如果之前访问登录页时域名不一致，callback 会存储在 `stargate_callback` Cookie 中
-2. **从表单数据获取**：POST 请求的表单数据中的 `callback` 字段
+1. **从表单数据获取**：POST 请求的表单数据中的 `callback` 字段。登录页会把打开页面时所针对的 callback 填入该字段
+2. **从 Cookie 获取**：表单中没有 `callback` 时，使用此前以不同域名打开登录页时存入 `stargate_callback` Cookie 的值
 3. **从查询参数获取**：URL 查询参数中的 `callback`
 4. **自动推断**：如果以上都没有，且来源域名（`X-Forwarded-Host`）与认证服务域名不一致，则使用来源域名作为 callback
+
+无论取自哪个来源，该值都必须通过同样的 callback 主机校验；`callback` 字段不被允许时返回 `400 Bad Request`，不会改用 Cookie 中的值。登录成功后，即使使用的是表单中的值，也会清除 `stargate_callback` Cookie。
 
 #### 响应
 
@@ -470,14 +474,16 @@ curl http://auth.example.com/readyz
 
 `GET /health` 保留为 `GET /readyz` 的弃用兼容别名。
 
+依赖检查最多每 5 秒执行一次。结果过期之前，这两个路由都直接返回该结果，因此依赖故障或恢复最多延迟 5 秒才会反映出来；检查正在执行时到达的请求会等待本次结果，而不会各自发起新的检查。
+
 ## 指标端点
 
 ### `GET /metrics`
 
 Prometheus 指标，文本展示格式。用于监控认证请求、会话创建/销毁及 Herald/Warden 调用延迟与结果。
 
-- **认证**：无（此端点通常不对外暴露；如需可经网络或反向代理限制访问）。
-- **响应**：200 OK，`Content-Type: text/plain`，Prometheus 展示格式。
+- **认证**：`Authorization: Bearer <METRICS_API_KEY>`。未配置 `METRICS_API_KEY` 时该端点处于关闭状态。同时应通过网络或反向代理限制访问。
+- **响应**：`200 OK`，`Content-Type: text/plain`，Prometheus 展示格式；未设置 `METRICS_API_KEY` 时返回 `404 Not Found`；令牌缺失或错误时返回 `401 Unauthorized`。
 
 **典型用途：**
 
