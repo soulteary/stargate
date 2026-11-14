@@ -14,7 +14,7 @@ import urllib.request
 from urllib.parse import parse_qs, urlparse
 
 from playwright.sync_api import sync_playwright, Error as PlaywrightError
-from validate_inputs import validate, callback_matches, hello_text_url
+from validate_inputs import validate, callback_matches, hello_text_url, resend_cooldown, START_WITHOUT_PROOF
 from diagnostics import smtp_signatures, playwright_failure_category
 
 ROOT = Path.cwd()
@@ -66,11 +66,18 @@ def compose(*args):
     return command(["docker", "compose", "--project-name", PROJECT, *args], cwd=STATE)
 
 
-def mailbox_code():
+def mailbox_ids():
+    with OPENER.open("http://127.0.0.1:8025/api/v1/messages", timeout=3) as response:
+        return {message["ID"] for message in json.load(response).get("messages", [])}
+
+
+def mailbox_code(seen=()):
+    # Mailpit lists the newest message first. Messages in `seen` were delivered
+    # before the request under test, so their codes are not the one it sent.
     deadline = time.monotonic() + 30
     while time.monotonic() < deadline:
         with OPENER.open("http://127.0.0.1:8025/api/v1/messages", timeout=3) as response:
-            messages = json.load(response).get("messages", [])
+            messages = [item for item in json.load(response).get("messages", []) if item["ID"] not in seen]
         if messages:
             with OPENER.open("http://127.0.0.1:8025/api/v1/message/" + messages[0]["ID"], timeout=3) as response:
                 message = json.load(response)
@@ -182,6 +189,36 @@ def error_controls(context):
     page.close()
 
 
+def start_enrollment(page):
+    # The session was created by a delivered email code and the user has no
+    # authenticator, so the proof POST /totp/enroll requires is a new code
+    # delivered to the address registered in Warden.
+    page.goto(AUTH + "/totp/enroll?lang=en")
+    check("enrollment page asks for a delivered code", page.locator("#reauthSendBtn").count() == 1 and page.locator("[data-native-once] #code").count() == 1)
+    check("enrollment start without a proof is refused", page.evaluate(START_WITHOUT_PROOF) == {"status": 401, "secret": False})
+    seen = mailbox_ids()
+    waited = False
+    while True:
+        with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/_send_reauth_code") as sent:
+            page.locator("#reauthSendBtn").click()
+        wait = None if waited else resend_cooldown(sent.value.status, sent.value.json())
+        if wait is None:
+            break
+        # Herald applies the resend cooldown of the sign-in code to the same
+        # address. The refused request delivered nothing; wait for the
+        # cooldown to end and ask once more.
+        waited = True
+        time.sleep(wait + 1)
+        page.locator("#reauthSendBtn:enabled").wait_for()
+    RESULT["enrollment_proof"] = {"kind": "delivered_code", "send_status": sent.value.status, "waited_for_resend_cooldown": waited}
+    save()
+    check("real enrollment proof code accepted for delivery", sent.value.status == 200)
+    page.locator("[data-native-once] #code").fill(mailbox_code(seen))
+    with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/totp/enroll") as started:
+        page.locator("[data-native-once] [type=submit]").click()
+    check("enrollment starts with the delivered proof", started.value.status == 200)
+
+
 def run_browser():
     stage("chromium-authentication")
     with sync_playwright() as pw:
@@ -232,8 +269,7 @@ def run_browser():
         page.screenshot(path="browser-account.png", full_page=True)
         RESULT["screenshots"] = ["browser-account.png"]
         stage("totp-enrollment")
-        page.goto(AUTH + "/totp/enroll?lang=en")
-        page.locator("[data-native-once] button").click()
+        start_enrollment(page)
         uri = page.locator("#qrcode").get_attribute("data-uri")
         secret = parse_qs(urlparse(uri).query)["secret"][0]
         page.locator("#code").fill(totp(secret))

@@ -9,7 +9,7 @@ import time
 from urllib.parse import parse_qs, urlparse
 
 import production_tls as fixture
-from validate_inputs import callback_matches
+from validate_inputs import callback_matches, resend_cooldown, START_WITHOUT_PROOF
 
 IGNORED_DEFAULTS = ['--disable-back-forward-cache', '--disable-prompt-on-repost']
 REASONS = {'BackForwardCacheDisabled', 'HTTPMethodNotGET', 'HTTPStatusNotOK', 'ErrorDocument',
@@ -266,8 +266,31 @@ def browser_scenario(ca, home):
         fixture.save()
         fixture.stage('native-post-secret-leave')
         page.goto(fixture.AUTH+'/totp/enroll?lang=en')
+        # The session was created by a delivered email code and the user has no
+        # authenticator, so the proof POST /totp/enroll requires is a new code
+        # delivered to the address registered in Warden.
+        fixture.check('Enrollment page asks for a delivered code', page.locator('#reauthSendBtn').count()==1 and page.locator('[data-native-once] #code').count()==1)
+        fixture.check('Enrollment start without a proof is refused', page.evaluate(START_WITHOUT_PROOF)=={'status':401,'secret':False})
+        seen = fixture.mailbox_ids()
+        waited = False
+        while True:
+            with page.expect_response(lambda r:r.request.method=='POST' and urlparse(r.url).path=='/_send_reauth_code') as proof_sent:
+                page.locator('#reauthSendBtn').click()
+            wait = None if waited else resend_cooldown(proof_sent.value.status, proof_sent.value.json())
+            if wait is None:
+                break
+            # Herald applies the resend cooldown of the sign-in code to the same
+            # address. The refused request delivered nothing; wait for the
+            # cooldown to end and ask once more.
+            waited = True
+            time.sleep(wait+1)
+            page.locator('#reauthSendBtn:enabled').wait_for()
+        fixture.RESULT['enrollment_proof'] = {'kind':'delivered_code','send_status':proof_sent.value.status,'waited_for_resend_cooldown':waited}
+        fixture.save()
+        fixture.check('Actual enrollment proof code accepted for delivery', proof_sent.value.status==200)
+        page.locator('[data-native-once] #code').fill(fixture.mailbox_code(seen))
         with page.expect_response(lambda r:r.request.method=='POST' and urlparse(r.url).path=='/totp/enroll') as started:
-            page.locator('[data-native-once] button').click()
+            page.locator('[data-native-once] [type=submit]').click()
         fixture.check('Native enrollment document is actual POST no-store', started.value.status==200 and 'no-store' in started.value.headers.get('cache-control',''))
         uri = page.locator('#qrcode').get_attribute('data-uri')
         page.locator('#code').fill(totp(uri))

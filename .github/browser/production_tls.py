@@ -220,12 +220,20 @@ def signed_totp_status(secret):
         raise AssertionError('Invalid HMAC accepted')
 
 
-def mailbox_code():
+def mailbox_ids():
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
+    with opener.open('http://127.0.0.1:18025/api/v1/messages', timeout=3) as response:
+        return {message['ID'] for message in json.load(response).get('messages', [])}
+
+
+def mailbox_code(seen=()):
+    # Mailpit lists the newest message first. Messages in `seen` were delivered
+    # before the request under test, so their codes are not the one it sent.
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     limit = time.monotonic() + 30
     while time.monotonic() < limit:
         with opener.open('http://127.0.0.1:18025/api/v1/messages', timeout=3) as response:
-            messages = json.load(response).get('messages', [])
+            messages = [item for item in json.load(response).get('messages', []) if item['ID'] not in seen]
         if messages:
             with opener.open('http://127.0.0.1:18025/api/v1/message/'+messages[0]['ID'], timeout=3) as response:
                 message = json.load(response)
