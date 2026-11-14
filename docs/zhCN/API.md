@@ -406,7 +406,7 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 ### `GET /totp/enroll`
 
-显示绑定确认页，但不创建绑定状态。页面包含适用于该会话的重新认证字段。未认证用户以 `302 Found` 重定向到 `/_login`；目录不再授权的会话返回 `401 Unauthorized`。
+显示绑定确认页，但不创建绑定状态。页面包含适用于该会话的重新认证字段；只有当会话持有最近 5 分钟内取得、且尚未用于启动绑定的绑定证明时，才省略这些字段。未认证用户以 `302 Found` 重定向到 `/_login`；目录不再授权的会话返回 `401 Unauthorized`。从该页面启动的绑定必须在 10 分钟内完成确认。
 
 ### `POST /totp/enroll`
 
