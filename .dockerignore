@@ -3,7 +3,23 @@
 **
 !go.mod
 !go.sum
-!src/**/*.go
+# One line per directory that holds Go source. Podman (Buildah) and the classic
+# Docker builder skip an excluded directory unless an exception below starts
+# with that directory's literal path, so "!src/**/*.go" reaches no package
+# directory there. BuildKit does not need the literal path, but the same lines
+# give it the same result. Add a line when a new package directory is added.
+!src/cmd/stargate/*.go
+!src/internal/auditlog/*.go
+!src/internal/auth/*.go
+!src/internal/config/*.go
+!src/internal/doctor/*.go
+!src/internal/handlers/*.go
+!src/internal/i18n/*.go
+!src/internal/metrics/*.go
+!src/internal/requestcontext/*.go
+!src/internal/tlsconfig/*.go
+!src/internal/tracing/*.go
+!src/internal/web/*.go
 !src/internal/web/templates/login.html
 !src/internal/web/templates/login.warden.html
 !src/internal/web/templates/account.html
