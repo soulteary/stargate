@@ -47,6 +47,9 @@ This file records user-visible changes. For upgrade steps and configuration exam
 - `POST /_login` prefers the form's `callback` over the `stargate_callback`
   cookie. The API reference stated the opposite order.
 - XML error responses escape `&`, `<` and `>` in the message.
+- Source builds with Podman no longer fail with "stat /app/src/cmd/stargate:
+  directory not found". `.dockerignore` names each Go source directory, so
+  Podman and Docker BuildKit receive the same build context.
 
 ### Security
 
@@ -55,8 +58,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
   10 minutes, so a session cookie stolen shortly after login could bind an
   attacker's authenticator and obtain backup codes. Enrollment now needs a
   current TOTP code or a one-time code sent to the contact registered in
-  Warden, at most 5 minutes old. Users see a "send code" step before "Start
-  setup"; sessions older than 10 minutes can now enroll after that step.
+  Warden, given to `POST /totp/enroll` itself. The proof is used for one
+  enrollment and covers its confirmation for 5 minutes; a proof given for
+  step-up or for TOTP removal does not allow a session to enroll an
+  authenticator. Users see a "send code" step before "Start setup"; sessions
+  older than 10 minutes can now enroll after that step.
 - Step-up (`/_step_up`) and `POST /totp/revoke` no longer accept the shared
   `PASSWORDS` secret for a session that belongs to a Warden user. The proof is
   a current TOTP code when the user has TOTP enrolled, otherwise a one-time
@@ -115,6 +121,9 @@ This file records user-visible changes. For upgrade steps and configuration exam
   every 5 seconds, so repeated requests no longer each probe the dependencies.
 - Stargate no longer starts with `COOKIE_SECURE=true` when `PASSWORDS` lists
   the published demo passwords (`test1234`, `test1337`) in plaintext.
+- With `COOKIE_SECURE=true`, step-up no longer redirects to an `http://` URL
+  when the request carries `callback_proto=http`; it returns to the local
+  callback path.
 
 ### Changed
 
