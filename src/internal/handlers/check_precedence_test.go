@@ -13,6 +13,7 @@ import (
 )
 
 func TestCheckRouteRefreshesOnlySelectedSession(t *testing.T) {
+	isolateGlobalState(t)
 	for _, tc := range []struct {
 		name, password, mail, directory   string
 		trusted, protected                bool

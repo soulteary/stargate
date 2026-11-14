@@ -27,6 +27,7 @@ func TestGetForwardAuthHandler_ReturnsNonNilAfterInit(t *testing.T) {
 // TestInitForwardAuthHandler_WithMinimalConfig verifies InitForwardAuthHandler runs without panic
 // when given minimal env and config. Can be run in isolation via -run InitForwardAuthHandler.
 func TestInitForwardAuthHandler_WithMinimalConfig(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.test.com")
 	t.Setenv("PASSWORDS", "plaintext:minimal")
 	t.Setenv("STEP_UP_ENABLED", "false")

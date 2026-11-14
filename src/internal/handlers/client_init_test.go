@@ -9,6 +9,7 @@ import (
 )
 
 func TestInitHeraldClientReturnsAndRemembersConfigurationError(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("HERALD_ENABLED", "true")

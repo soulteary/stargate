@@ -98,6 +98,7 @@ func TestCheckRoute_SessionStoreError(t *testing.T) {
 }
 
 func TestCheckRouteIgnoresForwardedRedirectHeadersFromUntrustedPeer(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
@@ -123,6 +124,7 @@ func TestCheckRouteIgnoresForwardedRedirectHeadersFromUntrustedPeer(t *testing.T
 }
 
 func TestCheckRouteUsesForwardedRedirectHeadersFromTrustedPeer(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
@@ -146,6 +148,7 @@ func TestCheckRouteUsesForwardedRedirectHeadersFromTrustedPeer(t *testing.T) {
 }
 
 func TestCheckRouteRejectsStatelessPasswordOnStepUpPath(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
@@ -169,6 +172,7 @@ func TestCheckRouteRejectsStatelessPasswordOnStepUpPath(t *testing.T) {
 }
 
 func TestCheckRouteRejectsStatelessIdentityUsingVerifiedSession(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
@@ -201,6 +205,7 @@ func TestCheckRouteRejectsStatelessIdentityUsingVerifiedSession(t *testing.T) {
 }
 
 func TestCheckRouteAllowsVerifiedSessionOnStepUpPath(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")

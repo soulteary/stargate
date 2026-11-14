@@ -15,6 +15,7 @@ import (
 // login URL without the callback and with the wrong scheme. The request that
 // shows the symptom must also log the cause, and the text must name it.
 func TestForwardAuthRedirectWarnsAboutIgnoredForwardedHeaders(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
@@ -60,6 +61,7 @@ func TestForwardAuthRedirectWarnsAboutIgnoredForwardedHeaders(t *testing.T) {
 }
 
 func TestForwardAuthRedirectDoesNotWarnForTrustedProxy(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")

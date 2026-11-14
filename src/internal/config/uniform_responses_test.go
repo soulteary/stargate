@@ -11,6 +11,7 @@ import (
 
 func setUniformTestEnv(t *testing.T, values map[string]string) {
 	t.Helper()
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	for _, name := range []string{"WARDEN_ENABLED", "WARDEN_URL", "HERALD_ENABLED", "HERALD_URL", "HERALD_CLIENT_IP_HEADER", "DEBUG", "COOKIE_SECURE", "LOGIN_UNIFORM_RESPONSES", "LOGIN_UNIFORM_RESEND_COOLDOWN"} {

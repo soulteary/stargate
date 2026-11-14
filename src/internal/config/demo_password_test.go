@@ -9,6 +9,7 @@ import (
 
 func setDemoPasswordTestEnv(t *testing.T, passwords, cookieSecure string) {
 	t.Helper()
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", passwords)
 	if cookieSecure != "" {

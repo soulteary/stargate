@@ -63,6 +63,7 @@ func TestTOTPRevokeRoute_NotAuthenticated_Redirects(t *testing.T) {
 }
 
 func TestTOTPRevokeRoute_Authenticated_NoUserID_400(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("HERALD_ENABLED", "true")
@@ -146,6 +147,7 @@ func TestTOTPRevokeConfirmAPI_NotAuthenticated_401(t *testing.T) {
 }
 
 func TestTOTPRevokeConfirmAPI_NoUserID_400(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("HERALD_ENABLED", "true")

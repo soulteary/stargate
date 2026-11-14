@@ -10,6 +10,7 @@ import (
 
 func setDemoSecretTestEnv(t *testing.T, cookieSecure string) {
 	t.Helper()
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
@@ -46,6 +47,7 @@ func TestInitializeAcceptsOtherSecretWhenCookieSecure(t *testing.T) {
 }
 
 func TestInitializeWarnsAboutPlaintextPasswordsWhenCookieSecure(t *testing.T) {
+	isolateGlobalState(t)
 	const warning = "PASSWORDS uses the plaintext algorithm while COOKIE_SECURE is true"
 	// bcrypt hash of "test123"; only its algorithm prefix matters here.
 	const bcryptPasswords = "bcrypt:$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy"
@@ -75,6 +77,7 @@ func TestInitializeWarnsAboutPlaintextPasswordsWhenCookieSecure(t *testing.T) {
 }
 
 func TestInitializeWarnsWhenSharedPasswordCanPassStepUp(t *testing.T) {
+	isolateGlobalState(t)
 	const warning = "sessions created with the shared password still pass step-up"
 
 	for _, tc := range []struct {

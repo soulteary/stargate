@@ -31,6 +31,8 @@ func resetHeraldClientForTesting() {
 }
 
 func setupSendVerifyCodeBaseEnv(t *testing.T) {
+	t.Helper()
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
