@@ -131,7 +131,10 @@ func TestLoginChallengeUsesBoundProviderContract(t *testing.T) {
 			})
 			request := httptest.NewRequest("POST", "/", strings.NewReader("challenge_id="+ch.ID+"&verify_code="+code))
 			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			response, err := app.Test(request)
+			// The request verifies a challenge through Redis and an HTTP
+			// call; the default limit of one second is not enough for that
+			// under the race detector on a loaded machine.
+			response, err := app.Test(request, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
 			require.NoError(t, err)
 			require.NoError(t, response.Body.Close())
 			require.Equal(t, tc.status, response.StatusCode)

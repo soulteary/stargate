@@ -180,6 +180,10 @@ func setupBcryptPasswordHeaderLimitTest(t *testing.T) (func(fiber.Ctx) error, in
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "bcrypt:"+hash)
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
+	// The tests count attempts across many bcrypt comparisons. Under the race
+	// detector on a loaded machine these take longer than the default window
+	// of one minute, and a window that ends during the test resets the count.
+	t.Setenv("RATE_LIMIT_WINDOW", "1h")
 	require.NoError(t, config.Initialize(testLogger()))
 	InitForwardAuthHandler(testLogger())
 
