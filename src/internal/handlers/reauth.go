@@ -65,8 +65,18 @@ var (
 	reauthProviderFailure = &reauthFailure{fiber.StatusBadGateway, "service_unavailable", "re-authentication service is unavailable"}
 )
 
-// reauthProofFor selects the single proof the session may present. The choice
-// is made from server-side state only, so a client cannot downgrade it:
+// reauthSelection is the proof chosen for a session, with what choosing it
+// established about the user.
+type reauthSelection struct {
+	proof string
+	// totpStatusKnown is true when Herald reported the user's TOTP status for
+	// this choice. The proof is then reauthProofTOTP exactly when TOTP is
+	// enrolled, so a caller need not ask Herald for the status again.
+	totpStatusKnown bool
+}
+
+// selectReauthProof selects the single proof the session may present. The
+// choice is made from server-side state only, so a client cannot downgrade it:
 //
 //   - a user with TOTP enrolled must present a current TOTP code;
 //   - any other Warden user must present a code delivered to the contact
@@ -75,45 +85,60 @@ var (
 //     identity, may present that password again.
 //
 // A session with a user identity never falls back to the shared password.
-func reauthProofFor(ctx context.Context, sess *session.Session) (string, error) {
+func selectReauthProof(ctx context.Context, sess *session.Session) (reauthSelection, error) {
 	userID, _ := sess.Get("user_id").(string)
 	directory := wardenSessionUsesDirectory(sess)
 	if userID == "" && !directory {
 		if config.Passwords.Value == "" {
-			return reauthProofNone, nil
+			return reauthSelection{}, nil
 		}
-		return reauthProofPassword, nil
+		return reauthSelection{proof: reauthProofPassword}, nil
 	}
 	client := getHeraldClient()
 	if client == nil || userID == "" {
-		return reauthProofNone, nil
+		return reauthSelection{}, nil
 	}
+	selection := reauthSelection{}
 	if config.HeraldTOTPEnabled.ToBool() {
 		status, err := client.TOTPStatus(ctx, userID)
 		if err != nil || status == nil {
-			return reauthProofNone, errReauthProviderUnavailable
+			return reauthSelection{}, errReauthProviderUnavailable
 		}
+		selection.totpStatusKnown = true
 		if status.TotpEnabled {
-			return reauthProofTOTP, nil
+			selection.proof = reauthProofTOTP
+			return selection, nil
 		}
 	}
 	if directory {
-		return reauthProofCode, nil
+		selection.proof = reauthProofCode
 	}
-	return reauthProofNone, nil
+	return selection, nil
 }
 
-// requiredReauthProof resolves the proof for a page or an operation and maps
-// the cases in which none can be offered to a response.
-func requiredReauthProof(ctx context.Context, sess *session.Session) (string, *reauthFailure) {
-	proof, err := reauthProofFor(ctx, sess)
+// reauthProofFor returns the proof selectReauthProof chose.
+func reauthProofFor(ctx context.Context, sess *session.Session) (string, error) {
+	selection, err := selectReauthProof(ctx, sess)
+	return selection.proof, err
+}
+
+// requiredReauthSelection resolves the proof for a page or an operation and
+// maps the cases in which none can be offered to a response.
+func requiredReauthSelection(ctx context.Context, sess *session.Session) (reauthSelection, *reauthFailure) {
+	selection, err := selectReauthProof(ctx, sess)
 	if err != nil {
-		return reauthProofNone, reauthProviderFailure
+		return reauthSelection{}, reauthProviderFailure
 	}
-	if proof == reauthProofNone {
-		return reauthProofNone, reauthNotAvailable
+	if selection.proof == reauthProofNone {
+		return reauthSelection{}, reauthNotAvailable
 	}
-	return proof, nil
+	return selection, nil
+}
+
+// requiredReauthProof returns the proof requiredReauthSelection resolved.
+func requiredReauthProof(ctx context.Context, sess *session.Session) (string, *reauthFailure) {
+	selection, failure := requiredReauthSelection(ctx, sess)
+	return selection.proof, failure
 }
 
 // reauthenticate verifies the proof submitted with the request: form field
@@ -123,14 +148,22 @@ func requiredReauthProof(ctx context.Context, sess *session.Session) (string, *r
 // must persist sess with saveLiveSession, because a delivered code that was
 // verified is removed from it.
 func reauthenticate(ctx fiber.Ctx, sess *session.Session) *reauthFailure {
-	proof, failure := requiredReauthProof(ctx.Context(), sess)
+	_, failure := reauthenticateSelected(ctx, sess)
+	return failure
+}
+
+// reauthenticateSelected is reauthenticate, and also returns the selection the
+// accepted proof was chosen by. The selection is made before the proof is
+// verified, so a failure to make it leaves a delivered code unused.
+func reauthenticateSelected(ctx fiber.Ctx, sess *session.Session) (reauthSelection, *reauthFailure) {
+	selection, failure := requiredReauthSelection(ctx.Context(), sess)
 	if failure != nil {
-		return failure
+		return reauthSelection{}, failure
 	}
 	userID, _ := sess.Get("user_id").(string)
 	code := strings.TrimSpace(ctx.FormValue("code"))
 	verified := false
-	switch proof {
+	switch selection.proof {
 	case reauthProofPassword:
 		verified = auth.CheckPassword(ctx.FormValue("password"))
 	case reauthProofTOTP:
@@ -142,9 +175,9 @@ func reauthenticate(ctx fiber.Ctx, sess *session.Session) *reauthFailure {
 		verified = verifyReauthCode(ctx, sess, userID, code)
 	}
 	if !verified {
-		return reauthFailed
+		return reauthSelection{}, reauthFailed
 	}
-	return nil
+	return selection, nil
 }
 
 // markEnrollmentProven records that the enrollment now stored in the session

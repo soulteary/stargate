@@ -9,6 +9,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/herald/pkg/herald"
+	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -128,21 +129,20 @@ func failingHerald(t *testing.T, fake *fakeHerald, fail func(path string) bool) 
 
 // A proof authorizes the request that carries it. When Herald fails after the
 // proof was accepted, the session keeps nothing: the next start needs a new
-// proof, although the delivered code of the failed request is used up.
+// proof, although the delivered code of the failed request is used up. With
+// HERALD_TOTP_ENABLED=true the only request after the proof is the start; the
+// status is requested after the proof only with HERALD_TOTP_ENABLED=false.
 func TestTOTPEnrollProofIsNotKeptWhenHeraldFails(t *testing.T) {
-	for _, failing := range []string{"/v1/totp/status", "/v1/totp/enroll/start"} {
-		t.Run(failing, func(t *testing.T) {
+	for _, tc := range []struct{ totpSetting, failing string }{
+		{"true", "/v1/totp/enroll/start"},
+		{"false", "/v1/totp/enroll/start"},
+		{"false", "/v1/totp/status"},
+	} {
+		t.Run("HERALD_TOTP_ENABLED="+tc.totpSetting+tc.failing, func(t *testing.T) {
 			fake := setupReauthDeployment(t)
-			// The first status request of a start selects the proof. The
-			// request after the proof was accepted is the one that fails.
+			setConfigValue(t, &config.HeraldTOTPEnabled, tc.totpSetting)
 			var armed atomic.Bool
-			var statusRequests atomic.Int32
-			failingHerald(t, fake, func(path string) bool {
-				if !armed.Load() || path != failing {
-					return false
-				}
-				return path != "/v1/totp/status" || statusRequests.Add(1) == 2
-			})
+			failingHerald(t, fake, func(path string) bool { return armed.Load() && path == tc.failing })
 			store := setupTestStore()
 			bob := wardenReauthSession(t, store, "bob")
 			challengeID := sendReauthCode(t, store, bob, "deliver_via=email")
