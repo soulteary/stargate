@@ -113,6 +113,9 @@ func TOTPRevokeConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 			}
 			return ctx.Status(failure.status).JSON(fiber.Map{"ok": false, "error": failure.code})
 		}
+		// The proof given here removes TOTP and nothing else. A proof stored
+		// for enrollment must not carry over to the state after the removal.
+		discardEnrollmentProof(sess)
 		if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
 			return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"ok": false, "error": "session_save_failed"})
 		}

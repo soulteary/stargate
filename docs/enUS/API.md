@@ -492,7 +492,9 @@ Step-up, TOTP enrollment and TOTP revocation require a fresh proof from the pers
 
 The shared password is never accepted for a session that carries a user identity. A user session for which no Herald client is available is refused with `403 Forbidden` (`reauthentication_unavailable`). If Herald's TOTP state cannot be read the request is refused with `502 Bad Gateway`; it does not fall back to a delivered code. A failed proof returns `401 Unauthorized`.
 
-A successful proof records `reauth_verified_at` in the session. TOTP enrollment accepts that record for 5 minutes. Step-up and TOTP revocation always require the proof in the same request.
+A proof counts for the request that carries it and for nothing else. Step-up, TOTP revocation and the start of TOTP enrollment each require the proof in the same request; a proof given to one of them is not accepted by another. In particular, passing step-up or removing TOTP does not allow the session to enroll an authenticator.
+
+The proof given to `POST /totp/enroll` is recorded in the session as `totp_enroll_proof_at`, bound to the enrollment that request starts. It allows that enrollment to be confirmed for 5 minutes and starts no second enrollment. The only stored proof `POST /totp/enroll` accepts is one from an earlier `POST /totp/enroll` in the last 5 minutes whose call to Herald failed, so that a user whose delivered code was already consumed can retry once without a new code.
 
 ### `POST /_send_reauth_code`
 
@@ -528,17 +530,17 @@ Open this endpoint in the same browser that completes login, for example `https:
 
 ## TOTP Endpoints
 
-When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`), Stargate provides TOTP (authenticator app) bind/unbind and verification as part of login. These endpoints require an authenticated session and a per-user proof as described in [Re-authentication](#re-authentication). A recent login is not sufficient. Enrollment must be confirmed within 5 minutes of the proof.
+When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`), Stargate provides TOTP (authenticator app) bind/unbind and verification as part of login. These endpoints require an authenticated session and a per-user proof as described in [Re-authentication](#re-authentication). A recent login is not sufficient, and neither is a proof given for step-up or for removing TOTP. Enrollment must be confirmed within 5 minutes of the proof given to start it.
 
 ### `GET /totp/enroll`
 
-Displays a confirmation page without creating enrollment state. Unless the session holds a proof from the last 5 minutes, the page includes the re-authentication fields that apply to the session. Unauthenticated users are redirected with `302 Found` to `/_login`; a session whose user the directory no longer authorizes receives `401 Unauthorized`. An enrollment started from this page must be confirmed within 10 minutes.
+Displays a confirmation page without creating enrollment state. The page includes the re-authentication fields that apply to the session. They are left out only when the session holds an enrollment proof from the last 5 minutes that has not started an enrollment (see [Re-authentication](#re-authentication)). Unauthenticated users are redirected with `302 Found` to `/_login`; a session whose user the directory no longer authorizes receives `401 Unauthorized`. An enrollment started from this page must be confirmed within 10 minutes.
 
 ### `POST /totp/enroll`
 
 Starts enrollment and displays the TOTP bind page. POST prevents cross-site navigation from creating enrollment state.
 
-- **Authentication**: An authenticated session with either a proof from the last 5 minutes or a valid proof in this request (form field `code`). Unauthenticated users are redirected with `302 Found` to `/_login`; a missing or failed proof returns `401 Unauthorized`. The enrollment state this request creates is valid for 10 minutes.
+- **Authentication**: An authenticated session and a valid proof in this request (form field `code`). The proof is spent when the enrollment starts: every further `POST /totp/enroll` needs a new proof, also within 5 minutes and also after step-up. A request without a proof is accepted only as the retry described in [Re-authentication](#re-authentication). Unauthenticated users are redirected with `302 Found` to `/_login`; a missing or failed proof returns `401 Unauthorized`. The enrollment state this request creates is valid for 10 minutes.
 - **Response**: 200 OK with enrollment page HTML; `302 Found` to `/_login` if not authenticated; `302 Found` to `/totp/revoke` when TOTP is already enrolled (after a valid TOTP code); or 400/502/503 on configuration or Herald errors.
 
 Upstream TOTP status/start errors return `502 Bad Gateway`.
@@ -547,7 +549,7 @@ Upstream TOTP status/start errors return `502 Bad Gateway`.
 
 Confirms TOTP binding with the code from the authenticator app.
 
-- **Authentication**: An authenticated session holding a proof from the last 5 minutes. The proof is normally the one given to `POST /totp/enroll`. Without it the response is `401 Unauthorized`. Enrollment state older than 10 minutes is refused with `400 Bad Request`.
+- **Authentication**: An authenticated session holding the proof given to `POST /totp/enroll`, at most 5 minutes old. Without it the response is `401 Unauthorized`. The `enroll_id` must be the one that `POST /totp/enroll` issued to this session; enrollment state older than 10 minutes is refused with `400 Bad Request`. A successful confirmation removes the proof from the session.
 
 <!-- api-contract: totp-enroll-confirm-request-body -->
 #### Request Body
@@ -562,7 +564,7 @@ The form must contain the `enroll_id` returned by the enrollment page and the 6-
 
 #### Response
 
-JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400 Bad Request`, and a missing proof or one older than 5 minutes returns `401 Unauthorized` with `recent_authentication_required`.
+JSON. Success returns `{"ok":true,"subject":"...","totp_enabled":true,"backup_codes":[...]}`; invalid or expired enrollment state returns `400 Bad Request`, and a missing enrollment proof or one older than 5 minutes returns `401 Unauthorized` with `recent_authentication_required`.
 
 Confirmation quota returns `429 Too Many Requests` with `rate_limited`; pending enrollment is retained. An invalid provider response returns `502`. Do not automatically retry a code.
 

@@ -308,7 +308,7 @@ func TestStepUpAcceptsTOTPCodeOfSessionUser(t *testing.T) {
 	ctx = reauthRequest(t, alice, "POST", "/_step_up", "code=111111&callback=/admin", StepUpAPI(store))
 	require.Equal(t, fiber.StatusFound, ctx.Response().StatusCode())
 	require.NotNil(t, reauthSessionValue(t, store, alice, "step_up_verified_at"))
-	require.NotNil(t, reauthSessionValue(t, store, alice, reauthVerifiedAtKey))
+	require.Nil(t, reauthSessionValue(t, store, alice, reauthVerifiedAtKey))
 	require.Zero(t, fake.count("/v1/otp/challenges"))
 }
 
@@ -359,7 +359,7 @@ func TestStepUpPasswordOnlyDeploymentAcceptsSharedPassword(t *testing.T) {
 	ctx = reauthRequest(t, sessionID, "POST", "/_step_up", "password="+reauthTestPassword+"&callback=/admin", StepUpAPI(store))
 	require.Equal(t, fiber.StatusFound, ctx.Response().StatusCode())
 	require.NotNil(t, reauthSessionValue(t, store, sessionID, "step_up_verified_at"))
-	require.NotNil(t, reauthSessionValue(t, store, sessionID, reauthVerifiedAtKey))
+	require.Nil(t, reauthSessionValue(t, store, sessionID, reauthVerifiedAtKey))
 }
 
 // A code is sent to the contact Warden holds for the session's user. Nothing

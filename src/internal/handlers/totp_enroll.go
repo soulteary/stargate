@@ -30,7 +30,8 @@ func clearTOTPEnrollment(sess *session.Session) {
 
 // TOTPEnrollPageRoute renders a safe confirmation page. Enrollment state is
 // created only by the same-origin POST /totp/enroll action. The page asks for
-// the session's re-authentication proof unless a recent one is on record.
+// the session's re-authentication proof unless an unspent enrollment proof is
+// on record.
 func TOTPEnrollPageRoute(store *session.Store) func(c fiber.Ctx) error {
 	return func(ctx fiber.Ctx) error {
 		sess, err := store.Get(ctx)
@@ -45,7 +46,7 @@ func TOTPEnrollPageRoute(store *session.Store) func(c fiber.Ctx) error {
 			return err
 		}
 		proof := reauthProofNone
-		if !reauthenticatedRecently(sess) {
+		if !enrollmentProofUnspent(sess) {
 			var failure *reauthFailure
 			if proof, failure = requiredReauthProof(ctx.Context(), sess); failure != nil {
 				return SendErrorResponse(ctx, failure.status, failure.message)
@@ -75,14 +76,17 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusBadRequest, "user_id not in session")
 		}
 		// A session cookie and a recent login are not enough to bind a new
-		// factor: the request must carry the user's own proof, or follow one.
-		if !reauthenticatedRecently(sess) {
+		// factor, and neither is a proof given for step-up or for removing
+		// TOTP: the request must carry the user's own proof. The only stored
+		// proof accepted is one given to an earlier start that Herald failed.
+		if !enrollmentProofUnspent(sess) {
 			if failure := reauthenticate(ctx, sess); failure != nil {
 				if failure == reauthFailed {
 					auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionEnrolled, ctx.IP(), false, "reauthentication_failed")
 				}
 				return SendErrorResponse(ctx, failure.status, failure.message)
 			}
+			recordEnrollmentProof(sess)
 			if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
 				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 			}
@@ -106,6 +110,12 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP status check failed")
 		}
 		if statusResp.TotpEnabled {
+			// Nothing is enrolled here, so the proof must not remain for an
+			// enrollment that follows a later removal of TOTP.
+			discardEnrollmentProof(sess)
+			if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
+				return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
+			}
 			return ctx.Redirect().Status(fiber.StatusFound).To("/totp/revoke")
 		}
 		startResp, err := client.TOTPEnrollStart(ctx.Context(), &herald.TOTPEnrollStartRequest{
@@ -119,6 +129,8 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 		sess.Set(totpEnrollmentIDKey, startResp.EnrollID)
 		sess.Set(totpEnrollmentSubjectKey, userID)
 		sess.Set(totpEnrollmentStartedKey, time.Now().Unix())
+		// From here the proof covers only the confirmation of this enrollment.
+		spendEnrollmentProof(sess)
 		if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
 			return SendErrorResponse(ctx, fiber.StatusInternalServerError, i18n.T(ctx, "error.session_store_failed"))
 		}
@@ -192,6 +204,7 @@ func TOTPEnrollConfirmAPI(store *session.Store) func(c fiber.Ctx) error {
 		}
 		auditlog.LogTOTPChange(ctx.Context(), boundSubject, auditlog.TOTPActionEnrolled, ctx.IP(), true, "")
 		clearTOTPEnrollment(sess)
+		discardEnrollmentProof(sess)
 		if err := sess.Save(); err != nil {
 			// Herald has already completed enrollment and backup codes are only
 			// returned once. Preserve that authoritative result for the user;
