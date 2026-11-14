@@ -7,6 +7,7 @@ import (
 )
 
 func TestInitStepUpMatcher_Disabled(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "false")
@@ -23,6 +24,7 @@ func TestInitStepUpMatcher_Disabled(t *testing.T) {
 }
 
 func TestInitStepUpMatcher_Enabled_EmptyPaths(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
@@ -35,6 +37,7 @@ func TestInitStepUpMatcher_Enabled_EmptyPaths(t *testing.T) {
 }
 
 func TestInitializeStepUpRejectsDelimiterOnlyPaths(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
@@ -47,6 +50,7 @@ func TestInitializeStepUpRejectsDelimiterOnlyPaths(t *testing.T) {
 }
 
 func TestInitializeStepUpAcceptsQuestionMarkGlob(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
@@ -95,6 +99,7 @@ func TestValidStepUpPathPattern(t *testing.T) {
 }
 
 func TestInitStepUpMatcher_Enabled_SinglePath(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
@@ -115,6 +120,7 @@ func TestInitStepUpMatcher_Enabled_SinglePath(t *testing.T) {
 }
 
 func TestInitStepUpMatcher_Enabled_MultiplePaths(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
@@ -134,6 +140,7 @@ func TestInitStepUpMatcher_Enabled_MultiplePaths(t *testing.T) {
 }
 
 func TestInitializeStepUpRequiresTrustedProxy(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")
@@ -146,6 +153,7 @@ func TestInitializeStepUpRequiresTrustedProxy(t *testing.T) {
 }
 
 func TestInitializeRejectsUnsafeStepUpPathPatterns(t *testing.T) {
+	isolateGlobalState(t)
 	for _, paths := range []string{"admin", "//evil.example/admin", "/admin#users", `/admin\\users`, "/admin/../public", "/admin/%2e%2e/public"} {
 		t.Run(paths, func(t *testing.T) {
 			t.Setenv("AUTH_HOST", "auth.example.com")
@@ -162,6 +170,7 @@ func TestInitializeRejectsUnsafeStepUpPathPatterns(t *testing.T) {
 }
 
 func TestGetStepUpMatcher_NilInitializes(t *testing.T) {
+	isolateGlobalState(t)
 	// Ensure stepUpMatcher is nil by not calling InitStepUpMatcher in a fresh package state.
 	// GetStepUpMatcher() calls InitStepUpMatcher() if nil, so we need to have env set.
 	t.Setenv("AUTH_HOST", "auth.example.com")
@@ -175,6 +184,7 @@ func TestGetStepUpMatcher_NilInitializes(t *testing.T) {
 }
 
 func TestStepUpMatcherFailsClosedOnCaseAndPathParameters(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("STEP_UP_ENABLED", "true")

@@ -73,6 +73,7 @@ func TestAnonymousLogoutDoesNotAllocateRevocationMarkers(t *testing.T) {
 }
 
 func TestLogoutRejectsAnInflightAuthenticatedRefresh(t *testing.T) {
+	isolateGlobalState(t)
 	for _, backend := range []string{"memory", "redis"} {
 		t.Run(backend, func(t *testing.T) {
 			setupRefreshTest(t)

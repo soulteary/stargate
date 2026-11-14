@@ -90,6 +90,7 @@ func setupStepUpTest(t *testing.T) {
 
 func setupStepUpTestWithPaths(t *testing.T, paths string) {
 	t.Helper()
+	isolateGlobalState(t)
 	previousEnabled := config.StepUpEnabled.Value
 	previousPaths := config.StepUpPaths.Value
 	previousTrustedProxies := config.TrustedProxies.Value

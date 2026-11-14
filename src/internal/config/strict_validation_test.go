@@ -8,6 +8,7 @@ import (
 
 func setValidStrictTestValues(t *testing.T) {
 	t.Helper()
+	isolateGlobalState(t)
 	variables := []*EnvVariable{
 		&AuthHost, &CookieDomain, &CallbackAllowedHosts, &SessionExchangeSecret, &Port,
 		&WardenCacheTTL, &AuthRefreshInterval, &RequestContextTimeout, &SessionStorageRedisDB,

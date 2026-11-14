@@ -19,6 +19,7 @@ func testLogger() *logger.Logger {
 }
 
 func TestInitializeRejectsRemovedWardenOTPSettings(t *testing.T) {
+	isolateGlobalState(t)
 	for _, name := range []string{"WARDEN_OTP_ENABLED", "WARDEN_OTP_SECRET_KEY"} {
 		t.Run(name, func(t *testing.T) {
 			t.Setenv("AUTH_HOST", "auth.example.com")
@@ -283,6 +284,7 @@ func TestValidatePasswords_Invalid(t *testing.T) {
 }
 
 func TestInitialize_Success(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("DEBUG", "false")
@@ -294,6 +296,7 @@ func TestInitialize_Success(t *testing.T) {
 }
 
 func TestInitialize_MissingRequired(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "")
 	t.Setenv("PASSWORDS", "")
 
@@ -302,6 +305,7 @@ func TestInitialize_MissingRequired(t *testing.T) {
 }
 
 func TestInitializeHeraldRequiresWarden(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("HERALD_ENABLED", "true")
@@ -315,6 +319,7 @@ func TestInitializeHeraldRequiresWarden(t *testing.T) {
 }
 
 func TestInitializeWardenRequiresReachableAuthenticationPath(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -329,6 +334,7 @@ func TestInitializeWardenRequiresReachableAuthenticationPath(t *testing.T) {
 }
 
 func TestInitializeAllowsLocalPasswordLoginForWarden(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "false")
@@ -341,6 +347,7 @@ func TestInitializeAllowsLocalPasswordLoginForWarden(t *testing.T) {
 }
 
 func TestInitializeAllowsHeraldAuthenticationPathForWarden(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -352,6 +359,7 @@ func TestInitializeAllowsHeraldAuthenticationPathForWarden(t *testing.T) {
 }
 
 func TestInitializeAllowsTrustedHeaderAuthenticationPathForWarden(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -379,6 +387,7 @@ func TestValidationError_String(t *testing.T) {
 }
 
 func TestInitialize_Language_EN(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "en")
@@ -389,6 +398,7 @@ func TestInitialize_Language_EN(t *testing.T) {
 }
 
 func TestInitialize_Language_ZH(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "zh")
@@ -399,6 +409,7 @@ func TestInitialize_Language_ZH(t *testing.T) {
 }
 
 func TestInitialize_Language_CaseInsensitive(t *testing.T) {
+	isolateGlobalState(t)
 	tests := []struct {
 		name     string
 		lang     string
@@ -424,6 +435,7 @@ func TestInitialize_Language_CaseInsensitive(t *testing.T) {
 }
 
 func TestInitialize_Language_Default(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	// Don't set LANGUAGE to test default
@@ -435,6 +447,7 @@ func TestInitialize_Language_Default(t *testing.T) {
 }
 
 func TestInitialize_AllConfigVariables(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("DEBUG", "true")
@@ -459,6 +472,7 @@ func TestInitialize_AllConfigVariables(t *testing.T) {
 }
 
 func TestInitialize_WithDefaults(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("TRUSTED_PROXIES", "")
@@ -487,6 +501,7 @@ func TestValidateIPOrCIDRList(t *testing.T) {
 }
 
 func TestInitialize_AllowsInsecureCookieForLocalHTTP(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "localhost")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_SECURE", "false")
@@ -497,6 +512,7 @@ func TestInitialize_AllowsInsecureCookieForLocalHTTP(t *testing.T) {
 }
 
 func TestInitialize_Language_FR(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "fr")
@@ -507,6 +523,7 @@ func TestInitialize_Language_FR(t *testing.T) {
 }
 
 func TestInitialize_Language_IT(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "it")
@@ -517,6 +534,7 @@ func TestInitialize_Language_IT(t *testing.T) {
 }
 
 func TestInitialize_Language_JA(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "ja")
@@ -527,6 +545,7 @@ func TestInitialize_Language_JA(t *testing.T) {
 }
 
 func TestInitialize_Language_DE(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "de")
@@ -537,6 +556,7 @@ func TestInitialize_Language_DE(t *testing.T) {
 }
 
 func TestInitialize_Language_KO(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LANGUAGE", "ko")

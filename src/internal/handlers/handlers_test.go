@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -43,7 +44,14 @@ func TestMain(m *testing.M) {
 	InitForwardAuthHandler(testLog)
 
 	// Run tests
+	initial := captureGlobalState()
 	code := m.Run()
+	// A test that leaves this state changed makes the tests after it depend on
+	// the order they run in.
+	if changes := globalStateChanges(initial, captureGlobalState()); code == 0 && len(changes) > 0 {
+		fmt.Fprintf(os.Stderr, "FAIL: package-level state was not restored when the tests ended: %s\nCall isolateGlobalState(t) at the start of the test that changes it.\n", strings.Join(changes, ", "))
+		code = 1
+	}
 	os.Exit(code)
 }
 
@@ -175,6 +183,7 @@ func TestCheckRoute_NotAuthenticated(t *testing.T) {
 }
 
 func TestCheckRoute_HeaderAuth_Valid(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
@@ -243,6 +252,7 @@ func TestLoginAPI_ValidPassword(t *testing.T) {
 }
 
 func TestLoginAPI_LocalPasswordWhileWardenEnabled(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "false")
@@ -290,6 +300,7 @@ func TestLoginAPI_InvalidPassword(t *testing.T) {
 
 // TestLoginAPI_WardenNoIdentifier ensures warden auth returns 400 when neither phone nor mail provided.
 func TestLoginAPI_WardenNoIdentifier(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -311,6 +322,7 @@ func TestLoginAPI_WardenNoIdentifier(t *testing.T) {
 
 // Directory outages are unavailable, not evidence that an identity was removed.
 func TestLoginAPI_WardenUnavailable(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("WARDEN_ENABLED", "true")
@@ -337,6 +349,7 @@ func TestLoginAPI_WardenUnavailable(t *testing.T) {
 }
 
 func TestLoginRoute_NotAuthenticated(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LOGIN_PAGE_TITLE", "Test Title")
@@ -579,6 +592,7 @@ func TestLoginAPI_NoPasswordField(t *testing.T) {
 }
 
 func TestLoginRoute_WithCallback(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LOGIN_PAGE_TITLE", "Test Title")
@@ -599,6 +613,7 @@ func TestLoginRoute_WithCallback(t *testing.T) {
 }
 
 func TestLoginRoute_RejectsUntrustedCallback(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
@@ -617,6 +632,7 @@ func TestLoginRoute_RejectsUntrustedCallback(t *testing.T) {
 }
 
 func TestLoginRoute_WithoutCallback(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("LOGIN_PAGE_TITLE", "Test Title")
@@ -678,6 +694,7 @@ func TestLogoutRoute_NotAuthenticated(t *testing.T) {
 }
 
 func TestSessionShareRoute_WithCookieDomain(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
@@ -747,6 +764,7 @@ func TestSessionShareRoute_WithoutCookieDomain(t *testing.T) {
 }
 
 func TestSessionShareRouteUsesHostOnlyCookieAcrossRootDomains(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
@@ -777,6 +795,7 @@ func TestSessionShareRouteUsesHostOnlyCookieAcrossRootDomains(t *testing.T) {
 }
 
 func TestCheckRoute_SetsUserHeader(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
@@ -803,6 +822,7 @@ func TestCheckRoute_SetsUserHeader(t *testing.T) {
 }
 
 func TestCheckRoute_SetsDefaultUserHeader(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
@@ -1908,6 +1928,7 @@ func TestLoginRoute_SessionStoreError(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_ValidPhone tests Warden authentication with valid phone
 func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
+	isolateGlobalState(t)
 	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -2002,6 +2023,7 @@ func TestCheckRoute_WardenAuth_ValidPhone(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_ValidMail tests Warden authentication with valid email
 func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
+	isolateGlobalState(t)
 	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -2102,6 +2124,7 @@ func TestCheckRoute_WardenAuth_ValidMail(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_InvalidUser tests Warden authentication with invalid user
 func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
+	isolateGlobalState(t)
 	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -2174,6 +2197,7 @@ func TestCheckRoute_WardenAuth_InvalidUser(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_EmptyHeaders tests Warden authentication with empty headers
 func TestCheckRoute_WardenAuth_EmptyHeaders(t *testing.T) {
+	isolateGlobalState(t)
 	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -2201,6 +2225,7 @@ func TestCheckRoute_WardenAuth_EmptyHeaders(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_WithBothHeaders tests Warden authentication with both phone and mail headers
 func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
+	isolateGlobalState(t)
 	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -2302,6 +2327,7 @@ func TestCheckRoute_WardenAuth_WithBothHeaders(t *testing.T) {
 
 // TestCheckRoute_WardenAuth_WithCustomUserHeader tests Warden authentication with custom user header name
 func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
+	isolateGlobalState(t)
 	enableTrustedHeaderAuth(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
@@ -2387,6 +2413,7 @@ func TestCheckRoute_WardenAuth_WithCustomUserHeader(t *testing.T) {
 }
 
 func TestCheckRoute_PasswordHeaderDisabledByDefault(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "false")

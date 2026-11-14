@@ -9,6 +9,7 @@ import (
 )
 
 func TestInitializeWarnsAboutPlaintextServiceURLs(t *testing.T) {
+	isolateGlobalState(t)
 	const warning = "Service URL uses http:// while an API key or HMAC secret is configured"
 
 	for _, tc := range []struct {

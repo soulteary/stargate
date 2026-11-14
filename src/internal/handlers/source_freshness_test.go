@@ -102,6 +102,7 @@ func TestMetricsRequiresSeparateBearerCredential(t *testing.T) {
 }
 
 func TestForwardAuthSourceFailureReturns503AndKeepsSession(t *testing.T) {
+	isolateGlobalState(t)
 	setupRefreshTest(t)
 	previous := config.WardenSourceMaxAge.Value
 	t.Cleanup(func() { config.WardenSourceMaxAge.Value = previous })
@@ -145,6 +146,7 @@ func TestTrustedHeaderDependencyFailureHasNoAuthenticationResult(t *testing.T) {
 }
 
 func TestForwardAuthRechecksSourceDeadlineBeforeEmittingIdentity(t *testing.T) {
+	isolateGlobalState(t)
 	setupRefreshTest(t)
 	previousMax, previousNow := config.WardenSourceMaxAge.Value, authorizationNow
 	t.Cleanup(func() { config.WardenSourceMaxAge.Value = previousMax; authorizationNow = previousNow })
@@ -182,6 +184,7 @@ func TestForwardAuthRechecksSourceDeadlineBeforeEmittingIdentity(t *testing.T) {
 }
 
 func TestForwardAuthRejectsExpiredTrustedHeaderEvidence(t *testing.T) {
+	isolateGlobalState(t)
 	previousMax, previousLookup := config.WardenSourceMaxAge.Value, lookupTrustedHeaderUser
 	previousEnabled, previousSecret := config.HeaderAuthEnabled.Value, config.HeaderAuthSharedSecret.Value
 	t.Cleanup(func() {

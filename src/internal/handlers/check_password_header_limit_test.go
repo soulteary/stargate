@@ -30,6 +30,7 @@ func passwordHeaderCheckStatus(t *testing.T, handler func(fiber.Ctx) error, pass
 
 func setupPasswordHeaderLimitTest(t *testing.T) (func(fiber.Ctx) error, int) {
 	t.Helper()
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
@@ -95,6 +96,7 @@ func TestCheckRoute_CorrectPasswordHeaderIsNotCounted(t *testing.T) {
 // A wrong password that falls back to an authenticated session is still a
 // failed guess, even though the request itself is allowed.
 func TestCheckRoute_WrongPasswordHeaderWithSessionIsCounted(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")
@@ -172,6 +174,7 @@ func concurrentPasswordHeaderStatuses(handler func(fiber.Ctx) error, passwords [
 
 func setupBcryptPasswordHeaderLimitTest(t *testing.T) (func(fiber.Ctx) error, int) {
 	t.Helper()
+	isolateGlobalState(t)
 	hash, err := passwd.NewBcryptHasher().Hash("test123")
 	require.NoError(t, err)
 	t.Setenv("AUTH_HOST", "auth.example.com")

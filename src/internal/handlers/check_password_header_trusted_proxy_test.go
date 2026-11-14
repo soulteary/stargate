@@ -28,6 +28,7 @@ const (
 // together with the buffer warnings are written to.
 func setupPasswordHeaderProxyTest(t *testing.T, trustedProxies, requireTrusted string) (func(password, forwardedFor string) (int, string), *bytes.Buffer, int) {
 	t.Helper()
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("PASSWORD_HEADER_AUTH_ENABLED", "true")

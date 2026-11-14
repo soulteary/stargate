@@ -145,6 +145,7 @@ func TestTOTPEnrollRoute_Authenticated_ClientNil_503(t *testing.T) {
 }
 
 func TestTOTPEnrollRoute_AlreadyBound_RedirectsToRevoke(t *testing.T) {
+	isolateGlobalState(t)
 	// Mock Herald TOTP proxy: GET /v1/totp/status returns totp_enabled true
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/totp/status" {
@@ -308,6 +309,7 @@ func TestTOTPEnrollConfirmAPI_RejectsUnboundEnrollment(t *testing.T) {
 }
 
 func TestTOTPEnrollConfirmAPIReturnsBackupCodesWhenSessionCleanupFails(t *testing.T) {
+	isolateGlobalState(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/totp/enroll/confirm" {
 			w.WriteHeader(http.StatusNotFound)

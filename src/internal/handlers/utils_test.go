@@ -181,6 +181,7 @@ func TestBuildCallbackURL_WithoutHeaders(t *testing.T) {
 }
 
 func TestValidateCallbackHostRejectsOpenRedirects(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
@@ -205,6 +206,7 @@ func TestValidateCallbackHostRejectsOpenRedirects(t *testing.T) {
 }
 
 func TestBuildCallbackURLDropsUntrustedForwardedHost(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("CALLBACK_ALLOWED_HOSTS", "app.example.com")
@@ -443,6 +445,7 @@ func TestNormalizeHost_WithoutPort(t *testing.T) {
 }
 
 func TestNormalizeHost_SameDomainWithPort(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com:80")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	err := config.Initialize(testLoggerUtils())
@@ -474,6 +477,7 @@ func TestSetCallbackCookie_EmptyCallback(t *testing.T) {
 }
 
 func TestSetCallbackCookie_WithCookieDomain(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_DOMAIN", ".example.com")
@@ -496,6 +500,7 @@ func TestSetCallbackCookie_WithCookieDomain(t *testing.T) {
 }
 
 func TestClearCallbackCookie_WithCookieDomain(t *testing.T) {
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("COOKIE_DOMAIN", ".example.com")

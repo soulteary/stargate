@@ -17,15 +17,7 @@ const sameOriginForwardedWarningText = "Rejected a same-origin request as cross-
 
 func sameOriginWarningApp(t *testing.T, trustedProxies string) (*fiber.App, *bytes.Buffer) {
 	t.Helper()
-	// t.Setenv puts the environment back when the test ends, but not the
-	// configuration that was read from it. Cleanups run last in, first out, so
-	// this one, registered before the variables are set, reads the
-	// configuration again once the environment is back.
-	t.Cleanup(func() {
-		if err := config.Initialize(testLogger()); err != nil {
-			t.Errorf("restore configuration: %v", err)
-		}
-	})
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	t.Setenv("TRUSTED_PROXIES", trustedProxies)

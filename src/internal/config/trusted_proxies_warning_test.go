@@ -10,6 +10,7 @@ import (
 
 func initializeForTrustedProxiesWarning(t *testing.T, values map[string]string) string {
 	t.Helper()
+	isolateGlobalState(t)
 	t.Setenv("AUTH_HOST", "auth.example.com")
 	t.Setenv("PASSWORDS", "plaintext:test123")
 	for name, value := range values {
