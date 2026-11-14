@@ -289,6 +289,7 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `SESSION_EXCHANGE_SECRET` | Geheimnis, mind. 32 Zeichen | leer | Signiert kurzlebige domänenübergreifende Tickets |
 | `SESSION_EXCHANGE_REDIRECT_PATH` | Pfad | `/` | Nein |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Aktiviert den vertrauenswürdigen Legacy-Passwort-Header |
+| `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | Lehnt `Stargate-Password`-Anfragen ab, die nicht über einen Proxy aus `TRUSTED_PROXIES` mit Client-Adresse eintreffen |
 | `LOG_LEVEL` | debug/info/warn/error | info | Start-Protokollstufe |
 | `HEADER_AUTH_ENABLED` | true/false | false | Vertrauenswürdige Header-Authentifizierung |
 | `HEADER_AUTH_SHARED_SECRET` | Geheimnis, mindestens 32 Zeichen | leer | Gemeinsames Geheimnis für Header-Authentifizierung |
