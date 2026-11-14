@@ -152,6 +152,11 @@ func TestCheckRoute_UntrustedPeerIsComparedByDefault(t *testing.T) {
 			}
 			status, _ = request("test123", "")
 			require.Equal(t, fiber.StatusTooManyRequests, status)
+
+			// The tests that require a count of zero read it with
+			// passwordFailureCount. Here the same reading must show the
+			// attempts, or a zero there would prove nothing.
+			require.Equal(t, max, passwordFailureCount(t, testPeerAddress))
 		})
 	}
 }
