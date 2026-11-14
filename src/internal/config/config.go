@@ -592,6 +592,21 @@ func warnEmptyTrustedProxies() {
 	log.Warn().Msg("TRUSTED_PROXIES is empty: X-Forwarded-Host, X-Forwarded-Proto and the client-IP header are ignored. Behind a reverse proxy the login redirect from /_auth then loses its callback and uses http://, so users are not returned to the application after sign-in, and every client shares one rate-limit quota. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
 }
 
+// warnSharedPasswordHeaderQuota reports Stargate-Password authentication
+// without TRUSTED_PROXIES. Failed header attempts on /_auth are counted per
+// client address. With no trusted proxy every request is attributed to the
+// peer, which behind a reverse proxy is the proxy itself, so all clients share
+// one failure quota and any one of them can use it up for the others.
+func warnSharedPasswordHeaderQuota() {
+	if !PasswordHeaderAuthEnabled.ToBool() || strings.TrimSpace(TrustedProxies.Value) != "" {
+		return
+	}
+	if RateLimitLoginMax.ToInt(DefaultRateLimitLoginMax) <= 0 {
+		return
+	}
+	log.Warn().Msg("PASSWORD_HEADER_AUTH_ENABLED is true and TRUSTED_PROXIES is empty: behind a reverse proxy the Stargate-Password failure quota (RATE_LIMIT_LOGIN_MAX) is shared by every client behind that proxy, so one client that sends wrong values can use it up and requests with the header are then answered 429 for all of them, correct password included, until the window ends. Set TRUSTED_PROXIES to the reverse-proxy source IPs or CIDRs.")
+}
+
 // PublishedDemoSessionExchangeSecret is the value shipped in the repository's
 // docker-compose.yml, start-local.sh and deployment examples. It is public, so
 // it must never protect an HTTPS deployment.
@@ -699,6 +714,7 @@ func Initialize(l *logger.Logger) error {
 	}
 
 	warnEmptyTrustedProxies()
+	warnSharedPasswordHeaderQuota()
 	warnPlaintextPasswords()
 	warnSharedPasswordStepUp()
 	warnUniformResponses()
