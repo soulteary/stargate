@@ -312,6 +312,7 @@ PORT=8080
 | `WARDEN_API_KEY` | 秘密値 | 空 | API キー認証 |
 | `WARDEN_HMAC_KEY_ID` | 文字列 | 空 | HMAC キー ID |
 | `WARDEN_HMAC_SECRET` | 秘密値 | 空 | HMAC 署名秘密 |
+| `WARDEN_HMAC_AUDIENCE` | 文字列 | 空 | HMAC 署名を結び付ける Warden インスタンス名（v3）。Warden 側の `WARDEN_HMAC_AUDIENCES` に同じ名前が必要、Warden 1.8.0 以上が必要。空の場合は v2 |
 | `WARDEN_TLS_CA_CERT_FILE` | パス | 空 | カスタム CA |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | パス | 空 | mTLS クライアント証明書 |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | パス | 空 | mTLS クライアント鍵 |

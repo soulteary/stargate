@@ -8,7 +8,7 @@ import (
 )
 
 func TestAuthenticationConfigurationRejectsIncompleteTrust(t *testing.T) {
-	variables := []*EnvVariable{&Passwords, &WardenEnabled, &WardenURL, &SessionExchangeSecret, &PasswordHeaderAuthEnabled, &StepUpEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeraldEnabled, &HeraldURL, &HeraldTOTPEnabled, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSClientCert, &WardenTLSClientKey, &HeraldTLSClientCert, &HeraldTLSClientKey}
+	variables := []*EnvVariable{&Passwords, &WardenEnabled, &WardenURL, &SessionExchangeSecret, &PasswordHeaderAuthEnabled, &StepUpEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeraldEnabled, &HeraldURL, &HeraldTOTPEnabled, &WardenHMACKeyID, &WardenHMACSecret, &WardenHMACAudience, &WardenTLSClientCert, &WardenTLSClientKey, &HeraldTLSClientCert, &HeraldTLSClientKey}
 	previous := make([]string, len(variables))
 	for i, v := range variables {
 		previous[i] = v.Value
@@ -30,6 +30,7 @@ func TestAuthenticationConfigurationRejectsIncompleteTrust(t *testing.T) {
 		{"step-up without password or Herald", map[*EnvVariable]string{&WardenEnabled: "true", &StepUpEnabled: "true"}, validatePasswordSettings, StepUpEnabled.Name},
 		{"Warden URL absent", map[*EnvVariable]string{&WardenEnabled: "true"}, validateServiceSettings, WardenURL.Name},
 		{"unpaired Warden HMAC", map[*EnvVariable]string{&WardenHMACKeyID: "primary"}, validateServiceSettings, WardenHMACSecret.Name},
+		{"Warden HMAC audience without HMAC", map[*EnvVariable]string{&WardenHMACAudience: "warden-a"}, validateServiceSettings, WardenHMACAudience.Name},
 		{"unpaired Warden mTLS", map[*EnvVariable]string{&WardenTLSClientCert: "client.pem"}, validateServiceSettings, WardenTLSClientCert.Name},
 		{"header auth without Warden", map[*EnvVariable]string{&HeaderAuthEnabled: "true"}, validateHeaderAuthentication, HeaderAuthEnabled.Name},
 		{"header auth without secret", map[*EnvVariable]string{&HeaderAuthEnabled: "true", &WardenEnabled: "true"}, validateHeaderAuthentication, HeaderAuthSharedSecret.Name},

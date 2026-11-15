@@ -312,6 +312,7 @@ PORT=8080
 | `WARDEN_API_KEY` | 비밀값 | 비어 있음 | API 키 인증 |
 | `WARDEN_HMAC_KEY_ID` | 문자열 | 비어 있음 | HMAC 키 ID |
 | `WARDEN_HMAC_SECRET` | 비밀값 | 비어 있음 | HMAC 서명 비밀 |
+| `WARDEN_HMAC_AUDIENCE` | 문자열 | 비어 있음 | HMAC 서명을 묶을 Warden 인스턴스 이름(v3). Warden의 `WARDEN_HMAC_AUDIENCES`에 같은 이름이 있어야 하며 Warden 1.8.0 이상 필요. 비어 있으면 v2 |
 | `WARDEN_TLS_CA_CERT_FILE` | 경로 | 비어 있음 | 사용자 지정 CA |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 인증서 |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | 경로 | 비어 있음 | mTLS 클라이언트 키 |

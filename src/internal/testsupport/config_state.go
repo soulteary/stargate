@@ -42,6 +42,7 @@ func ConfigVariables() []*config.EnvVariable {
 		&config.WardenAPIKey,
 		&config.WardenHMACKeyID,
 		&config.WardenHMACSecret,
+		&config.WardenHMACAudience,
 		&config.WardenTLSCACertFile,
 		&config.WardenTLSClientCert,
 		&config.WardenTLSClientKey,

@@ -70,6 +70,7 @@ Below are all environment variables used in code. "Required" means the service w
 | `WARDEN_API_KEY` | String | empty | No |
 | `WARDEN_HMAC_KEY_ID` | String | empty | No |
 | `WARDEN_HMAC_SECRET` | String | empty | No |
+| `WARDEN_HMAC_AUDIENCE` | String (1-255 printable ASCII, no spaces or commas) | empty (v2 signatures) | No |
 | `WARDEN_TLS_CA_CERT_FILE` | path | empty | No |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | path | empty | No |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | path | empty | No |
@@ -484,6 +485,37 @@ API key for authenticating with Warden service.
 
 ```bash
 WARDEN_API_KEY=your-warden-api-key-here
+```
+
+#### `WARDEN_HMAC_AUDIENCE`
+
+Name of the Warden instance that signed requests are meant for.
+
+| Attribute | Value |
+|-----------|-------|
+| **Type** | String |
+| **Required** | No |
+| **Default** | Empty (v2 signatures) |
+
+**Description:**
+
+- Empty: requests to Warden are signed in the v2 form, as before.
+- Set: requests are signed in the v3 form, which adds this name to the signed text. A request signed for one Warden instance is then not valid at another instance that shares the HMAC key.
+- Requires `WARDEN_HMAC_KEY_ID` and `WARDEN_HMAC_SECRET`. Stargate refuses to start when the audience is set without them.
+- The value is 1 to 255 printable ASCII characters without spaces or commas. Surrounding space is removed and the name is lower-cased before it is signed; Warden normalizes its own list the same way.
+- The Warden instance must list the same name in its `WARDEN_HMAC_AUDIENCES` and must run Warden 1.8.0 or newer. An older Warden does not know the v3 form and rejects every request with 401; so does a Warden 1.8.0 that does not list the name. Stargate does not fall back to v2.
+- Order when enabling it: upgrade Warden to 1.8.0 or newer, add the name to `WARDEN_HMAC_AUDIENCES`, then set `WARDEN_HMAC_AUDIENCE` on Stargate. Warden keeps accepting v2 unless `WARDEN_HMAC_REQUIRE_AUDIENCE=true` is set there, so the remaining v2 clients keep working during the change.
+
+**Example:**
+
+```bash
+# Stargate
+WARDEN_HMAC_KEY_ID=stargate
+WARDEN_HMAC_SECRET=your-hmac-secret
+WARDEN_HMAC_AUDIENCE=warden-prod
+
+# Warden (1.8.0 or newer)
+WARDEN_HMAC_AUDIENCES=warden-prod
 ```
 
 #### `WARDEN_CACHE_TTL`

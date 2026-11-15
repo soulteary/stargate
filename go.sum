@@ -106,6 +106,8 @@ github.com/shamaton/msgpack/v3 v3.2.7 h1:YuVYjZq5+NLIREdW52txCmEfVGIi4ithcdhOJhA
 github.com/shamaton/msgpack/v3 v3.2.7/go.mod h1:sgBYvEiyz8JR1NC3yGRoPVME9xXovpnh3l/plW1nfRo=
 github.com/soulteary/audit-kit/v2 v2.1.6 h1:ozetmrUrmtfC0JMH/ySetUr5P9SOUbVZp1jEGfcIX4s=
 github.com/soulteary/audit-kit/v2 v2.1.6/go.mod h1:hPzieWtPMQ4467X84hRUKuTp4yfc/V7qe/R59PMVVDI=
+github.com/soulteary/cache-kit/v2 v2.1.2 h1:wvtYxd+Hf465c6ANRzdiSp2suNiUyTkalJADYeXxx7E=
+github.com/soulteary/cache-kit/v2 v2.1.2/go.mod h1:/ReQ9GD0vJuZgGaHfZf+Uu2tyP4rKeaHiSrnA1WisSk=
 github.com/soulteary/challenge-kit v1.11.2 h1:F2SU89GZyrVeowWg6P8dla7J88yOr3x+cRNtPubnYHo=
 github.com/soulteary/challenge-kit v1.11.2/go.mod h1:wngNTYOKPG8X1+kPY88P64i7r7fSUAZypsRxLO1St40=
 github.com/soulteary/cli-kit v1.9.4 h1:OC8fve9xyBeA+qytoA2m5lf6Q9mIEF+FrG50rDWJxsM=
@@ -136,8 +138,8 @@ github.com/soulteary/tracing-kit/v2 v2.0.4 h1:djRfIb9+jBLme/1zEttETGErvhfADWitQ+
 github.com/soulteary/tracing-kit/v2 v2.0.4/go.mod h1:rZ1Xm996vTyF3PpahI4FielXR7wYFGP8we8v2kNgvKU=
 github.com/soulteary/version-kit/v4 v4.0.5 h1:HX+hV7wbsIvvWMBPjmsYL6DMA57JUDMhqb51W4wkrKI=
 github.com/soulteary/version-kit/v4 v4.0.5/go.mod h1:iNArqmQaX3FkwZh0cnbC40Ns22qgamPiYGWKn64H/Wo=
-github.com/soulteary/warden v1.7.0 h1:2MQdBXQZ8xXQXiVJY2iPPLG3k6UjcbQ1XYNBfxW/ju8=
-github.com/soulteary/warden v1.7.0/go.mod h1:xFBaxA/09/xZxwnijL7sR6QbnR5PeewuVfYwNS+0si8=
+github.com/soulteary/warden v1.8.0 h1:27t4NkviXX7NdJNzTK4sB7zYzNtJfI7OZ1dWv8/H8Bw=
+github.com/soulteary/warden v1.8.0/go.mod h1:xFBaxA/09/xZxwnijL7sR6QbnR5PeewuVfYwNS+0si8=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/testify v1.4.0/go.mod h1:j7eGeouHqKxXV5pUuKE4zz7dFj8WfuZ+81PSLYec5m4=
 github.com/stretchr/testify v1.12.1 h1:EuwCh5fleGS7H32xRwO3wRGT7DxrDhLAT6FF8MpWDWE=
@@ -240,6 +242,8 @@ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8
 gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.4.0/go.mod h1:RDklbk79AGWmwhnvt/jBztapEOGDOx6ZbXqjP6csGnQ=
+gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+gopkg.in/yaml.v3 v3.0.1/go.mod h1:K4uyk7z7BCEPqu6E+C64Yfv1cQ7kz7rIZviUmN+EgEM=
 modernc.org/libc v1.80.1 h1:ejn7HtTV3GknNKbklqWQ1nvUrfX8mTxs1D+xp/JQwy4=
 modernc.org/libc v1.80.1/go.mod h1:pvo25Rs3OJEbDqhUV9jdEGevxeLJrJeDmNid/AcQV1g=
 modernc.org/mathutil v1.7.1 h1:GCZVGXdaN8gTqB1Mf/usp1Y/hSqgI2vAGGP4jZMCxOU=

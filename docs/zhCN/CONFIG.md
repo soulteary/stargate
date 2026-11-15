@@ -70,6 +70,7 @@ services:
 | `WARDEN_API_KEY` | String | 空 | 否 |
 | `WARDEN_HMAC_KEY_ID` | String | 空 | 否 |
 | `WARDEN_HMAC_SECRET` | String | 空 | 否 |
+| `WARDEN_HMAC_AUDIENCE` | String（1-255 个可打印 ASCII 字符，不含空格和逗号） | 空（v2 签名） | 否 |
 | `WARDEN_TLS_CA_CERT_FILE` | 路径 | 空 | 否 |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | 路径 | 空 | 否 |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | 路径 | 空 | 否 |
@@ -479,6 +480,37 @@ WARDEN_URL=http://warden:8081
 
 ```bash
 WARDEN_API_KEY=your-warden-api-key-here
+```
+
+#### `WARDEN_HMAC_AUDIENCE`
+
+签名请求所面向的 Warden 实例名称。
+
+| 属性 | 值 |
+|------|-----|
+| **类型** | String |
+| **必需** | 否 |
+| **默认值** | 空（v2 签名） |
+
+**说明：**
+
+- 留空：发往 Warden 的请求仍按 v2 形式签名，与此前一致。
+- 已设置：请求按 v3 形式签名，签名内容包含该名称。为某个 Warden 实例签名的请求，在共用同一 HMAC 密钥的另一个实例上无效。
+- 需要同时配置 `WARDEN_HMAC_KEY_ID` 和 `WARDEN_HMAC_SECRET`。只设置 audience 而未配置这两项时，Stargate 拒绝启动。
+- 取值为 1 到 255 个可打印 ASCII 字符，不含空格和逗号。签名前会去除首尾空白并转换为小写；Warden 以相同方式规范化自己的列表。
+- Warden 实例必须在 `WARDEN_HMAC_AUDIENCES` 中列出相同的名称，并且版本为 1.8.0 或更高。更早的 Warden 不识别 v3 形式，会以 401 拒绝全部请求；未列出该名称的 Warden 1.8.0 同样返回 401。Stargate 不会回退到 v2。
+- 启用顺序：先将 Warden 升级到 1.8.0 或更高版本，在 `WARDEN_HMAC_AUDIENCES` 中加入该名称，再在 Stargate 上设置 `WARDEN_HMAC_AUDIENCE`。除非 Warden 设置了 `WARDEN_HMAC_REQUIRE_AUDIENCE=true`，否则它仍接受 v2，其余 v2 客户端在切换期间不受影响。
+
+**示例：**
+
+```bash
+# Stargate
+WARDEN_HMAC_KEY_ID=stargate
+WARDEN_HMAC_SECRET=your-hmac-secret
+WARDEN_HMAC_AUDIENCE=warden-prod
+
+# Warden（1.8.0 或更高版本）
+WARDEN_HMAC_AUDIENCES=warden-prod
 ```
 
 #### `WARDEN_CACHE_TTL`
