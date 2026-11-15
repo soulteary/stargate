@@ -40,7 +40,7 @@ Per maggiori dettagli, consulta la [versione inglese](../enUS/SECURITY.md).
 
 - Usa `COOKIE_SECURE=true` con HTTPS e limita `TRUSTED_PROXIES` agli indirizzi proxy conosciuti.
 - Configura `CALLBACK_ALLOWED_HOSTS`; i ticket tra domini richiedono un `SESSION_EXCHANGE_SECRET` di almeno 32 caratteri.
-- Per Warden e Herald, ID e segreto HMAC devono essere impostati insieme, così come certificato client mTLS e relativa chiave.
+- Per Warden, ID e segreto HMAC devono essere impostati insieme; per Herald l'ID è facoltativo. Per entrambi i servizi, certificato client mTLS e relativa chiave devono essere impostati insieme.
 - Consulta [CONFIG.md](CONFIG.md) per l'elenco sincronizzato delle variabili.
 
 ## Segnalazione di Vulnerabilità

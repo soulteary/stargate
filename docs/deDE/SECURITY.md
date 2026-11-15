@@ -40,7 +40,7 @@ Weitere Details finden Sie in der [englischen Version](../enUS/SECURITY.md).
 
 - Setzen Sie `COOKIE_SECURE=true` unter HTTPS und begrenzen Sie `TRUSTED_PROXIES` auf bekannte Proxy-Adressen.
 - Konfigurieren Sie `CALLBACK_ALLOWED_HOSTS`; für domänenübergreifende Tickets ist ein `SESSION_EXCHANGE_SECRET` mit mindestens 32 Zeichen erforderlich.
-- Bei Warden und Herald müssen HMAC-Schlüsselkennung und -Geheimnis sowie mTLS-Clientzertifikat und -schlüssel jeweils gemeinsam gesetzt werden.
+- Bei Warden müssen HMAC-Schlüsselkennung und -Geheimnis gemeinsam gesetzt werden; bei Herald ist die Schlüsselkennung optional. mTLS-Clientzertifikat und -schlüssel müssen bei beiden Diensten gemeinsam gesetzt werden.
 - Die vollständige, synchronisierte Variablenliste finden Sie in [CONFIG.md](CONFIG.md#sicherheits--und-integrationskonfiguration).
 
 ## Meldung von Sicherheitslücken
