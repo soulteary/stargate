@@ -951,6 +951,15 @@ TOTP 注册、确认、撤销和 step-up 操作会在执行前重新查询 Warde
 
 Warden 一侧必须运行 Warden 1.8.0 或更高版本，并在 `WARDEN_HMAC_AUDIENCES` 中列出相同的名称。更早的 Warden 会以 401 拒绝 v3 请求，未列出该名称的 Warden 也是如此；Stargate 不会回退到 v2，两侧配置一致之前所有目录查询都会失败。在 Warden 返回 401 期间，登录、`POST /_send_verify_code` 和会话刷新返回 `503 Service Unavailable`，而不是“用户不在允许列表中”；Stargate 会以 error 级别记录 Warden 拒绝了它自身的凭据。启用顺序：先升级 Warden，在 `WARDEN_HMAC_AUDIENCES` 中加入名称，再在 Stargate 上设置 `WARDEN_HMAC_AUDIENCE`。回滚时先清空 Stargate 的 `WARDEN_HMAC_AUDIENCE`。在该实例的所有客户端都使用 v3 签名之前，不要在 Warden 上设置 `WARDEN_HMAC_REQUIRE_AUDIENCE=true`。
 
+### Warden 服务端版本
+
+Stargate v1.5.0 使用 Warden SDK v1.8.0 构建。SDK 是编译进网关的客户端库，本身并不要求 Warden 服务端为同一版本。网关可与哪些 Warden 服务端版本配合取决于 `WARDEN_HMAC_AUDIENCE`，以下说明仅限于实际运行过的组合：
+
+- 设置了 `WARDEN_HMAC_AUDIENCE`（v3 签名）：需要 Warden 1.8.0 或更高版本。[完整部署示例](../../examples/full-stack/README.zhCN.md)运行带 audience 的 Warden 1.8.0，浏览器验收工作流使用从源码构建的网关在该部署上完成登录。带 audience 的 Stargate v1.5.0 也曾对接 Warden 1.7.0 运行：每次目录查询都被 401 拒绝。Warden 1.7.0 将 v3 形式视为未知的签名版本。
+- 未设置 `WARDEN_HMAC_AUDIENCE`（v2 签名，默认）：Stargate v1.5.0 曾对接 Warden 1.7.0 运行，登录正常。早于 1.7.0 的 Warden 版本未与 Stargate v1.5.0 一起运行过。
+
+手动触发的 Release compatibility 工作流不能作为当前版本的依据。其仓库内的默认清单 `.github/compatibility/manifests/baseline.json` 固定为 Stargate 1.3.3 与 Warden 1.6.1、Herald 1.4.3、herald-totp 2.0.2，运行的是这些已发布的二进制。它不运行 Stargate v1.5.0，因此不能说明 v1.5.0 可与 Warden 1.6.1 配合。
+
 
 ## 登录验证码绑定升级与回滚
 

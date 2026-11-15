@@ -6,6 +6,13 @@ application and uses no production credentials. A real Redis service retains the
 same state throughout the run. The separate harness-test workflow gates changes
 to the manifest parser and download boundaries on pull requests.
 
+The committed `manifests/baseline.json` pins Stargate 1.3.3 with Warden 1.6.1,
+Herald 1.4.3 and herald-totp 2.0.2. It is the default input of this workflow,
+not the compatibility statement for the current Stargate release: a run with
+it executes the Stargate 1.3.3 binary and none newer. Warden server versions
+for the current release are described under "Warden server versions" in
+`docs/enUS/DEPLOYMENT.md`.
+
 An empty `manifest_json` input selects `manifests/baseline.json`. For a full
 rollout, supply the same schema with `"mode":"upgrade"`, `old` and `new` tuples.
 Each tuple must contain exactly `warden`, `herald`, `totp`, and `gateway`. Each
