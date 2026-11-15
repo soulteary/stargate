@@ -4,6 +4,43 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Added
+
+- `stargate doctor` has a `warden.version` check. With `WARDEN_HMAC_AUDIENCE`
+  set, it reads the optional `warden_image` field of the manifest and fails
+  when the image tag names a Warden release older than 1.8.0, which refuses
+  v3 signatures. It reports `unknown` when the field is missing or the tag
+  does not determine the release, and it does not inspect the image that is
+  running. A manifest with an audience and no `warden_image` now exits 3
+  instead of 0. Earlier `stargate doctor` builds reject a manifest that
+  contains `warden_image`.
+
+### Changed
+
+- The full-stack example runs Herald 1.8.0 and generates
+  `HERALD_CODE_HASH_KEY`, so verification codes are stored in Redis as keyed
+  HMAC-SHA-256 digests. An existing example configuration keeps the Argon2
+  hash until the key is added to its `.env`.
+- Update the Go modules challenge-kit from v1.11.2 to v1.13.0 and herald
+  (client package `pkg/herald`) from v1.6.0 to v1.8.0. The Herald client code
+  is identical in both versions.
+
+### Fixed
+
+- When Warden rejects Stargate's API key or HMAC signature with HTTP 401,
+  `POST /_send_verify_code` answers `503` with reason `service_unavailable`
+  instead of `401 user_not_in_list`, and Stargate logs at error level that its
+  own Warden credentials were rejected and which settings to check. A 403 from
+  Warden is not distinguished, and an unreachable Warden or a 5xx answer is
+  still reported as `user_not_in_list` by this endpoint in the default mode.
+- Correct the translated guides (deDE, frFR, itIT, jaJP, koKR, and two rows in
+  zhCN) where they differed from enUS: the fixed 24-hour session lifetime,
+  `debug_code` only with `COOKIE_SECURE=false`, the `403` answer of `/_auth`
+  with `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY`, `Idempotency-Key` with uniform
+  responses, the `/log/level` checks, and two rows of the configuration table.
+- The deployment guide states which Warden server versions Stargate v1.5.0
+  has been run against, with and without `WARDEN_HMAC_AUDIENCE`.
+
 ## [1.5.0] - 2026-11-15
 
 ### Added
