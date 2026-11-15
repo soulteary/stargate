@@ -4,6 +4,27 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Added
+
+- Add `WARDEN_HMAC_AUDIENCE`. When set, Stargate signs requests to Warden in
+  the HMAC v3 form, which binds each signature to the named Warden instance,
+  so a request signed for one instance is not valid at another that shares the
+  key. It is empty by default, which keeps the v2 form. It requires
+  `WARDEN_HMAC_KEY_ID` and `WARDEN_HMAC_SECRET`; Stargate refuses to start
+  otherwise. Warden must be 1.8.0 or newer and list the same name in
+  `WARDEN_HMAC_AUDIENCES`. An older Warden, or one that does not list the
+  name, answers 401 and Stargate does not fall back to v2. Enable it on Warden
+  first, and clear it on Stargate first when rolling back.
+
+### Changed
+
+- Update the Warden SDK from v1.7.0 to v1.8.0. With `WARDEN_TLS_CA_CERT_FILE`,
+  `WARDEN_TLS_CLIENT_CERT_FILE` or `WARDEN_TLS_SERVER_NAME` set and
+  `WARDEN_SOURCE_MAX_AGE=0s`, requests to Warden now follow `HTTP_PROXY`,
+  `HTTPS_PROXY` and `NO_PROXY` of the Stargate process and use the default
+  dial and TLS handshake timeouts. If a proxy is configured and Warden must be
+  reached directly, add the Warden host to `NO_PROXY`.
+
 ## [1.4.0] - 2026-11-15
 
 ### Added
