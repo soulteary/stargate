@@ -1,7 +1,7 @@
 # Mail OTP and authenticator example
 
 This example builds Stargate from this checkout and connects the published Warden
-1.8.0, Herald 1.6.0 and herald-totp 2.0.4 services. It uses actual SMTP delivery, shared persistent
+1.8.0, Herald 1.8.0 and herald-totp 2.0.4 services. It uses actual SMTP delivery, shared persistent
 Redis, explicit HMAC key IDs and three independent service credentials. It does not expose a test-code endpoint. For a password-only
 local demo, use the [root quick start](../../README.md#-quick-start).
 
@@ -133,6 +133,35 @@ and the two values must stay equal. Rates, one-use consumption and strict
 delivery failure handling remain enabled. Directory snapshots are refreshed every
 15 seconds, expire after 60 seconds and are accepted by Stargate for at most
 90 seconds with a one-second clock allowance; keep clocks synchronized.
+
+### Verification code hash key
+
+`configure.py` generates `HERALD_CODE_HASH_KEY` (64 hexadecimal characters) in
+`.env`, and only the Herald container receives it. Herald 1.8.0 then stores each
+email code in Redis as an HMAC-SHA-256 digest under this key instead of an unkeyed
+Argon2 hash, so a copy of the Redis data cannot be searched for the code without
+the key. Herald requires at least 32 bytes and refuses to start with a shorter
+value. The herald-totp service does not receive the key. The protection holds only
+against a reader who has the Redis data and not `.env`: store `.env` backups
+apart from Redis backups where that distinction matters. Unlike the TOTP
+encryption key, losing this key loses no stored credential; it only refuses
+codes that are outstanding at that moment.
+
+A configuration generated before this key existed is not rewritten and has no
+`HERALD_CODE_HASH_KEY`. It keeps working: Herald 1.8.0 receives an empty value and
+stores codes with Argon2 as before. To enable the key there, generate one with
+`openssl rand -hex 32`, add `HERALD_CODE_HASH_KEY="<value>"` to the existing
+private `.env` and recreate Herald (`docker compose up -d herald`). Do not reuse
+another secret and do not change any other line. Codes sent before the restart
+still verify.
+
+Changing or removing the key, or returning to a Herald image older than 1.8.0
+(which ignores the variable), makes Herald answer the correct code of a challenge
+created under the key as a wrong code, using up an attempt, until that challenge
+expires (Herald's `CHALLENGE_EXPIRY`, 5 minutes by default); the user must request a new code. To avoid
+this, first run Herald with `HERALD_CODE_HASH_VERIFY_ONLY=true` for that long,
+which this example does not set; see "Verification code hash key" in Herald's
+`docs/enUS/DEPLOYMENT.md`. No Redis data needs to be changed in either direction.
 
 ## Production template
 

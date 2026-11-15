@@ -100,7 +100,7 @@ services:
       retries: 12
       start_period: 10s
     labels: {traefik.enable: 'false'}
-    image: ghcr.io/soulteary/herald:1.6.0@sha256:f2ca281f15d43be1bd5a1304fb7db535c4f53b00fc343162476343dbd3f04dee
+    image: ghcr.io/soulteary/herald:1.8.0@sha256:b9c7d091656d73d18771556742640a325bbf9afea70618dcbd158a2bbc3fc514
     environment:
       PORT: ':8082'
       ENVIRONMENT: production
@@ -112,6 +112,8 @@ services:
       HERALD_HMAC_KEYS: '{"stargate-otp":"${STARGATE_HERALD_HMAC:?run configure.py first}"}'
       HERALD_IDEMPOTENCY_SECRET: ${HERALD_IDEMPOTENCY_SECRET:?run configure.py first}
       HERALD_PII_PEPPER: ${HERALD_PII_PEPPER:?run configure.py first}
+      # Empty for a configuration generated before Herald 1.8.0: codes then keep the unkeyed Argon2 hash (see README).
+      HERALD_CODE_HASH_KEY: ${HERALD_CODE_HASH_KEY:-}
       REDIS_ADDR: redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:?run configure.py first}
       PROVIDER_FAILURE_POLICY: strict

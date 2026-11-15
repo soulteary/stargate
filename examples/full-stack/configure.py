@@ -15,7 +15,8 @@ from certificates import generate as generate_smtp_certificates
 
 HERE = Path(__file__).resolve().parent
 SECRET_KEYS = ('SESSION_EXCHANGE_SECRET', 'STARGATE_WARDEN_HMAC', 'STARGATE_HERALD_HMAC',
-               'HERALD_TOTP_HMAC', 'HERALD_IDEMPOTENCY_SECRET', 'HERALD_PII_PEPPER', 'REDIS_PASSWORD')
+               'HERALD_TOTP_HMAC', 'HERALD_IDEMPOTENCY_SECRET', 'HERALD_PII_PEPPER', 'HERALD_CODE_HASH_KEY',
+               'REDIS_PASSWORD')
 
 
 def hostname(value):

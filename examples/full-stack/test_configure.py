@@ -34,6 +34,10 @@ class ConfigurationTests(unittest.TestCase):
         result.update(values)
         return argparse.Namespace(**result)
 
+    def generated(self, key):
+        lines = (self.output / '.env').read_text().splitlines()
+        return config.generated_dotenv_value(next(line for line in lines if line.startswith(key + '=')).split('=', 1)[1])
+
     def test_local_delivery_and_nondefault_authorities(self):
         self.assertTrue(config.configure(self.args(), {}))
         text = (self.output / '.env').read_text()
@@ -136,6 +140,18 @@ class ConfigurationTests(unittest.TestCase):
         values = dict(line.split('=', 1) for line in text.splitlines())
         self.assertEqual(len(set(values[key] for key in config.SECRET_KEYS)), len(config.SECRET_KEYS))
         self.assertEqual(len(values['TOTP_ENCRYPTION_KEY'][1:-1].encode()), 32)
+
+    def test_herald_code_hash_key_is_generated_and_passed_to_herald(self):
+        config.configure(self.args(), {})
+        # Herald 1.8.0 refuses to start with a key shorter than 32 bytes.
+        key = self.generated('HERALD_CODE_HASH_KEY')
+        self.assertGreaterEqual(len(key.encode()), 32)
+        self.assertRegex(key, r'^[0-9a-f]{64}$')
+        compose = (config.HERE / 'compose.yml').read_text()
+        self.assertEqual(compose.count('HERALD_CODE_HASH_KEY: ${HERALD_CODE_HASH_KEY:-}\n'), 1)
+        self.assertIn('image: ghcr.io/soulteary/herald:1.8.0@sha256:b9c7d091656d73d18771556742640a325bbf9afea70618dcbd158a2bbc3fc514\n', compose)
+        for override in ['compose.local.yml', 'compose.production.yml', 'compose.totp-production.yml']:
+            self.assertNotIn('HERALD_CODE_HASH', (config.HERE / override).read_text())
 
     def test_default_ports_have_no_authority_suffix(self):
         self.assertEqual(config.authority('auth.example.test', 80, 80), 'auth.example.test')
@@ -257,7 +273,7 @@ class ConfigurationTests(unittest.TestCase):
             services = rendered['services']
             self.assertTrue(all(service.get('labels', {}).get('traefik.enable') == 'false' for service in services.values()))
             self.assertFalse(any('docker.sock' in str(volume) for service in services.values() for volume in service.get('volumes', [])))
-            self.assertEqual(services['herald']['image'], 'ghcr.io/soulteary/herald:1.6.0@sha256:f2ca281f15d43be1bd5a1304fb7db535c4f53b00fc343162476343dbd3f04dee')
+            self.assertEqual(services['herald']['image'], 'ghcr.io/soulteary/herald:1.8.0@sha256:b9c7d091656d73d18771556742640a325bbf9afea70618dcbd158a2bbc3fc514')
             self.assertEqual(services['warden']['image'], 'ghcr.io/soulteary/warden:1.8.0@sha256:3bcec4df695cdb7ee8951e6a0ea378d45b9342df76f46cfa702db6e1c4f2608e')
             self.assertEqual(services['stargate']['image'], 'stargate-example-stargate:local')
             self.assertEqual(Path(services['stargate']['build']['context']), config.HERE.parents[1])
@@ -282,6 +298,27 @@ class ConfigurationTests(unittest.TestCase):
             self.assertEqual(services['warden']['environment']['WARDEN_HMAC_AUDIENCES'], gateway['WARDEN_HMAC_AUDIENCE'])
             self.assertEqual(json.loads(services['herald']['environment']['HERALD_HMAC_KEYS'])['stargate-otp'], gateway['HERALD_HMAC_SECRET'])
             self.assertEqual(services['herald']['environment']['HERALD_TOTP_HMAC_KEY_ID'], 'herald-totp')
+            # Herald receives the generated key itself, and no other service does.
+            self.assertEqual(services['herald']['environment']['HERALD_CODE_HASH_KEY'], self.generated('HERALD_CODE_HASH_KEY'))
+            self.assertFalse(any('HERALD_CODE_HASH_KEY' in service.get('environment', {})
+                                 for name, service in services.items() if name != 'herald'))
+
+    def test_configuration_without_code_hash_key_still_renders(self):
+        if not shutil.which('docker'):
+            self.skipTest('Docker Compose CLI is unavailable; CI supplies it')
+        # A configuration generated before Herald 1.8.0 has no key and is never rewritten.
+        config.configure(self.args(), {})
+        private = self.output / '.env'
+        lines = private.read_text().splitlines(keepends=True)
+        private.write_text(''.join(line for line in lines if not line.startswith('HERALD_CODE_HASH_KEY=')))
+        self.assertFalse(config.configure(self.args(), {}))
+        self.assertNotIn('HERALD_CODE_HASH_KEY', private.read_text())
+        env = {key: os.environ[key] for key in ['PATH', 'HOME', 'DOCKER_CONFIG'] if key in os.environ}
+        command = subprocess.run(['docker', 'compose', 'config', '--format', 'json'],
+                                 cwd=self.output, env=env, capture_output=True, timeout=30)
+        self.assertEqual(command.returncode, 0, 'Compose configuration rendering failed')
+        # Empty selects Herald's unkeyed Argon2 hash, as before the upgrade.
+        self.assertEqual(json.loads(command.stdout)['services']['herald']['environment']['HERALD_CODE_HASH_KEY'], '')
 
     def test_cli_does_not_print_generated_credentials(self):
         output = io.StringIO()
