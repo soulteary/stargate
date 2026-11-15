@@ -311,8 +311,8 @@ def main():
         if not re.fullmatch(r'[0-9a-f]{40}', os.environ.get(key, '')):
             raise ValueError('Exact source commit required')
     image = os.environ.get('HERALD_IMAGE', '')
-    if image != 'ghcr.io/soulteary/herald@sha256:f2ca281f15d43be1bd5a1304fb7db535c4f53b00fc343162476343dbd3f04dee':
-        raise ValueError('The verified Herald v1.6.0 image is required')
+    if image != 'ghcr.io/soulteary/herald@sha256:b9c7d091656d73d18771556742640a325bbf9afea70618dcbd158a2bbc3fc514':
+        raise ValueError('The verified Herald v1.8.0 image is required')
     DEADLINE = time.monotonic() + 900
     PROJECT = 'tls-browser-' + secrets.token_hex(6)
     STATE = Path(os.environ['RUNNER_TEMP']) / PROJECT
