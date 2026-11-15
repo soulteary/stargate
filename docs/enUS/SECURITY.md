@@ -256,8 +256,10 @@ What is covered:
 - Herald's own answers (resend cooldown, per-user and per-destination limits,
   locked user, outage) and the `Idempotency-Key` behavior, which are not
   passed on.
-- The debug verification code: `debug_code` is never returned in this mode,
-  also with `DEBUG=true` and `COOKIE_SECURE=false`.
+- The debug verification code: `POST /_send_verify_code` and `POST /_login`
+  never return `debug_code` in this mode, also with `DEBUG=true` and
+  `COOKIE_SECURE=false`. `POST /_send_reauth_code`, which needs a session, is
+  not part of this mode and still relays it under those two conditions.
 - The fallback from `phone` to `mail`. The default mode consults `mail` when
   the `phone` of the same request is not listed. With identical responses the
   fallback would still show the owner of one listed mail address whether a
