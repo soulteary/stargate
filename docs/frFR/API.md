@@ -310,7 +310,7 @@ Le gestionnaire accepte également `phone` + `mail` dans la même requête d'env
 | `400 Bad Request` | Paramètres de requête invalides (phone ou mail manquant) | Message d'erreur |
 | `401 Unauthorized` | Utilisateur absent de Warden ou inactif | Erreur JSON avec `success=false` |
 | `429 Too Many Requests` | Limite de débit déclenchée | Message d'erreur |
-| `503 Service Unavailable` | Client ou service Herald indisponible ; ou, avec reason `service_unavailable`, Warden a refusé la clé API ou la signature HMAC de Stargate lui-même (HTTP 401 de Warden). Aucun code n'est envoyé ; la présence de l'utilisateur dans la liste d'autorisation est inconnue | Erreur JSON avec `success=false` |
+| `503 Service Unavailable` | Client ou service Herald indisponible ; ou, avec reason `service_unavailable`, la requête à Warden a elle-même échoué : Warden a refusé la clé API ou la signature HMAC de Stargate lui-même (HTTP 401 de Warden), a refusé cette instance de Stargate (HTTP 403 de Warden : son `IP_WHITELIST` ou ses `WARDEN_SERVICE_POLICIES`), a répondu 429 ou une erreur serveur, ou n'a pas pu être joint. Aucun code n'est envoyé ; la présence de l'utilisateur dans la liste d'autorisation est inconnue | Erreur JSON avec `success=false` |
 | `500 Internal Server Error` | Autre erreur du fournisseur lors de l'envoi | Erreur JSON avec `success=false` |
 
 #### Exemples

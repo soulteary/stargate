@@ -27,7 +27,7 @@ require (
 	github.com/soulteary/session-kit/v3 v3.2.2
 	github.com/soulteary/tracing-kit/v2 v2.0.4
 	github.com/soulteary/version-kit/v4 v4.0.5
-	github.com/soulteary/warden v1.8.0
+	github.com/soulteary/warden v1.9.0
 	github.com/stretchr/testify v1.12.1
 	github.com/valyala/fasthttp v1.78.0
 	go.opentelemetry.io/otel v1.47.0

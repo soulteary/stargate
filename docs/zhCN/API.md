@@ -326,7 +326,7 @@ TOTP 分支直接提交 `use_otp=true` 和 `otp_code`，不需要预先调用 `P
 | `400 Bad Request` | 请求参数错误（缺少 phone 或 mail） | 错误消息 |
 | `401 Unauthorized` | Warden 中不存在该用户或用户不是活跃状态 | `success=false` 的 JSON 错误 |
 | `429 Too Many Requests` | 触发限流 | 错误消息 |
-| `503 Service Unavailable` | Herald 客户端未初始化或服务不可用；或者 Warden 拒绝了 Stargate 自身的 API 密钥或 HMAC 签名（Warden 返回 401，reason 为 `service_unavailable`）。此时不发送验证码，用户是否在允许列表中未知 | `success=false` 的 JSON 错误 |
+| `503 Service Unavailable` | Herald 客户端未初始化或服务不可用；或者 Warden 查询本身失败（reason 为 `service_unavailable`）：Warden 拒绝了 Stargate 自身的 API 密钥或 HMAC 签名（Warden 返回 401），拒绝了该 Stargate 实例（Warden 返回 403：其 `IP_WHITELIST` 或 `WARDEN_SERVICE_POLICIES`），返回 429 或服务器错误，或者无法访问。此时不发送验证码，用户是否在允许列表中未知 | `success=false` 的 JSON 错误 |
 | `500 Internal Server Error` | Herald 因其他提供商错误拒绝发送 | `success=false` 的 JSON 错误 |
 
 #### 统一响应

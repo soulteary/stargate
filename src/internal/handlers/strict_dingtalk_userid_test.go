@@ -85,7 +85,9 @@ func TestStrictDingtalkCreationHTTP(t *testing.T) {
 		{name: "inactive rejects", status: "inactive", mapping: "Ding-A_Z9", channel: "dingtalk", want: 401},
 		{name: "suspended rejects", status: "suspended", mapping: "Ding-A_Z9", channel: "dingtalk", want: 401},
 		{name: "missing rejects", missing: true, channel: "dingtalk", want: 401},
-		{name: "source unavailable keeps native refusal", unavailable: true, channel: "dingtalk", want: 401},
+		// A directory that cannot be asked is not an allow-list miss: the send
+		// answers 503 like the login below, and still creates no challenge.
+		{name: "source unavailable is not reported as unlisted", unavailable: true, channel: "dingtalk", want: 503},
 		{name: "SMS profile off", status: "active", mapping: "Ding-A_Z9", channel: "sms", want: 400},
 		{name: "email profile off", status: "active", mapping: "Ding-A_Z9", channel: "email", want: 400},
 		{name: "blank profile no fallback", status: "active", mapping: "Ding-A_Z9", want: 400},
