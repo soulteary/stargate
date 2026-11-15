@@ -4,8 +4,23 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Changed
+
+- Update the Warden SDK from v1.8.0 to v1.9.0, the Herald SDK from v1.8.0 to
+  v1.9.0 and challenge-kit from v1.13.0 to v1.14.0. No setting is added or
+  removed.
+
 ### Fixed
 
+- `POST /_send_verify_code` in default mode answers `503` with reason
+  `service_unavailable` instead of `401 user_not_in_list` when the Warden
+  lookup itself fails: Warden answers 403, 429, a server error or an unusable
+  body, cannot be reached, or is disabled. Such a failure is no longer logged
+  as a user missing from Warden; one warn-level line names the failure class
+  and carries no user identifier. A user that Warden reports as absent or
+  inactive still gets `401 user_not_in_list`.
+- A 403 from Warden is logged at error level with the Warden settings to check
+  (`IP_WHITELIST`, `WARDEN_SERVICE_POLICIES`).
 - Correct statements in the guides that contradicted the code, among them the
   release that introduced `stargate doctor` (v1.3.6) and when `PASSWORDS` is
   required, and repair links to headings whose emoji carries a variation
