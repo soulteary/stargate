@@ -50,6 +50,7 @@ type fakeHerald struct {
 	statusFails bool
 	challenges  map[string]*fakeHeraldChallenge
 	calls       map[string]int
+	sequence    []string
 }
 
 func newFakeHerald(t *testing.T) *fakeHerald {
@@ -74,6 +75,7 @@ func (f *fakeHerald) serve(w http.ResponseWriter, r *http.Request) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.calls[r.URL.Path]++
+	f.sequence = append(f.sequence, r.URL.Path)
 	var body map[string]string
 	_ = json.NewDecoder(r.Body).Decode(&body)
 	w.Header().Set("Content-Type", "application/json")
@@ -120,6 +122,13 @@ func (f *fakeHerald) count(path string) int {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.calls[path]
+}
+
+// requests returns the paths requested so far, in order.
+func (f *fakeHerald) requests() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.sequence...)
 }
 
 func (f *fakeHerald) challenge(id string) fakeHeraldChallenge {

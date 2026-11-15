@@ -75,15 +75,16 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 		// factor, and neither is a proof given for step-up, for removing TOTP
 		// or to an earlier start request: this request must carry the user's
 		// own proof. Nothing stored in the session replaces it.
-		if failure := reauthenticate(ctx, sess); failure != nil {
+		selection, failure := reauthenticateSelected(ctx, sess)
+		if failure != nil {
 			if failure == reauthFailed {
 				auditlog.LogTOTPChange(ctx.Context(), userID, auditlog.TOTPActionEnrolled, ctx.IP(), false, "reauthentication_failed")
 			}
 			return SendErrorResponse(ctx, failure.status, failure.message)
 		}
 		// The proof is used up here. An enrollment started earlier is dropped,
-		// and when a call to Herald below fails the session keeps nothing that
-		// a later request could start or confirm an enrollment with.
+		// and when the call to Herald below fails the session keeps nothing
+		// that a later request could start or confirm an enrollment with.
 		clearTOTPEnrollment(sess)
 		discardEnrollmentProof(sess)
 		if err := saveLiveSession(ctx.Context(), store, sess); err != nil {
@@ -101,13 +102,22 @@ func TOTPEnrollRoute(store *session.Store) func(c fiber.Ctx) error {
 		if client == nil {
 			return SendErrorResponse(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable"))
 		}
-		// If already bound TOTP, redirect to revoke page
-		statusResp, err := client.TOTPStatus(ctx.Context(), userID)
-		if err != nil {
-			log.Warn().Err(err).Str("user_id", userID).Msg("TOTP status check failed")
-			return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP status check failed")
+		// A user who already has TOTP goes to the revoke page. Herald reported
+		// the status when the proof was chosen, before the proof was verified:
+		// the proof was a TOTP code exactly when TOTP is enrolled. The status
+		// is not requested again, so that only the start below can fail after
+		// a delivered code was used up. Only with HERALD_TOTP_ENABLED=false,
+		// where the proof is chosen without the status, is it requested here.
+		alreadyEnrolled := selection.proof == reauthProofTOTP
+		if !selection.totpStatusKnown {
+			statusResp, err := client.TOTPStatus(ctx.Context(), userID)
+			if err != nil {
+				log.Warn().Err(err).Str("user_id", userID).Msg("TOTP status check failed")
+				return SendErrorResponse(ctx, fiber.StatusBadGateway, "TOTP status check failed")
+			}
+			alreadyEnrolled = statusResp.TotpEnabled
 		}
-		if statusResp.TotpEnabled {
+		if alreadyEnrolled {
 			return ctx.Redirect().Status(fiber.StatusFound).To("/totp/revoke")
 		}
 		startResp, err := client.TOTPEnrollStart(ctx.Context(), &herald.TOTPEnrollStartRequest{

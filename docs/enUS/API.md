@@ -496,7 +496,9 @@ A proof counts for the request that carries it and for nothing else. Step-up, TO
 
 `POST /totp/enroll` accepts no stored proof. When that request starts an enrollment, it records the time in the session as `totp_enroll_proof_at`, together with the enrollment. The record allows that enrollment to be confirmed for 5 minutes and nothing else: it starts no enrollment.
 
-If Herald fails after the proof was accepted (the TOTP status request or the enrollment start returns an error, `502 Bad Gateway`), the session keeps nothing from that request, and an enrollment started earlier in the session can no longer be confirmed. A delivered code is used up by then. The user must request a new code with `POST /_send_reauth_code` and submit it again; Stargate's `RATE_LIMIT_VERIFICATION_MAX` quota and Herald's resend cooldown and limits apply to that request, so the user may have to wait before a new code is sent.
+Herald's TOTP status is read once, to choose the proof, before the proof is verified. If that request fails, the response is `502 Bad Gateway` and a delivered code is not used up: the same code can be submitted again. After the proof was accepted, `POST /totp/enroll` makes one request to Herald, the enrollment start. Only with `HERALD_TOTP_ENABLED=false`, where the proof is chosen without the TOTP status, is the status requested after the proof, before the start.
+
+If Herald fails after the proof was accepted (the enrollment start or, with `HERALD_TOTP_ENABLED=false`, the TOTP status request returns an error, `502 Bad Gateway`), the session keeps nothing from that request, and an enrollment started earlier in the session can no longer be confirmed. A delivered code is used up by then. The user must request a new code with `POST /_send_reauth_code` and submit it again; Stargate's `RATE_LIMIT_VERIFICATION_MAX` quota and Herald's resend cooldown and limits apply to that request, so the user may have to wait before a new code is sent.
 
 ### `POST /_send_reauth_code`
 
