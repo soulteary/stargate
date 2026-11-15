@@ -1,13 +1,41 @@
 # Real Chromium acceptance
 
-Dispatch `Real browser acceptance` with reviewed full 40-character
-`fullstack_ref` and `gateway_ref` commits and an independently verified canonical
-Herald image digest. The verified image is Herald 1.6.0; the HTTPS profile accepts
-only that digest. Retry metadata (Herald 1.5.0 or later) and a gateway consuming
-its metadata SDK are required for the known cooldown timing assertion. Do not
-substitute mutable tags.
-The workflow source is the selected dispatch ref; results also bind both built
-checkout identities. It builds a local gateway image, not a published artifact.
+The `Real browser acceptance` workflow runs on a pull request and on manual
+dispatch. It builds a local gateway image from source, not a published artifact,
+and the report records the harness commit and both product commits it built.
+
+On a pull request the product under test is the pull request itself:
+`fullstack_ref` and `gateway_ref` default to the commit the run is for
+(`github.sha`, the merge commit of the pull request with its base, the same
+commit the harness is checked out from). The workflow holds no fixed product
+commit. It runs when a pull request changes
+
+- the harness or the workflow: `.github/browser/**`,
+  `.github/workflows/browser-acceptance.yml`;
+- what the gateway image is built from: `src/**` except `*_test.go`, `go.mod`,
+  `go.sum`, `docker/Dockerfile`, `.dockerignore`;
+- the deployment the scenario starts: `examples/full-stack/**` except its
+  Markdown files.
+
+A pull request that changes none of these does not run it. A newer push to the
+same pull request cancels the run in progress.
+
+On manual dispatch both refs are optional and default to the dispatched commit.
+To test other sources, give full 40-character commits; `validate_inputs.py`
+refuses anything else before a checkout or a shell command uses the value. The
+harness always comes from the dispatched ref. The Herald image stays pinned: give
+the independently verified canonical digest of Herald 1.6.0; the HTTPS profile
+accepts only that digest. Retry metadata (Herald 1.5.0 or later) and a gateway
+consuming its metadata SDK are required for the known cooldown timing assertion.
+Do not substitute mutable tags. When `examples/full-stack` moves to another
+Herald release, the digest in the workflow and in `production_tls.py` must move
+with it.
+
+The workflow uses the `pull_request` event with `contents: read` and no secrets,
+so a pull request from a fork runs it with a read-only token. It needs a
+GitHub-hosted Linux runner with Docker and `sudo` (loopback host names, a private
+test CA in the system and Chromium trust stores). The three jobs run one after
+another and take about nine minutes together.
 
 The reviewed full-stack configuration provisions a private SMTP test CA and a
 Mailpit certificate with verified hostname; STARTTLS remains required. The CA is
@@ -91,11 +119,10 @@ Exact CDP response-body unavailability is reported separately: login POST200 plu
 actual protected-app response and ForwardAuth identity are required; unread JSON
 is never described as `success=true`. Other response errors fail.
 
-This is repeatable controlled acceptance, not automatic regression coverage of
-all future UI changes. Pull requests trigger only for harness/workflow paths;
-manual dispatch selects exact reviewed product commits. The report records the
-actual harness and product sources. Fixed default refs remain reproducible
-reviewed snapshots and do not mean that every current-main product change ran.
+This is controlled acceptance of the flows described above, not regression
+coverage of every UI change: it covers what the scenario drives and nothing
+else. A product change is exercised when its pull request touches one of the
+paths listed at the top; the report names the commits that were built.
 These profiles do not prove external email delivery, Safari, Firefox, iOS or
 Android behavior.
 

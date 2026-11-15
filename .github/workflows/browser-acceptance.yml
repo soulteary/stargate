@@ -4,15 +4,27 @@ on:
     paths:
       - ".github/browser/**"
       - ".github/workflows/browser-acceptance.yml"
+      # What the scenario builds and drives: the gateway image (docker/Dockerfile
+      # over the Go sources, templates and assets that .dockerignore admits) and
+      # the full-stack generator and Compose files. Test files and the example's
+      # documentation are in neither.
+      - "src/**"
+      - "!src/**/*_test.go"
+      - "go.mod"
+      - "go.sum"
+      - "docker/Dockerfile"
+      - ".dockerignore"
+      - "examples/full-stack/**"
+      - "!examples/full-stack/**/*.md"
   workflow_dispatch:
     inputs:
       fullstack_ref:
-        description: Full 40-character reviewed full-stack source commit
-        required: true
+        description: Full 40-character full-stack source commit (default, the dispatched commit)
+        required: false
         type: string
       gateway_ref:
-        description: Full 40-character reviewed gateway source commit
-        required: true
+        description: Full 40-character gateway source commit (default, the dispatched commit)
+        required: false
         type: string
       herald_image:
         description: Verified Herald 1.6.0 image canonical digest (retry metadata requires 1.5.0 or later)
@@ -20,9 +32,17 @@ on:
         type: string
 permissions:
   contents: read
+# A newer push to the same pull request replaces the run in progress. Each
+# profile owns its stack on a runner that is discarded with the run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 env:
-  FULLSTACK_REF: ${{ inputs.fullstack_ref || '061abe6a19f0c9a4f529a5077e9904c910defe09' }}
-  GATEWAY_REF: ${{ inputs.gateway_ref || '061abe6a19f0c9a4f529a5077e9904c910defe09' }}
+  # The product under test is the commit this run is for: the merge commit of
+  # the pull request (the one the first checkout below uses), or the dispatched
+  # commit. A dispatch may name other commits. No product commit is fixed here.
+  FULLSTACK_REF: ${{ inputs.fullstack_ref || github.sha }}
+  GATEWAY_REF: ${{ inputs.gateway_ref || github.sha }}
   HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:f2ca281f15d43be1bd5a1304fb7db535c4f53b00fc343162476343dbd3f04dee' }}
 jobs:
   chromium:
