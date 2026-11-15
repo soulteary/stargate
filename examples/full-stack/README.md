@@ -1,7 +1,7 @@
 # Mail OTP and authenticator example
 
 This example builds Stargate from this checkout and connects the published Warden
-1.8.0, Herald 1.8.0 and herald-totp 2.0.4 services. It uses actual SMTP delivery, shared persistent
+1.8.0, Herald 1.9.0 and herald-totp 2.0.4 services. It uses actual SMTP delivery, shared persistent
 Redis, explicit HMAC key IDs and three independent service credentials. It does not expose a test-code endpoint. For a password-only
 local demo, use the [root quick start](../../README.md#-quick-start).
 
@@ -137,7 +137,7 @@ delivery failure handling remain enabled. Directory snapshots are refreshed ever
 ### Verification code hash key
 
 `configure.py` generates `HERALD_CODE_HASH_KEY` (64 hexadecimal characters) in
-`.env`, and only the Herald container receives it. Herald 1.8.0 then stores each
+`.env`, and only the Herald container receives it. Herald then stores each
 email code in Redis as an HMAC-SHA-256 digest under this key instead of an unkeyed
 Argon2 hash, so a copy of the Redis data cannot be searched for the code without
 the key. Herald requires at least 32 bytes and refuses to start with a shorter
@@ -148,7 +148,7 @@ encryption key, losing this key loses no stored credential; it only refuses
 codes that are outstanding at that moment.
 
 A configuration generated before this key existed is not rewritten and has no
-`HERALD_CODE_HASH_KEY`. It keeps working: Herald 1.8.0 receives an empty value and
+`HERALD_CODE_HASH_KEY`. It keeps working: Herald receives an empty value and
 stores codes with Argon2 as before. To enable the key there, generate one with
 `openssl rand -hex 32`, add `HERALD_CODE_HASH_KEY="<value>"` to the existing
 private `.env` and recreate Herald (`docker compose up -d herald`). Do not reuse
