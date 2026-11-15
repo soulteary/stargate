@@ -152,6 +152,10 @@ func TestForwardAuthRechecksSourceDeadlineBeforeEmittingIdentity(t *testing.T) {
 	previousMax, previousNow := config.WardenSourceMaxAge.Value, authorizationNow
 	t.Cleanup(func() { config.WardenSourceMaxAge.Value = previousMax; authorizationNow = previousNow })
 	config.WardenSourceMaxAge.Value = "90s"
+	// setupRefreshTest sets a 1s interval, which is measured on the real clock
+	// against auth_refreshed_at in whole seconds. Keep the interval refresh out
+	// of this test so that only the source deadline decides the outcome.
+	config.AuthRefreshInterval.Value = "5m"
 	InitForwardAuthHandler(testLogger())
 	store := setupTestStore()
 	ctx, app := createTestContext("GET", "/_auth", map[string]string{"Accept": "application/json"}, "")
