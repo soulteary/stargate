@@ -105,6 +105,7 @@ export COOKIE_DOMAIN=.example.com
 ```bash
 export WARDEN_ENABLED=true
 export WARDEN_URL=https://warden:8080
+export WARDEN_HMAC_KEY_ID=stargate
 export WARDEN_HMAC_SECRET=your-secret-key
 
 export HERALD_ENABLED=true
@@ -112,7 +113,9 @@ export HERALD_URL=https://herald:8082
 export HERALD_HMAC_SECRET=your-secret-key
 ```
 
-Warden 的 HMAC 签名需要同时配置 `WARDEN_HMAC_KEY_ID` 和 `WARDEN_HMAC_SECRET`。如需将签名绑定到某一个 Warden 实例，还应将 `WARDEN_HMAC_AUDIENCE` 设置为该 Warden 实例在 `WARDEN_HMAC_AUDIENCES` 中列出的名称。此时 Stargate 以 v3 形式签名，为该实例签名的请求在共用同一密钥的另一个实例上无效。此功能要求 Warden 1.8.0 或更高版本；更早的 Warden 会拒绝 v3 请求。参见 [CONFIG.md](CONFIG.md#warden_hmac_audience)。
+`WARDEN_HMAC_KEY_ID` 和 `WARDEN_HMAC_SECRET` 必须同时配置，并与 Warden 的 `WARDEN_HMAC_KEYS` 中的一项一致；只设置其中一项时，Stargate 拒绝启动。`HERALD_HMAC_KEY_ID` 为可选项：Herald 没有有效的默认 Key ID 时需要设置。
+
+如需将签名绑定到某一个 Warden 实例，还应将 `WARDEN_HMAC_AUDIENCE` 设置为该 Warden 实例在 `WARDEN_HMAC_AUDIENCES` 中列出的名称。此时 Stargate 以 v3 形式签名，为该实例签名的请求在共用同一密钥的另一个实例上无效。此功能要求 Warden 1.8.0 或更高版本；更早的 Warden 会拒绝 v3 请求。参见 [CONFIG.md](CONFIG.md#warden_hmac_audience)。
 
 ## API 安全
 

@@ -40,7 +40,7 @@ Stargate를 `DEBUG=false`로 설정하고 Herald의 `HERALD_TEST_MODE`를 비활
 
 - HTTPS에서는 `COOKIE_SECURE=true`를 사용하고 `TRUSTED_PROXIES`를 알려진 프록시 주소로 제한합니다.
 - `CALLBACK_ALLOWED_HOSTS`를 구성하고, 도메인 간 티켓에는 32자 이상의 `SESSION_EXCHANGE_SECRET`를 사용합니다.
-- Warden과 Herald에서는 HMAC 키 ID와 비밀, mTLS 클라이언트 인증서와 키를 각각 함께 설정해야 합니다.
+- Warden에서는 HMAC 키 ID와 비밀을 함께 설정해야 합니다. Herald에서는 키 ID가 선택 사항입니다. 두 서비스 모두 mTLS 클라이언트 인증서와 키를 함께 설정해야 합니다.
 - 동기화된 전체 변수 목록은 [CONFIG.md](CONFIG.md)를 참조하세요.
 
 ## 취약점 보고
