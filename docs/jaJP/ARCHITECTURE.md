@@ -30,6 +30,8 @@ src/
 │   ├── handlers/          # HTTP リクエストハンドラー（forwardAuth、ログイン、ログアウト、確認コード、TOTP 等）
 │   ├── i18n/              # 国際化サポート
 │   ├── metrics/           # Prometheus メトリクス
+│   ├── requestcontext/    # リクエストの期限とキャンセル
+│   ├── tlsconfig/         # サービスクライアント共通の TLS 設定
 │   ├── tracing/           # OpenTelemetry トレーシングミドルウェア
 │   └── web/               # Web リソースと HTML テンプレート
 ```

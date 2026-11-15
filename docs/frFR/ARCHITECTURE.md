@@ -30,6 +30,8 @@ src/
 │   ├── handlers/          # Gestionnaires de requêtes HTTP (forwardAuth, login, logout, code de vérification, TOTP, etc.)
 │   ├── i18n/              # Support d'internationalisation
 │   ├── metrics/           # Métriques Prometheus
+│   ├── requestcontext/    # Échéances et annulation des requêtes
+│   ├── tlsconfig/         # Configuration TLS partagée des clients de service
 │   ├── tracing/           # Middleware de traçage OpenTelemetry
 │   └── web/               # Ressources Web et templates HTML
 ```

@@ -300,7 +300,7 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `COOKIE_SECURE` | true/false | true | Attribut Secure des cookies de session |
 | `CALLBACK_ALLOWED_HOSTS` | liste d'hôtes | vide | Destinations de redirection autorisées |
 | `SESSION_EXCHANGE_SECRET` | secret, 32 caractères min. | vide | Signe les tickets inter-domaines à courte durée |
-| `SESSION_EXCHANGE_REDIRECT_PATH` | Chemin | `/` | Non |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | Chemin | `/` | Chemin de destination après un échange de session validé |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Active l'en-tête de mot de passe historique de confiance |
 | `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | Refuse les requêtes `Stargate-Password` qui n'arrivent pas par un proxy de `TRUSTED_PROXIES` fournissant l'adresse du client |
 | `LOG_LEVEL` | debug/info/warn/error | info | Niveau de journalisation initial |
@@ -312,7 +312,7 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `WARDEN_API_KEY` | secret | vide | Authentification par clé API |
 | `WARDEN_HMAC_KEY_ID` | chaîne | vide | Identifiant de clé HMAC |
 | `WARDEN_HMAC_SECRET` | secret | vide | Secret de signature HMAC |
-| `WARDEN_HMAC_AUDIENCE` | chaîne | vide | Nom de l'instance Warden auquel la signature HMAC est liée (v3) ; doit figurer dans `WARDEN_HMAC_AUDIENCES` côté Warden, nécessite Warden >= 1.8.0 ; vide = v2 |
+| `WARDEN_HMAC_AUDIENCE` | chaîne (1 à 255 caractères ASCII imprimables, sans espace ni virgule) | vide | Nom de l'instance Warden auquel la signature HMAC est liée (v3) ; doit figurer dans `WARDEN_HMAC_AUDIENCES` côté Warden, nécessite Warden >= 1.8.0 ; vide = v2 |
 | `WARDEN_TLS_CA_CERT_FILE` | chemin | vide | Autorité de certification personnalisée |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | chemin | vide | Certificat client mTLS |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | chemin | vide | Clé client mTLS |

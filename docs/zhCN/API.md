@@ -66,6 +66,7 @@ X-Forwarded-User: authenticated
 | 状态码 | 说明 | 响应体 |
 |--------|------|--------|
 | `401 Unauthorized` | 认证失败 | 错误消息（JSON 格式，API 请求）或重定向到登录页（HTML 请求） |
+| `403 Forbidden` | 携带 `Stargate-Password` 的请求没有经由 `TRUSTED_PROXIES` 中的代理并带着客户端地址到达。此时不比对密码。仅在 `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY=true` 时出现 | 错误消息 |
 | `429 Too Many Requests` | 该客户端在当前时间窗口内的 `Stargate-Password` 失败次数已达到 `RATE_LIMIT_LOGIN_MAX`。窗口结束前，凡是携带该请求头的请求（包括密码正确的请求）都会收到此响应，并带有 `Retry-After` 响应头（秒）。仅在 `PASSWORD_HEADER_AUTH_ENABLED=true` 时出现 | 错误消息 |
 | `503 Service Unavailable` | 目录授权暂时不可用 | — |
 | `500 Internal Server Error` | 服务器错误 | 错误消息 |
@@ -263,7 +264,7 @@ TOTP 分支直接提交 `use_otp=true` 和 `otp_code`，不需要预先调用 `P
 
 | 请求头 | 说明 |
 |--------|------|
-| `Idempotency-Key` | 可选。若提供，Stargate 会将其透传给 Herald；Herald 在 TTL 内对相同 key 的重复请求返回同一 challenge 响应。 |
+| `Idempotency-Key` | 可选。若提供，Stargate 会将其透传给 Herald；Herald 在 TTL 内对相同 key 的重复请求返回同一 challenge 响应。`LOGIN_UNIFORM_RESPONSES=true` 时不会透传。 |
 
 <!-- api-contract: send-verify-code-request-body -->
 #### 请求体

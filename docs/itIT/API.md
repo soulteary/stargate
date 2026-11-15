@@ -62,6 +62,7 @@ Il nome dell'header utente può essere configurato tramite la variabile d'ambien
 | Codice di Stato | Descrizione | Corpo Risposta |
 |----------------|-------------|----------------|
 | `401 Unauthorized` | Autenticazione fallita | Messaggio di errore (formato JSON per richieste API) o reindirizzamento alla pagina di login (richieste HTML) |
+| `403 Forbidden` | Richiesta con `Stargate-Password` che non è arrivata tramite un proxy in `TRUSTED_PROXIES` che fornisce l'indirizzo del client. La password non viene confrontata. Solo con `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY=true` | Messaggio di errore |
 | `429 Too Many Requests` | `RATE_LIMIT_LOGIN_MAX` tentativi `Stargate-Password` falliti da questo client nella finestra corrente. Inviato con un header `Retry-After` (secondi) per ogni richiesta che contiene l'header, anche con la password corretta, fino al termine della finestra. Solo con `PASSWORD_HEADER_AUTH_ENABLED=true` | Messaggio di errore |
 | `503 Service Unavailable` | Autorizzazione della directory temporaneamente non disponibile | — |
 | `500 Internal Server Error` | Errore server | Messaggio di errore |
@@ -245,7 +246,7 @@ Richiesta di invio codice di verifica. Questo endpoint è utilizzato nel flusso 
 
 | Intestazione | Descrizione |
 |---------------|-------------|
-| `Idempotency-Key` | Opzionale. Se presente, Stargate la inoltra a Herald; Herald restituisce la stessa risposta di challenge per richieste duplicate con la stessa chiave entro la TTL. |
+| `Idempotency-Key` | Opzionale. Se presente, Stargate la inoltra a Herald; Herald restituisce la stessa risposta di challenge per richieste duplicate con la stessa chiave entro la TTL. Non viene inoltrata quando `LOGIN_UNIFORM_RESPONSES=true`. |
 
 <!-- api-contract: send-verify-code-request-body -->
 #### Corpo della Richiesta
@@ -452,7 +453,7 @@ Restituisce metriche Prometheus in formato testo. L'endpoint richiede `Authoriza
 
 ### `GET /log/level`
 
-Restituisce il livello di log corrente. `PUT /log/level` o `POST /log/level` lo modifica con il corpo JSON `{"level":"debug"}` o il parametro `?level=debug`. Stargate limita questo endpoint a `127.0.0.1`; non deve essere esposto tramite il reverse proxy pubblico.
+Restituisce il livello di log corrente. `PUT /log/level` o `POST /log/level` lo modifica con il corpo JSON `{"level":"debug"}` o il parametro `?level=debug`. Stargate limita questo endpoint a `127.0.0.1`; non deve essere esposto tramite il reverse proxy pubblico. Dalla v1.3.7, una richiesta che contiene `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded` o `X-Real-IP` riceve `404 Not Found`, e `PUT`/`POST` sono soggetti al controllo delle scritture cross-site (`403 Forbidden`). Il controllo presuppone che il proxy aggiunga header di inoltro; un proxy sullo stesso host che non ne aggiunge non viene rilevato.
 
 ## Endpoint Root
 

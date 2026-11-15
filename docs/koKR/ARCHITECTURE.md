@@ -30,6 +30,8 @@ src/
 │   ├── handlers/          # HTTP 요청 핸들러 (forwardAuth, 로그인, 로그아웃, 인증 코드, TOTP 등)
 │   ├── i18n/              # 국제화 지원
 │   ├── metrics/           # Prometheus 메트릭
+│   ├── requestcontext/    # 요청 기한과 취소
+│   ├── tlsconfig/         # 서비스 클라이언트 공용 TLS 구성
 │   ├── tracing/           # OpenTelemetry 추적 미들웨어
 │   └── web/               # 웹 리소스 및 HTML 템플릿
 ```
