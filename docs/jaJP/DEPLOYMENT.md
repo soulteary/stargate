@@ -4,12 +4,12 @@
 >
 > セキュリティとアップグレードに関する次の項目は、英語版にのみ詳しく記載されています。
 >
-> - アップグレードとロールバック: [v1.6.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
+> - アップグレードとロールバック: [v1.7.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
 > - 失効可能なセッション: [Revocable session migration](../enUS/DEPLOYMENT.md#revocable-session-migration), [Browser-bound session exchange](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)
 > - 認証情報の優先順位: [Herald](../enUS/DEPLOYMENT.md#herald-credential-precedence), [Warden](../enUS/DEPLOYMENT.md#warden-credential-precedence)
 > - Warden HMAC の audience: [Warden HMAC audience](../enUS/DEPLOYMENT.md#warden-hmac-audience), [Warden server versions](../enUS/DEPLOYMENT.md#warden-server-versions)
 
-現在のデプロイ例は v1.6.0 を使用します。v1.3 より前の環境を置き換える前に、[セッション移行](../enUS/DEPLOYMENT.md#revocable-session-migration)と[ブラウザーに結び付いた交換](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)を確認してください。全レプリカを調整し、必要な Redis 状態を保持して、移行に伴う再ログインを計画してください。
+現在のデプロイ例は v1.7.0 を使用します。v1.3 より前の環境を置き換える前に、[セッション移行](../enUS/DEPLOYMENT.md#revocable-session-migration)と[ブラウザーに結び付いた交換](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)を確認してください。全レプリカを調整し、必要な Redis 状態を保持して、移行に伴う再ログインを計画してください。
 
 このドキュメントは、Stargate Forward Auth サービスの詳細なデプロイメントガイドを提供します。
 
@@ -189,7 +189,7 @@ Traefik が共有の外部 Docker ネットワークですでに動作してい�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.6.0
+    image: ghcr.io/soulteary/stargate:1.7.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -278,7 +278,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.6.0
+    image: ghcr.io/soulteary/stargate:1.7.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -302,7 +302,7 @@ Stargate は Traefik と統合するように設計されており、Forward Aut
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.6.0
+    image: ghcr.io/soulteary/stargate:1.7.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
