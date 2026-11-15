@@ -25,7 +25,9 @@ A manifest has a required `gateway` object and optional `warden`, `herald` and
 `totp` objects. Values inside each service object are literal strings using the
 service's environment variable names. Unused fields are not inspected. Optional
 `gateway_url` supplies the gateway's health root; `gateway_tls_ca_file` supplies
-its private CA. An explicit HTTP public URL with Secure cookies is flagged;
+its private CA. Optional `warden_image` is the container image reference of the
+Warden server, copied from the deployment files; it is used only by
+`warden.version`, and it is neither pulled nor resolved. An explicit HTTP public URL with Secure cookies is flagged;
 localhost browser exceptions remain incomplete. `--gateway-url` and `--gateway-ca-file` override those two fields.
 The gateway URL authority must match `AUTH_HOST`; its scheme is never inferred
 from the cookie's Secure attribute.
@@ -97,10 +99,34 @@ v2 signatures. It reports:
 - `unknown` when the gateway sets an audience and no `warden` object is
   supplied, which is always the case without `--config`, or when a client
   certificate is configured.
-- `pass` when the name is listed. The Warden version (1.8.0 or newer is needed
-  for audiences) and online authentication are not checked.
+- `pass` when the name is listed. The Warden version is reported separately by
+  `warden.version`; online authentication is not checked.
 
 Audience names are not printed.
+
+`warden.version` reports whether the Warden release accepts the signatures the
+gateway sends when `WARDEN_HMAC_AUDIENCE` is set. Warden releases before 1.8.0
+do not recognise those v3 signatures and answer every directory lookup with 401.
+Warden does not publish its release number over HTTP: `/health` carries none,
+so `--health` cannot supply it. The only source is the top-level `warden_image`
+field of the manifest. The check is omitted when the gateway sets no audience,
+or sets one that `warden.audience` already reports as refused at startup;
+without an audience the gateway sends v2 signatures and the check has nothing to
+compare. It reports:
+
+- `fail` when `warden_image` is `ghcr.io/soulteary/warden` with a
+  `MAJOR.MINOR.PATCH` or `MAJOR.MINOR` tag lower than 1.8, for example
+  `ghcr.io/soulteary/warden:1.7.0`.
+- `pass` when that tag is 1.8 or higher. A digest after the tag is accepted and
+  is not resolved, so the tag is trusted as written; the image that is actually
+  running is not inspected.
+- `unknown` when `warden_image` is not supplied, which is always the case
+  without `--config`; when the reference has no tag or only a digest; when the
+  tag is `latest`, a major-only tag such as `1`, or anything else that is not a
+  release number; when the repository is not `ghcr.io/soulteary/warden`, such as
+  a mirror or a custom build; or when a client certificate is configured.
+
+The image reference is not printed.
 
 ## Explicit online health mode
 
@@ -144,6 +170,11 @@ these replaces the documented startup validation or browser login test.
   to one name in Warden's `WARDEN_HMAC_AUDIENCES`, or clear it on the gateway to
   return to v2 signatures. See "Warden HMAC audience" in
   [DEPLOYMENT.md](DEPLOYMENT.md) for the order of changes.
+- A `warden.version` failure: upgrade Warden to 1.8.0 or newer before setting
+  `WARDEN_HMAC_AUDIENCE`, or clear it on the gateway to return to v2 signatures,
+  which older Warden releases accept. For `unknown`, add `warden_image` to the
+  manifest, or confirm the running release from the Warden startup log, which
+  prints its version.
 - A `.health` failure: check the configured route, TLS CA/server name/client cert,
   health access policy and the corresponding Redis dependency. The tool does not
   print remote error details or change server settings.

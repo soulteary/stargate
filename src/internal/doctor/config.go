@@ -20,6 +20,9 @@ type Manifest struct {
 	Warden        map[string]string `json:"warden,omitempty"`
 	Herald        map[string]string `json:"herald,omitempty"`
 	TOTP          map[string]string `json:"totp,omitempty"`
+	// WardenImage is the container image reference of the Warden server, as
+	// written in the operator's deployment files. It is not resolved or pulled.
+	WardenImage string `json:"warden_image,omitempty"`
 }
 
 var gatewayKeys = strings.Fields(`AUTH_HOST COOKIE_DOMAIN COOKIE_SECURE CALLBACK_ALLOWED_HOSTS SESSION_EXCHANGE_SECRET SESSION_EXCHANGE_REDIRECT_PATH PASSWORDS WARDEN_ENABLED WARDEN_URL WARDEN_API_KEY WARDEN_HMAC_KEY_ID WARDEN_HMAC_SECRET WARDEN_HMAC_AUDIENCE WARDEN_TLS_CA_CERT_FILE WARDEN_TLS_CLIENT_CERT_FILE WARDEN_TLS_CLIENT_KEY_FILE WARDEN_TLS_SERVER_NAME HERALD_ENABLED HERALD_URL HERALD_API_KEY HERALD_HMAC_KEY_ID HERALD_HMAC_SECRET HERALD_TLS_CA_CERT_FILE HERALD_TLS_CLIENT_CERT_FILE HERALD_TLS_CLIENT_KEY_FILE HERALD_TLS_SERVER_NAME HERALD_TOTP_ENABLED SESSION_STORAGE_ENABLED SESSION_STORAGE_REDIS_ADDR`)

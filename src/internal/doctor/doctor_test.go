@@ -620,6 +620,10 @@ func TestWardenAudienceReadFromEnvironmentAndExitStatus(t *testing.T) {
 		t.Fatalf("unlisted audience exit=%d", code)
 	}
 	m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+	if code := Inspect(m).ExitCode(); code != 3 {
+		t.Fatalf("listed audience without a Warden image exit=%d", code)
+	}
+	m.WardenImage = "ghcr.io/soulteary/warden:1.8.0"
 	if code := Inspect(m).ExitCode(); code != 0 {
 		t.Fatalf("listed audience exit=%d", code)
 	}
