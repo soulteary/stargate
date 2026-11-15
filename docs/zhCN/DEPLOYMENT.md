@@ -943,6 +943,12 @@ TOTP 注册、确认、撤销和 step-up 操作会在执行前重新查询 Warde
 
 同时配置 `WARDEN_API_KEY` 和 `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` 时，新版 SDK 只发送 HMAC 凭据，不会改用 API key 重试认证。使用该组合升级前，请先在 Warden 服务端配置匹配的 HMAC 凭据。若服务端只启用 API key，请移除客户端的两个 HMAC 配置并保留 `WARDEN_API_KEY`。API-key-only 和 mTLS 仍受支持，服务端认证策略没有改变。
 
+### Warden HMAC audience
+
+`WARDEN_HMAC_AUDIENCE` 为可选项，默认留空；留空时保持 v2 签名形式。设置后，Stargate 以 v3 形式签名发往 Warden 的每个请求，签名与指定名称的 Warden 实例绑定，为某个实例签名的请求在共用同一密钥的另一个实例上无效。该设置需要同时配置 `WARDEN_HMAC_KEY_ID` 和 `WARDEN_HMAC_SECRET`，否则 Stargate 拒绝启动。
+
+Warden 一侧必须运行 Warden 1.8.0 或更高版本，并在 `WARDEN_HMAC_AUDIENCES` 中列出相同的名称。更早的 Warden 会以 401 拒绝 v3 请求，未列出该名称的 Warden 也是如此；Stargate 不会回退到 v2，两侧配置一致之前所有目录查询都会失败。启用顺序：先升级 Warden，在 `WARDEN_HMAC_AUDIENCES` 中加入名称，再在 Stargate 上设置 `WARDEN_HMAC_AUDIENCE`。回滚时先清空 Stargate 的 `WARDEN_HMAC_AUDIENCE`。在该实例的所有客户端都使用 v3 签名之前，不要在 Warden 上设置 `WARDEN_HMAC_REQUIRE_AUDIENCE=true`。
+
 
 ## 登录验证码绑定升级与回滚
 

@@ -312,6 +312,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `WARDEN_API_KEY` | segreto | vuoto | Autenticazione API key |
 | `WARDEN_HMAC_KEY_ID` | stringa | vuoto | Identificatore chiave HMAC |
 | `WARDEN_HMAC_SECRET` | segreto | vuoto | Segreto firma HMAC |
+| `WARDEN_HMAC_AUDIENCE` | stringa | vuoto | Nome dell'istanza Warden a cui è legata la firma HMAC (v3); deve comparire in `WARDEN_HMAC_AUDIENCES` di Warden, richiede Warden >= 1.8.0; vuoto = v2 |
 | `WARDEN_TLS_CA_CERT_FILE` | percorso | vuoto | CA personalizzata |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | percorso | vuoto | Certificato client mTLS |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | percorso | vuoto | Chiave client mTLS |

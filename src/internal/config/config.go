@@ -202,6 +202,12 @@ var (
 	WardenHMACSecret = EnvVariable{
 		Name: "WARDEN_HMAC_SECRET", PossibleValues: []string{"*"}, Validator: ValidateAny, Sensitive: true,
 	}
+	// WardenHMACAudience names the Warden instance that signed requests are
+	// meant for. When set, requests carry signature version v3 and the Warden
+	// server must list the same name in WARDEN_HMAC_AUDIENCES. Empty keeps v2.
+	WardenHMACAudience = EnvVariable{
+		Name: "WARDEN_HMAC_AUDIENCE", PossibleValues: []string{"*"}, Validator: ValidateAny,
+	}
 	WardenTLSCACertFile = EnvVariable{
 		Name: "WARDEN_TLS_CA_CERT_FILE", PossibleValues: []string{"*"}, Validator: ValidateAny,
 	}
@@ -810,7 +816,7 @@ func loadConfiguration() error {
 	}
 
 	// Then validate all other configuration variables
-	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &PasswordHeaderRequireTrustedProxy, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldClientIPHeader, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &SessionStorageRedisUsername, &SessionStorageRedisTLSEnabled, &SessionStorageRedisTLSCACertFile, &SessionStorageRedisTLSServerName, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID, &LoginUniformResponses, &LoginUniformResendCooldown}
+	var envVariables = []*EnvVariable{&Debug, &AuthHost, &LoginPageTitle, &LoginPageFooterText, &LoginSupportURL, &Passwords, &PasswordHeaderAuthEnabled, &PasswordHeaderRequireTrustedProxy, &UserHeaderName, &TrustedProxies, &ProxyHeader, &CookieDomain, &CookieSecure, &CallbackAllowedHosts, &SessionExchangeSecret, &SessionExchangeRedirectPath, &Language, &Port, &WardenURL, &WardenAPIKey, &WardenHMACKeyID, &WardenHMACSecret, &WardenHMACAudience, &WardenTLSCACertFile, &WardenTLSClientCert, &WardenTLSClientKey, &WardenTLSServerName, &WardenEnabled, &HeaderAuthEnabled, &HeaderAuthSharedSecret, &HeaderAuthSecretHeader, &WardenCacheTTL, &WardenSourceMaxAge, &WardenSourceClockSkew, &MetricsAPIKey, &HeraldURL, &HeraldAPIKey, &HeraldEnabled, &HeraldHMACSecret, &HeraldHMACKeyID, &HeraldClientIPHeader, &HeraldTLSCACertFile, &HeraldTLSClientCert, &HeraldTLSClientKey, &HeraldTLSServerName, &HeraldTOTPEnabled, &SessionStorageEnabled, &SessionStorageRedisAddr, &SessionStorageRedisPassword, &SessionStorageRedisDB, &SessionStorageRedisKeyPrefix, &SessionStorageRedisUsername, &SessionStorageRedisTLSEnabled, &SessionStorageRedisTLSCACertFile, &SessionStorageRedisTLSServerName, &AuditLogEnabled, &AuditLogFormat, &StepUpEnabled, &StepUpPaths, &OTLPEnabled, &OTLPEndpoint, &AuthRefreshEnabled, &AuthRefreshInterval, &RequestContextTimeout, &RateLimitLoginMax, &RateLimitVerificationMax, &RateLimitWindow, &LoginSMSEnabled, &LoginEmailEnabled, &LoginDingtalkRequireUserID, &LoginUniformResponses, &LoginUniformResendCooldown}
 
 	for _, variable := range envVariables {
 		err := variable.Validate()
@@ -901,10 +907,32 @@ func validateServiceSettings() error {
 	if (WardenHMACKeyID.Value == "") != (WardenHMACSecret.Value == "") {
 		return NewRuleError(WardenHMACSecret.Name, "HMAC key ID and secret must be configured together", WardenHMACSecret.PossibleValues)
 	}
+	if err := validateWardenHMACAudience(); err != nil {
+		return err
+	}
 	if (WardenTLSClientCert.Value == "") != (WardenTLSClientKey.Value == "") {
 		return NewRuleError(WardenTLSClientCert.Name, "client certificate and key must be configured together", WardenTLSClientCert.PossibleValues)
 	}
 	return validateHeraldSettings()
+}
+
+// validateWardenHMACAudience normalizes WARDEN_HMAC_AUDIENCE the way the
+// Warden SDK and server do (surrounding space removed, lower case) and applies
+// the SDK's rules, so that a wrong value is reported with the names of the
+// settings involved.
+func validateWardenHMACAudience() error {
+	WardenHMACAudience.Value = strings.ToLower(strings.TrimSpace(WardenHMACAudience.Value))
+	audience := WardenHMACAudience.Value
+	if audience == "" {
+		return nil
+	}
+	if strings.TrimSpace(WardenHMACKeyID.Value) == "" || strings.TrimSpace(WardenHMACSecret.Value) == "" {
+		return NewRuleError(WardenHMACAudience.Name, "requires WARDEN_HMAC_KEY_ID and WARDEN_HMAC_SECRET", WardenHMACAudience.PossibleValues)
+	}
+	if len(audience) > 255 || strings.ContainsFunc(audience, func(r rune) bool { return r <= ' ' || r > '~' || r == ',' }) {
+		return NewRuleError(WardenHMACAudience.Name, "must be 1 to 255 printable ASCII characters without spaces or commas", WardenHMACAudience.PossibleValues)
+	}
+	return nil
 }
 
 func validateHeaderAuthentication() error {

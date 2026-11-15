@@ -166,6 +166,11 @@ func InitWardenClient(l *logger.Logger) error {
 		if keyID, secret := config.WardenHMACKeyID.String(), config.WardenHMACSecret.String(); keyID != "" || secret != "" {
 			opts = opts.WithHMAC(keyID, secret)
 		}
+		// An audience selects signature version v3, which the Warden server
+		// accepts only when the name is listed in its WARDEN_HMAC_AUDIENCES.
+		if audience := config.WardenHMACAudience.String(); audience != "" {
+			opts = opts.WithHMACAudience(audience)
+		}
 
 		tlsConfig, err := buildWardenTLSConfig(
 			config.WardenTLSCACertFile.String(), config.WardenTLSClientCert.String(),

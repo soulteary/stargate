@@ -860,6 +860,12 @@ When `HERALD_HMAC_SECRET` is nonempty, Stargate passes only HMAC credentials to 
 
 When both `WARDEN_API_KEY` and `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` are configured, the updated SDK sends only HMAC credentials. It does not retry authentication with the API key. Configure matching HMAC credentials on Warden before upgrading this combination. For an API-key-only Warden deployment, remove both client HMAC settings and keep `WARDEN_API_KEY`. API-key-only authentication and mTLS remain supported; this change does not alter the server's authentication policy.
 
+### Warden HMAC audience
+
+`WARDEN_HMAC_AUDIENCE` is optional and empty by default; an empty value keeps the v2 signature form. When it is set, Stargate signs every Warden request in the v3 form, which binds the signature to the named Warden instance, so a request signed for one instance is not valid at another that shares the key. It requires `WARDEN_HMAC_KEY_ID` and `WARDEN_HMAC_SECRET`; Stargate refuses to start otherwise.
+
+The Warden side must run Warden 1.8.0 or newer and list the same name in `WARDEN_HMAC_AUDIENCES`. An older Warden rejects v3 requests with 401, and so does a Warden that does not list the name; Stargate does not fall back to v2, so every directory lookup fails until the two sides match. Enable it in this order: upgrade Warden, add the name to `WARDEN_HMAC_AUDIENCES`, then set `WARDEN_HMAC_AUDIENCE` on Stargate. To roll back, clear `WARDEN_HMAC_AUDIENCE` on Stargate first. Do not set `WARDEN_HMAC_REQUIRE_AUDIENCE=true` on Warden until every client of that instance signs v3.
+
 
 ## Bound login challenge upgrade and rollback
 

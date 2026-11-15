@@ -112,6 +112,8 @@ export HERALD_URL=https://herald:8082
 export HERALD_HMAC_SECRET=your-secret-key
 ```
 
+Warden HMAC signing needs `WARDEN_HMAC_KEY_ID` together with `WARDEN_HMAC_SECRET`. To bind the signature to one Warden instance, also set `WARDEN_HMAC_AUDIENCE` to a name that the Warden instance lists in its `WARDEN_HMAC_AUDIENCES`. Stargate then signs in the v3 form, and a request signed for that instance is not valid at another instance that shares the key. This requires Warden 1.8.0 or newer; an older Warden rejects v3 requests. See [CONFIG.md](CONFIG.md#warden_hmac_audience).
+
 ## API Security
 
 ### Authentication Methods

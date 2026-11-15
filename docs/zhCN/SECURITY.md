@@ -112,6 +112,8 @@ export HERALD_URL=https://herald:8082
 export HERALD_HMAC_SECRET=your-secret-key
 ```
 
+Warden 的 HMAC 签名需要同时配置 `WARDEN_HMAC_KEY_ID` 和 `WARDEN_HMAC_SECRET`。如需将签名绑定到某一个 Warden 实例，还应将 `WARDEN_HMAC_AUDIENCE` 设置为该 Warden 实例在 `WARDEN_HMAC_AUDIENCES` 中列出的名称。此时 Stargate 以 v3 形式签名，为该实例签名的请求在共用同一密钥的另一个实例上无效。此功能要求 Warden 1.8.0 或更高版本；更早的 Warden 会拒绝 v3 请求。参见 [CONFIG.md](CONFIG.md#warden_hmac_audience)。
+
 ## API 安全
 
 ### 认证方式

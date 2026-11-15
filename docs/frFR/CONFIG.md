@@ -312,6 +312,7 @@ Ce tableau est synchronisé avec les variables de sécurité réellement enregis
 | `WARDEN_API_KEY` | secret | vide | Authentification par clé API |
 | `WARDEN_HMAC_KEY_ID` | chaîne | vide | Identifiant de clé HMAC |
 | `WARDEN_HMAC_SECRET` | secret | vide | Secret de signature HMAC |
+| `WARDEN_HMAC_AUDIENCE` | chaîne | vide | Nom de l'instance Warden auquel la signature HMAC est liée (v3) ; doit figurer dans `WARDEN_HMAC_AUDIENCES` côté Warden, nécessite Warden >= 1.8.0 ; vide = v2 |
 | `WARDEN_TLS_CA_CERT_FILE` | chemin | vide | Autorité de certification personnalisée |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | chemin | vide | Certificat client mTLS |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | chemin | vide | Clé client mTLS |
