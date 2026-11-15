@@ -362,11 +362,11 @@ Sendet einen Einmalcode an den in Warden hinterlegten Kontakt des Sitzungsbenutz
 
 ### `GET /_step_up`
 
-Zeigt für eine authentifizierte Sitzung ein Formular zur erneuten Passwortprüfung. Der optionale Query-Parameter `callback` muss ein lokaler Pfad sein; unsichere Werte werden durch `/` ersetzt.
+Zeigt für eine authentifizierte Sitzung das Formular zur erneuten Authentifizierung: je nach Sitzung ein Feld für den TOTP-Code, eine Schaltfläche zum Senden eines Codes mit Codefeld oder ein Passwortfeld. Der optionale Query-Parameter `callback` muss ein lokaler Pfad sein; unsichere Werte werden durch `/` ersetzt.
 
 ### `POST /_step_up`
 
-Prüft das Passwort erneut und speichert die erfolgreiche Step-up-Authentifizierung für 10 Minuten in der Sitzung. Formularfelder: `password` und optionaler lokaler `callback`. Die Route ist durch Same-Origin-Prüfung und Rate-Limit geschützt.
+Prüft den Nachweis und speichert die erfolgreiche Step-up-Authentifizierung für 10 Minuten in der Sitzung. Formularfelder: `code` oder `password` sowie optionaler lokaler `callback`. Ein Warden-Benutzer mit eingerichtetem TOTP sendet in `code` einen aktuellen TOTP-Code, jeder andere Warden-Benutzer den Einmalcode aus `POST /_send_reauth_code`. Das gemeinsame Passwort (`password`) wird nur für eine Sitzung akzeptiert, die mit diesem Passwort erstellt wurde und keine Benutzeridentität hat. Ein fehlgeschlagener Nachweis ergibt `401 Unauthorized`. Die Route ist durch Same-Origin-Prüfung und Rate-Limit geschützt.
 
 ## Sitzungsaustausch-Endpunkt
 
@@ -382,21 +382,21 @@ Im selben Browser beginnen: `https://app.example.com/_session_exchange?start=1`.
 
 ## TOTP-Endpunkte
 
-Diese Endpunkte sind verfügbar, wenn Herald und Herald-TOTP aktiviert sind. Alle erfordern eine authentifizierte Sitzung. Die Registrierung muss innerhalb von 10 Minuten nach der Anmeldung, die die Sitzung erstellt hat, gestartet und abgeschlossen werden.
+Diese Endpunkte sind verfügbar, wenn Herald und Herald-TOTP aktiviert sind. Alle erfordern eine authentifizierte Sitzung. Zum Einrichten und zum Entfernen von TOTP muss der Benutzer zusätzlich einen Nachweis erbringen: einen aktuellen TOTP-Code oder einen Einmalcode, der an den in Warden hinterlegten Kontakt gesendet wurde (`POST /_send_reauth_code`). Eine kürzlich erfolgte Anmeldung genügt nicht. Die Einzelheiten stehen im englischen Dokument: [Re-authentication](../enUS/API.md#re-authentication).
 
 ### `GET /totp/enroll`
 
-Zeigt eine Bestätigungsseite an, ohne Registrierungsstatus zu erzeugen. Erfordert eine durch eine erfolgreiche Anmeldung innerhalb der letzten 10 Minuten erstellte Sitzung. Nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet; eine ältere Sitzung erhält `401 Unauthorized`.
+Zeigt eine Bestätigungsseite an, ohne Registrierungsstatus zu erzeugen. Die Seite enthält das Feld für den Nachweis. Nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet; eine Sitzung, deren Benutzer im Verzeichnis nicht mehr berechtigt ist, erhält `401 Unauthorized`. Der Registrierungsstatus ist 10 Minuten gültig; die Registrierung muss jedoch innerhalb von 5 Minuten nach dem Start bestätigt werden.
 
 ### `POST /totp/enroll`
 
-Startet die Registrierung und zeigt die TOTP-Bindungsseite an. Erfordert eine durch eine erfolgreiche Anmeldung innerhalb der letzten 10 Minuten erstellte Sitzung. Nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet; eine ältere Sitzung erhält `401 Unauthorized`.
+Startet die Registrierung und zeigt die TOTP-Bindungsseite an. Die Anfrage muss im Formularfeld `code` den Nachweis des Benutzers enthalten: einen aktuellen TOTP-Code oder einen Einmalcode, der an den in Warden hinterlegten Kontakt gesendet wurde. Eine Anmeldung innerhalb der letzten 10 Minuten ist weder erforderlich noch ausreichend. Nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet; ein Start ohne Nachweis oder mit ungültigem Nachweis erhält `401 Unauthorized`. Der Registrierungsstatus ist 10 Minuten gültig; die Registrierung muss jedoch innerhalb von 5 Minuten nach dem Start bestätigt werden.
 
 Fehler beim vorgelagerten TOTP-Status oder Registrierungsstart ergeben `502 Bad Gateway`.
 
 ### `POST /totp/enroll/confirm`
 
-Bestätigt die Registrierung. Eine authentifizierte Sitzung aus den letzten 10 Minuten ist erforderlich.
+Bestätigt die Registrierung. Erforderlich ist eine authentifizierte Sitzung, in der `POST /totp/enroll` diese Registrierung vor höchstens 5 Minuten mit einem Nachweis gestartet hat; andernfalls lautet die Antwort `401 Unauthorized`. Ein Registrierungsstatus, der älter als 10 Minuten ist, wird mit `400 Bad Request` abgelehnt.
 
 <!-- api-contract: totp-enroll-confirm-request-body -->
 #### Anfragekörper
@@ -411,17 +411,17 @@ Das Formular muss `enroll_id` und den sechsstelligen TOTP-`code` enthalten.
 
 #### Antwort
 
-Fehlende oder nicht aktuelle Authentifizierung gibt `401 Unauthorized` zurück; bei Erfolg enthält die JSON-Antwort die einmalig ausgegebenen Backup-Codes.
+Wurde die Registrierung nicht innerhalb der letzten 5 Minuten mit einem Nachweis gestartet, lautet die Antwort `401 Unauthorized`; bei Erfolg enthält die JSON-Antwort die einmalig ausgegebenen Backup-Codes.
 
 Bestätigungsquoten ergeben `429 Too Many Requests` mit `rate_limited`; die ausstehende Registrierung bleibt erhalten. Ungültige Anbieterantworten ergeben `502`. Codes nicht automatisch wiederholen.
 
 ### `GET /totp/revoke`
 
-Zeigt die Bestätigungsseite zum Entfernen der TOTP-Bindung an. Eine authentifizierte Sitzung ist erforderlich; nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet. Für diese Seite gilt keine 10-Minuten-Grenze.
+Zeigt die Bestätigungsseite zum Entfernen der TOTP-Bindung an. Eine authentifizierte Sitzung ist erforderlich; nicht authentifizierte Benutzer werden mit `302 Found` zu `/_login` umgeleitet. Die Seite enthält das Feld für den Nachweis.
 
 ### `POST /totp/revoke`
 
-Entfernt die TOTP-Bindung. Eine authentifizierte Sitzung ist erforderlich, und der Aufrufer muss sich erneut mit `password` oder einem gültigen aktuellen TOTP-`code` bestätigen. Fehlende oder fehlgeschlagene erneute Authentifizierung gibt `401 Unauthorized` zurück.
+Entfernt die TOTP-Bindung. Eine authentifizierte Sitzung ist erforderlich, und der Benutzer muss im Formularfeld `code` einen aktuellen TOTP-Code senden. Das Feld `password` wird für die Sitzung eines Warden-Benutzers nicht gelesen; das gemeinsame Passwort wird dort nicht mehr akzeptiert. Ein fehlender oder fehlgeschlagener Nachweis gibt `401 Unauthorized` zurück.
 
 ## Gesundheitsprüfungs-Endpunkte
 
