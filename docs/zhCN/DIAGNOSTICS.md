@@ -28,6 +28,22 @@ TOTP 开关及会话 Redis 开关/地址等已声明环境字段，不自动加�
 未提供服务端配置时显示 `unknown`，不会声称认证成功。客户端选择 HMAC 时不会改发 API Key；
 mTLS 的实际接受与授权不能仅通过配置对比证明。只有未设置上述跨域选项时，未配置会话交换密钥才不影响该项启动检查。
 
+`warden.audience` 将网关的 `WARDEN_HMAC_AUDIENCE` 与 `warden` 对象中的
+`WARDEN_HMAC_AUDIENCES`、`WARDEN_HMAC_REQUIRE_AUDIENCE` 进行比对。两侧均按各自服务的读取方式处理：
+去除首尾空白、转为小写，Warden 的列表按逗号拆分。网关未设置 audience 且 Warden 未要求时不输出该项；
+Warden 只列出 audience 而未要求时，仍接受网关的 v2 签名。结果如下：
+
+- 设置了 `WARDEN_HMAC_AUDIENCE` 但缺少 `WARDEN_HMAC_KEY_ID` 和 `WARDEN_HMAC_SECRET`，
+  或其值不是 1 至 255 个不含空格和逗号的可打印 ASCII 字符：`fail`，网关在这两种情况下均拒绝启动。
+- 该名称不在 Warden 的列表中，或 Warden 没有配置列表：`fail`，Warden 对每次目录查询返回 401。
+- Warden 要求 audience，而网关使用 HMAC 签名却未设置：`fail`。
+- Warden 一侧的取值本身无法通过 Warden 启动校验（名称无效、超过 16 个名称、布尔值无法识别，
+  或要求 audience 却没有列表）：`fail`。
+- 网关设置了 audience 但未提供 `warden` 对象（不使用 `--config` 时总是如此），或配置了客户端证书：`unknown`。
+- 名称在列表中：`pass`。不检查 Warden 版本（audience 需要 1.8.0 或更高版本），也不进行在线认证。
+
+输出不包含 audience 名称。
+
 只有显式使用 `--health` 才访问网络：网关 `/readyz`、Warden `/health`、Herald `/readyz`、
 TOTP `/healthz`。网关 `/healthz` 只表示存活；Herald/TOTP 就绪也不证明 TOTP 代理、邮件投递
 或指定账号可用。使用顶层 `gateway_url` 或 `--gateway-url` 指定网关健康地址，须匹配 `AUTH_HOST`；
@@ -46,4 +62,6 @@ localhost 的浏览器例外仍需实际核验。私有网关 CA 可用 `gateway
 状态为 `pass`、`fail`、`unknown`、`skipped`；退出码 0 表示本次请求的有限检查通过，
 1 表示失败，2 表示参数/输入错误，3 表示信息不足。它们不代替启动校验或真实浏览器登录。
 主机/Cookie/回调错误先核对对应配置；凭据错误在本地核对 ID、密钥和认证模式；健康错误核对
-网络、路由、TLS、访问策略和 Redis。单个 401 不能断定一定是 key ID 错误，不得直接输出后端原始正文。
+网络、路由、TLS、访问策略和 Redis。`warden.audience` 错误时，将网关的 `WARDEN_HMAC_AUDIENCE` 改为
+Warden `WARDEN_HMAC_AUDIENCES` 中的某个名称，或在网关清空该项以回到 v2 签名；变更顺序见
+[DEPLOYMENT.md](DEPLOYMENT.md) 的“Warden HMAC audience”一节。单个 401 不能断定一定是 key ID 错误，不得直接输出后端原始正文。
