@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net"
 	"net/url"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/soulteary/stargate/src/internal/config"
@@ -107,6 +109,7 @@ func Inspect(m Manifest) Report {
 		inspectPair(&r, strings.ToLower(service)+".credentials", g, server, service, service == "HERALD")
 		if service == "WARDEN" {
 			inspectWardenAudience(&r, g, server)
+			inspectWardenVersion(&r, g, m.WardenImage)
 		}
 	}
 	if enabled, ok := boolean(g, "SESSION_STORAGE_ENABLED", false); !ok {
@@ -247,11 +250,71 @@ func inspectWardenAudience(r *Report, client, server map[string]string) {
 	}
 	for _, name := range accepted {
 		if name == audience {
-			r.add(id, "pass", "WARDEN_HMAC_AUDIENCE is listed in the server WARDEN_HMAC_AUDIENCES; the Warden version and online authentication are not proven.")
+			r.add(id, "pass", "WARDEN_HMAC_AUDIENCE is listed in the server WARDEN_HMAC_AUDIENCES; the Warden version is reported by warden.version and online authentication is not proven.")
 			return
 		}
 	}
 	r.add(id, "fail", "WARDEN_HMAC_AUDIENCE is not listed in the server WARDEN_HMAC_AUDIENCES; every directory lookup will be refused with 401.")
+}
+
+// wardenImageRepository is the only repository the Warden release workflow
+// publishes to. A tag on any other repository is not taken as a Warden version.
+const wardenImageRepository = "ghcr.io/soulteary/warden"
+
+// wardenReleaseTag matches the MAJOR.MINOR.PATCH and MAJOR.MINOR tags the
+// Warden release workflow publishes.
+var wardenReleaseTag = regexp.MustCompile(`^(0|[1-9][0-9]{0,5})\.(0|[1-9][0-9]{0,5})(\.(0|[1-9][0-9]{0,5}))?$`)
+
+// inspectWardenVersion reports whether the Warden release named by the
+// warden_image manifest field accepts the v3 signatures the gateway sends when
+// WARDEN_HMAC_AUDIENCE is set. Warden releases before 1.8.0 answer a v3
+// signature with 401. Warden does not publish its version over HTTP, so the
+// image reference is the only source. Nothing is reported unless the gateway
+// would start with an audience.
+func inspectWardenVersion(r *Report, client map[string]string, image string) {
+	const id = "warden.version"
+	audience := strings.ToLower(strings.TrimSpace(client["WARDEN_HMAC_AUDIENCE"]))
+	signs := strings.TrimSpace(client["WARDEN_HMAC_KEY_ID"]) != "" && strings.TrimSpace(client["WARDEN_HMAC_SECRET"]) != ""
+	if !signs || !validAudience(audience) {
+		return
+	}
+	if client["WARDEN_TLS_CLIENT_CERT_FILE"] != "" {
+		r.add(id, "unknown", "mTLS is configured; whether Warden evaluates the HMAC signature version for these requests requires separate runtime verification.")
+		return
+	}
+	if strings.TrimSpace(image) == "" {
+		r.add(id, "unknown", "warden_image was not supplied; WARDEN_HMAC_AUDIENCE requires Warden 1.8.0 or newer and the Warden version cannot be determined.")
+		return
+	}
+	major, minor, ok := wardenImageVersion(image)
+	if !ok {
+		r.add(id, "unknown", "warden_image does not name a numbered release of "+wardenImageRepository+" (for example a digest-only, latest, major-only or custom image reference); WARDEN_HMAC_AUDIENCE requires Warden 1.8.0 or newer and the Warden version cannot be determined.")
+		return
+	}
+	if major < 1 || (major == 1 && minor < 8) {
+		r.add(id, "fail", "warden_image names a Warden release older than 1.8.0, which refuses the signatures sent when WARDEN_HMAC_AUDIENCE is set with 401; upgrade Warden to 1.8.0 or newer, or clear WARDEN_HMAC_AUDIENCE.")
+		return
+	}
+	r.add(id, "pass", "warden_image names Warden 1.8.0 or newer, which WARDEN_HMAC_AUDIENCE requires; the image that is actually running is not inspected.")
+}
+
+// wardenImageVersion reads the major and minor release number from an image
+// reference of the form ghcr.io/soulteary/warden:TAG or the same followed by
+// @DIGEST. The digest is not resolved. It reports false for every reference
+// whose tag does not determine the release.
+func wardenImageVersion(reference string) (major, minor int, ok bool) {
+	name, _, _ := strings.Cut(strings.TrimSpace(reference), "@")
+	repository, tag, tagged := strings.Cut(name, ":")
+	if !tagged || repository != wardenImageRepository {
+		return 0, 0, false
+	}
+	parts := wardenReleaseTag.FindStringSubmatch(tag)
+	if parts == nil {
+		return 0, 0, false
+	}
+	major, _ = strconv.Atoi(parts[1])
+	minor, _ = strconv.Atoi(parts[2])
+	return major, minor, true
 }
 
 // validAudience applies the rule shared by the gateway and Warden to one

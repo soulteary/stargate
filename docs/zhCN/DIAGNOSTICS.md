@@ -16,7 +16,8 @@ stargate doctor --config doctor.json --health --json
 TOTP 开关及会话 Redis 开关/地址等已声明环境字段，不自动加载 `.env`。指定文件后仅使用
 该 JSON 快照，不与环境合并，不执行 shell。文件格式与完整字段说明见
 [英文指南](../enUS/DIAGNOSTICS.md)。`gateway` 为必填对象；`warden`、`herald`、`totp`
-为可选对象，内部使用各服务环境变量名，值必须为字符串。
+为可选对象，内部使用各服务环境变量名，值必须为字符串。可选的顶层字段 `warden_image`
+为 Warden 服务的容器镜像引用，从部署文件中原样抄录；仅供 `warden.version` 使用，不会拉取或解析镜像。
 
 输入可能包含服务凭据，须在本地由维护者提供；Unix 上凭据文件要求 `chmod 600`，
 不得提交仓库、上传工单或作为命令行参数粘贴密钥。输入中的占位符不会自动替换为环境值。
@@ -40,9 +41,25 @@ Warden 只列出 audience 而未要求时，仍接受网关的 v2 签名。结�
 - Warden 一侧的取值本身无法通过 Warden 启动校验（名称无效、超过 16 个名称、布尔值无法识别，
   或要求 audience 却没有列表）：`fail`。
 - 网关设置了 audience 但未提供 `warden` 对象（不使用 `--config` 时总是如此），或配置了客户端证书：`unknown`。
-- 名称在列表中：`pass`。不检查 Warden 版本（audience 需要 1.8.0 或更高版本），也不进行在线认证。
+- 名称在列表中：`pass`。Warden 版本由 `warden.version` 单独报告；不进行在线认证。
 
 输出不包含 audience 名称。
+
+`warden.version` 报告 Warden 版本是否接受网关在设置 `WARDEN_HMAC_AUDIENCE` 后发送的签名。
+1.8.0 之前的 Warden 不识别这种 v3 签名，对每次目录查询返回 401。Warden 不通过 HTTP 公开版本号：
+`/health` 不包含版本，因此 `--health` 无法提供；唯一来源是清单顶层的 `warden_image` 字段。
+网关未设置 audience，或所设 audience 已被 `warden.audience` 报告为启动时拒绝时，不输出该项；
+未设置 audience 时网关发送 v2 签名，无需比较版本。结果如下：
+
+- `warden_image` 为 `ghcr.io/soulteary/warden`，且标签为低于 1.8 的 `MAJOR.MINOR.PATCH` 或
+  `MAJOR.MINOR`（例如 `ghcr.io/soulteary/warden:1.7.0`）：`fail`。
+- 该标签为 1.8 或更高：`pass`。标签后可带 digest，但不会解析 digest，标签按原样采信；
+  不检查实际运行的镜像。
+- 未提供 `warden_image`（不使用 `--config` 时总是如此）；引用没有标签或只有 digest；
+  标签为 `latest`、仅主版本号（如 `1`）或其他非版本号内容；仓库不是 `ghcr.io/soulteary/warden`
+  （例如镜像站或自行构建的镜像）；或配置了客户端证书：`unknown`。
+
+输出不包含镜像引用。
 
 只有显式使用 `--health` 才访问网络：网关 `/readyz`、Warden `/health`、Herald `/readyz`、
 TOTP `/healthz`。网关 `/healthz` 只表示存活；Herald/TOTP 就绪也不证明 TOTP 代理、邮件投递
@@ -64,4 +81,6 @@ localhost 的浏览器例外仍需实际核验。私有网关 CA 可用 `gateway
 主机/Cookie/回调错误先核对对应配置；凭据错误在本地核对 ID、密钥和认证模式；健康错误核对
 网络、路由、TLS、访问策略和 Redis。`warden.audience` 错误时，将网关的 `WARDEN_HMAC_AUDIENCE` 改为
 Warden `WARDEN_HMAC_AUDIENCES` 中的某个名称，或在网关清空该项以回到 v2 签名；变更顺序见
-[DEPLOYMENT.md](DEPLOYMENT.md) 的“Warden HMAC audience”一节。单个 401 不能断定一定是 key ID 错误，不得直接输出后端原始正文。
+[DEPLOYMENT.md](DEPLOYMENT.md) 的“Warden HMAC audience”一节。`warden.version` 错误时，先将 Warden 升级到 1.8.0 或更高版本再设置
+`WARDEN_HMAC_AUDIENCE`，或在网关清空该项以回到旧版 Warden 也接受的 v2 签名；结果为 `unknown` 时，
+在清单中补充 `warden_image`，或从 Warden 启动日志中打印的版本确认实际运行的版本。单个 401 不能断定一定是 key ID 错误，不得直接输出后端原始正文。
