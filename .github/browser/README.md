@@ -24,7 +24,7 @@ On manual dispatch both refs are optional and default to the dispatched commit.
 To test other sources, give full 40-character commits; `validate_inputs.py`
 refuses anything else before a checkout or a shell command uses the value. The
 harness always comes from the dispatched ref. The Herald image stays pinned: give
-the independently verified canonical digest of Herald 1.8.0; the HTTPS profile
+the independently verified canonical digest of Herald 1.9.0; the HTTPS profile
 accepts only that digest. Retry metadata (Herald 1.5.0 or later) and a gateway
 consuming its metadata SDK are required for the known cooldown timing assertion.
 Do not substitute mutable tags. When `examples/full-stack` moves to another

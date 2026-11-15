@@ -149,7 +149,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertRegex(key, r'^[0-9a-f]{64}$')
         compose = (config.HERE / 'compose.yml').read_text()
         self.assertEqual(compose.count('HERALD_CODE_HASH_KEY: ${HERALD_CODE_HASH_KEY:-}\n'), 1)
-        self.assertIn('image: ghcr.io/soulteary/herald:1.8.0@sha256:b9c7d091656d73d18771556742640a325bbf9afea70618dcbd158a2bbc3fc514\n', compose)
+        self.assertIn('image: ghcr.io/soulteary/herald:1.9.0@sha256:adc6b044433bea989a69ee422cc4e38d67a2d19cc2512fc70aeac1d284c8eafd\n', compose)
         for override in ['compose.local.yml', 'compose.production.yml', 'compose.totp-production.yml']:
             self.assertNotIn('HERALD_CODE_HASH', (config.HERE / override).read_text())
 
@@ -273,7 +273,7 @@ class ConfigurationTests(unittest.TestCase):
             services = rendered['services']
             self.assertTrue(all(service.get('labels', {}).get('traefik.enable') == 'false' for service in services.values()))
             self.assertFalse(any('docker.sock' in str(volume) for service in services.values() for volume in service.get('volumes', [])))
-            self.assertEqual(services['herald']['image'], 'ghcr.io/soulteary/herald:1.8.0@sha256:b9c7d091656d73d18771556742640a325bbf9afea70618dcbd158a2bbc3fc514')
+            self.assertEqual(services['herald']['image'], 'ghcr.io/soulteary/herald:1.9.0@sha256:adc6b044433bea989a69ee422cc4e38d67a2d19cc2512fc70aeac1d284c8eafd')
             self.assertEqual(services['warden']['image'], 'ghcr.io/soulteary/warden:1.8.0@sha256:3bcec4df695cdb7ee8951e6a0ea378d45b9342df76f46cfa702db6e1c4f2608e')
             self.assertEqual(services['stargate']['image'], 'stargate-example-stargate:local')
             self.assertEqual(Path(services['stargate']['build']['context']), config.HERE.parents[1])

@@ -1,6 +1,6 @@
 # 邮件验证码与验证器完整示例
 
-本示例从当前源码目录构建 Stargate，连接正式发布的 Warden 1.8.0、Herald 1.8.0 和
+本示例从当前源码目录构建 Stargate，连接正式发布的 Warden 1.8.0、Herald 1.9.0 和
 herald-totp 2.0.4，使用真实 SMTP 投递、持久 Redis、显式 HMAC key ID 及三条独立服务凭据。
 不提供读取验证码的测试接口。仅需密码演示时，请使用[根目录快速开始](../../README.zhCN.md#-快速开始)。
 
@@ -106,13 +106,13 @@ Warden 在 `WARDEN_HMAC_AUDIENCES` 中列出同一名称；这种签名形式需
 ### 验证码哈希密钥
 
 `configure.py` 在 `.env` 中生成 `HERALD_CODE_HASH_KEY`（64 个十六进制字符），仅 Herald 容器会收到它。
-Herald 1.8.0 据此将每个邮件验证码以该密钥的 HMAC-SHA-256 摘要存入 Redis，不再使用无密钥的
+Herald 据此将每个邮件验证码以该密钥的 HMAC-SHA-256 摘要存入 Redis，不再使用无密钥的
 Argon2 哈希，因此仅拿到 Redis 数据而没有密钥时，无法离线穷举出验证码。Herald 要求密钥至少 32 字节，
 更短的值会使其拒绝启动。herald-totp 服务不会收到该密钥。这项保护只对持有 Redis 数据但没有 `.env`
 的读取者有效：需要区分两者时，`.env` 备份应与 Redis 备份分开存放。与 TOTP 加密密钥不同，
 丢失此密钥不会丢失任何已存凭据，只会使当时尚未使用的验证码被拒绝。
 
-在此密钥出现之前生成的配置不会被改写，其中没有 `HERALD_CODE_HASH_KEY`。它仍可使用：Herald 1.8.0
+在此密钥出现之前生成的配置不会被改写，其中没有 `HERALD_CODE_HASH_KEY`。它仍可使用：Herald
 收到空值，继续以 Argon2 存储验证码。需要启用时，用 `openssl rand -hex 32` 生成密钥，在既有私有
 `.env` 中加入 `HERALD_CODE_HASH_KEY="<值>"`，再重新创建 Herald（`docker compose up -d herald`）。
 不要复用其他秘密，也不要修改其他行。重启前发送的验证码仍可验证。

@@ -27,7 +27,7 @@ on:
         required: false
         type: string
       herald_image:
-        description: Verified Herald 1.8.0 image canonical digest (retry metadata requires 1.5.0 or later)
+        description: Verified Herald 1.9.0 image canonical digest (retry metadata requires 1.5.0 or later)
         required: true
         type: string
 permissions:
@@ -43,7 +43,7 @@ env:
   # commit. A dispatch may name other commits. No product commit is fixed here.
   FULLSTACK_REF: ${{ inputs.fullstack_ref || github.sha }}
   GATEWAY_REF: ${{ inputs.gateway_ref || github.sha }}
-  HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:b9c7d091656d73d18771556742640a325bbf9afea70618dcbd158a2bbc3fc514' }}
+  HERALD_IMAGE: ${{ inputs.herald_image || 'ghcr.io/soulteary/herald@sha256:adc6b044433bea989a69ee422cc4e38d67a2d19cc2512fc70aeac1d284c8eafd' }}
 jobs:
   chromium:
     runs-on: ubuntu-latest
