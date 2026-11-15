@@ -949,7 +949,7 @@ TOTP 注册、确认、撤销和 step-up 操作会在执行前重新查询 Warde
 
 `WARDEN_HMAC_AUDIENCE` 为可选项，默认留空；留空时保持 v2 签名形式。设置后，Stargate 以 v3 形式签名发往 Warden 的每个请求，签名与指定名称的 Warden 实例绑定，为某个实例签名的请求在共用同一密钥的另一个实例上无效。该设置需要同时配置 `WARDEN_HMAC_KEY_ID` 和 `WARDEN_HMAC_SECRET`，否则 Stargate 拒绝启动。
 
-Warden 一侧必须运行 Warden 1.8.0 或更高版本，并在 `WARDEN_HMAC_AUDIENCES` 中列出相同的名称。更早的 Warden 会以 401 拒绝 v3 请求，未列出该名称的 Warden 也是如此；Stargate 不会回退到 v2，两侧配置一致之前所有目录查询都会失败。启用顺序：先升级 Warden，在 `WARDEN_HMAC_AUDIENCES` 中加入名称，再在 Stargate 上设置 `WARDEN_HMAC_AUDIENCE`。回滚时先清空 Stargate 的 `WARDEN_HMAC_AUDIENCE`。在该实例的所有客户端都使用 v3 签名之前，不要在 Warden 上设置 `WARDEN_HMAC_REQUIRE_AUDIENCE=true`。
+Warden 一侧必须运行 Warden 1.8.0 或更高版本，并在 `WARDEN_HMAC_AUDIENCES` 中列出相同的名称。更早的 Warden 会以 401 拒绝 v3 请求，未列出该名称的 Warden 也是如此；Stargate 不会回退到 v2，两侧配置一致之前所有目录查询都会失败。在 Warden 返回 401 期间，登录、`POST /_send_verify_code` 和会话刷新返回 `503 Service Unavailable`，而不是“用户不在允许列表中”；Stargate 会以 error 级别记录 Warden 拒绝了它自身的凭据。启用顺序：先升级 Warden，在 `WARDEN_HMAC_AUDIENCES` 中加入名称，再在 Stargate 上设置 `WARDEN_HMAC_AUDIENCE`。回滚时先清空 Stargate 的 `WARDEN_HMAC_AUDIENCE`。在该实例的所有客户端都使用 v3 签名之前，不要在 Warden 上设置 `WARDEN_HMAC_REQUIRE_AUDIENCE=true`。
 
 
 ## 登录验证码绑定升级与回滚

@@ -503,7 +503,7 @@ Name of the Warden instance that signed requests are meant for.
 - Set: requests are signed in the v3 form, which adds this name to the signed text. A request signed for one Warden instance is then not valid at another instance that shares the HMAC key.
 - Requires `WARDEN_HMAC_KEY_ID` and `WARDEN_HMAC_SECRET`. Stargate refuses to start when the audience is set without them.
 - The value is 1 to 255 printable ASCII characters without spaces or commas. Surrounding space is removed and the name is lower-cased before it is signed; Warden normalizes its own list the same way.
-- The Warden instance must list the same name in its `WARDEN_HMAC_AUDIENCES` and must run Warden 1.8.0 or newer. An older Warden does not know the v3 form and rejects every request with 401; so does a Warden 1.8.0 that does not list the name. Stargate does not fall back to v2.
+- The Warden instance must list the same name in its `WARDEN_HMAC_AUDIENCES` and must run Warden 1.8.0 or newer. An older Warden does not know the v3 form and rejects every request with 401; so does a Warden 1.8.0 that does not list the name. Stargate does not fall back to v2. While Warden answers 401, sign-in, `POST /_send_verify_code` and session refresh answer `503 Service Unavailable`, not an allow-list miss, and Stargate logs at error level that Warden rejected its own credentials.
 - Order when enabling it: upgrade Warden to 1.8.0 or newer, add the name to `WARDEN_HMAC_AUDIENCES`, then set `WARDEN_HMAC_AUDIENCE` on Stargate. Warden keeps accepting v2 unless `WARDEN_HMAC_REQUIRE_AUDIENCE=true` is set there, so the remaining v2 clients keep working during the change.
 
 **Example:**

@@ -301,7 +301,7 @@ Der Handler akzeptiert in derselben Verifizierungscode-Anfrage auch `phone` + `m
 | `400 Bad Request` | Ungültige Anfrageparameter (phone oder mail fehlt) | Fehlermeldung |
 | `401 Unauthorized` | Benutzer fehlt in Warden oder ist nicht aktiv | JSON-Fehler mit `success=false` |
 | `429 Too Many Requests` | Rate-Limit ausgelöst | Fehlermeldung |
-| `503 Service Unavailable` | Herald-Client oder -Service ist nicht verfügbar | JSON-Fehler mit `success=false` |
+| `503 Service Unavailable` | Herald-Client oder -Service ist nicht verfügbar; oder, mit reason `service_unavailable`, Warden hat den API-Schlüssel bzw. die HMAC-Signatur von Stargate selbst abgelehnt (HTTP 401 von Warden). Es wird kein Code gesendet; ob der Benutzer in der Zulassungsliste steht, ist unbekannt | JSON-Fehler mit `success=false` |
 | `500 Internal Server Error` | Anderer Providerfehler beim Senden | JSON-Fehler mit `success=false` |
 
 #### Beispiele

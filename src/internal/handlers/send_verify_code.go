@@ -134,7 +134,17 @@ func SendVerifyCodeAPI() func(c fiber.Ctx) error {
 				return "mail"
 			}()),
 		)
-		userInfo := auth.GetUserInfo(wardenCtx, userPhone, userMail)
+		userInfo, _, lookupErr := auth.LookupUserInfo(wardenCtx, userPhone, userMail)
+		if errors.Is(lookupErr, auth.ErrWardenCredentialsRejected) {
+			// Warden refused Stargate's own API key or HMAC signature. That
+			// says nothing about the user, so it is not reported as an
+			// allow-list miss. auth.LookupUserInfo has logged the causes. No
+			// code is sent; the answer is the one the uniform-response mode
+			// gives for a failed lookup.
+			wardenSpan.End()
+			tracing.RecordError(sendCodeSpan, lookupErr)
+			return sendVerifyCodeErrorJSON(ctx, fiber.StatusServiceUnavailable, i18n.T(ctx, "error.herald_unavailable_retry"), "service_unavailable")
+		}
 		if userInfo == nil {
 			wardenSpan.SetAttributes(attribute.Bool("warden.user_found", false))
 			wardenSpan.End()

@@ -280,6 +280,41 @@ func IsValidPhone(phone string) bool {
 // dependency failures. Only the former invalidates an authenticated session.
 var ErrUserUnavailable = errors.New("warden identity is missing or inactive")
 
+// ErrWardenCredentialsRejected reports that Warden answered 401 to Stargate's
+// own request: the API key or the HMAC signature was refused. It says nothing
+// about the looked-up user and is never ErrUserUnavailable, so callers fail
+// closed without treating the identity as missing or revoked.
+var ErrWardenCredentialsRejected = errors.New("warden rejected the credentials of this Stargate instance")
+
+// wardenCredentialKind names the credential the client sends, the way the SDK
+// selects it: an HMAC signature when a key ID or secret is set, otherwise the
+// API key. Only the kind is logged, never a value.
+func wardenCredentialKind() string {
+	switch {
+	case config.WardenHMACKeyID.String() != "" || config.WardenHMACSecret.String() != "":
+		return "hmac"
+	case config.WardenAPIKey.String() != "":
+		return "api_key"
+	default:
+		return "none"
+	}
+}
+
+// logWardenCredentialsRejected writes the operator-facing line for a 401 from
+// Warden. It carries no secret, key ID, audience name or user identifier.
+func logWardenCredentialsRejected() {
+	if log == nil {
+		return
+	}
+	log.Error().
+		Str("credential", wardenCredentialKind()).
+		Bool("hmac_audience_set", config.WardenHMACAudience.String() != "").
+		Msg("Warden rejected this Stargate instance's own credentials with HTTP 401; the request failed before any allow-list lookup, so this is not a missing user. " +
+			"Check WARDEN_API_KEY, or WARDEN_HMAC_KEY_ID, WARDEN_HMAC_SECRET and the clocks of both hosts; " +
+			"when WARDEN_HMAC_AUDIENCE is set, Warden must be 1.8.0 or newer and list the same name in WARDEN_HMAC_AUDIENCES; " +
+			"a Warden with WARDEN_HMAC_REQUIRE_AUDIENCE=true rejects requests signed without an audience")
+}
+
 // GetUserInfo returns an active directory identity or nil. Call LookupUserInfo
 // when dependency failures must be distinguished from revoked identities.
 func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser {
@@ -330,6 +365,10 @@ func LookupUserInfo(ctx context.Context, phone, mail string) (*warden.AllowListU
 		var sdkErr *warden.Error
 		if errors.As(err, &sdkErr) && sdkErr.Code == warden.ErrCodeNotFound {
 			return nil, time.Time{}, ErrUserUnavailable
+		}
+		if errors.As(err, &sdkErr) && sdkErr.Code == warden.ErrCodeUnauthorized {
+			logWardenCredentialsRejected()
+			return nil, time.Time{}, ErrWardenCredentialsRejected
 		}
 		return nil, time.Time{}, errors.New("warden lookup failed")
 	}

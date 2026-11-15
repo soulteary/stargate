@@ -301,7 +301,7 @@ curl -X POST \
 | `400 Bad Request` | 無効なリクエストパラメータ（phoneまたはmailが欠落） | エラーメッセージ |
 | `401 Unauthorized` | Warden にユーザーが存在しない、または非アクティブ | `success=false` の JSON エラー |
 | `429 Too Many Requests` | レート制限がトリガーされた | エラーメッセージ |
-| `503 Service Unavailable` | Herald クライアントまたはサービスを利用できない | `success=false` の JSON エラー |
+| `503 Service Unavailable` | Herald クライアントまたはサービスを利用できない。または reason が `service_unavailable` の場合、Warden が Stargate 自身の API キーまたは HMAC 署名を拒否した（Warden が 401 を返した）。コードは送信されず、ユーザーが許可リストにあるかどうかは不明 | `success=false` の JSON エラー |
 | `500 Internal Server Error` | その他のプロバイダー送信エラー | `success=false` の JSON エラー |
 
 #### 例
