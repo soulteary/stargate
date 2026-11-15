@@ -868,6 +868,15 @@ When both `WARDEN_API_KEY` and `WARDEN_HMAC_KEY_ID` / `WARDEN_HMAC_SECRET` are c
 
 The Warden side must run Warden 1.8.0 or newer and list the same name in `WARDEN_HMAC_AUDIENCES`. An older Warden rejects v3 requests with 401, and so does a Warden that does not list the name; Stargate does not fall back to v2, so every directory lookup fails until the two sides match. Enable it in this order: upgrade Warden, add the name to `WARDEN_HMAC_AUDIENCES`, then set `WARDEN_HMAC_AUDIENCE` on Stargate. To roll back, clear `WARDEN_HMAC_AUDIENCE` on Stargate first. Do not set `WARDEN_HMAC_REQUIRE_AUDIENCE=true` on Warden until every client of that instance signs v3.
 
+### Warden server versions
+
+Stargate v1.5.0 is built with the Warden SDK v1.8.0. That is the client library compiled into the gateway; it does not by itself require a Warden server of the same release. Which Warden server releases the gateway works with depends on `WARDEN_HMAC_AUDIENCE`, and the statements below are limited to the combinations that have been run:
+
+- `WARDEN_HMAC_AUDIENCE` set (v3 signatures): Warden 1.8.0 or newer is required. The [full-stack example](../../examples/full-stack/README.md) runs Warden 1.8.0 with an audience, and the browser acceptance workflow signs in through that deployment with a gateway built from source. Stargate v1.5.0 with an audience was also run against Warden 1.7.0: every directory lookup was refused with 401. Warden 1.7.0 treats the v3 form as an unknown signature version.
+- `WARDEN_HMAC_AUDIENCE` unset (v2 signatures, the default): Stargate v1.5.0 was run against Warden 1.7.0 and sign-in worked. Warden releases older than 1.7.0 have not been run against Stargate v1.5.0.
+
+The manual Release compatibility workflow is not evidence for the current release. Its committed default manifest, `.github/compatibility/manifests/baseline.json`, pins Stargate 1.3.3 with Warden 1.6.1, Herald 1.4.3 and herald-totp 2.0.2 and runs those published binaries. It does not run Stargate v1.5.0, so it does not show that v1.5.0 works with Warden 1.6.1.
+
 
 ## Bound login challenge upgrade and rollback
 
