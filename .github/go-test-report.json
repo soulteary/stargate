@@ -1,14 +1,14 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 772,
-    "passed": 761,
+    "total": 777,
+    "passed": 766,
     "failed": 0,
     "skipped": 11
   },
   "coverage": {
-    "covered_statements": 3558,
-    "total_statements": 3717,
+    "covered_statements": 3600,
+    "total_statements": 3761,
     "percentage": 95.72,
     "threshold": 95
   },
@@ -30,9 +30,9 @@
     {
       "name": "src/internal/auth",
       "status": "pass",
-      "tests": 74,
+      "tests": 75,
       "failed": 0,
-      "coverage": 97.16
+      "coverage": 96.24
     },
     {
       "name": "src/internal/config",
@@ -44,16 +44,16 @@
     {
       "name": "src/internal/doctor",
       "status": "pass",
-      "tests": 17,
+      "tests": 20,
       "failed": 0,
-      "coverage": 95.62
+      "coverage": 95.95
     },
     {
       "name": "src/internal/handlers",
       "status": "pass",
-      "tests": 412,
+      "tests": 413,
       "failed": 0,
-      "coverage": 95.85
+      "coverage": 95.86
     },
     {
       "name": "src/internal/i18n",
