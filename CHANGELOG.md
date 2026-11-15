@@ -15,6 +15,12 @@ This file records user-visible changes. For upgrade steps and configuration exam
   `WARDEN_HMAC_AUDIENCES`. An older Warden, or one that does not list the
   name, answers 401 and Stargate does not fall back to v2. Enable it on Warden
   first, and clear it on Stargate first when rolling back.
+- `stargate doctor` has a `warden.audience` check. It compares
+  `WARDEN_HMAC_AUDIENCE` with `WARDEN_HMAC_AUDIENCES` and
+  `WARDEN_HMAC_REQUIRE_AUDIENCE` in the `warden` object of the manifest and
+  fails when Warden would refuse the gateway's signed requests. Without
+  `--config` and with an audience set it reports `unknown`. It prints nothing
+  when the gateway sets no audience and Warden does not require one.
 
 ### Changed
 
@@ -24,6 +30,16 @@ This file records user-visible changes. For upgrade steps and configuration exam
   `HTTPS_PROXY` and `NO_PROXY` of the Stargate process and use the default
   dial and TLS handshake timeouts. If a proxy is configured and Warden must be
   reached directly, add the Warden host to `NO_PROXY`.
+- The full-stack example pins Warden 1.8.0 and signs Warden requests for the
+  instance name `stargate-example-warden` (`WARDEN_HMAC_AUDIENCE` on Stargate,
+  `WARDEN_HMAC_AUDIENCES` on Warden).
+
+### Fixed
+
+- The HMAC example in `SECURITY.md` (English and Chinese) sets
+  `WARDEN_HMAC_KEY_ID` together with `WARDEN_HMAC_SECRET`. The previous
+  example was a configuration Stargate refuses to start with. The other five
+  languages no longer state that Herald needs an HMAC key ID.
 
 ## [1.4.0] - 2026-11-15
 
