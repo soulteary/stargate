@@ -2,12 +2,14 @@
 
 For a complete first deployment with mail OTP or mail OTP plus TOTP, see the [full-stack example](../../examples/full-stack/README.md). It separates local SMTP capture from the HTTPS production template.
 
+For v1.4.0, read the [upgrade and rollback notes](../../CHANGELOG.md#140---2026-11-15) before replacing v1.3.x. Check `PASSWORDS` when `COOKIE_SECURE=true`, clients that send `Stargate-Password`, clients of the TOTP and step-up routes, and any template directory you serve yourself. Stored sessions and Redis records need no migration.
+
 For v1.3.5, read [authentication priority upgrade and rollback](#authentication-priority-upgrade-and-rollback-v135). Valid explicit credentials no longer depend on refreshing an unrelated existing cookie.
 
 For v1.3.4, read [dependency patch upgrade and rollback](#dependency-patch-upgrade-and-rollback-v134). The update changes masking behavior and dependency versions, while preserving existing session and verification state.
 
 
-Current deployment examples use v1.3.8. Before replacing a pre-v1.3 deployment, read the [revocable-session migration](#revocable-session-migration) and [browser-bound session exchange](#browser-bound-session-exchange) requirements. Coordinate all replicas; preserve required Redis state and account for the documented fresh-login boundary.
+Current deployment examples use v1.4.0. Before replacing a pre-v1.3 deployment, read the [revocable-session migration](#revocable-session-migration) and [browser-bound session exchange](#browser-bound-session-exchange) requirements. Coordinate all replicas; preserve required Redis state and account for the documented fresh-login boundary.
 
 This document provides a detailed deployment guide for Stargate Forward Auth Service.
 
@@ -219,7 +221,7 @@ Use the separate example below when Traefik already runs on a shared external Do
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.8
+    image: ghcr.io/soulteary/stargate:1.4.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -308,7 +310,7 @@ Edit `docker-compose.yml` and modify environment variables:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.8
+    image: ghcr.io/soulteary/stargate:1.4.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -332,7 +334,7 @@ Configure Stargate in `docker-compose.yml`:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.8
+    image: ghcr.io/soulteary/stargate:1.4.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

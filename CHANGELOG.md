@@ -4,6 +4,8 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-15
+
 ### Added
 
 - Add `HERALD_CLIENT_IP_HEADER`. When set, Stargate sends the end-user address
@@ -158,8 +160,122 @@ This file records user-visible changes. For upgrade steps and configuration exam
   binary in those images grows from about 10 MB to about 30 MB. The published
   release image never used UPX.
 
-### Upgrade notes
+### Upgrade and rollback
 
+Read this section before replacing v1.3.8. This release adds settings and
+removes none. Stored sessions and Redis records need no migration; do not
+clear Redis during rollout or rollback.
+
+#### Check before upgrading
+
+- A deployment with `COOKIE_SECURE=true` whose `PASSWORDS` still lists
+  `test1234` or `test1337` in plaintext does not start after the upgrade.
+  Replace them before upgrading.
+- Deployments that serve their own template directory must add `step_up.html`
+  and update `totp_start.html` and `totp_revoke.html` from this release;
+  otherwise `/_step_up` cannot render and the other two pages lack the proof
+  fields. The official image ships the updated templates.
+- Deployments that serve their own template directory must update
+  `login.warden.html` and `assets/auth-ui.js`. The script now sends the
+  `challenge_id` it holds with a resend; with the previous script, a resend
+  that Herald refuses in uniform mode leaves the page with a `challenge_id`
+  that the earlier code does not work with. The template tells the script
+  through `data-single-identifier` when to ask for one identifier. The default
+  mode ignores the `challenge_id` field and sends both identifiers as before.
+  The script also handles the "send code" button of `step_up.html`,
+  `totp_start.html` and `totp_revoke.html`; with the previous script that
+  button does nothing.
+- Environment variables with the names of the new settings were ignored by
+  v1.3.8 and take effect now. Stargate does not start when
+  `SESSION_STORAGE_REDIS_USERNAME` is set without
+  `SESSION_STORAGE_REDIS_PASSWORD`, when
+  `SESSION_STORAGE_REDIS_TLS_CA_CERT_FILE` or
+  `SESSION_STORAGE_REDIS_TLS_SERVER_NAME` is set without
+  `SESSION_STORAGE_REDIS_TLS_ENABLED=true`, or when
+  `LOGIN_UNIFORM_RESEND_COOLDOWN` is not a duration of at least `1s`.
+- Startup configuration errors for a broken rule now read `Configuration
+  error: environment variable '<NAME>': <rule>.` Update log matchers that
+  expect `invalid value for environment variable` for these cases.
+
+#### `Stargate-Password` on `/_auth`
+
+These notes apply with `PASSWORD_HEADER_AUTH_ENABLED=true`.
+
+- Every request to `/_auth` that carries `Stargate-Password` is counted
+  against `RATE_LIMIT_LOGIN_MAX` (default `10`) per `RATE_LIMIT_WINDOW`
+  (default `1m`) and client address before the password is compared. A correct
+  password is taken off the count again. Once the quota is used up, requests
+  from that address carrying the header get `429` with `Retry-After` and the
+  message `too many failed password attempts` until the window ends, also with
+  the correct password. v1.3.8 did not limit these requests. Before upgrading,
+  check for clients that send a wrong or outdated value. A request with a wrong
+  value and a valid session cookie is still authenticated by the session, and
+  it is counted as a failure. `RATE_LIMIT_LOGIN_MAX=0` disables the quota.
+- A client that sends more than `RATE_LIMIT_LOGIN_MAX` requests with
+  `Stargate-Password` at the same time from one address gets `429` for the
+  excess, also when every password is correct. With `TRUSTED_PROXIES` empty,
+  all clients behind the proxy share that quota.
+- The same sharing applies behind any proxy that `TRUSTED_PROXIES` does not
+  list, and behind a listed proxy that sends no client address in
+  `PROXY_HEADER`. List the proxy before upgrading.
+- `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` is off by default. Set it to `true`
+  only after `TRUSTED_PROXIES` lists the proxy and the proxy sends the client
+  address: Stargate then does not start with an empty `TRUSTED_PROXIES`, and
+  `Stargate-Password` requests that reach it directly, through an unlisted
+  proxy, or without a client address get `403`.
+- With `SESSION_STORAGE_ENABLED=true` the count is kept in Redis under
+  `<SESSION_STORAGE_REDIS_KEY_PREFIX>ratelimit:password-failure:<address>`. A
+  correct password is taken off the count by a script that calls `GET` and
+  `DECR`. A Redis that restricts commands must allow them together with
+  `EVAL` and `EVALSHA`. If Redis refuses the script, correct passwords stay
+  counted until the window ends.
+
+#### TOTP enrollment, step-up and TOTP removal
+
+- Warden deployments with step-up: users are now asked for their TOTP code or
+  a delivered code instead of the shared password. Each delivered code counts
+  against Herald's per-user, per-destination and resend limits, and its message
+  reads as a sign-in code because Herald is called with purpose `login`.
+- A user with TOTP enrolled who has lost the authenticator and backup codes can
+  no longer pass step-up or remove TOTP with the shared password. Remove the
+  factor in Herald for that user.
+- Password-only deployments (`WARDEN_ENABLED=false`) behave as before.
+- Clients that call `POST /totp/revoke` with `password`, or `POST /_step_up`
+  with `password` for a Warden session, must send `code` instead.
+- Clients that call `POST /totp/enroll` must send the proof in that request,
+  in the form field `code`: a current TOTP code, or a code requested with
+  `POST /_send_reauth_code`. A request without a valid proof gets `401` with
+  the message `additional authentication failed`. The rule that the session
+  must be at most 10 minutes old no longer applies.
+- A proof starts one enrollment and is used up by the request that carries
+  it. If Herald fails to start the enrollment after the proof was accepted,
+  nothing is kept and the user must request and enter a new code. A new
+  `POST /totp/enroll` discards an enrollment started earlier in the session.
+- A started enrollment must be confirmed with `POST /totp/enroll/confirm`
+  within 5 minutes. After that the request gets `401` with
+  `recent_authentication_required`, and the user starts again.
+- An enrollment started on v1.3.8 cannot be confirmed on this release; the
+  confirmation gets `401` with `recent_authentication_required`. Users who
+  were enrolling during the upgrade start again.
+- `/_step_up`, `/totp/enroll` and `/totp/revoke` answer `403` when no proof
+  can be offered for the session and `502` when Herald cannot report the
+  user's TOTP status. With `HERALD_TOTP_ENABLED=true` these routes ask Herald
+  for the TOTP status of a Warden user on every request.
+- With `COOKIE_SECURE=true`, a step-up request that carries
+  `callback_proto=http` returns to the local callback path on the
+  authentication host, not to the `http://` URL. Check applications that are
+  still reached over `http://` behind such a deployment.
+- Audit log: a failed step-up proof is recorded as `login_failed` with method
+  `step_up`; delivered re-authentication codes are recorded with the existing
+  send and verification events and purpose `reauth`; a refused enrollment is
+  recorded with reason `reauthentication_failed` or
+  `reauthentication_required`.
+
+#### Sign-in
+
+- A client that relied on the `stargate_callback` cookie taking precedence over
+  the `callback` form field on `POST /_login` is now redirected to the form's
+  value.
 - Enable `LOGIN_UNIFORM_RESPONSES` only after every replica runs a version
   that has it. A replica without it does not know handles and would send them
   to Herald as challenge ids. With more than one replica, the two settings and
@@ -176,37 +292,98 @@ This file records user-visible changes. For upgrade steps and configuration exam
   `mail` for an unlisted phone gets no code, and its sign-in fails. Such a
   client must send `mail` alone. The login page asks for one identifier in
   this mode and sends nothing while both of its fields are filled in.
-- Deployments that serve their own template directory must update
-  `login.warden.html` and `assets/auth-ui.js`. The script now sends the
-  `challenge_id` it holds with a resend; with the previous script, a resend
-  that Herald refuses in uniform mode leaves the page with a `challenge_id`
-  that the earlier code does not work with. The template tells the script
-  through `data-single-identifier` when to ask for one identifier. The default
-  mode ignores the `challenge_id` field and sends both identifiers as before.
-- Warden deployments with step-up: users are now asked for their TOTP code or
-  a delivered code instead of the shared password. Each delivered code counts
-  against Herald's per-user, per-destination and resend limits, and its message
-  reads as a sign-in code because Herald is called with purpose `login`.
-- A user with TOTP enrolled who has lost the authenticator and backup codes can
-  no longer pass step-up or remove TOTP with the shared password. Remove the
-  factor in Herald for that user.
-- Password-only deployments (`WARDEN_ENABLED=false`) behave as before.
-- Deployments that serve their own template directory must add `step_up.html`
-  and update `totp_start.html` and `totp_revoke.html` from this release;
-  otherwise `/_step_up` cannot render and the other two pages lack the proof
-  fields. The official image ships the updated templates.
-- Clients that call `POST /totp/revoke` with `password`, or `POST /_step_up`
-  with `password` for a Warden session, must send `code` instead.
-- A deployment with `COOKIE_SECURE=true` whose `PASSWORDS` still lists
-  `test1234` or `test1337` in plaintext does not start after the upgrade.
-  Replace them before upgrading.
-- A client that relied on the `stargate_callback` cookie taking precedence over
-  the `callback` form field on `POST /_login` is now redirected to the form's
-  value.
-- A client that sends more than `RATE_LIMIT_LOGIN_MAX` requests with
-  `Stargate-Password` at the same time from one address gets `429` for the
-  excess, also when every password is correct. With `TRUSTED_PROXIES` empty,
-  all clients behind the proxy share that quota.
+- `HERALD_CLIENT_IP_HEADER` has an effect only when Herald names the same
+  header in `HERALD_TRUSTED_PROXY_HEADER` and lists Stargate in
+  `HERALD_TRUSTED_PROXIES`. Left empty, requests to Herald are unchanged.
+
+#### Probes, logs and traces
+
+- `/readyz` and `/health` answer from a result that is up to 5 seconds old. A
+  dependency that fails or recovers is reported up to 5 seconds late, and
+  requests that arrive while the checks run wait for them. `/healthz` is
+  unchanged.
+- With `OTLP_ENABLED=true`, `/healthz`, `/readyz`, `/health` and `/metrics`
+  produce no spans. Dashboards and alerts built on those spans receive no
+  data.
+- Request log lines carry the new field `client_ip`. The field `ip` keeps its
+  meaning, the direct peer. Log pipelines with a fixed schema must admit the
+  new field.
+- XML error responses escape `&`, `<` and `>` in the message. Messages without
+  these characters are unchanged.
+- New startup warnings are logged for an empty `TRUSTED_PROXIES` with
+  `PASSWORD_HEADER_AUTH_ENABLED=true`, for `WARDEN_URL` or `HERALD_URL` over
+  `http://` with a credential, for `SESSION_STORAGE_REDIS_*` settings without
+  `SESSION_STORAGE_ENABLED=true`, and for step-up with Warden, Herald and
+  `PASSWORDS` together. The text of the `TRUSTED_PROXIES` warnings changed.
+  Adjust alerts that match warning text or count warnings.
+
+#### Redis
+
+- The session Redis settings for TLS and an ACL user are optional. Without
+  them the connection is made as before. With
+  `SESSION_STORAGE_REDIS_TLS_ENABLED=true` and no CA file, the server
+  certificate is verified against the system roots and the host in
+  `SESSION_STORAGE_REDIS_ADDR`.
+- A deployment that sets `SESSION_STORAGE_REDIS_*` without
+  `SESSION_STORAGE_ENABLED=true` keeps sessions and rate-limit counters in
+  memory, as before; the new warning only reports it.
+- New records under `SESSION_STORAGE_REDIS_KEY_PREFIX`, all with an expiry:
+  `ratelimit:password-failure:<address>` as described above;
+  `ratelimit:uniform-send:<kind>:<digest>` with
+  `LOGIN_UNIFORM_RESPONSES=true`; and `challenge:context:<id>` records for
+  re-authentication codes and uniform-mode handles, which carry the new
+  fields `purpose`, `herald_challenge_id` and `expires_at`. Sessions gain the
+  fields `totp_enroll_proof_at` and `reauth_challenge_id`.
+
+#### Images and source builds
+
+- The published image is built from `docker/release.Dockerfile`. It never
+  used UPX; its Alpine base is now referenced by tag and digest.
+- Images built from `docker/Dockerfile` or `docker/Dockerfile.manual` carry
+  an unpacked binary of about 30 MB instead of about 10 MB. Their builder
+  stage no longer installs `gcc`, `musl-dev` and `upx`; a customized build
+  that needs them must install them.
+- The base images are pinned by digest, so a rebuild no longer picks up a
+  newer base image under the same tag. Update the digests in the Dockerfiles
+  to move to a newer base image.
+
+#### Rollout with more than one replica
+
+- Replace all replicas in one rollout and keep Redis. While v1.3.8 replicas
+  still serve, they accept TOTP enrollment without a proof and the shared
+  password for step-up and TOTP removal of Warden users, and they do not
+  count `Stargate-Password` attempts. The changes under Security are complete
+  only when no v1.3.8 replica serves.
+- During the rollout, step-up, TOTP enrollment and TOTP removal can fail with
+  `401` when the page and its submission reach different versions. The user
+  repeats the operation after the rollout.
+- Turn on `LOGIN_UNIFORM_RESPONSES` and
+  `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` only after every replica runs this
+  release.
+
+#### Rollback to v1.3.8
+
+- v1.3.8 reads the sessions and Redis records this release writes and ignores
+  the new settings and session fields. Do not clear Redis.
+- Before rolling back, undo configuration that v1.3.8 cannot run with:
+  `STEP_UP_ENABLED=true` without `PASSWORDS` stops v1.3.8 at startup, and
+  v1.3.8 cannot connect to a session Redis that requires TLS or an ACL user.
+- Set `LOGIN_UNIFORM_RESPONSES=false` on all replicas before the first
+  v1.3.8 replica serves. Handles issued before that stop working; users
+  request a new code.
+- v1.3.8 does not know the `purpose` field. A re-authentication code that
+  has not expired is accepted by v1.3.8 as a sign-in code for the same user.
+  Such codes expire with their Herald challenge.
+- An enrollment started on this release is confirmed by v1.3.8 only for a
+  session at most 10 minutes old.
+- Deployments that serve their own template directory must restore the
+  v1.3.8 templates and `assets/auth-ui.js` together with the binary. With
+  the templates of this release, the v1.3.8 TOTP removal page shows no proof
+  field.
+- Rolling back restores the previous behaviour, including the weaker checks
+  described under Security. Rebuild from the v1.3.8 source when rolling back
+  a source build, and do not independently downgrade Herald or Warden
+  services to make a rollback pass.
 
 ## [1.3.8] - 2026-11-13
 
