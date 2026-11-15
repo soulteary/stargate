@@ -4,6 +4,17 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Fixed
+
+- Correct statements in the guides that contradicted the code, among them the
+  release that introduced `stargate doctor` (v1.3.6) and when `PASSWORDS` is
+  required, and repair links to headings whose emoji carries a variation
+  selector. The sibling links point at the Warden v1.8.0 and Herald v1.9.0
+  deployment guides.
+- The deDE, frFR, itIT, jaJP and koKR guides that are shorter than the English
+  ones state at the top that they are abridged and link the English-only
+  security and upgrade topics.
+
 ## [1.6.0] - 2026-11-15
 
 ### Upgrade and rollback
