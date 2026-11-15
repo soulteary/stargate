@@ -1,5 +1,7 @@
 # Migration von v0.12.0 auf v1.0.0
 
+> **Gekürzte Übersetzung**: Dieser Leitfaden ist eine gekürzte Übersetzung und enthält nicht alle aktuellen Änderungen. Der [englische Leitfaden](../enUS/MIGRATION_V1.md) ist vollständig und maßgeblich.
+
 Stargate v1.0.0 definiert stabile Bereitstellungs- und HTTP-Verträge. Die Umstellung zuerst in einer Staging-Umgebung prüfen.
 
 ## Vor dem Upgrade

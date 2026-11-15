@@ -1,6 +1,6 @@
 # Stargate Architektur-Dokumentation
 
-> **Historische Übersetzung**: Dieser Leitfaden enthält nicht alle aktuellen Änderungen. Siehe den [aktuellen englischen Leitfaden](../enUS/ARCHITECTURE.md).
+> **Gekürzte Übersetzung**: Dieser Leitfaden ist eine gekürzte Übersetzung und enthält nicht alle aktuellen Änderungen. Der [englische Leitfaden](../enUS/ARCHITECTURE.md) ist vollständig und maßgeblich.
 
 Dieses Dokument beschreibt die technische Architektur und Designentscheidungen des Stargate-Projekts.
 

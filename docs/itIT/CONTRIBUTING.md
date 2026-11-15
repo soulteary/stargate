@@ -1,10 +1,10 @@
 # Guida per Contribuire
 
+> **Traduzione ridotta**: questa guida è una traduzione ridotta e non include tutte le modifiche attuali. La [guida inglese](../enUS/CONTRIBUTING.md) è completa e fa fede.
+
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
 Grazie per il tuo interesse nel progetto Stargate! Accogliamo tutte le forme di contributi.
-
-> ⚠️ **Nota**: Questa documentazione è in fase di traduzione. Per la versione completa, consulta la [versione inglese](../enUS/CONTRIBUTING.md).
 
 ## Come Contribuire
 

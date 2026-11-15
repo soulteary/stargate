@@ -1,6 +1,15 @@
 # 設定リファレンス
 
-> **過去の翻訳**: このガイドには現在の変更がすべて反映されていません。Redis の要件とアップグレードの制限は[最新の英語版](../enUS/CONFIG.md)を参照してください。
+> **部分翻訳**: このガイドは一部のみを翻訳したもので、現在の変更がすべて反映されているわけではありません。[英語版](../enUS/CONFIG.md)が完全な正式版です。
+>
+> セキュリティとアップグレードに関する次の項目は、英語版にのみ詳しく記載されています。
+>
+> - Warden HMAC の audience: [`WARDEN_HMAC_AUDIENCE`](../enUS/CONFIG.md#warden_hmac_audience)
+> - 認証情報の優先順位: [`HERALD_API_KEY`](../enUS/CONFIG.md#herald_api_key), [`HERALD_HMAC_SECRET`](../enUS/CONFIG.md#herald_hmac_secret)
+> - 統一応答: [`LOGIN_UNIFORM_RESPONSES`](../enUS/CONFIG.md#login_uniform_responses), [`LOGIN_UNIFORM_RESEND_COOLDOWN`](../enUS/CONFIG.md#login_uniform_resend_cooldown), [`HERALD_CLIENT_IP_HEADER`](../enUS/CONFIG.md#herald_client_ip_header)
+> - 再認証: [`STEP_UP_ENABLED`, `STEP_UP_PATHS`](../enUS/CONFIG.md#step-up-authentication-optional)
+> - Redis の要件とアップグレードの制限: [Session Storage](../enUS/CONFIG.md#session-storage-redis-optional), [`AUTH_REFRESH_ENABLED`](../enUS/CONFIG.md#auth_refresh_enabled), [Rate-limit state](../enUS/CONFIG.md#rate-limit-state-and-client-attribution)
+> - 診断: [`stargate doctor`](../enUS/CONFIG.md#scoped-deployment-diagnostics), [DIAGNOSTICS.md](../enUS/DIAGNOSTICS.md)
 
 このドキュメントは、Stargate のすべての設定オプションを詳しく説明します。
 

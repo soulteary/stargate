@@ -1,10 +1,10 @@
 # 기여 가이드
 
+> **부분 번역**: 이 문서는 일부만 번역한 것으로, 현재 변경 사항이 모두 반영되어 있지 않습니다. [영어 문서](../enUS/CONTRIBUTING.md)가 완전한 기준 문서입니다.
+
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](CONTRIBUTING.md)
 
 Stargate 프로젝트에 관심을 가져 주셔서 감사합니다! 모든 형태의 기여를 환영합니다.
-
-> ⚠️ **참고**: 이 문서는 현재 번역 중입니다. 전체 버전은 [영어 버전](../enUS/CONTRIBUTING.md)을 참조하세요.
 
 ## 기여 방법
 

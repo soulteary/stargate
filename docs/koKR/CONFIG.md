@@ -1,6 +1,15 @@
 # 설정 참조
 
-> **이전 번역**: 이 문서에는 현재 변경 사항이 모두 반영되어 있지 않습니다. Redis 요구 사항과 업그레이드 제한은 [최신 영어 설정 문서](../enUS/CONFIG.md)를 확인하세요.
+> **부분 번역**: 이 문서는 일부만 번역한 것으로, 현재 변경 사항이 모두 반영되어 있지 않습니다. [영어 문서](../enUS/CONFIG.md)가 완전한 기준 문서입니다.
+>
+> 보안 및 업그레이드와 관련된 다음 항목은 영어 문서에만 자세히 설명되어 있습니다.
+>
+> - Warden HMAC audience: [`WARDEN_HMAC_AUDIENCE`](../enUS/CONFIG.md#warden_hmac_audience)
+> - 자격 증명 우선순위: [`HERALD_API_KEY`](../enUS/CONFIG.md#herald_api_key), [`HERALD_HMAC_SECRET`](../enUS/CONFIG.md#herald_hmac_secret)
+> - 통일된 응답: [`LOGIN_UNIFORM_RESPONSES`](../enUS/CONFIG.md#login_uniform_responses), [`LOGIN_UNIFORM_RESEND_COOLDOWN`](../enUS/CONFIG.md#login_uniform_resend_cooldown), [`HERALD_CLIENT_IP_HEADER`](../enUS/CONFIG.md#herald_client_ip_header)
+> - 재인증: [`STEP_UP_ENABLED`, `STEP_UP_PATHS`](../enUS/CONFIG.md#step-up-authentication-optional)
+> - Redis 요구 사항과 업그레이드 제한: [Session Storage](../enUS/CONFIG.md#session-storage-redis-optional), [`AUTH_REFRESH_ENABLED`](../enUS/CONFIG.md#auth_refresh_enabled), [Rate-limit state](../enUS/CONFIG.md#rate-limit-state-and-client-attribution)
+> - 진단: [`stargate doctor`](../enUS/CONFIG.md#scoped-deployment-diagnostics), [DIAGNOSTICS.md](../enUS/DIAGNOSTICS.md)
 
 이 문서는 Stargate의 모든 설정 옵션을 자세히 설명합니다.
 

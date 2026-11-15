@@ -1,5 +1,7 @@
 # 문서 인덱스
 
+> **부분 번역**: 한국어 문서는 일부만 번역한 것으로, 현재 변경 사항이 모두 반영되어 있지 않습니다. [영어 문서](../enUS/README.md)가 완전한 기준 문서입니다.
+
 Stargate Forward Auth Service 문서에 오신 것을 환영합니다.
 
 ## 🌐 다국어 문서
@@ -14,8 +16,6 @@ Stargate Forward Auth Service 문서에 오신 것을 환영합니다.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - 기술 아키텍처 및 설계 결정
 
 ### 상세 문서
-
-- **[PERFORMANCE.md](../enUS/PERFORMANCE.md)** - Redis rate-limit measurements (English)
 
 - **[API.md](API.md)** - 완전한 API 엔드포인트 문서
   - 인증 확인 엔드포인트
@@ -63,36 +63,23 @@ Stargate Forward Auth Service 문서에 오신 것을 환영합니다.
 
 ## 📖 문서 구조
 
-```
-stargate/
-├── README.md              # 프로젝트 메인 문서 (영어)
-├── README.zhCN.md         # 프로젝트 메인 문서 (중국어)
-├── README.frFR.md         # 프로젝트 메인 문서 (프랑스어)
-├── README.itIT.md         # 프로젝트 메인 문서 (이탈리아어)
-├── README.jaJP.md         # 프로젝트 메인 문서 (일본어)
-├── README.deDE.md         # 프로젝트 메인 문서 (독일어)
-├── README.koKR.md         # 프로젝트 메인 문서 (한국어)
-├── docs/
-│   ├── enUS/
-│   │   ├── README.md       # 문서 인덱스 (영어)
-│   │   ├── ARCHITECTURE.md # 아키텍처 문서 (영어)
-│   │   ├── API.md          # API 문서 (영어)
-│   │   ├── CONFIG.md       # 구성 참조 (영어)
-│   │   └── DEPLOYMENT.md   # 배포 가이드 (영어)
-│   ├── zhCN/
-│   │   ├── README.md       # 문서 인덱스 (중국어)
-│   │   ├── ARCHITECTURE.md # 아키텍처 문서 (중국어)
-│   │   ├── API.md          # API 문서 (중국어)
-│   │   ├── CONFIG.md       # 구성 참조 (중국어)
-│   │   └── DEPLOYMENT.md   # 배포 가이드 (중국어)
-│   └── koKR/
-│       ├── README.md       # 문서 인덱스 (한국어, 이 파일)
-│       ├── ARCHITECTURE.md # 아키텍처 문서 (한국어)
-│       ├── API.md          # API 문서 (한국어)
-│       ├── CONFIG.md       # 구성 참조 (한국어)
-│       └── DEPLOYMENT.md   # 배포 가이드 (한국어)
-└── ...
-```
+이 디렉터리의 부분 번역:
+
+- [API.md](API.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [CONFIG.md](CONFIG.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [DEPLOYMENT.md](DEPLOYMENT.md)
+- [MIGRATION_V1.md](MIGRATION_V1.md)
+- [SECURITY.md](SECURITY.md)
+
+영어로만 제공:
+
+- [DIAGNOSTICS.md](../enUS/DIAGNOSTICS.md) - Deployment diagnostics
+- [AUTHENTICATION_UI.md](../enUS/AUTHENTICATION_UI.md) - Authentication pages
+- [DINGTALK_USERID_ONLY.md](../enUS/DINGTALK_USERID_ONLY.md) - Opt-in userid-only work-IM login
+- [PERFORMANCE.md](../enUS/PERFORMANCE.md) - Redis rate-limit measurements
+- [VERIFIED_EMAIL.md](../enUS/VERIFIED_EMAIL.md) - Verified email assertions
 
 ## 🔍 주제별 검색
 

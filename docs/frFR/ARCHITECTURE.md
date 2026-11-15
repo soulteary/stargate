@@ -1,6 +1,6 @@
 # Document d'Architecture Stargate
 
-> **Traduction historique** : ce guide ne reflète pas toutes les modifications actuelles. Consultez le [guide anglais actuel](../enUS/ARCHITECTURE.md).
+> **Traduction abrégée** : ce guide est une traduction abrégée et ne reflète pas toutes les modifications actuelles. Le [guide anglais](../enUS/ARCHITECTURE.md) est complet et fait foi.
 
 Ce document décrit l'architecture technique et les décisions de conception du projet Stargate.
 

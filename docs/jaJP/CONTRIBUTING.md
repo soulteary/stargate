@@ -1,10 +1,10 @@
 # 貢献ガイド
 
+> **部分翻訳**: このガイドは一部のみを翻訳したもので、現在の変更がすべて反映されているわけではありません。[英語版](../enUS/CONTRIBUTING.md)が完全な正式版です。
+
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](CONTRIBUTING.md) | [Deutsch](../deDE/CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
 Stargate プロジェクトへのご関心ありがとうございます！あらゆる形式の貢献を歓迎します。
-
-> ⚠️ **注意**: このドキュメントは翻訳中です。完全なバージョンについては、[英語版](../enUS/CONTRIBUTING.md)を参照してください。
 
 ## 貢献方法
 

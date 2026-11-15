@@ -211,6 +211,10 @@ TOTP 分支要求 `HERALD_TOTP_ENABLED=true` 且用户已经完成绑定；否�
 | `429 Too Many Requests` | 请求触发限流 | — |
 | `500 Internal Server Error` | 服务器错误 | 错误消息 |
 
+#### 统一响应
+
+本节尚未翻译，请阅读[英文说明](../enUS/API.md#uniform-responses)。
+
 #### 示例
 
 **密码认证：**
@@ -324,6 +328,10 @@ TOTP 分支直接提交 `use_otp=true` 和 `otp_code`，不需要预先调用 `P
 | `429 Too Many Requests` | 触发限流 | 错误消息 |
 | `503 Service Unavailable` | Herald 客户端未初始化或服务不可用；或者 Warden 拒绝了 Stargate 自身的 API 密钥或 HMAC 签名（Warden 返回 401，reason 为 `service_unavailable`）。此时不发送验证码，用户是否在允许列表中未知 | `success=false` 的 JSON 错误 |
 | `500 Internal Server Error` | Herald 因其他提供商错误拒绝发送 | `success=false` 的 JSON 错误 |
+
+#### 统一响应
+
+本节尚未翻译，请阅读[英文说明](../enUS/API.md#uniform-responses-1)。
 
 #### 示例
 

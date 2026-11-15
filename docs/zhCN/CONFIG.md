@@ -631,6 +631,14 @@ userid 去除首尾空白后保留大小写；纯数字 userid 也不会被猜�
 LOGIN_EMAIL_ENABLED=false
 ```
 
+#### `LOGIN_UNIFORM_RESPONSES`
+
+本节尚未翻译，请阅读[英文说明](../enUS/CONFIG.md#login_uniform_responses)。
+
+#### `LOGIN_UNIFORM_RESEND_COOLDOWN`
+
+本节尚未翻译，请阅读[英文说明](../enUS/CONFIG.md#login_uniform_resend_cooldown)。
+
 #### `HERALD_URL`
 
 Herald 服务的基础 URL。
@@ -756,6 +764,10 @@ Herald 服务 CA 证书文件路径，用于验证服务端证书。
 | **类型** | String（文件路径） |
 | **必需** | 否 |
 | **默认值** | 空 |
+
+#### `HERALD_CLIENT_IP_HEADER`
+
+本节尚未翻译，请阅读[英文说明](../enUS/CONFIG.md#herald_client_ip_header)。
 
 #### `HERALD_TLS_SERVER_NAME`
 

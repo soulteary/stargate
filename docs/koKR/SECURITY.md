@@ -1,10 +1,16 @@
 # 보안 문서
 
+> **부분 번역**: 이 문서는 일부만 번역한 것으로, 현재 변경 사항이 모두 반영되어 있지 않습니다. [영어 문서](../enUS/SECURITY.md)가 완전한 기준 문서입니다.
+>
+> 보안 및 업그레이드와 관련된 다음 항목은 영어 문서에만 자세히 설명되어 있습니다.
+>
+> - 통일된 응답: [Uniform Responses](../enUS/SECURITY.md#uniform-responses)
+> - 재인증: [Re-authentication for Sensitive Operations](../enUS/SECURITY.md#re-authentication-for-sensitive-operations)
+> - Warden HMAC audience: [Service Integration Security](../enUS/SECURITY.md#5-service-integration-security)
+
 > 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](../zhCN/SECURITY.md) | [Français](../frFR/SECURITY.md) | [Italiano](../itIT/SECURITY.md) | [日本語](../jaJP/SECURITY.md) | [Deutsch](../deDE/SECURITY.md) | [한국어](SECURITY.md)
 
 이 문서는 Stargate의 보안 기능, 보안 구성 및 모범 사례를 설명합니다.
-
-> ⚠️ **참고**: 이 문서는 현재 번역 중입니다. 전체 버전은 [영어 버전](../enUS/SECURITY.md)을 참조하세요.
 
 ## 구현된 보안 기능
 

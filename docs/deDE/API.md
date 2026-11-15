@@ -1,5 +1,12 @@
 # API-Dokumentation
 
+> **Gekürzte Übersetzung**: Dieser Leitfaden ist eine gekürzte Übersetzung und enthält nicht alle aktuellen Änderungen. Der [englische Leitfaden](../enUS/API.md) ist vollständig und maßgeblich.
+>
+> Diese Themen zu Sicherheit und Upgrade sind nur im englischen Leitfaden vollständig beschrieben:
+>
+> - Einheitliche Antworten: [`POST /_login`](../enUS/API.md#uniform-responses), [`POST /_send_verify_code`](../enUS/API.md#uniform-responses-1)
+> - Erneute Authentifizierung: [Re-authentication](../enUS/API.md#re-authentication)
+
 Dieses Dokument beschreibt im Detail alle API-Endpunkte des Stargate Forward Auth-Dienstes.
 
 Beim Upgrade von v0.12.0 zuerst den [Migrationsleitfaden für v1.0.0](MIGRATION_V1.md) lesen.

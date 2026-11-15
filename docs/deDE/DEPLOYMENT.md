@@ -1,8 +1,15 @@
 # Bereitstellungsanleitung
 
-Die aktuellen Beispiele verwenden v1.6.0. Vor dem Austausch einer Version vor v1.3 die [Sitzungsmigration](../enUS/DEPLOYMENT.md#revocable-session-migration) und den [browsergebundenen Austausch](../enUS/DEPLOYMENT.md#browser-bound-session-exchange) lesen. Alle Replikate koordinieren, Redis-Zustand erhalten und die erforderliche Neuanmeldung einplanen.
+> **Gekürzte Übersetzung**: Dieser Leitfaden ist eine gekürzte Übersetzung und enthält nicht alle aktuellen Änderungen. Der [englische Leitfaden](../enUS/DEPLOYMENT.md) ist vollständig und maßgeblich.
+>
+> Diese Themen zu Sicherheit und Upgrade sind nur im englischen Leitfaden vollständig beschrieben:
+>
+> - Upgrade und Rollback: [v1.6.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
+> - Widerrufbare Sitzungen: [Revocable session migration](../enUS/DEPLOYMENT.md#revocable-session-migration), [Browser-bound session exchange](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)
+> - Vorrang der Zugangsdaten: [Herald](../enUS/DEPLOYMENT.md#herald-credential-precedence), [Warden](../enUS/DEPLOYMENT.md#warden-credential-precedence)
+> - Warden-HMAC-Audience: [Warden HMAC audience](../enUS/DEPLOYMENT.md#warden-hmac-audience), [Warden server versions](../enUS/DEPLOYMENT.md#warden-server-versions)
 
-> **Historische Übersetzung**: Dieser Leitfaden enthält nicht alle aktuellen Änderungen. Siehe den [aktuellen englischen Leitfaden](../enUS/DEPLOYMENT.md).
+Die aktuellen Beispiele verwenden v1.6.0. Vor dem Austausch einer Version vor v1.3 die [Sitzungsmigration](../enUS/DEPLOYMENT.md#revocable-session-migration) und den [browsergebundenen Austausch](../enUS/DEPLOYMENT.md#browser-bound-session-exchange) lesen. Alle Replikate koordinieren, Redis-Zustand erhalten und die erforderliche Neuanmeldung einplanen.
 
 Dieses Dokument bietet eine detaillierte Bereitstellungsanleitung für den Stargate Forward Auth-Dienst.
 
