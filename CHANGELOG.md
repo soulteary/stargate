@@ -4,6 +4,8 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-15
+
 ### Added
 
 - Add `WARDEN_HMAC_AUDIENCE`. When set, Stargate signs requests to Warden in
@@ -40,6 +42,49 @@ This file records user-visible changes. For upgrade steps and configuration exam
   `WARDEN_HMAC_KEY_ID` together with `WARDEN_HMAC_SECRET`. The previous
   example was a configuration Stargate refuses to start with. The other five
   languages no longer state that Herald needs an HMAC key ID.
+
+### Upgrade and rollback
+
+Read this section before replacing v1.4.0. This release adds one setting and
+removes none. Stored sessions and Redis records need no migration; do not
+clear Redis during rollout or rollback.
+
+#### Check before upgrading
+
+- An environment variable named `WARDEN_HMAC_AUDIENCE` was ignored by v1.4.0
+  and takes effect now. Stargate does not start when it is set without
+  `WARDEN_HMAC_KEY_ID` and `WARDEN_HMAC_SECRET`, or when it is not 1 to 255
+  printable ASCII characters without spaces or commas.
+- With `WARDEN_TLS_CA_CERT_FILE`, `WARDEN_TLS_CLIENT_CERT_FILE` or
+  `WARDEN_TLS_SERVER_NAME` set and `WARDEN_SOURCE_MAX_AGE=0s`, requests to
+  Warden follow `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` of the Stargate
+  process after the upgrade. If a proxy is configured and Warden must be
+  reached directly, add the Warden host to `NO_PROXY` before upgrading.
+- Nothing else changes for a deployment that leaves `WARDEN_HMAC_AUDIENCE`
+  unset: requests to Warden are signed in the v2 form as before, and Warden
+  1.7.0 and earlier keep working.
+
+#### Enabling `WARDEN_HMAC_AUDIENCE`
+
+- Order: upgrade Warden to 1.8.0 or newer, add the name to
+  `WARDEN_HMAC_AUDIENCES` on Warden, upgrade every Stargate replica to this
+  release, then set `WARDEN_HMAC_AUDIENCE` on Stargate.
+- A Warden older than 1.8.0, or one that does not list the name, answers 401
+  to every request and Stargate does not fall back to v2. Sign-in then answers
+  `401` with `user_not_in_list` for every user, and the Stargate log reports
+  the user as not found; the cause is visible in the Warden log only.
+- `stargate doctor --config` compares the two sides before the change is
+  rolled out.
+- Set `WARDEN_HMAC_REQUIRE_AUDIENCE=true` on Warden only after every client of
+  that instance signs with an audience.
+
+#### Rollback to v1.4.0
+
+- Clear `WARDEN_HMAC_AUDIENCE` on Stargate and, if it was set, turn
+  `WARDEN_HMAC_REQUIRE_AUDIENCE` off on Warden before replacing the image.
+  v1.4.0 ignores the setting and signs in the v2 form, which a Warden that
+  requires an audience refuses.
+- No stored data has to be changed or removed.
 
 ## [1.4.0] - 2026-11-15
 
