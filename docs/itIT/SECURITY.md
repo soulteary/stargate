@@ -10,13 +10,13 @@ Questo documento spiega le funzionalità di sicurezza di Stargate, la configuraz
 
 1. **Protezione Forward Auth**: Livello di autenticazione centralizzato per proteggere i servizi backend
 2. **Algoritmi di password multipli**: bcrypt e plaintext solo per sviluppo locale; MD5 e SHA-512 senza salt sono rifiutati
-3. **Gestione sicura delle sessioni**: Sessioni basate su Cookie con dominio e scadenza configurabili
+3. **Gestione sicura delle sessioni**: Sessioni basate su Cookie con dominio del cookie configurabile; le sessioni durano 24 ore (durata fissa)
 4. **Sicurezza dell'integrazione del servizio**: In produzione, Herald richiede le credenziali HMAC o API key selezionate; mTLS opzionale aggiunge protezione al trasporto e non le sostituisce. Warden mantiene la propria policy API key/HMAC/mTLS.
 5. **Sicurezza della condivisione delle sessioni**: Meccanismo di scambio di sessioni cross-domain sicuro
 6. **Validazione degli input**: Validazione rigorosa di tutti i parametri di input
 7. **Gestione degli errori**: I messaggi di errore e gli altri dati di risposta dipendono dall'endpoint; `DEBUG` non è una garanzia generale di non divulgazione
 8. **Intestazioni di risposta di sicurezza**: Aggiunge automaticamente intestazioni di risposta HTTP relative alla sicurezza
-9. **Applicazione HTTPS**: Gli ambienti di produzione devono utilizzare HTTPS
+9. **Applicazione HTTPS**: Gli ambienti di produzione dovrebbero utilizzare HTTPS
 10. **Integrazione OTP**: Integrazione sicura con Herald per l'autenticazione OTP/codice di verifica
 
 ## Risposte di errore e codici di verifica di debug
@@ -28,7 +28,7 @@ considerato una garanzia generale di sanitizzazione delle risposte o di non divu
 Quando Stargate è eseguito con `DEBUG=true`, il servizio Herald configurato è in modalità di test
 (`HERALD_TEST_MODE`) e restituisce un `debug_code` non vuoto, Stargate include quel codice di test
 come `debug_code` nella risposta riuscita a `POST /_send_verify_code`. La pagina di accesso inclusa
-mostra il codice e lo inserisce automaticamente nel campo di verifica.
+mostra il codice e lo inserisce automaticamente nel campo di verifica. Dalla v1.3.7, `debug_code` non viene restituito quando `COOKIE_SECURE=true`, anche con `DEBUG=true`; questo comportamento è disponibile solo per test HTTP locali con `COOKIE_SECURE=false`.
 
 Questa combinazione divulga al client richiedente un codice di verifica equivalente a una credenziale.
 Usarla solo per sviluppo locale o test, mai in produzione. In produzione impostare Stargate

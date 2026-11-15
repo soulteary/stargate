@@ -10,13 +10,13 @@ Ce document explique les fonctionnalités de sécurité de Stargate, la configur
 
 1. **Protection Forward Auth**: Couche d'authentification centralisée pour protéger les services backend
 2. **Algorithmes de mot de passe multiples**: bcrypt et plaintext uniquement en développement local ; MD5 et SHA-512 non salé sont refusés
-3. **Gestion sécurisée des sessions**: Sessions basées sur Cookie avec domaine et expiration configurables
+3. **Gestion sécurisée des sessions**: Sessions basées sur Cookie avec domaine de cookie configurable ; les sessions durent 24 heures (durée fixe)
 4. **Sécurité d'intégration de service**: En production, Herald exige les identifiants HMAC ou API key sélectionnés ; mTLS est une protection de transport supplémentaire, pas leur remplacement. Warden conserve sa propre politique API key/HMAC/mTLS.
 5. **Sécurité de partage de session**: Mécanisme d'échange de session cross-domain sécurisé
 6. **Validation des entrées**: Validation stricte de tous les paramètres d'entrée
 7. **Gestion des erreurs**: Les messages d'erreur et les autres données de réponse dépendent de chaque endpoint ; `DEBUG` ne constitue pas une garantie générale de non-divulgation
 8. **En-têtes de réponse de sécurité**: Ajoute automatiquement les en-têtes de réponse HTTP liés à la sécurité
-9. **Application HTTPS**: Les environnements de production doivent utiliser HTTPS
+9. **Application HTTPS**: Les environnements de production devraient utiliser HTTPS
 10. **Intégration OTP**: Intégration sécurisée avec Herald pour l'authentification OTP/code de vérification
 
 ## Réponses d'erreur et codes de vérification de débogage
@@ -28,7 +28,7 @@ Les détails opérationnels sont normalement consignés dans les journaux, mais 
 Lorsque Stargate fonctionne avec `DEBUG=true`, que le service Herald configuré fonctionne en mode
 test (`HERALD_TEST_MODE`) et renvoie un `debug_code` non vide, Stargate inclut ce code de test sous
 le champ `debug_code` dans la réponse réussie à `POST /_send_verify_code`. La page de connexion
-fournie affiche ce code et le renseigne automatiquement dans le champ de vérification.
+fournie affiche ce code et le renseigne automatiquement dans le champ de vérification. Depuis la v1.3.7, `debug_code` n'est pas renvoyé lorsque `COOKIE_SECURE=true`, même avec `DEBUG=true` ; ce comportement n'est disponible que pour les tests HTTP locaux avec `COOKIE_SECURE=false`.
 
 Cette combinaison divulgue au client demandeur un code de vérification équivalent à un identifiant
 d'authentification. Utilisez-la uniquement en développement local ou pour des tests, jamais en

@@ -62,6 +62,7 @@ X-Forwarded-User: authenticated
 | 상태 코드 | 설명 | 응답 본문 |
 |-----------|------|-----------|
 | `401 Unauthorized` | 인증 실패 | 오류 메시지 (API 요청의 경우 JSON 형식) 또는 로그인 페이지로 리디렉션 (HTML 요청) |
+| `403 Forbidden` | `TRUSTED_PROXIES`의 프록시를 통해 클라이언트 주소와 함께 전달되지 않은 `Stargate-Password` 요청. 비밀번호는 비교하지 않음. `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY=true`인 경우에만 해당 | 오류 메시지 |
 | `429 Too Many Requests` | 현재 윈도우에서 이 클라이언트의 `Stargate-Password` 실패가 `RATE_LIMIT_LOGIN_MAX`회에 도달함. 윈도우가 끝날 때까지 이 헤더를 포함한 모든 요청에, 비밀번호가 올바른 경우에도, `Retry-After` 헤더(초)와 함께 반환됨. `PASSWORD_HEADER_AUTH_ENABLED=true`인 경우에만 해당 | 오류 메시지 |
 | `503 Service Unavailable` | 디렉터리 인가를 일시적으로 사용할 수 없음 | — |
 | `500 Internal Server Error` | 서버 오류 | 오류 메시지 |
@@ -245,7 +246,7 @@ curl -X POST \
 
 | 헤더 | 설명 |
 |------|------|
-| `Idempotency-Key` | 선택. 있으면 Stargate가 Herald로 전달하며, Herald는 TTL 내 동일 key 중복 요청에 같은 challenge 응답을 반환한다. |
+| `Idempotency-Key` | 선택. 있으면 Stargate가 Herald로 전달하며, Herald는 TTL 내 동일 key 중복 요청에 같은 challenge 응답을 반환한다. `LOGIN_UNIFORM_RESPONSES=true`이면 전달하지 않는다. |
 
 <!-- api-contract: send-verify-code-request-body -->
 #### 요청 본문
@@ -452,7 +453,7 @@ Prometheus 메트릭을 텍스트 형식으로 반환합니다. `Authorization: 
 
 ### `GET /log/level`
 
-현재 로그 레벨을 반환합니다. `PUT /log/level` 또는 `POST /log/level`에 JSON 본문 `{"level":"debug"}`나 쿼리 매개변수 `?level=debug`를 전달해 변경합니다. Stargate는 이 엔드포인트를 `127.0.0.1`로 제한하므로 공개 리버스 프록시를 통해 노출하면 안 됩니다.
+현재 로그 레벨을 반환합니다. `PUT /log/level` 또는 `POST /log/level`에 JSON 본문 `{"level":"debug"}`나 쿼리 매개변수 `?level=debug`를 전달해 변경합니다. Stargate는 이 엔드포인트를 `127.0.0.1`로 제한하므로 공개 리버스 프록시를 통해 노출하면 안 됩니다. v1.3.7부터 `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded`, `X-Real-IP` 중 하나라도 포함한 요청은 `404 Not Found`를 받으며, `PUT`/`POST`에는 교차 사이트 쓰기 검사(`403 Forbidden`)가 적용됩니다. 이 검사는 프록시가 전달 헤더를 추가한다는 것을 전제로 하므로, 같은 호스트에서 전달 헤더를 추가하지 않는 프록시는 감지하지 못합니다.
 
 ## 루트 엔드포인트
 

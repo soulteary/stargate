@@ -300,7 +300,7 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `COOKIE_SECURE` | true/false | true | Secure-Attribut der Sitzungs-Cookies |
 | `CALLBACK_ALLOWED_HOSTS` | Host-Liste | leer | Explizite Ziele für Rückleitungen |
 | `SESSION_EXCHANGE_SECRET` | Geheimnis, mind. 32 Zeichen | leer | Signiert kurzlebige domänenübergreifende Tickets |
-| `SESSION_EXCHANGE_REDIRECT_PATH` | Pfad | `/` | Nein |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | Pfad | `/` | Zielpfad nach einem verifizierten Sitzungsaustausch |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Aktiviert den vertrauenswürdigen Legacy-Passwort-Header |
 | `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | Lehnt `Stargate-Password`-Anfragen ab, die nicht über einen Proxy aus `TRUSTED_PROXIES` mit Client-Adresse eintreffen |
 | `LOG_LEVEL` | debug/info/warn/error | info | Start-Protokollstufe |
@@ -312,7 +312,7 @@ Die folgende Tabelle ist mit den tatsächlich in `internal/config` registrierten
 | `WARDEN_API_KEY` | Geheimnis | leer | API-Key-Authentifizierung |
 | `WARDEN_HMAC_KEY_ID` | String | leer | HMAC-Schlüsselkennung |
 | `WARDEN_HMAC_SECRET` | Geheimnis | leer | HMAC-Signaturgeheimnis |
-| `WARDEN_HMAC_AUDIENCE` | String | leer | Name der Warden-Instanz, an den die HMAC-Signatur gebunden wird (v3); muss in `WARDEN_HMAC_AUDIENCES` von Warden stehen, erfordert Warden >= 1.8.0; leer = v2 |
+| `WARDEN_HMAC_AUDIENCE` | String (1–255 druckbare ASCII-Zeichen, keine Leerzeichen oder Kommas) | leer | Name der Warden-Instanz, an den die HMAC-Signatur gebunden wird (v3); muss in `WARDEN_HMAC_AUDIENCES` von Warden stehen, erfordert Warden >= 1.8.0; leer = v2 |
 | `WARDEN_TLS_CA_CERT_FILE` | Pfad | leer | Benutzerdefinierte CA |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | Pfad | leer | mTLS-Clientzertifikat |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | Pfad | leer | mTLS-Clientschlüssel |

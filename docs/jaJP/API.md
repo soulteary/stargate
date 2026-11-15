@@ -62,6 +62,7 @@ X-Forwarded-User: authenticated
 | ステータスコード | 説明 | レスポンス本文 |
 |----------------|------|----------------|
 | `401 Unauthorized` | 認証失敗 | エラーメッセージ（API リクエストの場合は JSON 形式）またはログインページへのリダイレクト（HTML リクエスト） |
+| `403 Forbidden` | `TRUSTED_PROXIES` のプロキシ経由でクライアントアドレス付きで届かなかった `Stargate-Password` リクエスト。パスワードは比較されない。`PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY=true` の場合のみ | エラーメッセージ |
 | `429 Too Many Requests` | 現在のウィンドウ内で、このクライアントからの `Stargate-Password` の失敗が `RATE_LIMIT_LOGIN_MAX` 回に達した。ウィンドウが終わるまで、このヘッダーを含むすべてのリクエストに対して、パスワードが正しい場合も含め、`Retry-After` ヘッダー（秒）付きで返される。`PASSWORD_HEADER_AUTH_ENABLED=true` の場合のみ | エラーメッセージ |
 | `503 Service Unavailable` | ディレクトリ認可が一時的に利用不可 | — |
 | `500 Internal Server Error` | サーバーエラー | エラーメッセージ |
@@ -245,7 +246,7 @@ curl -X POST \
 
 | ヘッダー | 説明 |
 |----------|------|
-| `Idempotency-Key` | 任意。指定した場合、Stargate が Herald に転送する。Herald は TTL 内で同じ key の重複リクエストに同じ challenge 応答を返す。 |
+| `Idempotency-Key` | 任意。指定した場合、Stargate が Herald に転送する。Herald は TTL 内で同じ key の重複リクエストに同じ challenge 応答を返す。 `LOGIN_UNIFORM_RESPONSES=true` の場合は転送しない。 |
 
 <!-- api-contract: send-verify-code-request-body -->
 #### リクエストボディ
@@ -452,7 +453,7 @@ Prometheus メトリクスをテキスト形式で返します。`Authorization:
 
 ### `GET /log/level`
 
-現在のログレベルを返します。`PUT /log/level` または `POST /log/level` に JSON 本文 `{"level":"debug"}` かクエリパラメータ `?level=debug` を渡して変更します。Stargate はこのエンドポイントを `127.0.0.1` に制限しているため、公開リバースプロキシで露出させないでください。
+現在のログレベルを返します。`PUT /log/level` または `POST /log/level` に JSON 本文 `{"level":"debug"}` かクエリパラメータ `?level=debug` を渡して変更します。Stargate はこのエンドポイントを `127.0.0.1` に制限しているため、公開リバースプロキシで露出させないでください。v1.3.7 以降、`X-Forwarded-For`、`X-Forwarded-Host`、`X-Forwarded-Proto`、`Forwarded`、`X-Real-IP` のいずれかを含むリクエストには `404 Not Found` を返し、`PUT`/`POST` にはクロスサイト書き込みチェック（`403 Forbidden`）が適用されます。このチェックはプロキシが転送ヘッダーを付与することを前提としており、同一ホスト上で転送ヘッダーを付与しないプロキシは検出できません。
 
 ## ルートエンドポイント
 

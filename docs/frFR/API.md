@@ -63,6 +63,7 @@ Le nom de l'en-tête utilisateur peut être configuré via la variable d'environ
 | Code de Statut | Description | Corps de Réponse |
 |----------------|-------------|-------------------|
 | `401 Unauthorized` | Authentification échouée | Message d'erreur (format JSON pour les requêtes API) ou redirection vers la page de connexion (requêtes HTML) |
+| `403 Forbidden` | Requête avec `Stargate-Password` qui n'est pas arrivée par un proxy de `TRUSTED_PROXIES` fournissant l'adresse du client. Le mot de passe n'est pas comparé. Uniquement avec `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY=true` | Message d'erreur |
 | `429 Too Many Requests` | `RATE_LIMIT_LOGIN_MAX` tentatives `Stargate-Password` échouées depuis ce client dans la fenêtre en cours. Envoyé avec un en-tête `Retry-After` (secondes) pour toute requête qui porte l'en-tête, même avec le bon mot de passe, jusqu'à la fin de la fenêtre. Uniquement avec `PASSWORD_HEADER_AUTH_ENABLED=true` | Message d'erreur |
 | `503 Service Unavailable` | Autorisation de l’annuaire temporairement indisponible | — |
 | `500 Internal Server Error` | Erreur serveur | Message d'erreur |
@@ -246,7 +247,7 @@ Requête d'envoi de code de vérification. Ce point de terminaison est utilisé 
 
 | En-tête | Description |
 |---------|-------------|
-| `Idempotency-Key` | Optionnel. Si présent, Stargate le transmet à Herald ; Herald renvoie la même réponse de défi pour les requêtes en double avec la même clé dans la TTL. |
+| `Idempotency-Key` | Optionnel. Si présent, Stargate le transmet à Herald ; Herald renvoie la même réponse de défi pour les requêtes en double avec la même clé dans la TTL. Il n'est pas transmis lorsque `LOGIN_UNIFORM_RESPONSES=true`. |
 
 <!-- api-contract: send-verify-code-request-body -->
 #### Corps de Requête
@@ -453,7 +454,7 @@ Renvoie les métriques Prometheus au format texte. Ce point de terminaison requi
 
 ### `GET /log/level`
 
-Renvoie le niveau de journalisation actuel. `PUT /log/level` ou `POST /log/level` le modifie avec le corps JSON `{"level":"debug"}` ou le paramètre `?level=debug`. Stargate limite ce point de terminaison à `127.0.0.1` ; il ne doit pas être exposé par le reverse proxy public.
+Renvoie le niveau de journalisation actuel. `PUT /log/level` ou `POST /log/level` le modifie avec le corps JSON `{"level":"debug"}` ou le paramètre `?level=debug`. Stargate limite ce point de terminaison à `127.0.0.1` ; il ne doit pas être exposé par le reverse proxy public. Depuis la v1.3.7, une requête qui porte `X-Forwarded-For`, `X-Forwarded-Host`, `X-Forwarded-Proto`, `Forwarded` ou `X-Real-IP` reçoit `404 Not Found`, et `PUT`/`POST` sont soumis au contrôle des écritures inter-sites (`403 Forbidden`). Ce contrôle suppose que le proxy ajoute des en-têtes de transfert ; un proxy sur le même hôte qui n'en ajoute pas n'est pas détecté.
 
 ## Point de Terminaison Racine
 

@@ -300,7 +300,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `COOKIE_SECURE` | true/false | true | Attributo Secure dei cookie di sessione |
 | `CALLBACK_ALLOWED_HOSTS` | elenco host | vuoto | Destinazioni di redirect consentite |
 | `SESSION_EXCHANGE_SECRET` | segreto, minimo 32 caratteri | vuoto | Firma ticket cross-domain di breve durata |
-| `SESSION_EXCHANGE_REDIRECT_PATH` | Percorso | `/` | No |
+| `SESSION_EXCHANGE_REDIRECT_PATH` | Percorso | `/` | Percorso di destinazione dopo uno scambio di sessione verificato |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | Abilita l'header password legacy attendibile |
 | `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | Rifiuta le richieste `Stargate-Password` che non arrivano tramite un proxy in `TRUSTED_PROXIES` che fornisce l'indirizzo del client |
 | `LOG_LEVEL` | debug/info/warn/error | info | Livello di log iniziale |
@@ -312,7 +312,7 @@ La tabella è sincronizzata con le variabili di sicurezza realmente registrate i
 | `WARDEN_API_KEY` | segreto | vuoto | Autenticazione API key |
 | `WARDEN_HMAC_KEY_ID` | stringa | vuoto | Identificatore chiave HMAC |
 | `WARDEN_HMAC_SECRET` | segreto | vuoto | Segreto firma HMAC |
-| `WARDEN_HMAC_AUDIENCE` | stringa | vuoto | Nome dell'istanza Warden a cui è legata la firma HMAC (v3); deve comparire in `WARDEN_HMAC_AUDIENCES` di Warden, richiede Warden >= 1.8.0; vuoto = v2 |
+| `WARDEN_HMAC_AUDIENCE` | stringa (da 1 a 255 caratteri ASCII stampabili, senza spazi né virgole) | vuoto | Nome dell'istanza Warden a cui è legata la firma HMAC (v3); deve comparire in `WARDEN_HMAC_AUDIENCES` di Warden, richiede Warden >= 1.8.0; vuoto = v2 |
 | `WARDEN_TLS_CA_CERT_FILE` | percorso | vuoto | CA personalizzata |
 | `WARDEN_TLS_CLIENT_CERT_FILE` | percorso | vuoto | Certificato client mTLS |
 | `WARDEN_TLS_CLIENT_KEY_FILE` | percorso | vuoto | Chiave client mTLS |

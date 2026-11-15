@@ -62,6 +62,7 @@ Der Name des Benutzer-Headers kann über die Umgebungsvariable `USER_HEADER_NAME
 | Statuscode | Beschreibung | Antwort-Text |
 |------------|--------------|--------------|
 | `401 Unauthorized` | Authentifizierung fehlgeschlagen | Fehlermeldung (JSON-Format für API-Anfragen) oder Weiterleitung zur Anmeldeseite (HTML-Anfragen) |
+| `403 Forbidden` | Anfrage mit `Stargate-Password`, die nicht über einen Proxy aus `TRUSTED_PROXIES` mit Client-Adresse eingetroffen ist. Das Passwort wird nicht verglichen. Nur mit `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY=true` | Fehlermeldung |
 | `429 Too Many Requests` | `RATE_LIMIT_LOGIN_MAX` fehlgeschlagene `Stargate-Password`-Versuche dieses Clients im aktuellen Zeitfenster. Wird mit einem `Retry-After`-Header (Sekunden) auf jede Anfrage gesendet, die den Header enthält, auch mit dem richtigen Passwort, bis das Fenster endet. Nur mit `PASSWORD_HEADER_AUTH_ENABLED=true` | Fehlermeldung |
 | `503 Service Unavailable` | Verzeichnisautorisierung vorübergehend nicht verfügbar | — |
 | `500 Internal Server Error` | Server-Fehler | Fehlermeldung |
@@ -245,7 +246,7 @@ Anfrage zum Senden eines Verifizierungscodes. Dieser Endpunkt wird im Warden + H
 
 | Header | Beschreibung |
 |--------|--------------|
-| `Idempotency-Key` | Optional. Wenn gesetzt, leitet Stargate den Wert an Herald weiter; Herald liefert innerhalb der TTL für Duplikatanfragen mit gleichem Key dieselbe Challenge-Antwort. |
+| `Idempotency-Key` | Optional. Wenn gesetzt, leitet Stargate den Wert an Herald weiter; Herald liefert innerhalb der TTL für Duplikatanfragen mit gleichem Key dieselbe Challenge-Antwort. Bei `LOGIN_UNIFORM_RESPONSES=true` wird er nicht weitergeleitet. |
 
 <!-- api-contract: send-verify-code-request-body -->
 #### Anfragekörper
