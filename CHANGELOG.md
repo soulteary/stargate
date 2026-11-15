@@ -4,6 +4,35 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-16
+
+### Upgrade and rollback
+
+Read this section before replacing v1.6.0. This release adds no setting and
+removes none. Stored sessions and Redis records need no migration; do not
+clear Redis during rollout or rollback.
+
+#### Check before upgrading
+
+- In default mode (`LOGIN_UNIFORM_RESPONSES` unset or false), `POST
+  /_send_verify_code` now answers `503` with reason `service_unavailable`
+  whenever the Warden lookup itself fails, where v1.6.0 answered `401` with
+  `user_not_in_list`: Warden answers 403, 429, a server error or an unusable
+  body, does not answer, or is disabled. v1.6.0 already answered `503` for a
+  401 from Warden. A client or monitor that keyed on the `401` for these cases
+  sees `503`. This applies to the strict DingTalk flow
+  (`LOGIN_DINGTALK_REQUIRE_USERID=true`) as well.
+- A user that Warden reports as absent or inactive still gets `401` with
+  `user_not_in_list`. `POST /_login`, forward-auth session refresh,
+  trusted-header lookup and uniform-response mode already answered `503` for
+  a failed lookup and are unchanged.
+- The gateway works with the Warden and Herald servers that v1.6.0 works
+  with. Only the client libraries compiled into the gateway are updated.
+
+#### Rollback to v1.6.0
+
+- Replace the image. No stored data has to be changed or removed.
+
 ### Changed
 
 - Update the Warden SDK from v1.8.0 to v1.9.0, the Herald SDK from v1.8.0 to

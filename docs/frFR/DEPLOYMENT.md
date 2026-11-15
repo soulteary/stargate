@@ -4,12 +4,12 @@
 >
 > Les sujets suivants, liés à la sécurité et aux mises à niveau, ne sont décrits en entier que dans le guide anglais :
 >
-> - Mise à niveau et retour arrière : [v1.6.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
+> - Mise à niveau et retour arrière : [v1.7.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
 > - Sessions révocables : [Revocable session migration](../enUS/DEPLOYMENT.md#revocable-session-migration), [Browser-bound session exchange](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)
 > - Priorité des identifiants : [Herald](../enUS/DEPLOYMENT.md#herald-credential-precedence), [Warden](../enUS/DEPLOYMENT.md#warden-credential-precedence)
 > - Audience HMAC de Warden : [Warden HMAC audience](../enUS/DEPLOYMENT.md#warden-hmac-audience), [Warden server versions](../enUS/DEPLOYMENT.md#warden-server-versions)
 
-Les exemples actuels utilisent v1.6.0. Avant de remplacer une version antérieure à v1.3, lire la [migration des sessions](../enUS/DEPLOYMENT.md#revocable-session-migration) et [l’échange lié au navigateur](../enUS/DEPLOYMENT.md#browser-bound-session-exchange). Coordonner toutes les répliques, préserver l’état Redis et prévoir la reconnexion requise.
+Les exemples actuels utilisent v1.7.0. Avant de remplacer une version antérieure à v1.3, lire la [migration des sessions](../enUS/DEPLOYMENT.md#revocable-session-migration) et [l’échange lié au navigateur](../enUS/DEPLOYMENT.md#browser-bound-session-exchange). Coordonner toutes les répliques, préserver l’état Redis et prévoir la reconnexion requise.
 
 Ce document fournit un guide de déploiement détaillé pour le service Stargate Forward Auth.
 
@@ -189,7 +189,7 @@ Utilisez l'exemple distinct ci-dessous uniquement si Traefik fonctionne déjà s
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.6.0
+    image: ghcr.io/soulteary/stargate:1.7.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -278,7 +278,7 @@ Modifier `docker-compose.yml` et modifier les variables d'environnement :
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.6.0
+    image: ghcr.io/soulteary/stargate:1.7.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -302,7 +302,7 @@ Configurer Stargate dans `docker-compose.yml` :
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.6.0
+    image: ghcr.io/soulteary/stargate:1.7.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
