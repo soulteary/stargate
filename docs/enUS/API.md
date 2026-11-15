@@ -490,7 +490,7 @@ Step-up, TOTP enrollment and TOTP revocation require a fresh proof from the pers
 | Any other Warden user | A one-time code sent by `POST /_send_reauth_code` to the contact registered in Warden | `code` |
 | Session created with the shared password (no user identity) | The shared `PASSWORDS` secret | `password` |
 
-The shared password is never accepted for a session that carries a user identity. A user session for which no Herald client is available is refused with `403 Forbidden` (`reauthentication_unavailable`). If Herald's TOTP state cannot be read the request is refused with `502 Bad Gateway`; it does not fall back to a delivered code. A failed proof returns `401 Unauthorized`.
+The shared password is never accepted for a session that carries a user identity. A user session for which no Herald client is available is refused with `403 Forbidden` (`reauthentication_unavailable`); `GET /totp/revoke` and `POST /totp/revoke` check for the client first and answer `503 Service Unavailable` in that case. If Herald's TOTP state cannot be read the request is refused with `502 Bad Gateway`; it does not fall back to a delivered code. A failed proof returns `401 Unauthorized`.
 
 A proof counts for the request that carries it and for nothing else. Step-up, TOTP revocation and the start of TOTP enrollment each require the proof in the same request; a proof given to one of them is not accepted by another. In particular, passing step-up or removing TOTP does not allow the session to enroll an authenticator.
 
@@ -540,7 +540,7 @@ When Herald TOTP is enabled (`HERALD_ENABLED=true`, `HERALD_TOTP_ENABLED=true`),
 
 ### `GET /totp/enroll`
 
-Displays a confirmation page without creating enrollment state. The page always includes the re-authentication fields that apply to the session (see [Re-authentication](#re-authentication)). Unauthenticated users are redirected with `302 Found` to `/_login`; a session whose user the directory no longer authorizes receives `401 Unauthorized`. An enrollment started from this page must be confirmed within 10 minutes.
+Displays a confirmation page without creating enrollment state. The page always includes the re-authentication fields that apply to the session (see [Re-authentication](#re-authentication)). Unauthenticated users are redirected with `302 Found` to `/_login`; a session whose user the directory no longer authorizes receives `401 Unauthorized`. The state of an enrollment started from this page is kept for 10 minutes, but its confirmation is accepted only within 5 minutes of the start: the record that the start carried a proof is checked first and lasts 5 minutes.
 
 ### `POST /totp/enroll`
 
