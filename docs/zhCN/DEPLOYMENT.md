@@ -2,12 +2,14 @@
 
 首次部署邮件 OTP 或邮件 OTP＋TOTP，请使用[全栈示例](../../examples/full-stack/README.zhCN.md)。示例区分本地 SMTP 收件箱与 HTTPS 生产模板。
 
+升级至 v1.4.0 前，请阅读[升级与回滚说明](../../CHANGELOG.md#140---2026-11-15)。请逐项核对：`COOKIE_SECURE=true` 时的 `PASSWORDS`、发送 `Stargate-Password` 的客户端、调用 TOTP 与 Step-up 接口的客户端，以及自行提供的模板目录。已有会话和 Redis 记录无需迁移。
+
 升级至 v1.3.5 前，请阅读[认证优先级升级与回滚](#认证优先级升级与回滚v135)。有效显式凭据不再依赖无关旧 Cookie 的目录刷新。
 
 升级至 v1.3.4 前，请阅读[依赖补丁升级与回滚](#依赖补丁升级与回滚v134)。本次更新调整脱敏行为和依赖版本，保留既有会话与验证码状态。
 
 
-当前部署示例使用 v1.3.8。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
+当前部署示例使用 v1.4.0。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
 
 本文档提供 Stargate Forward Auth Service 的详细部署指南。
 
@@ -212,7 +214,7 @@ CI 输出不会自动改写；若其中实际包含凭据，应限制访问，�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.8
+    image: ghcr.io/soulteary/stargate:1.4.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -265,7 +267,7 @@ networks:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.8
+    image: ghcr.io/soulteary/stargate:1.4.0
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
@@ -331,7 +333,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.8
+    image: ghcr.io/soulteary/stargate:1.4.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -355,7 +357,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.3.8
+    image: ghcr.io/soulteary/stargate:1.4.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

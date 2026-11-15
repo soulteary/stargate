@@ -10,6 +10,8 @@
 
 Stargate is a lightweight Forward Auth service that centralizes authentication at the reverse-proxy boundary. It integrates with Traefik and exposes password, session, Warden, and Herald-backed authentication flows for protected services.
 
+v1.4.0 changes TOTP enrollment, step-up, `Stargate-Password` rate limiting and the bundled templates. Read the [upgrade and rollback notes](CHANGELOG.md#140---2026-11-15) before upgrading from v1.3.x.
+
 v1.3.3 sends only HMAC credentials when a Herald HMAC secret is configured. Read the [credential selection and rollback guide](docs/enUS/DEPLOYMENT.md#herald-credential-selection-v133) before upgrading dual-configured clients.
 
 v1.3.2 preserves retryable OTP verification failures as 503/409 without automatically retrying a code. See the [upgrade and rollback guidance](docs/enUS/DEPLOYMENT.md#otp-verification-error-handling-v132); existing session deadlines and record formats are unchanged.
