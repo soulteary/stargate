@@ -82,9 +82,9 @@ Stargate is perfect for:
 - [Architecture](#architecture)
 - [Quick Start](#-quick-start)
 - [Documentation](#-documentation)
-- [Basic Configuration](#-basic-configuration)
+- [Basic Configuration](#%EF%B8%8F-basic-configuration)
 - [Optional Service Integration](#-optional-service-integration)
-- [Production Checklist](#-production-checklist)
+- [Production Checklist](#%EF%B8%8F-production-checklist)
 - [License](#-license)
 
 ## 🚀 Quick Start

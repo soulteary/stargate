@@ -154,7 +154,7 @@ Password configuration, specifying the password encryption algorithm and passwor
 | Attribute | Value |
 |-----------|-------|
 | **Type** | String |
-| **Required** | Yes |
+| **Required** | Yes when Warden is disabled. With `WARDEN_ENABLED=true` it may be omitted when `HERALD_ENABLED=true` or `HEADER_AUTH_ENABLED=true` |
 | **Default** | None |
 | **Format** | `algorithm:password1|password2|password3` |
 
@@ -1454,8 +1454,8 @@ services:
 **Warden + Herald OTP Authentication Mode:**
 
 This is the Stargate side of an API-key deployment. Deploy
-[Warden](https://github.com/soulteary/warden/blob/v1.4.4/docs/enUS/DEPLOYMENT.md)
-and [Herald](https://github.com/soulteary/herald/blob/v1.3.13/docs/enUS/DEPLOYMENT.md)
+[Warden](https://github.com/soulteary/warden/blob/v1.8.0/docs/enUS/DEPLOYMENT.md)
+and [Herald](https://github.com/soulteary/herald/blob/v1.9.0/docs/enUS/DEPLOYMENT.md)
 using their versioned guides, including their data and persistence requirements.
 Supply URLs reachable from the Stargate container and matching credentials;
 the upstream default ports are Warden `8081` and Herald `8082`. Configure shared

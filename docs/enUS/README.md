@@ -50,7 +50,7 @@ Welcome to the Stargate Forward Auth Service documentation.
 
 1. Read [README.md](../../README.md) to understand the project
 2. Check the [Quick Start](../../README.md#-quick-start) section
-3. Refer to [Configuration](../../README.md#-basic-configuration) to configure the service
+3. Refer to [Configuration](../../README.md#%EF%B8%8F-basic-configuration) to configure the service
 
 ### Developers
 

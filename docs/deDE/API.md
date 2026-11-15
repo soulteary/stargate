@@ -498,7 +498,7 @@ Alle API-Fehlerantworten wählen automatisch das Format basierend auf dem `Accep
 Error message
 ```
 
-Fehlermeldungen unterstützen Internationalisierung und geben je nach Umgebungsvariable `LANGUAGE` Nachrichten auf Chinesisch oder Englisch zurück.
+Fehlermeldungen unterstützen Internationalisierung und geben je nach Umgebungsvariable `LANGUAGE` Nachrichten in einer von sieben Sprachen zurück (`en`, `zh`, `fr`, `it`, `ja`, `de`, `ko`).
 
 ## Authentifizierungsfluss-Beispiele
 

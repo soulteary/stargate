@@ -47,7 +47,7 @@ Stargate Forward Auth Service 문서에 오신 것을 환영합니다.
 
 1. [README.koKR.md](../../README.koKR.md)를 읽어 프로젝트를 이해하세요
 2. [빠른 시작](../../README.koKR.md#-빠른-시작) 섹션을 확인하세요
-3. [구성](../../README.koKR.md#-기본-구성)을 참조하여 서비스를 구성하세요
+3. [구성](../../README.koKR.md#%EF%B8%8F-기본-구성)을 참조하여 서비스를 구성하세요
 
 ### 개발자
 

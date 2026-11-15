@@ -567,7 +567,7 @@ curl http://auth.example.com/
 错误消息
 ```
 
-错误消息支持国际化，根据 `LANGUAGE` 环境变量返回中文或英文消息。
+错误消息支持国际化，共七种语言（`en`、`zh`、`fr`、`it`、`ja`、`de`、`ko`）。每个请求的语言依次取自 `lang` 查询参数、`lang` Cookie、`X-Language` 请求头或 `Accept-Language`；`LANGUAGE` 环境变量设置默认语言。
 
 ## 认证流程
 

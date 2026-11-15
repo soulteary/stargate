@@ -499,7 +499,7 @@ Toutes les réponses d'erreur API sélectionnent automatiquement le format en fo
 Error message
 ```
 
-Les messages d'erreur supportent l'internationalisation, retournant des messages en chinois ou en anglais selon la variable d'environnement `LANGUAGE`.
+Les messages d'erreur supportent l'internationalisation, retournant des messages dans l'une des sept langues (`en`, `zh`, `fr`, `it`, `ja`, `de`, `ko`) selon la variable d'environnement `LANGUAGE`.
 
 ## Exemples de Flux d'Authentification
 

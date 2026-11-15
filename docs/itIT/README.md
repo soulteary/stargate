@@ -47,7 +47,7 @@ Benvenuto nella documentazione del servizio Stargate Forward Auth.
 
 1. Leggi [README.itIT.md](../../README.itIT.md) per comprendere il progetto
 2. Controlla la sezione [Quick Start](../../README.itIT.md#-avvio-rapido)
-3. Fai riferimento a [Configurazione](../../README.itIT.md#-configurazione-di-base) per configurare il servizio
+3. Fai riferimento a [Configurazione](../../README.itIT.md#%EF%B8%8F-configurazione-di-base) per configurare il servizio
 
 ### Sviluppatori
 

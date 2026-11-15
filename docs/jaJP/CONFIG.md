@@ -75,7 +75,7 @@ AUTH_HOST=auth.example.com
 | 属性 | 値 |
 |------|-----|
 | **型** | String |
-| **必須** | はい |
+| **必須** | Warden が無効な場合は必須。`WARDEN_ENABLED=true` で `HERALD_ENABLED=true` または `HEADER_AUTH_ENABLED=true` の場合は省略可 |
 | **デフォルト** | なし |
 | **形式** | `algorithm:password1|password2|password3` |
 

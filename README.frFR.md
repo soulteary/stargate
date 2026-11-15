@@ -69,9 +69,9 @@ Stargate est parfait pour :
 
 - [Démarrage Rapide](#-démarrage-rapide)
 - [Documentation](#-documentation)
-- [Configuration de Base](#-configuration-de-base)
+- [Configuration de Base](#%EF%B8%8F-configuration-de-base)
 - [Intégration de Services Optionnels](#-intégration-de-services-optionnels)
-- [Liste de Vérification de Production](#-liste-de-vérification-de-production)
+- [Liste de Vérification de Production](#%EF%B8%8F-liste-de-vérification-de-production)
 - [Licence](#-licence)
 
 ## 🚀 Démarrage Rapide

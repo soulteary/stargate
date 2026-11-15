@@ -75,7 +75,7 @@ Configuration du mot de passe, spécifiant l'algorithme de chiffrement du mot de
 | Attribut | Valeur |
 |----------|--------|
 | **Type** | String |
-| **Requis** | Oui |
+| **Requis** | Oui lorsque Warden est désactivé. Avec `WARDEN_ENABLED=true`, peut être omis si `HERALD_ENABLED=true` ou `HEADER_AUTH_ENABLED=true` |
 | **Par Défaut** | Aucun |
 | **Format** | `algorithm:password1|password2|password3` |
 

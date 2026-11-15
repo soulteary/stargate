@@ -50,7 +50,7 @@
 
 1. 阅读 [README.zhCN.md](../../README.zhCN.md) 了解项目
 2. 查看 [快速开始](../../README.zhCN.md#-快速开始) 部分
-3. 参考 [配置说明](../../README.zhCN.md#-基本配置) 配置服务
+3. 参考 [配置说明](../../README.zhCN.md#%EF%B8%8F-基本配置) 配置服务
 
 ### 开发人员
 
