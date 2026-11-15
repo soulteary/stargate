@@ -24,6 +24,7 @@ services:
       WARDEN_URL: http://warden:8081
       WARDEN_HMAC_KEY_ID: stargate-directory
       WARDEN_HMAC_SECRET: ${STARGATE_WARDEN_HMAC:?run configure.py first}
+      WARDEN_HMAC_AUDIENCE: stargate-example-warden
       WARDEN_API_KEY: ''
       WARDEN_SOURCE_MAX_AGE: 90s
       WARDEN_SOURCE_CLOCK_SKEW: 1s
@@ -66,7 +67,7 @@ services:
       retries: 12
       start_period: 10s
     labels: {traefik.enable: 'false'}
-    image: ghcr.io/soulteary/warden:1.7.0@sha256:48d16b9541e3c9692b89ff89eeb011567da629fa7fd3bebda97eac3def8ba1a9
+    image: ghcr.io/soulteary/warden:1.8.0@sha256:3bcec4df695cdb7ee8951e6a0ea378d45b9342df76f46cfa702db6e1c4f2608e
     environment:
       PORT: '8081'
       ENVIRONMENT: production
@@ -77,6 +78,7 @@ services:
       SNAPSHOT_MAX_AGE: 60s
       API_KEY: ''
       WARDEN_HMAC_KEYS: '{"stargate-directory":"${STARGATE_WARDEN_HMAC:?run configure.py first}"}'
+      WARDEN_HMAC_AUDIENCES: stargate-example-warden
       REDIS_ENABLED: 'true'
       REDIS: redis:6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:?run configure.py first}
