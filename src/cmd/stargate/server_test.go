@@ -19,6 +19,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/valyala/fasthttp"
 )
 
@@ -261,7 +262,7 @@ func TestSetupRoutes(t *testing.T) {
 	// Verify liveness, readiness, and the compatibility route are registered.
 	for _, route := range []string{RouteHealthz, RouteReadyz, RouteHealth} {
 		req := httptest.NewRequest("GET", route, nil)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		testza.AssertNoError(t, err)
 		testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 	}
@@ -278,15 +279,15 @@ func TestHealthzStaysLiveWhenDependencyIsUnready(t *testing.T) {
 	}))
 	setupRoutes(app, store, aggregator, handlers.NewSessionExchangeReplayStore(nil))
 
-	liveness, err := app.Test(httptest.NewRequest("GET", RouteHealthz, nil))
+	liveness, err := app.Test(httptest.NewRequest("GET", RouteHealthz, nil), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, liveness.StatusCode)
 
-	readiness, err := app.Test(httptest.NewRequest("GET", RouteReadyz, nil))
+	readiness, err := app.Test(httptest.NewRequest("GET", RouteReadyz, nil), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusServiceUnavailable, readiness.StatusCode)
 
-	legacy, err := app.Test(httptest.NewRequest("GET", RouteHealth, nil))
+	legacy, err := app.Test(httptest.NewRequest("GET", RouteHealth, nil), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusServiceUnavailable, legacy.StatusCode)
 }
@@ -370,7 +371,7 @@ func TestSetupMiddleware(t *testing.T) {
 
 	// Verify middleware is registered by making a request
 	req := httptest.NewRequest("GET", "/", nil)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	// Should not panic, even if route doesn't exist
 	testza.AssertNoError(t, err)
 	testza.AssertNotNil(t, resp)
@@ -389,7 +390,7 @@ func TestCreateApp(t *testing.T) {
 
 	// Verify routes are registered by testing health endpoint
 	req := httptest.NewRequest("GET", RouteHealth, nil)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 }
@@ -415,7 +416,7 @@ func TestCreateApp_AllRoutesRegistered(t *testing.T) {
 	for _, route := range routes {
 		t.Run(route, func(t *testing.T) {
 			req := httptest.NewRequest("GET", route, nil)
-			resp, err := app.Test(req)
+			resp, err := app.Test(req, testsupport.RequestAllowance)
 			// Route should exist (may return different status codes)
 			testza.AssertNoError(t, err)
 			testza.AssertNotNil(t, resp)
@@ -503,7 +504,7 @@ func TestSetupSessionStore_ConfigApplied(t *testing.T) {
 	})
 
 	req := httptest.NewRequest("GET", "/test", nil)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 }
@@ -517,7 +518,7 @@ func TestCreateApp_StaticFilesRegistered(t *testing.T) {
 	// Test that static files route is registered
 	// Note: This will return 404 if assets don't exist, but route should be registered
 	req := httptest.NewRequest("GET", "/assets/favicon.ico", nil)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	// Route exists (may be 404 if file doesn't exist, but that's OK)
 	testza.AssertNotNil(t, resp)
@@ -531,7 +532,7 @@ func TestCreateApp_MiddlewareRegistered(t *testing.T) {
 
 	// Verify middleware is working by checking response headers
 	req := httptest.NewRequest("GET", RouteHealth, nil)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 	// Middleware should have processed the request
@@ -569,7 +570,7 @@ func TestCreateApp_LoginWorksWithoutRedis(t *testing.T) {
 	req.Host = config.AuthHost.String()
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	defer func() { _ = resp.Body.Close() }()
 
@@ -650,7 +651,7 @@ func TestLogLevelEndpointRejectsProxiedAndCrossSiteRequests(t *testing.T) {
 	// A direct request reaches the logger-kit handler, which then applies its
 	// own loopback allowlist. The test transport is not 127.0.0.1, so the
 	// handler answers 403 rather than the guard's 404.
-	direct, err := app.Test(httptest.NewRequest(fiber.MethodGet, RouteLogLevel, nil))
+	direct, err := app.Test(httptest.NewRequest(fiber.MethodGet, RouteLogLevel, nil), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusForbidden, direct.StatusCode)
 
@@ -659,7 +660,7 @@ func TestLogLevelEndpointRejectsProxiedAndCrossSiteRequests(t *testing.T) {
 			t.Run(method+" "+header, func(t *testing.T) {
 				req := httptest.NewRequest(method, RouteLogLevel+"?level=debug", nil)
 				req.Header.Set(header, "203.0.113.7")
-				resp, err := app.Test(req)
+				resp, err := app.Test(req, testsupport.RequestAllowance)
 				testza.AssertNoError(t, err)
 				testza.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
 			})
@@ -669,7 +670,7 @@ func TestLogLevelEndpointRejectsProxiedAndCrossSiteRequests(t *testing.T) {
 	t.Run("cross-site write", func(t *testing.T) {
 		req := httptest.NewRequest(fiber.MethodPost, RouteLogLevel+"?level=debug", nil)
 		req.Header.Set("Sec-Fetch-Site", "cross-site")
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		testza.AssertNoError(t, err)
 		body, _ := io.ReadAll(resp.Body)
 		testza.AssertEqual(t, fiber.StatusForbidden, resp.StatusCode)

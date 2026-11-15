@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,7 +50,7 @@ func TestVerificationFailureMessages(t *testing.T) {
 				require.Equal(t, expected, verificationFailureMessage(ctx, response, tc.reason))
 				return ctx.SendStatus(fiber.StatusOK)
 			})
-			response, err := app.Test(httptest.NewRequest("GET", "/", nil))
+			response, err := app.Test(httptest.NewRequest("GET", "/", nil), testsupport.RequestAllowance)
 			require.NoError(t, err)
 			require.NoError(t, response.Body.Close())
 		})
@@ -96,7 +97,7 @@ func TestChallengeVerificationPreservesIdentityAndAMR(t *testing.T) {
 			})
 			request := httptest.NewRequest("POST", "/", strings.NewReader("challenge_id=challenge-1&verify_code=123456"))
 			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			response, err := app.Test(request)
+			response, err := app.Test(request, testsupport.RequestAllowance)
 			require.NoError(t, err)
 			require.Equal(t, tc.status, response.StatusCode)
 			require.NoError(t, response.Body.Close())

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -51,7 +52,7 @@ func TestMiddlewareProvidersObserveDeadlineAndKeepResults(t *testing.T) {
 				return c.SendStatus(fiber.StatusNoContent)
 			})
 
-			resp, err := app.Test(httptest.NewRequest("GET", "/provider", nil))
+			resp, err := app.Test(httptest.NewRequest("GET", "/provider", nil), testsupport.RequestAllowance)
 			require.NoError(t, err)
 			assert.Equal(t, test.want, resp.StatusCode)
 			require.NotNil(t, captured)
@@ -82,7 +83,7 @@ func TestMiddlewareTimeoutCancelsBlockedProvider(t *testing.T) {
 	})
 
 	started := time.Now()
-	resp, err := app.Test(httptest.NewRequest("GET", "/provider", nil))
+	resp, err := app.Test(httptest.NewRequest("GET", "/provider", nil), testsupport.RequestAllowance)
 	require.NoError(t, err)
 	assert.Equal(t, fiber.StatusGatewayTimeout, resp.StatusCode)
 	assert.GreaterOrEqual(t, time.Since(started), timeout)

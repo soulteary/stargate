@@ -5,6 +5,7 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 )
 
 func TestRateLimitClientKey(t *testing.T) {
@@ -49,7 +50,7 @@ func TestLoginRateLimitGroupsIPv6ByPrefix(t *testing.T) {
 		t.Helper()
 		req := newRequestProtectionTestRequest(fiber.MethodPost, "/_login")
 		req.Header.Set(fiber.HeaderXForwardedFor, clientIP)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		if err != nil {
 			t.Fatalf("execute request from %s: %v", clientIP, err)
 		}

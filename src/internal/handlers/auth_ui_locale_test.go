@@ -6,6 +6,7 @@ import (
 	i18nkit "github.com/soulteary/i18n-kit/v4"
 	i18nfiber "github.com/soulteary/i18n-kit/v4/fiberadapter"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"net/http/httptest"
 	"testing"
 )
@@ -20,7 +21,7 @@ func TestAuthenticationUILocaleAndDeliveryShareResolvedLanguage(t *testing.T) {
 	req.Header.Set("Cookie", "lang=en")
 	req.Header.Set("X-Language", "en")
 	req.Header.Set("Accept-Language", "en-US")
-	r, err := app.Test(req)
+	r, err := app.Test(req, testsupport.RequestAllowance)
 	if err != nil {
 		t.Fatal(err)
 	}

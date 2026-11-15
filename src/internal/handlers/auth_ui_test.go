@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"github.com/gofiber/fiber/v3"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"io"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,7 @@ func TestAuthenticationErrorPreservesExistingWireFormats(t *testing.T) {
 		app.Get("/", func(c fiber.Ctx) error { return SendAuthenticationError(c, 401, "Existing message", "invalid") })
 		req := httptest.NewRequest("GET", "/", nil)
 		req.Header.Set("Accept", accept)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -45,7 +46,7 @@ func TestAuthenticationReasonRejectsUntrustedDetail(t *testing.T) {
 	})
 	req := httptest.NewRequest("GET", "/", nil)
 	req.Header.Set("Accept", "application/json")
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	if err != nil {
 		t.Fatal(err)
 	}
