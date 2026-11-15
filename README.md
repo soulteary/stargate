@@ -10,7 +10,7 @@
 
 Stargate is a lightweight Forward Auth service that centralizes authentication at the reverse-proxy boundary. It integrates with Traefik and exposes password, session, Warden, and Herald-backed authentication flows for protected services.
 
-v1.5.0 adds the optional `WARDEN_HMAC_AUDIENCE` setting and updates the Warden SDK to v1.8.0. Read the [upgrade and rollback notes](CHANGELOG.md#150---2026-11-15) before upgrading from v1.4.0, in particular when Warden is reached through `WARDEN_TLS_*` settings and the process has proxy environment variables.
+v1.6.0 reports a 401 from Warden as rejected service credentials instead of an unlisted user and adds a `warden.version` check to `stargate doctor`. Read the [upgrade and rollback notes](CHANGELOG.md#160---2026-11-15) before upgrading from v1.5.0, in particular when a client or monitor depends on the answer of `POST /_send_verify_code` or automation runs `stargate doctor --config`.
 
 v1.4.0 changes TOTP enrollment, step-up, `Stargate-Password` rate limiting and the bundled templates. Read the [upgrade and rollback notes](CHANGELOG.md#140---2026-11-15) before upgrading from v1.3.x.
 

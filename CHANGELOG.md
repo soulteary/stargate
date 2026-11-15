@@ -4,6 +4,36 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-11-15
+
+### Upgrade and rollback
+
+Read this section before replacing v1.5.0. This release adds no setting and
+removes none. Stored sessions and Redis records need no migration; do not
+clear Redis during rollout or rollback.
+
+#### Check before upgrading
+
+- When Warden answers 401 to Stargate's own request (wrong API key, HMAC key
+  ID or secret, or an audience Warden does not accept), `POST
+  /_send_verify_code` now answers `503` with reason `service_unavailable`
+  where v1.5.0 answered `401` with `user_not_in_list`. A client or monitor
+  that keyed on the `401` for this case sees `503`. The Stargate log now names
+  the cause at error level.
+- `stargate doctor --config` with `WARDEN_HMAC_AUDIENCE` set reports
+  `warden.version` as `unknown` and exits 3 until the manifest has a
+  `warden_image` field with the Warden image reference; such a manifest
+  exited 0 with v1.5.0 when nothing else was unknown. Add the field to
+  manifests used in automation.
+- Nothing changes for a deployment whose Warden credentials are accepted and
+  that does not run `stargate doctor` with a manifest.
+
+#### Rollback to v1.5.0
+
+- Replace the image. No stored data has to be changed or removed.
+- The `stargate doctor` of v1.5.0 rejects a manifest that contains
+  `warden_image`; remove the field before using the older binary.
+
 ### Added
 
 - `stargate doctor` has a `warden.version` check. With `WARDEN_HMAC_AUDIENCE`
@@ -17,7 +47,7 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ### Changed
 
-- The full-stack example runs Herald 1.8.0 and generates
+- The full-stack example runs Herald 1.9.0 and generates
   `HERALD_CODE_HASH_KEY`, so verification codes are stored in Redis as keyed
   HMAC-SHA-256 digests. An existing example configuration keeps the Argon2
   hash until the key is added to its `.env`.
