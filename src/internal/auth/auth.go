@@ -315,6 +315,99 @@ func logWardenCredentialsRejected() {
 			"a Warden with WARDEN_HMAC_REQUIRE_AUDIENCE=true rejects requests signed without an audience")
 }
 
+// ErrWardenAccessDenied reports that Warden answered 403 to Stargate's own
+// request: Warden accepted or did not check the credential and refused this
+// client. Like ErrWardenCredentialsRejected it says nothing about the
+// looked-up user and is never ErrUserUnavailable.
+var ErrWardenAccessDenied = errors.New("warden denied access to this Stargate instance")
+
+// logWardenAccessDenied writes the operator-facing line for a 403 from Warden.
+// It carries no secret, key ID, address or user identifier.
+func logWardenAccessDenied() {
+	if log == nil {
+		return
+	}
+	log.Error().
+		Str("credential", wardenCredentialKind()).
+		Msg("Warden refused this Stargate instance with HTTP 403; the request was refused before any allow-list lookup, so this is not a missing user. " +
+			"Warden answers 403 when the address it sees for Stargate is not in its IP_WHITELIST (TRUSTED_PROXY_IPS decides whether a forwarded address is used), " +
+			"or when its WARDEN_SERVICE_POLICIES does not grant the action directory:lookup to the key ID in WARDEN_HMAC_KEY_ID. " +
+			"A proxy between Stargate and Warden can also answer 403")
+}
+
+// WardenLookupError is a lookup that produced no answer about the user for a
+// reason other than a 401 or 403 from Warden. Class names the reason and
+// holds no request or response data.
+type WardenLookupError struct {
+	Class string
+}
+
+func (e *WardenLookupError) Error() string {
+	return "warden lookup failed: " + e.Class
+}
+
+// Failure classes of a Warden lookup, as returned by WardenLookupFailureClass.
+const (
+	WardenFailureCredentialsRejected = "credentials_rejected" // Warden answered 401
+	WardenFailureAccessDenied        = "access_denied"        // Warden answered 403
+	WardenFailureRateLimited         = "rate_limited"         // Warden answered 429
+	WardenFailureServerError         = "server_error"         // Warden answered 500, 502 or 503
+	WardenFailureUnexpectedStatus    = "unexpected_status"    // any other non-200 status
+	WardenFailureNoResponse          = "no_response"          // connection, TLS or timeout failure
+	WardenFailureInvalidResponse     = "invalid_response"     // the body could not be used
+	WardenFailureSourceFreshness     = "source_freshness"     // WARDEN_SOURCE_MAX_AGE evidence missing or expired
+	WardenFailureClientUnavailable   = "client_unavailable"   // Warden disabled or client not initialized
+	WardenFailureUnknown             = "unknown"
+)
+
+// WardenLookupFailureClass names why LookupUserInfo returned no answer about
+// the user. It returns "" for a nil error and for ErrUserUnavailable, which is
+// an answer: the user is missing or inactive.
+func WardenLookupFailureClass(err error) string {
+	var lookupErr *WardenLookupError
+	switch {
+	case err == nil || errors.Is(err, ErrUserUnavailable):
+		return ""
+	case errors.Is(err, ErrWardenCredentialsRejected):
+		return WardenFailureCredentialsRejected
+	case errors.Is(err, ErrWardenAccessDenied):
+		return WardenFailureAccessDenied
+	case errors.As(err, &lookupErr):
+		return lookupErr.Class
+	default:
+		return WardenFailureUnknown
+	}
+}
+
+// classifyWardenFailure maps an SDK error that is neither 401, 403 nor 404 to
+// a failure class.
+func classifyWardenFailure(err error) string {
+	if errors.Is(err, errSourceEvidence) {
+		return WardenFailureSourceFreshness
+	}
+	var sdkErr *warden.Error
+	if !errors.As(err, &sdkErr) {
+		return WardenFailureUnknown
+	}
+	switch sdkErr.Code {
+	case warden.ErrCodeRateLimited:
+		return WardenFailureRateLimited
+	case warden.ErrCodeServerError:
+		return WardenFailureServerError
+	case warden.ErrCodeInvalidResponse:
+		return WardenFailureInvalidResponse
+	case warden.ErrCodeSourceFreshness:
+		return WardenFailureSourceFreshness
+	case warden.ErrCodeRequestFailed:
+		if sdkErr.StatusCode != 0 {
+			return WardenFailureUnexpectedStatus
+		}
+		return WardenFailureNoResponse
+	default:
+		return WardenFailureUnknown
+	}
+}
+
 // GetUserInfo returns an active directory identity or nil. Call LookupUserInfo
 // when dependency failures must be distinguished from revoked identities.
 func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser {
@@ -324,9 +417,13 @@ func GetUserInfo(ctx context.Context, phone, mail string) *warden.AllowListUser 
 
 // LookupUserInfo returns a directory identity and, when configured, the exact
 // source deadline checked for that lookup. Failures never extend a deadline.
+//
+// ErrUserUnavailable is the only error that is an answer about the user. Every
+// other error means the lookup itself failed; WardenLookupFailureClass names
+// the reason.
 func LookupUserInfo(ctx context.Context, phone, mail string) (*warden.AllowListUser, time.Time, error) {
 	if !config.WardenEnabled.ToBool() || getWardenClient() == nil {
-		return nil, time.Time{}, errors.New("warden client is unavailable")
+		return nil, time.Time{}, &WardenLookupError{Class: WardenFailureClientUnavailable}
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -370,14 +467,20 @@ func LookupUserInfo(ctx context.Context, phone, mail string) (*warden.AllowListU
 			logWardenCredentialsRejected()
 			return nil, time.Time{}, ErrWardenCredentialsRejected
 		}
-		return nil, time.Time{}, errors.New("warden lookup failed")
+		// The SDK reports a 403 with its generic request-failed code; the
+		// status tells it apart.
+		if errors.As(err, &sdkErr) && sdkErr.StatusCode == http.StatusForbidden {
+			logWardenAccessDenied()
+			return nil, time.Time{}, ErrWardenAccessDenied
+		}
+		return nil, time.Time{}, &WardenLookupError{Class: classifyWardenFailure(err)}
 	}
 	if user == nil || !user.IsActive() {
 		return nil, time.Time{}, ErrUserUnavailable
 	}
 	deadline := evidence.deadline()
 	if config.WardenSourceMaxAge.ToDuration() > 0 && evidence.expired() {
-		return nil, time.Time{}, errors.New("warden source freshness unavailable")
+		return nil, time.Time{}, &WardenLookupError{Class: WardenFailureSourceFreshness}
 	}
 	return user, deadline, nil
 }

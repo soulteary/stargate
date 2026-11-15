@@ -309,7 +309,7 @@ curl -X POST \
 | `400 Bad Request` | 잘못된 요청 매개변수 (phone 또는 mail 누락) | 오류 메시지 |
 | `401 Unauthorized` | Warden에 사용자가 없거나 활성 상태가 아님 | `success=false` JSON 오류 |
 | `429 Too Many Requests` | 속도 제한 트리거됨 | 오류 메시지 |
-| `503 Service Unavailable` | Herald 클라이언트 또는 서비스를 사용할 수 없음. 또는 reason이 `service_unavailable`인 경우 Warden이 Stargate 자체의 API 키나 HMAC 서명을 거부함(Warden이 401을 반환). 코드는 전송되지 않으며 사용자가 허용 목록에 있는지는 알 수 없음 | `success=false` JSON 오류 |
+| `503 Service Unavailable` | Herald 클라이언트 또는 서비스를 사용할 수 없음. 또는 reason이 `service_unavailable`인 경우 Warden 조회 자체가 실패함: Warden이 Stargate 자체의 API 키나 HMAC 서명을 거부함(Warden이 401을 반환), 이 Stargate 인스턴스를 거부함(Warden이 403을 반환: Warden의 `IP_WHITELIST` 또는 `WARDEN_SERVICE_POLICIES`), 429 또는 서버 오류로 응답함, 또는 Warden에 연결할 수 없음. 코드는 전송되지 않으며 사용자가 허용 목록에 있는지는 알 수 없음 | `success=false` JSON 오류 |
 | `500 Internal Server Error` | 그 밖의 공급자 전송 오류 | `success=false` JSON 오류 |
 
 #### 예제

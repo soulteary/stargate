@@ -498,7 +498,7 @@ WARDEN_API_KEY=your-warden-api-key-here
 - 已设置：请求按 v3 形式签名，签名内容包含该名称。为某个 Warden 实例签名的请求，在共用同一 HMAC 密钥的另一个实例上无效。
 - 需要同时配置 `WARDEN_HMAC_KEY_ID` 和 `WARDEN_HMAC_SECRET`。只设置 audience 而未配置这两项时，Stargate 拒绝启动。
 - 取值为 1 到 255 个可打印 ASCII 字符，不含空格和逗号。签名前会去除首尾空白并转换为小写；Warden 以相同方式规范化自己的列表。
-- Warden 实例必须在 `WARDEN_HMAC_AUDIENCES` 中列出相同的名称，并且版本为 1.8.0 或更高。更早的 Warden 不识别 v3 形式，会以 401 拒绝全部请求；未列出该名称的 Warden 1.8.0 同样返回 401。Stargate 不会回退到 v2。在 Warden 返回 401 期间，登录、`POST /_send_verify_code` 和会话刷新返回 `503 Service Unavailable`，而不是“用户不在允许列表中”；Stargate 会以 error 级别记录 Warden 拒绝了它自身的凭据。
+- Warden 实例必须在 `WARDEN_HMAC_AUDIENCES` 中列出相同的名称，并且版本为 1.8.0 或更高。更早的 Warden 不识别 v3 形式，会以 401 拒绝全部请求；未列出该名称的 Warden 1.8.0 同样返回 401。Stargate 不会回退到 v2。在 Warden 返回 401 期间，登录、`POST /_send_verify_code` 和会话刷新返回 `503 Service Unavailable`，而不是“用户不在允许列表中”；Stargate 会以 error 级别记录 Warden 拒绝了它自身的凭据。其他失败的 Warden 查询也按同样方式应答：Warden 返回 403（其 `IP_WHITELIST` 或 `WARDEN_SERVICE_POLICIES` 拒绝了该 Stargate 实例，以 error 级别记录）、返回 429 或服务器错误，或者 Warden 无法访问。
 - 启用顺序：先将 Warden 升级到 1.8.0 或更高版本，在 `WARDEN_HMAC_AUDIENCES` 中加入该名称，再在 Stargate 上设置 `WARDEN_HMAC_AUDIENCE`。除非 Warden 设置了 `WARDEN_HMAC_REQUIRE_AUDIENCE=true`，否则它仍接受 v2，其余 v2 客户端在切换期间不受影响。
 
 **示例：**

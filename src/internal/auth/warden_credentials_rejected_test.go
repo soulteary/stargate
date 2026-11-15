@@ -14,7 +14,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const credentialsRejectedLogFragment = "Warden rejected this Stargate instance's own credentials"
+const (
+	credentialsRejectedLogFragment = "Warden rejected this Stargate instance's own credentials"
+	accessDeniedLogFragment        = "Warden refused this Stargate instance with HTTP 403"
+)
 
 // A 401 from Warden is about Stargate's API key or HMAC signature, not about
 // the user. It must not be classified as a missing identity, and the log line
@@ -36,11 +39,16 @@ func TestLookupUserInfoReportsRejectedWardenCredentials(t *testing.T) {
 		hmac       bool
 		wantReject bool
 		wantKind   string
+		wantClass  string
 	}{
 		{name: "api key refused", status: http.StatusUnauthorized, wantReject: true, wantKind: `"credential":"api_key"`},
 		{name: "hmac signature refused", status: http.StatusUnauthorized, hmac: true, wantReject: true, wantKind: `"credential":"hmac"`},
 		{name: "user not listed", status: http.StatusNotFound},
-		{name: "warden server error", status: http.StatusInternalServerError},
+		{name: "warden server error", status: http.StatusInternalServerError, wantClass: WardenFailureServerError},
+		{name: "warden bad gateway", status: http.StatusBadGateway, wantClass: WardenFailureServerError},
+		{name: "warden rate limit", status: http.StatusTooManyRequests, wantClass: WardenFailureRateLimited},
+		{name: "warden gateway timeout", status: http.StatusGatewayTimeout, wantClass: WardenFailureUnexpectedStatus},
+		{name: "warden undecodable body", status: http.StatusOK, wantClass: WardenFailureInvalidResponse},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -48,6 +56,9 @@ func TestLookupUserInfoReportsRejectedWardenCredentials(t *testing.T) {
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				requests.Add(1)
 				w.WriteHeader(tt.status)
+				if tt.status == http.StatusOK {
+					_, _ = w.Write([]byte("not json"))
+				}
 			}))
 			defer server.Close()
 
@@ -76,11 +87,15 @@ func TestLookupUserInfoReportsRejectedWardenCredentials(t *testing.T) {
 			logged := output.String()
 			if !tt.wantReject {
 				require.NotErrorIs(t, err, ErrWardenCredentialsRejected)
+				require.NotErrorIs(t, err, ErrWardenAccessDenied)
 				require.NotContains(t, logged, credentialsRejectedLogFragment)
+				require.NotContains(t, logged, accessDeniedLogFragment)
 				require.Equal(t, tt.status == http.StatusNotFound, err == ErrUserUnavailable)
+				require.Equal(t, tt.wantClass, WardenLookupFailureClass(err))
 				return
 			}
 			require.ErrorIs(t, err, ErrWardenCredentialsRejected)
+			require.Equal(t, WardenFailureCredentialsRejected, WardenLookupFailureClass(err))
 			require.NotErrorIs(t, err, ErrUserUnavailable, "a refused credential is not a missing or inactive user")
 			require.Equal(t, int32(1), requests.Load(), "no mail fallback after a refused credential")
 			require.Contains(t, logged, `"level":"error"`)
