@@ -2,7 +2,7 @@
 
 首次部署邮件 OTP 或邮件 OTP＋TOTP，请使用[全栈示例](../../examples/full-stack/README.zhCN.md)。示例区分本地 SMTP 收件箱与 HTTPS 生产模板。
 
-v1.5.0 新增可选配置 `WARDEN_HMAC_AUDIENCE`，并将 Warden SDK 升级到 v1.8.0。从 v1.4.0 升级前，请阅读[升级与回滚说明](../../CHANGELOG.md#150---2026-11-15)，尤其是通过 `WARDEN_TLS_*` 配置访问 Warden 且进程设置了代理环境变量的部署。
+v1.6.0 将 Warden 返回的 401 报告为服务凭据被拒绝，不再报告为用户不在名单中，并为 `stargate doctor` 新增 `warden.version` 检查。从 v1.5.0 升级前，请阅读[升级与回滚说明](../../CHANGELOG.md#160---2026-11-15)，尤其是有客户端或监控依赖 `POST /_send_verify_code` 的响应，或自动化流程运行 `stargate doctor --config` 的部署。
 
 升级至 v1.4.0 前，请阅读[升级与回滚说明](../../CHANGELOG.md#140---2026-11-15)。请逐项核对：`COOKIE_SECURE=true` 时的 `PASSWORDS`、发送 `Stargate-Password` 的客户端、调用 TOTP 与 Step-up 接口的客户端，以及自行提供的模板目录。已有会话和 Redis 记录无需迁移。
 
@@ -11,7 +11,7 @@ v1.5.0 新增可选配置 `WARDEN_HMAC_AUDIENCE`，并将 Warden SDK 升级到 v
 升级至 v1.3.4 前，请阅读[依赖补丁升级与回滚](#依赖补丁升级与回滚v134)。本次更新调整脱敏行为和依赖版本，保留既有会话与验证码状态。
 
 
-当前部署示例使用 v1.5.0。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
+当前部署示例使用 v1.6.0。替换 v1.3 之前的部署前，请阅读[可撤销会话迁移](../enUS/DEPLOYMENT.md#revocable-session-migration)和[浏览器绑定会话交换](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)要求。须协调全部副本，保留所需 Redis 状态，并按迁移说明安排重新登录。
 
 本文档提供 Stargate Forward Auth Service 的详细部署指南。
 
@@ -216,7 +216,7 @@ CI 输出不会自动改写；若其中实际包含凭据，应限制访问，�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.5.0
+    image: ghcr.io/soulteary/stargate:1.6.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -269,7 +269,7 @@ networks:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.5.0
+    image: ghcr.io/soulteary/stargate:1.6.0
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
@@ -335,7 +335,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.5.0
+    image: ghcr.io/soulteary/stargate:1.6.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -359,7 +359,7 @@ Stargate 设计用于与 Traefik 集成，通过 Forward Auth 中间件提供认
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.5.0
+    image: ghcr.io/soulteary/stargate:1.6.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -953,7 +953,7 @@ Warden 一侧必须运行 Warden 1.8.0 或更高版本，并在 `WARDEN_HMAC_AUD
 
 ### Warden 服务端版本
 
-Stargate v1.5.0 使用 Warden SDK v1.8.0 构建。SDK 是编译进网关的客户端库，本身并不要求 Warden 服务端为同一版本。网关可与哪些 Warden 服务端版本配合取决于 `WARDEN_HMAC_AUDIENCE`，以下说明仅限于实际运行过的组合：
+Stargate v1.5.0 和 v1.6.0 使用 Warden SDK v1.8.0 构建。SDK 是编译进网关的客户端库，本身并不要求 Warden 服务端为同一版本。网关可与哪些 Warden 服务端版本配合取决于 `WARDEN_HMAC_AUDIENCE`，以下说明仅限于实际运行过的组合：
 
 - 设置了 `WARDEN_HMAC_AUDIENCE`（v3 签名）：需要 Warden 1.8.0 或更高版本。[完整部署示例](../../examples/full-stack/README.zhCN.md)运行带 audience 的 Warden 1.8.0，浏览器验收工作流使用从源码构建的网关在该部署上完成登录。带 audience 的 Stargate v1.5.0 也曾对接 Warden 1.7.0 运行：每次目录查询都被 401 拒绝。Warden 1.7.0 将 v3 形式视为未知的签名版本。
 - 未设置 `WARDEN_HMAC_AUDIENCE`（v2 签名，默认）：Stargate v1.5.0 曾对接 Warden 1.7.0 运行，登录正常。早于 1.7.0 的 Warden 版本未与 Stargate v1.5.0 一起运行过。

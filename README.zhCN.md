@@ -10,7 +10,7 @@
 
 Stargate 是一个轻量级前向认证服务，用于在反向代理边界集中处理认证。它可与 Traefik 集成，并为受保护服务提供密码、会话、Warden 和 Herald 认证流程。
 
-v1.5.0 新增可选配置 `WARDEN_HMAC_AUDIENCE`，并将 Warden SDK 升级到 v1.8.0。从 v1.4.0 升级前，请阅读[升级与回滚说明](CHANGELOG.md#150---2026-11-15)，尤其是通过 `WARDEN_TLS_*` 配置访问 Warden 且进程设置了代理环境变量的部署。
+v1.6.0 将 Warden 返回的 401 报告为服务凭据被拒绝，不再报告为用户不在名单中，并为 `stargate doctor` 新增 `warden.version` 检查。从 v1.5.0 升级前，请阅读[升级与回滚说明](CHANGELOG.md#160---2026-11-15)，尤其是有客户端或监控依赖 `POST /_send_verify_code` 的响应，或自动化流程运行 `stargate doctor --config` 的部署。
 
 v1.4.0 调整了 TOTP 绑定、Step-up、`Stargate-Password` 限流和内置模板。从 v1.3.x 升级前，请阅读[升级与回滚说明](CHANGELOG.md#140---2026-11-15)。
 
