@@ -18,6 +18,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 )
 
 // The separate Herald executable is built from the explicitly selected source.
@@ -123,7 +124,7 @@ func TestWorkIMCurrentPair(t *testing.T) {
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		r.Header.Set("Accept", "application/json")
 		r.Header.Set("Idempotency-Key", key)
-		resp, err := app.Test(r, fiber.TestConfig{Timeout: 10 * time.Second})
+		resp, err := app.Test(r, testsupport.RequestAllowance)
 		if err != nil {
 			t.Fatal(err)
 		}

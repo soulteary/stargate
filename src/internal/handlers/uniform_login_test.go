@@ -4,10 +4,10 @@ import (
 	"io"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 )
 
@@ -27,7 +27,7 @@ func runReplaceLoginFailure(t *testing.T, accept string, attempt func(ctx fiber.
 	})
 	request := httptest.NewRequest("POST", "/", nil)
 	request.Header.Set("Accept", accept)
-	response, err := app.Test(request, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
+	response, err := app.Test(request, testsupport.RequestAllowance)
 	require.NoError(t, err)
 	body, err := io.ReadAll(response.Body)
 	require.NoError(t, err)

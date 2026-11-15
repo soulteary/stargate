@@ -184,10 +184,11 @@ export SESSION_STORAGE_REDIS_PASSWORD=your-redis-password
 Stargate 不提供 `MODE` 配置。错误响应由各端点分别定义。运行细节通常写入日志，
 但不能把 `DEBUG` 当作通用的响应净化机制或不披露保证。
 
-当 Stargate 使用 `DEBUG=true` 运行，并且所配置的 Herald 服务启用了测试模式
+当 Stargate 以 `DEBUG=true` 且 `COOKIE_SECURE=false` 运行，并且所配置的 Herald 服务启用了测试模式
 （`HERALD_TEST_MODE`）且返回非空 `debug_code` 时，Stargate 会在成功的
-`POST /_send_verify_code` 响应中以 `debug_code` 返回该测试验证码。内置登录页会显示该验证码，
-并自动填入验证码输入框。自 v1.3.7 起，`COOKIE_SECURE=true` 时即使 `DEBUG=true` 也不会返回 `debug_code`；该行为仅在 `COOKIE_SECURE=false` 的本地 HTTP 测试中可用。
+`POST /_send_verify_code` 响应中以 `debug_code` 返回该测试验证码；`POST /_send_reauth_code`
+在相同条件下同样会返回。内置登录页会显示该验证码，并自动填入验证码输入框。
+`COOKIE_SECURE=true`（默认值，HTTPS 部署使用该值）时，无论 `DEBUG` 如何设置，都不会返回该验证码。
 
 该组合会向请求客户端披露等同认证凭据的验证码，只能用于本地开发或测试，绝不能用于生产。
 生产环境应设置 Stargate `DEBUG=false`，并保持 Herald `HERALD_TEST_MODE` 关闭。
@@ -198,7 +199,12 @@ Stargate 自动添加以下安全相关的 HTTP 响应头：
 
 - `X-Content-Type-Options: nosniff` - 防止 MIME 类型嗅探
 - `X-Frame-Options: DENY` - 防止点击劫持
-- `X-XSS-Protection: 1; mode=block` - XSS 保护
+- `X-XSS-Protection: 0` - 关闭已被弃用的旧版浏览器 XSS 过滤器
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'` - Stargate 的页面只从自身的 `/assets` 路径加载脚本和样式，不使用内联脚本或内联样式。`img-src` 允许 `data:`，用于 TOTP 绑定页面的二维码。未设置 `form-action`，因为登录或 Step-up 成功后会重定向到回调主机。
+- `Strict-Transport-Security: max-age=31536000` - 仅在 `COOKIE_SECURE=true`（默认值）时发送。`COOKIE_SECURE=false` 的本地 HTTP 部署不会发送该响应头；其值不包含 `includeSubDomains`。
+
+`/_auth` 的响应不会添加 `Content-Security-Policy` 和 `Strict-Transport-Security`。反向代理可能把被拒绝的 ForwardAuth 响应转发给浏览器，浏览器会把它当作受保护应用所在源的响应，而这两个响应头只适用于 Stargate 自身的主机。
 
 ## 跨域会话共享
 
@@ -222,6 +228,77 @@ Stargate 支持安全的跨域会话共享：
 - 生产环境中，Herald 要求所选的 HMAC 或 API Key 请求凭据；可选 mTLS 叠加传输保护，不替代请求认证。
 - **限流**: Herald 处理限流
 - **审计日志**: Herald 维护审计日志
+
+## 统一响应
+
+默认情况下，`POST /_send_verify_code` 以及通过 `POST /_login` 进行的 Warden 登录，
+对 Warden 白名单内和白名单外的标识（手机号或邮箱）给出不同的响应；对白名单内的账号，
+还会透露是否有可用的发送渠道、是否已绑定 TOTP。未登录的客户端可以利用这些差异，
+探测出哪些手机号和邮箱在白名单内。
+
+`LOGIN_UNIFORM_RESPONSES=true` 会消除响应内容上的这些差异。对同一个请求，无论标识
+未知、已停用还是在白名单内，无论白名单内账号处于什么状态，也无论 Herald 返回什么，
+这两个端点返回的状态码、响应头和响应体都相同。具体行为见英文版
+[CONFIG.md](../enUS/CONFIG.md#login_uniform_responses) 和
+[API.md](../enUS/API.md#uniform-responses)（中文版尚未包含对应章节）。
+
+覆盖范围：
+
+- `POST /_send_verify_code` 以及 `auth_method=warden` 的 `POST /_login` 的状态码、
+  响应头和响应体，包括 JSON、XML 和纯文本三种格式。
+- `challenge_id`：每个通过检查的请求都会得到一个随机句柄，因此它是否出现、
+  形式如何，都不能说明标识是否在白名单内。Herald 的 challenge id 只保留在服务端。
+- Herald 自身的应答（重发冷却、按用户和按发送目标的限制、用户被锁定、服务故障）
+  以及 `Idempotency-Key` 的行为，都不会传递给客户端。
+- 调试验证码：该模式下这两个端点不会返回 `debug_code`，即使 `DEBUG=true` 且
+  `COOKIE_SECURE=false` 也是如此。
+- 从 `phone` 到 `mail` 的回退。默认模式下，同一请求中的 `phone` 不在白名单内时，
+  会改用 `mail` 查询。即使响应完全相同，这种回退仍会让某个白名单内邮箱的所有者
+  判断出一个手机号是否在白名单内：只有与不在白名单内的手机号一同提交时，
+  验证码才会发到该邮箱，用它登录才会成功。在该模式下，提交了 `phone` 的请求只按
+  手机号处理，每个请求只向 Warden 查询一个标识。
+
+不在覆盖范围内：
+
+- **响应时间。** 响应时间没有被拉平。为白名单内的标识发送验证码时要调用 Herald
+  并等待发送完成，为白名单内的标识登录时要调用 Herald 校验；两者都比针对白名单外
+  标识的同类请求耗时更长，单个发送请求就可以通过延迟区分出来。该模式去掉的是
+  响应内容中的确定性信号，并不能对测量时间的客户端隐藏白名单。
+- **消息本身。** 白名单内的用户会收到验证码。和以前一样，任何知道标识的人都可以
+  触发这条消息。
+- **Herald 配额。** 针对白名单外标识的请求不会到达 Herald，也不消耗 Herald 的任何
+  限额。如果一个客户端知道多个白名单内的标识，并且能收到其中一个标识的验证码，
+  它可以先向这些标识发送验证码，把 Herald 的按 IP 限额用满，再为另一个标识请求
+  验证码，然后根据自己的下一个验证码是否还能送达做出判断。未设置
+  `HERALD_CLIENT_IP_HEADER` 时，Herald 把所有用户的请求都计在 Stargate 的地址上：
+  一个客户端就能把所有人的限额用完，而被 Herald 拒绝的发送仍会显示为已发送。
+  请设置 `HERALD_CLIENT_IP_HEADER`，并在 Herald 一侧同时设置
+  `HERALD_TRUSTED_PROXY_HEADER` 和 `HERALD_TRUSTED_PROXIES`；在该模式下如果这个
+  请求头名称为空，Stargate 会在启动时记录一条警告。这样限额就按客户端地址分别计算，
+  但对上述客户端而言信号并未消除：只要 Herald 的按 IP 限额能被用满，信号就存在。
+  `RATE_LIMIT_WINDOW` 取默认值一分钟时，一个客户端地址在任意一分钟内最多可以通过
+  Stargate 请求 20 个验证码：`POST /_send_verify_code` 和 `POST /_send_reauth_code`
+  两个端点各为 `RATE_LIMIT_VERIFICATION_MAX` 的两倍。把 Herald 的 `RATE_LIMIT_PER_IP`
+  设置为不低于部署实际对应的这个数值，该限额就不会被用满。Herald 的默认值 5 做不到这一点。
+- **直接访问 Warden 或 Herald。** 该模式只涉及 Stargate 的响应。
+
+需要事先考虑的后果：
+
+- 页面在什么都没有发送时也显示“已发送”，所有失败的登录都显示同一段文字。
+  具体原因只记录在日志和审计日志中。
+- 同时提交 `phone` 和 `mail` 的请求只按手机号处理。客户端如果两者都发送，
+  而手机号不在白名单内，就收不到验证码，即使邮箱在白名单内也一样。登录页有这两个
+  输入框：在该模式下，页面提示只填写其中一个；两个都填写时，页面显示该提示，
+  不发送任何请求。
+- 重发冷却在任何查询之前按提交的标识计数。任何知道某个标识的人都可以让它一直
+  处于冷却窗口内，标识所有者自己的请求在窗口结束前会得到 `429`。对白名单内的标识，
+  Herald 的冷却本来就允许这样做。按客户端的限额 `RATE_LIMIT_VERIFICATION_MAX`
+  限制了一个客户端能同时占住多少个标识。
+- 一个 `challenge_id` 要么绑定到它所在请求创建的 challenge，要么绑定到请求方出示的
+  `challenge_id` 所对应的 challenge。因此，当 Herald 拒绝重发时，之前送达的验证码
+  只对出示了自己所持句柄的客户端继续有效，登录页就是这样做的。请求如果什么都不出示，
+  或者出示的句柄属于其他用户、渠道或发送目标，得到的 `challenge_id` 不绑定任何
+  challenge。为某个标识请求验证码，永远不会得到另一个客户端所持 challenge 的句柄。
 
 ## 敏感操作的重新认证
 
@@ -271,3 +348,10 @@ Forward Auth 只能保护确实经过已配置反向代理的请求，它本身�
 - 仅允许反向代理所在网络或安全组访问后端。
 - 转发前删除客户端自行提供的身份和凭据请求头，只允许可信认证链路生成的值。
 - 仅向预期的运维网络暴露 Stargate 健康检查与指标端点。
+
+### 来源时效与监控迁移
+
+对撤销时效敏感的部署，应在支持快照元数据 v1 的 Warden 上启用 `WARDEN_SOURCE_MAX_AGE`，
+并在 Warden 一侧同样强制检查来源新鲜度。每五分钟一次的会话刷新并不能限制底层目录
+数据的陈旧程度。新增的来源检查以及独立的 `/metrics` Bearer 凭据见
+[配置参考](CONFIG.md#来源新鲜度与监控迁移)。

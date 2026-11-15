@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/template/html/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 )
 
 func TestRedirectToStepUpPreservesOnlyLocalCallback(t *testing.T) {
@@ -59,7 +60,7 @@ func TestStepUpRouteEscapesCallbackInForm(t *testing.T) {
 
 	req := httptest.NewRequest("GET", "/_step_up?callback=%2Fadmin%22%3E%3Cscript%3E", nil)
 	req.Header.Set("Cookie", cookie)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)

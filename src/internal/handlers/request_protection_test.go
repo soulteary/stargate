@@ -7,6 +7,7 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 )
 
 func newRequestProtectionTestRequest(method, path string) *http.Request {
@@ -23,7 +24,7 @@ func TestRequireSameOriginRejectsCrossSiteBrowserWrite(t *testing.T) {
 	req := newRequestProtectionTestRequest(fiber.MethodPost, "/write")
 	req.Header.Set("Origin", "https://evil.example")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	if err != nil {
 		t.Fatalf("execute request: %v", err)
 	}
@@ -38,7 +39,7 @@ func TestRequireSameOriginAllowsMatchingOrigin(t *testing.T) {
 	req := newRequestProtectionTestRequest(fiber.MethodPost, "/write")
 	req.Header.Set("Origin", "http://auth.example.com")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	if err != nil {
 		t.Fatalf("execute request: %v", err)
 	}
@@ -58,7 +59,7 @@ func TestRequireSameOriginRejectsSchemeAndPortMismatch(t *testing.T) {
 	} {
 		req := newRequestProtectionTestRequest(fiber.MethodPost, "/write")
 		req.Header.Set("Origin", origin)
-		resp, err := app.Test(req)
+		resp, err := app.Test(req, testsupport.RequestAllowance)
 		if err != nil {
 			t.Fatalf("execute request with origin %q: %v", origin, err)
 		}
@@ -75,7 +76,7 @@ func TestRequireSameOriginNormalizesDefaultPort(t *testing.T) {
 	req.Host = "auth.example.com:80"
 	req.Header.Set("Origin", "http://auth.example.com")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	if err != nil {
 		t.Fatalf("execute request: %v", err)
 	}
@@ -91,13 +92,13 @@ func TestLoginRateLimitRejectsBurst(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 	for i := 0; i < 10; i++ {
-		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 		if err != nil {
 			t.Fatalf("execute request %d: %v", i+1, err)
 		}
 		testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 	}
-	resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"))
+	resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodPost, "/_login"), testsupport.RequestAllowance)
 	if err != nil {
 		t.Fatalf("execute rate-limited request: %v", err)
 	}
@@ -136,7 +137,7 @@ func TestRejectForwardedRequests(t *testing.T) {
 	})
 
 	t.Run("direct request passes", func(t *testing.T) {
-		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodGet, "/local"))
+		resp, err := app.Test(newRequestProtectionTestRequest(fiber.MethodGet, "/local"), testsupport.RequestAllowance)
 		testza.AssertNoError(t, err)
 		testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 	})
@@ -151,7 +152,7 @@ func TestRejectForwardedRequests(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			req := newRequestProtectionTestRequest(fiber.MethodGet, "/local")
 			req.Header.Set(name, value)
-			resp, err := app.Test(req)
+			resp, err := app.Test(req, testsupport.RequestAllowance)
 			testza.AssertNoError(t, err)
 			testza.AssertEqual(t, fiber.StatusNotFound, resp.StatusCode)
 		})

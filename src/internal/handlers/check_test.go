@@ -15,6 +15,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/requestcontext"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/warden/pkg/warden"
 )
 
@@ -38,7 +39,7 @@ func TestTrustedHeaderAuthResultUsesRequestDeadline(t *testing.T) {
 		return c.SendStatus(fiber.StatusNoContent)
 	})
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/lookup", nil))
+	resp, err := app.Test(httptest.NewRequest("GET", "/lookup", nil), testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusNoContent, resp.StatusCode)
 	deadline, ok := providerContext.Deadline()

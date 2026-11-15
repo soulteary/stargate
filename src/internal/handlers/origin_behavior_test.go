@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 )
 
@@ -26,7 +27,7 @@ func TestSameOriginMiddlewareAllowsSafeMethodsAndRejectsCrossSiteWrites(t *testi
 		request := httptest.NewRequest(tc.method, "http://auth.example.com/", nil)
 		request.Header.Set("Sec-Fetch-Site", tc.site)
 		request.Header.Set("Origin", tc.origin)
-		response, err := app.Test(request)
+		response, err := app.Test(request, testsupport.RequestAllowance)
 		require.NoError(t, err)
 		require.Equal(t, tc.status, response.StatusCode)
 		require.NoError(t, response.Body.Close())

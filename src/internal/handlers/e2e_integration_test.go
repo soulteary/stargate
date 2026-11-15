@@ -23,6 +23,7 @@ import (
 	"github.com/soulteary/redis-kit/client"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/valyala/fasthttp"
 )
 
@@ -458,7 +459,7 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 
@@ -491,7 +492,7 @@ func TestE2E_CompleteLoginFlow(t *testing.T) {
 	// is configured as a trusted proxy.
 	loginReq.Host = "auth.example.com"
 
-	loginResp, err := app.Test(loginReq)
+	loginResp, err := app.Test(loginReq, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, loginResp.StatusCode)
 

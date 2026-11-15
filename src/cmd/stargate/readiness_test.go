@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	health "github.com/soulteary/health-kit/v4"
 	"github.com/soulteary/stargate/src/internal/handlers"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,7 +47,7 @@ func TestReadinessRoutesShareOneDependencyCheck(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		for _, route := range []string{RouteReadyz, RouteHealth} {
-			resp, err := app.Test(httptest.NewRequest("GET", route, nil))
+			resp, err := app.Test(httptest.NewRequest("GET", route, nil), testsupport.RequestAllowance)
 			require.NoError(t, err)
 			require.Equal(t, fiber.StatusOK, resp.StatusCode)
 		}
@@ -66,7 +67,7 @@ func TestReadinessCacheRefreshesAfterTTL(t *testing.T) {
 	app := fiber.New()
 	app.Get("/readyz", cache.handler())
 	status := func() int {
-		resp, err := app.Test(httptest.NewRequest("GET", "/readyz", nil))
+		resp, err := app.Test(httptest.NewRequest("GET", "/readyz", nil), testsupport.RequestAllowance)
 		require.NoError(t, err)
 		return resp.StatusCode
 	}
@@ -111,7 +112,7 @@ func TestReadinessCacheSharesOneRunAcrossConcurrentRequests(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			resp, err := app.Test(httptest.NewRequest("GET", "/readyz", nil), fiber.TestConfig{Timeout: 10 * time.Second})
+			resp, err := app.Test(httptest.NewRequest("GET", "/readyz", nil), testsupport.RequestAllowance)
 			if err == nil {
 				statuses[i] = resp.StatusCode
 			}
@@ -139,7 +140,7 @@ func TestReadinessCacheDoesNotShareForbidden(t *testing.T) {
 	app.Get("/readyz", newReadinessCache(countingAggregator(cfg, &runs, &healthy), time.Minute).handler())
 
 	for i := 0; i < 2; i++ {
-		resp, err := app.Test(httptest.NewRequest("GET", "/readyz", nil))
+		resp, err := app.Test(httptest.NewRequest("GET", "/readyz", nil), testsupport.RequestAllowance)
 		require.NoError(t, err)
 		require.Equal(t, fiber.StatusForbidden, resp.StatusCode)
 	}

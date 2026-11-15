@@ -374,21 +374,45 @@ Logged out
 curl -X POST -b cookies.txt http://auth.example.com/_logout
 ```
 
+## 重新认证
+
+Step-up、TOTP 绑定和 TOTP 解绑要求会话所属用户本人提交一份新的证明。Stargate 根据会话和 Herald 中的 TOTP 状态选定唯一一种证明，客户端不能自行选择：
+
+| 会话 | 证明 | 表单字段 |
+|------|------|----------|
+| 已绑定 TOTP 的 Warden 用户（`HERALD_TOTP_ENABLED=true`） | 当前的 TOTP 码，由 Herald 校验 | `code` |
+| 其他 Warden 用户 | 一次性验证码，由 `POST /_send_reauth_code` 发送到用户在 Warden 中登记的联系方式 | `code` |
+| 使用共享密码创建的会话（没有用户身份） | 共享密钥 `PASSWORDS` | `password` |
+
+带有用户身份的会话永远不接受共享密码。带有用户身份的会话如果没有可用的 Herald 客户端，请求以 `403 Forbidden`（`reauthentication_unavailable`）拒绝。无法读取 Herald 中的 TOTP 状态时，请求以 `502 Bad Gateway` 拒绝，不会退而改用发送的验证码。证明校验失败返回 `401 Unauthorized`。
+
+证明只对携带它的那一次请求有效。Step-up、TOTP 解绑和启动 TOTP 绑定都要求在同一个请求中提交证明；提交给其中一项操作的证明，另一项操作不接受。特别是，通过 Step-up 或解绑 TOTP 都不能让会话绑定认证器。
+
+`POST /totp/enroll` 不接受任何已保存的证明。该请求启动绑定时，会把时间连同绑定状态一起记录在会话的 `totp_enroll_proof_at` 中。这条记录只允许在 5 分钟内确认这一次绑定，不能用来启动绑定。
+
+如果证明通过后 Herald 调用失败（TOTP 状态查询或绑定启动出错，返回 `502 Bad Gateway`），会话不保留本次请求的任何结果，此前在该会话中启动的绑定也不能再确认。此时已发送的验证码已被使用，用户必须通过 `POST /_send_reauth_code` 重新获取验证码并再次提交；这次请求受 Stargate 的 `RATE_LIMIT_VERIFICATION_MAX` 配额以及 Herald 的重发冷却和限流约束，可能需要等待后才能再次发送。
+
 ### `POST /_send_reauth_code`
 
-向会话用户在 Warden 中登记的联系方式发送一次性验证码，用于 step-up、TOTP 绑定和解绑前的再次认证。需要会话 Cookie；可选的 `deliver_via` 只选择通道，目标地址始终取自 Warden。响应格式与 `POST /_send_verify_code` 相同。该验证码绑定到发起请求的会话，不能用于登录。
+向会话用户发送用于重新认证的一次性验证码。
+
+- **认证**：需要（会话 Cookie）。会话的证明必须是发送的验证码（见上表）；其他会话返回 `400 Bad Request`。
+- **请求体**：可选的 `deliver_via`（`sms`、`email` 或 `dingtalk`）用于选择通道，用法与 `POST /_send_verify_code` 相同。目标地址始终取自 Warden；请求中的标识或目标地址会被忽略。
+- **响应**：JSON，格式与 `POST /_send_verify_code` 相同；Herald 触发限流时同样返回 `429 Too Many Requests` 和 `next_resend_in`。challenge 绑定到发起请求的会话、该用户以及重新认证用途：它不能用于登录，登录验证码也不能用在这里。
+
+该路由受同源校验保护，并计入 `RATE_LIMIT_VERIFICATION_MAX` 配额。challenge 在 Herald 中以 `login` 用途创建，这是默认 Herald 部署唯一允许的用途，因此消息文本以及 Herald 按用户、按目标地址的限流都与登录验证码相同。
 
 ## Step-up 二次认证端点
 
 ### `GET /_step_up`
 
-为已认证会话展示密码复核表单。可选的 `callback` 查询参数必须是本地路径；不安全的值会回退到 `/`。
+为已认证会话展示重新认证表单：按[重新认证](#重新认证)一节选定的证明，表单可能是 TOTP 码输入框、“发送验证码”按钮加验证码输入框，或密码输入框。可选的 `callback` 查询参数必须是本地路径；不安全的值会回退到 `/`。
 
 ### `POST /_step_up`
 
-复核密码，并在会话中记录 10 分钟有效的 Step-up 认证状态。表单字段为 `password` 和可选的本地路径 `callback`。该路由受同源校验和限流保护。
+校验证明，并在会话中记录 10 分钟有效的 Step-up 认证状态。提交适用于该会话的表单字段 `code` 或 `password`，以及可选的本地路径 `callback`。该路由受同源校验和限流保护。
 
-成功后以 `302 Found` 跳转到 `callback`。当 Step-up 由其他主机的 `/_auth` 发起时，表单还带有 `callback_host` 和 `callback_proto`，跳转目标为该主机；主机必须是认证主机、属于 `COOKIE_DOMAIN` 或列在 `CALLBACK_ALLOWED_HOSTS` 中，`callback_proto` 必须是 `http` 或 `https`。`COOKIE_SECURE=true` 时只接受 `https`。不被接受的主机或协议会被忽略，跳转到认证主机上的本地路径 `callback`。
+成功后以 `302 Found` 跳转到 `callback`。当 Step-up 由其他主机的 `/_auth` 发起时，表单还带有 `callback_host` 和 `callback_proto`，跳转目标为该主机；主机必须是认证主机、属于 `COOKIE_DOMAIN` 或列在 `CALLBACK_ALLOWED_HOSTS` 中，`callback_proto` 必须是 `http` 或 `https`。`COOKIE_SECURE=true` 时只接受 `https`。不被接受的主机或协议会被忽略，跳转到认证主机上的本地路径 `callback`。证明校验失败会在审计日志中记录为 `login_failed`，method 为 `step_up`。
 
 ## 会话交换端点
 
@@ -404,18 +428,18 @@ curl -X POST -b cookies.txt http://auth.example.com/_logout
 
 ## TOTP 端点
 
-当启用 Herald TOTP（`HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`）时，Stargate 提供 TOTP（认证器应用）绑定/解绑及登录时的验证。这些端点需要已认证会话，并要求会话所属用户重新证明身份：已绑定 TOTP 的 Warden 用户提交当前 TOTP 码，其他 Warden 用户提交由 `POST /_send_reauth_code` 发送到 Warden 登记联系方式的一次性验证码（表单字段 `code`）。最近登录不足以绑定，为 Step-up 或解绑 TOTP 提交的证明也不能用于绑定。绑定必须在提交启动证明后 5 分钟内确认。
+当启用 Herald TOTP（`HERALD_ENABLED=true`、`HERALD_TOTP_ENABLED=true`）时，Stargate 提供 TOTP（认证器应用）绑定/解绑及登录时的验证。这些端点需要已认证会话，并要求会话所属用户重新证明身份（见[重新认证](#重新认证)）：已绑定 TOTP 的 Warden 用户提交当前 TOTP 码，其他 Warden 用户提交由 `POST /_send_reauth_code` 发送到 Warden 登记联系方式的一次性验证码（表单字段 `code`）。最近登录不足以绑定，为 Step-up 或解绑 TOTP 提交的证明也不能用于绑定。绑定必须在提交启动证明后 5 分钟内确认。
 
 ### `GET /totp/enroll`
 
-显示绑定确认页，但不创建绑定状态。页面始终包含适用于该会话的重新认证字段。未认证用户以 `302 Found` 重定向到 `/_login`；目录不再授权的会话返回 `401 Unauthorized`。从该页面启动的绑定必须在 10 分钟内完成确认。
+显示绑定确认页，但不创建绑定状态。页面始终包含适用于该会话的重新认证字段（见[重新认证](#重新认证)）。未认证用户以 `302 Found` 重定向到 `/_login`；目录不再授权的会话返回 `401 Unauthorized`。从该页面启动的绑定，其绑定状态 10 分钟内有效，但只能在提交证明后的 5 分钟内确认，因此实际的确认期限是 5 分钟。
 
 ### `POST /totp/enroll`
 
 启动绑定并展示 TOTP 页面。使用 POST 可避免跨站导航创建绑定状态。
 
 - **认证**：要求已认证会话，并在本次请求中提交有效证明（表单字段 `code`）。证明只对携带它的这一次请求有效，会话中不保存任何可用于启动绑定的证明：之后每次 `POST /totp/enroll` 都需要新的证明，即使仍在 5 分钟内，或会话刚通过 Step-up。如果证明通过后调用 Herald 失败（TOTP 状态查询或绑定启动出错，返回 `502 Bad Gateway`），会话不保留本次请求的任何结果，此前在该会话中启动的绑定也不能再确认；此时已发送的验证码已被使用，用户必须通过 `POST /_send_reauth_code` 重新获取验证码并再次提交。重新获取时受 Stargate 的 `RATE_LIMIT_VERIFICATION_MAX` 配额以及 Herald 的重发冷却和限流约束，可能需要等待后才能再次发送。未认证用户以 `302 Found` 重定向到 `/_login`，缺少证明或证明无效返回 `401 Unauthorized`。本次请求创建的绑定状态 10 分钟内有效。
-- **响应**：200 OK 返回绑定页 HTML；未认证时以 `302 Found` 跳转到 `/_login`；配置或 Herald 错误时 400/502/503。
+- **响应**：200 OK 返回绑定页 HTML；未认证时以 `302 Found` 跳转到 `/_login`；已绑定 TOTP 时（提交有效的 TOTP 码之后）以 `302 Found` 跳转到 `/totp/revoke`；配置或 Herald 错误时 400/502/503。
 
 上游 TOTP 状态查询或注册启动错误返回 `502 Bad Gateway`。
 
@@ -447,15 +471,16 @@ JSON。成功返回 `{"ok":true,"subject":"...","totp_enabled":true,"backup_code
 展示 TOTP 解绑确认页。
 
 - **认证**：需要（会话 Cookie）。未认证用户会以 `302 Found` 重定向到 `/_login`。
-- **响应**：200 OK 返回解绑确认页；未认证时以 `302 Found` 跳转到 `/_login`。
+- **响应**：200 OK 返回解绑确认页，页面包含适用于该会话的重新认证字段；未认证时以 `302 Found` 跳转到 `/_login`。
 
 ### `POST /totp/revoke`
 
 确认 TOTP 解绑（从账号移除 TOTP）。
 
 - **认证**：需要（会话 Cookie）。
-- **请求体**：必须提供 `password` 或当前有效的 TOTP `code`，用于重新认证确认。
-- **响应**：JSON。成功返回 `{"ok":true,"subject":"..."}`；重新认证失败返回 `401 Unauthorized`，上游解绑失败返回 `502 Bad Gateway`。
+- **请求体**：表单字段 `code`，填写当前的 TOTP 码；用户未绑定 TOTP 时，填写发送的一次性验证码。带有用户身份的会话不读取 `password` 字段；使用共享密码创建的会话没有用户身份，该端点对它返回 `400 Bad Request`。见[重新认证](#重新认证)。
+- **响应**：JSON。成功返回 `{"ok":true,"subject":"..."}`；重新认证失败返回 `401 Unauthorized`，上游解绑失败返回 `502 Bad Gateway`。Herald 有应答但未确认解绑时，返回 `502 Bad Gateway`，reason 为 `revoke_not_confirmed`；此时该因子可能仍处于绑定状态。
+- **审计**：启用审计日志时，绑定或解绑成功记录为 `user_updated`，其 `action` 为 `totp_enrolled` 或 `totp_revoked`。被拒绝和未被确认的解绑记录为失败；因缺少证明或证明无效而被拒绝的绑定请求同样记录为失败。
 
 **说明**：TOTP 的创建与校验由 Herald（可能代理到 herald-totp）完成。Stargate 仅负责页面与会话编排，不实现 OTP 算法。
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	logger "github.com/soulteary/logger-kit/v3"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 )
 
@@ -32,7 +33,7 @@ func requestLogLine(t *testing.T, trustedProxies, forwardedFor string) map[strin
 	req := httptest.NewRequest(http.MethodPost, RouteLogin, strings.NewReader("password=wrong"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("X-Forwarded-For", forwardedFor)
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/MarvinJWendt/testza"
 	"github.com/gofiber/fiber/v3"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 )
 
 const (
@@ -23,7 +24,7 @@ func TestLoginPageSendsContentSecurityPolicy(t *testing.T) {
 	req := httptest.NewRequest(fiber.MethodGet, RouteLogin, nil)
 	req.Host = "auth.example.com"
 	req.Header.Set("Accept", "text/html")
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	testza.AssertEqual(t, fiber.StatusOK, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
@@ -53,7 +54,7 @@ func TestLoginPageIsCompatibleWithContentSecurityPolicy(t *testing.T) {
 	req := httptest.NewRequest(fiber.MethodGet, RouteLogin, nil)
 	req.Host = "auth.example.com"
 	req.Header.Set("Accept", "text/html")
-	resp, err := app.Test(req)
+	resp, err := app.Test(req, testsupport.RequestAllowance)
 	testza.AssertNoError(t, err)
 	raw, err := io.ReadAll(resp.Body)
 	testza.AssertNoError(t, err)
@@ -92,7 +93,7 @@ func TestStrictTransportSecurityFollowsCookieSecure(t *testing.T) {
 			for _, route := range []string{RouteLogin, RouteHealthz} {
 				req := httptest.NewRequest(fiber.MethodGet, route, nil)
 				req.Host = "auth.example.com"
-				resp, err := app.Test(req)
+				resp, err := app.Test(req, testsupport.RequestAllowance)
 				testza.AssertNoError(t, err)
 				testza.AssertEqual(t, tc.want, resp.Header.Get(headerHSTS))
 			}
@@ -114,7 +115,7 @@ func TestForwardAuthResponseKeepsPreviousSecurityHeaders(t *testing.T) {
 		t.Run(path, func(t *testing.T) {
 			req := httptest.NewRequest(fiber.MethodGet, path, nil)
 			req.Host = "auth.example.com"
-			resp, err := app.Test(req)
+			resp, err := app.Test(req, testsupport.RequestAllowance)
 			testza.AssertNoError(t, err)
 			testza.AssertNotEqual(t, fiber.StatusNotFound, resp.StatusCode)
 			testza.AssertEqual(t, "", resp.Header.Get(headerCSP))

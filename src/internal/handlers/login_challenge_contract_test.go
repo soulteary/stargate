@@ -16,6 +16,7 @@ import (
 	challenge "github.com/soulteary/challenge-kit"
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/warden/pkg/warden"
 	"github.com/stretchr/testify/require"
 )
@@ -134,7 +135,7 @@ func TestLoginChallengeUsesBoundProviderContract(t *testing.T) {
 			// The request verifies a challenge through Redis and an HTTP
 			// call; the default limit of one second is not enough for that
 			// under the race detector on a loaded machine.
-			response, err := app.Test(request, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
+			response, err := app.Test(request, testsupport.RequestAllowance)
 			require.NoError(t, err)
 			require.NoError(t, response.Body.Close())
 			require.Equal(t, tc.status, response.StatusCode)

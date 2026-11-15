@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 )
 
 func TestEmbeddedResourcesFallbackAndExternalOverrides(t *testing.T) {
@@ -21,7 +22,7 @@ func TestEmbeddedResourcesFallbackAndExternalOverrides(t *testing.T) {
 		return c.Render("login", fiber.Map{"UI": map[string]string{"signin": "Sign in"}})
 	})
 	for _, target := range []string{"/page", "/assets/auth-ui.js", "/assets/auth-ui.css", "/assets/qrcode.min.js"} {
-		r, err := app.Test(httptest.NewRequest("GET", target, nil))
+		r, err := app.Test(httptest.NewRequest("GET", target, nil), testsupport.RequestAllowance)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -31,7 +32,7 @@ func TestEmbeddedResourcesFallbackAndExternalOverrides(t *testing.T) {
 			t.Fatalf("resource %s: status%d err%v", target, r.StatusCode, err)
 		}
 	}
-	r, err := app.Test(httptest.NewRequest("GET", "/assets/account.html", nil))
+	r, err := app.Test(httptest.NewRequest("GET", "/assets/account.html", nil), testsupport.RequestAllowance)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +53,7 @@ func TestEmbeddedResourcesFallbackAndExternalOverrides(t *testing.T) {
 	setupStaticFiles(external)
 	external.Get("/page", func(c fiber.Ctx) error { return c.Render("login", fiber.Map{}) })
 	for _, tc := range []struct{ path, want string }{{"/page", "External template"}, {"/assets/auth-ui.js", "External script"}} {
-		response, e := external.Test(httptest.NewRequest("GET", tc.path, nil))
+		response, e := external.Test(httptest.NewRequest("GET", tc.path, nil), testsupport.RequestAllowance)
 		if e != nil {
 			t.Fatal(e)
 		}

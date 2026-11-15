@@ -13,6 +13,7 @@ import (
 	"github.com/soulteary/herald/pkg/herald"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/warden/pkg/warden"
 	"github.com/stretchr/testify/require"
 )
@@ -93,7 +94,7 @@ func TestMetricsRequiresSeparateBearerCredential(t *testing.T) {
 			app.Get("/metrics", MetricsAuth(), func(c fiber.Ctx) error { return c.SendString("metric 1") })
 			req := httptest.NewRequest(http.MethodGet, "/metrics", nil)
 			req.Header.Set("Authorization", tt.header)
-			response, err := app.Test(req)
+			response, err := app.Test(req, testsupport.RequestAllowance)
 			require.NoError(t, err)
 			require.Equal(t, tt.status, response.StatusCode)
 			require.NoError(t, response.Body.Close())

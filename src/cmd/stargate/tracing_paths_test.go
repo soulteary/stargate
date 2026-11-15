@@ -6,6 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/tracing-kit/v2/tracingtest"
 	"github.com/stretchr/testify/require"
 )
@@ -29,14 +30,14 @@ func TestProbeAndMetricsRoutesAreNotTraced(t *testing.T) {
 
 	require.ElementsMatch(t, []string{"/healthz", "/readyz", "/health", "/metrics"}, unobservedPaths)
 	for _, path := range unobservedPaths {
-		resp, err := app.Test(httptest.NewRequest("GET", path, nil))
+		resp, err := app.Test(httptest.NewRequest("GET", path, nil), testsupport.RequestAllowance)
 		require.NoError(t, err)
 		require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
 		require.Empty(t, resp.Header.Get("traceparent"), path)
 	}
 	require.Empty(t, exporter.GetSpans())
 
-	resp, err := app.Test(httptest.NewRequest("GET", "/_auth", nil))
+	resp, err := app.Test(httptest.NewRequest("GET", "/_auth", nil), testsupport.RequestAllowance)
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Header.Get("traceparent"))
 	require.Len(t, exporter.GetSpans(), 1)

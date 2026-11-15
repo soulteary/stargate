@@ -5,12 +5,12 @@ import (
 	"io"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 	views "github.com/gofiber/template/html/v3"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/net/html"
 )
@@ -39,7 +39,7 @@ func renderLoginPage(t *testing.T, lang i18n.Language) renderedLoginPage {
 		return ctx.Next()
 	})
 	app.Get("/_login", LoginRoute(setupTestStore()))
-	response, err := app.Test(httptest.NewRequest("GET", "http://auth.example.invalid/_login", nil), fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
+	response, err := app.Test(httptest.NewRequest("GET", "http://auth.example.invalid/_login", nil), testsupport.RequestAllowance)
 	require.NoError(t, err)
 	defer func() { require.NoError(t, response.Body.Close()) }()
 	require.Equal(t, fiber.StatusOK, response.StatusCode)

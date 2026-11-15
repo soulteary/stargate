@@ -26,6 +26,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/i18n"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"github.com/soulteary/warden/pkg/warden"
 	"github.com/stretchr/testify/require"
 )
@@ -463,7 +464,7 @@ func (d *uniformDeployment) post(path, form string, headers map[string]string) u
 	for name, value := range headers {
 		request.Header.Set(name, value)
 	}
-	response, err := d.app.Test(request, fiber.TestConfig{Timeout: 10 * time.Second, FailOnTimeout: true})
+	response, err := d.app.Test(request, testsupport.RequestAllowance)
 	require.NoError(d.t, err)
 	body, err := io.ReadAll(response.Body)
 	require.NoError(d.t, err)

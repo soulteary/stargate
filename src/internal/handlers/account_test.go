@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/template/html/v3"
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
+	"github.com/soulteary/stargate/src/internal/testsupport"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -39,7 +40,7 @@ func TestAccountPageRequiresSessionAndLogoutRemainsSameOrigin(t *testing.T) {
 		for _, cookie := range cookies {
 			req.AddCookie(cookie)
 		}
-		r, e := app.Test(req)
+		r, e := app.Test(req, testsupport.RequestAllowance)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -68,7 +69,7 @@ func TestAccountPageRequiresSessionAndLogoutRemainsSameOrigin(t *testing.T) {
 		for _, cookie := range cookies {
 			req.AddCookie(cookie)
 		}
-		r, e := app.Test(req)
+		r, e := app.Test(req, testsupport.RequestAllowance)
 		if e != nil {
 			t.Fatal(e)
 		}
