@@ -371,7 +371,7 @@ On a rate-limited send, a validated upstream retry interval is returned as optio
 | `400 Bad Request` | Invalid request parameters (missing phone or mail) | Error message |
 | `401 Unauthorized` | User is absent from Warden or is not active | JSON error with `success=false` |
 | `429 Too Many Requests` | Rate limit triggered | Error message |
-| `503 Service Unavailable` | Herald client or service is unavailable | JSON error with `success=false` |
+| `503 Service Unavailable` | Herald client or service is unavailable; or, with reason `service_unavailable`, Warden rejected Stargate's own API key or HMAC signature (HTTP 401 from Warden). No code is sent and the user's allow-list status is unknown | JSON error with `success=false` |
 | `500 Internal Server Error` | Herald rejected the send for another provider error | JSON error with `success=false` |
 
 #### Uniform Responses

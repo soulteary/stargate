@@ -301,7 +301,7 @@ Il gestore accetta anche `phone` + `mail` nella stessa richiesta di codice di ve
 | `400 Bad Request` | Parametri richiesta non validi (manca phone o mail) | Messaggio di errore |
 | `401 Unauthorized` | Utente assente da Warden o non attivo | Errore JSON con `success=false` |
 | `429 Too Many Requests` | Limite di velocità attivato | Messaggio di errore |
-| `503 Service Unavailable` | Client o servizio Herald non disponibile | Errore JSON con `success=false` |
+| `503 Service Unavailable` | Client o servizio Herald non disponibile; oppure, con reason `service_unavailable`, Warden ha rifiutato la chiave API o la firma HMAC di Stargate stesso (HTTP 401 da Warden). Nessun codice viene inviato; la presenza dell'utente nell'elenco consentiti è sconosciuta | Errore JSON con `success=false` |
 | `500 Internal Server Error` | Altro errore del provider durante l'invio | Errore JSON con `success=false` |
 
 #### Esempi
