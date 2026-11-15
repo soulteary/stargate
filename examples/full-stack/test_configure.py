@@ -258,6 +258,7 @@ class ConfigurationTests(unittest.TestCase):
             self.assertTrue(all(service.get('labels', {}).get('traefik.enable') == 'false' for service in services.values()))
             self.assertFalse(any('docker.sock' in str(volume) for service in services.values() for volume in service.get('volumes', [])))
             self.assertEqual(services['herald']['image'], 'ghcr.io/soulteary/herald:1.6.0@sha256:f2ca281f15d43be1bd5a1304fb7db535c4f53b00fc343162476343dbd3f04dee')
+            self.assertEqual(services['warden']['image'], 'ghcr.io/soulteary/warden:1.8.0@sha256:3bcec4df695cdb7ee8951e6a0ea378d45b9342df76f46cfa702db6e1c4f2608e')
             self.assertEqual(services['stargate']['image'], 'stargate-example-stargate:local')
             self.assertEqual(Path(services['stargate']['build']['context']), config.HERE.parents[1])
             gateway = services['stargate']['environment']
@@ -276,6 +277,9 @@ class ConfigurationTests(unittest.TestCase):
             for service in ['warden', 'herald', 'redis']:
                 self.assertFalse(services[service].get('ports'))
             self.assertEqual(json.loads(services['warden']['environment']['WARDEN_HMAC_KEYS'])['stargate-directory'], gateway['WARDEN_HMAC_SECRET'])
+            # Stargate signs v3 for the name the Warden instance lists; a mismatch makes every lookup fail with 401.
+            self.assertEqual(gateway['WARDEN_HMAC_AUDIENCE'], 'stargate-example-warden')
+            self.assertEqual(services['warden']['environment']['WARDEN_HMAC_AUDIENCES'], gateway['WARDEN_HMAC_AUDIENCE'])
             self.assertEqual(json.loads(services['herald']['environment']['HERALD_HMAC_KEYS'])['stargate-otp'], gateway['HERALD_HMAC_SECRET'])
             self.assertEqual(services['herald']['environment']['HERALD_TOTP_HMAC_KEY_ID'], 'herald-totp')
 

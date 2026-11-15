@@ -1,6 +1,6 @@
 # 邮件验证码与验证器完整示例
 
-本示例从当前源码目录构建 Stargate，连接正式发布的 Warden 1.7.0、Herald 1.6.0 和
+本示例从当前源码目录构建 Stargate，连接正式发布的 Warden 1.8.0、Herald 1.6.0 和
 herald-totp 2.0.4，使用真实 SMTP 投递、持久 Redis、显式 HMAC key ID 及三条独立服务凭据。
 不提供读取验证码的测试接口。仅需密码演示时，请使用[根目录快速开始](../../README.zhCN.md#-快速开始)。
 
@@ -97,6 +97,9 @@ Redis AOF 和 Herald 审计暂存使用具名卷。重启或 `docker compose dow
 
 三条 HMAC 链路分别为 Stargate→Warden（`stargate-directory`）、Stargate→Herald
 （`stargate-otp`）、Herald→TOTP（`herald-totp`）。API key 留空，HMAC 失败不回退。
+Stargate 以实例名 `stargate-example-warden`（`WARDEN_HMAC_AUDIENCE`）为 Warden 请求签名，
+Warden 在 `WARDEN_HMAC_AUDIENCES` 中列出同一名称；这种签名形式需要 Warden 1.8.0 或更高版本，
+两处的值必须保持一致。
 限流、单次消费和严格投递错误处理均保留。目录每 15 秒刷新，快照 60 秒过期；Stargate 来源
 最大年龄为 90 秒，时钟容差 1 秒，仍需同步时钟。
 

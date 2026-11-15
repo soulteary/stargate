@@ -1,7 +1,7 @@
 # Mail OTP and authenticator example
 
 This example builds Stargate from this checkout and connects the published Warden
-1.7.0, Herald 1.6.0 and herald-totp 2.0.4 services. It uses actual SMTP delivery, shared persistent
+1.8.0, Herald 1.6.0 and herald-totp 2.0.4 services. It uses actual SMTP delivery, shared persistent
 Redis, explicit HMAC key IDs and three independent service credentials. It does not expose a test-code endpoint. For a password-only
 local demo, use the [root quick start](../../README.md#-quick-start).
 
@@ -126,7 +126,10 @@ containing codes/cookies.
 
 The three HMAC legs are Stargate→Warden (`stargate-directory`), Stargate→Herald
 (`stargate-otp`) and Herald→TOTP (`herald-totp`). API keys are intentionally empty;
-HMAC rejection does not fall back to them. Rates, one-use consumption and strict
+HMAC rejection does not fall back to them. Stargate signs its Warden requests for
+the instance name `stargate-example-warden` (`WARDEN_HMAC_AUDIENCE`), which Warden
+lists in `WARDEN_HMAC_AUDIENCES`; this signature form needs Warden 1.8.0 or newer,
+and the two values must stay equal. Rates, one-use consumption and strict
 delivery failure handling remain enabled. Directory snapshots are refreshed every
 15 seconds, expire after 60 seconds and are accepted by Stargate for at most
 90 seconds with a one-second clock allowance; keep clocks synchronized.
