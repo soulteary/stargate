@@ -76,6 +76,32 @@ is reported as incomplete because acceptance and authorization cannot be proven
 by comparing credentials. Secret equality alone does not prove key strength,
 protocol support, service/action policy, runtime configuration or a working login.
 
+`warden.audience` compares the gateway's `WARDEN_HMAC_AUDIENCE` with the
+`WARDEN_HMAC_AUDIENCES` and `WARDEN_HMAC_REQUIRE_AUDIENCE` values in the `warden`
+object. Each side is read as that service reads it: surrounding space is removed,
+names are lower-cased, and the Warden list is split at commas. The check is
+omitted when the gateway sets no audience and Warden does not require one; a
+Warden that lists audiences without requiring them still accepts the gateway's
+v2 signatures. It reports:
+
+- `fail` when `WARDEN_HMAC_AUDIENCE` is set without `WARDEN_HMAC_KEY_ID` and
+  `WARDEN_HMAC_SECRET`, or is not 1 to 255 printable ASCII characters without
+  spaces or commas. The gateway refuses to start with either.
+- `fail` when the name is not in the Warden list, or Warden has no list: Warden
+  answers every directory lookup with 401.
+- `fail` when Warden requires an audience and the gateway signs with HMAC but
+  sets none.
+- `fail` when the Warden values themselves are rejected by Warden's startup
+  validation (an invalid name, more than 16 names, an unrecognized boolean, or
+  a requirement without a list).
+- `unknown` when the gateway sets an audience and no `warden` object is
+  supplied, which is always the case without `--config`, or when a client
+  certificate is configured.
+- `pass` when the name is listed. The Warden version (1.8.0 or newer is needed
+  for audiences) and online authentication are not checked.
+
+Audience names are not printed.
+
 ## Explicit online health mode
 
 `--health` sends only GET requests to fixed configured targets:
@@ -114,6 +140,10 @@ these replaces the documented startup validation or browser login test.
 - A service `.credentials` failure: compare the named client/server ID and selected
   authentication mode locally. An online 401 alone cannot distinguish a wrong ID,
   wrong secret, unsupported protocol or policy denial.
+- A `warden.audience` failure: make `WARDEN_HMAC_AUDIENCE` on the gateway equal
+  to one name in Warden's `WARDEN_HMAC_AUDIENCES`, or clear it on the gateway to
+  return to v2 signatures. See "Warden HMAC audience" in
+  [DEPLOYMENT.md](DEPLOYMENT.md) for the order of changes.
 - A `.health` failure: check the configured route, TLS CA/server name/client cert,
   health access policy and the corresponding Redis dependency. The tool does not
   print remote error details or change server settings.

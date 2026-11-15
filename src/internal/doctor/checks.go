@@ -105,6 +105,9 @@ func Inspect(m Manifest) Report {
 			server = m.Herald
 		}
 		inspectPair(&r, strings.ToLower(service)+".credentials", g, server, service, service == "HERALD")
+		if service == "WARDEN" {
+			inspectWardenAudience(&r, g, server)
+		}
 	}
 	if enabled, ok := boolean(g, "SESSION_STORAGE_ENABLED", false); !ok {
 		r.add("gateway.redis", "fail", "SESSION_STORAGE_ENABLED must be true or false.")
@@ -199,6 +202,96 @@ func inspectPair(r *Report, id string, client, server map[string]string, prefix 
 		return
 	}
 	r.add(id, result(api != "" && server["API_KEY"] != "" && subtle.ConstantTimeCompare([]byte(api), []byte(server["API_KEY"])) == 1), "Compare "+prefix+"_API_KEY with server API_KEY locally; runtime authorization is not tested.")
+}
+
+// inspectWardenAudience compares the gateway's WARDEN_HMAC_AUDIENCE with the
+// Warden server's WARDEN_HMAC_AUDIENCES and WARDEN_HMAC_REQUIRE_AUDIENCE. Each
+// side is read the way that side reads it at startup. Nothing is reported when
+// neither side asks for a signature bound to an audience.
+func inspectWardenAudience(r *Report, client, server map[string]string) {
+	const id = "warden.audience"
+	audience := strings.ToLower(strings.TrimSpace(client["WARDEN_HMAC_AUDIENCE"]))
+	signs := strings.TrimSpace(client["WARDEN_HMAC_KEY_ID"]) != "" && strings.TrimSpace(client["WARDEN_HMAC_SECRET"]) != ""
+	if audience != "" {
+		if !signs {
+			r.add(id, "fail", "WARDEN_HMAC_AUDIENCE requires WARDEN_HMAC_KEY_ID and WARDEN_HMAC_SECRET; the gateway refuses to start otherwise.")
+			return
+		}
+		if !validAudience(audience) {
+			r.add(id, "fail", "WARDEN_HMAC_AUDIENCE must be 1 to 255 printable ASCII characters without spaces or commas; the gateway refuses to start otherwise.")
+			return
+		}
+	}
+	if server == nil {
+		if audience != "" {
+			r.add(id, "unknown", "Server configuration was not supplied; WARDEN_HMAC_AUDIENCE cannot be compared with the server WARDEN_HMAC_AUDIENCES.")
+		}
+		return
+	}
+	accepted, listOK := wardenAudiences(server["WARDEN_HMAC_AUDIENCES"])
+	required, requireOK := wardenRequireAudience(server["WARDEN_HMAC_REQUIRE_AUDIENCE"])
+	if !listOK || !requireOK || (required && len(accepted) == 0) {
+		r.add(id, "fail", "The server WARDEN_HMAC_AUDIENCES or WARDEN_HMAC_REQUIRE_AUDIENCE value is rejected by Warden startup validation; no input values are shown.")
+		return
+	}
+	if audience == "" && (!required || !signs) {
+		return
+	}
+	if client["WARDEN_TLS_CLIENT_CERT_FILE"] != "" {
+		r.add(id, "unknown", "mTLS is configured; whether Warden evaluates the HMAC audience for these requests requires separate runtime verification.")
+		return
+	}
+	if audience == "" {
+		r.add(id, "fail", "Warden sets WARDEN_HMAC_REQUIRE_AUDIENCE but the gateway has no WARDEN_HMAC_AUDIENCE; every signed directory lookup will be refused with 401.")
+		return
+	}
+	for _, name := range accepted {
+		if name == audience {
+			r.add(id, "pass", "WARDEN_HMAC_AUDIENCE is listed in the server WARDEN_HMAC_AUDIENCES; the Warden version and online authentication are not proven.")
+			return
+		}
+	}
+	r.add(id, "fail", "WARDEN_HMAC_AUDIENCE is not listed in the server WARDEN_HMAC_AUDIENCES; every directory lookup will be refused with 401.")
+}
+
+// validAudience applies the rule shared by the gateway and Warden to one
+// normalized audience name.
+func validAudience(name string) bool {
+	return name != "" && len(name) <= 255 && !strings.ContainsFunc(name, func(c rune) bool { return c <= ' ' || c > '~' || c == ',' })
+}
+
+// wardenAudiences reads WARDEN_HMAC_AUDIENCES as Warden does: a comma-separated
+// list whose entries are trimmed and lower-cased, with empty entries and
+// duplicates dropped and at most 16 names.
+func wardenAudiences(raw string) ([]string, bool) {
+	var names []string
+	seen := map[string]bool{}
+	for _, entry := range strings.Split(raw, ",") {
+		entry = strings.ToLower(strings.TrimSpace(entry))
+		if entry == "" || seen[entry] {
+			continue
+		}
+		if !validAudience(entry) {
+			return nil, false
+		}
+		seen[entry] = true
+		names = append(names, entry)
+	}
+	return names, len(names) <= 16
+}
+
+// wardenRequireAudience reads WARDEN_HMAC_REQUIRE_AUDIENCE with Warden's
+// boolean spellings; an empty value is false.
+func wardenRequireAudience(raw string) (required, ok bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "":
+		return false, true
+	case "true", "1", "yes", "on", "t":
+		return true, true
+	case "false", "0", "no", "off", "f":
+		return false, true
+	}
+	return false, false
 }
 
 // ExitCode is zero for passed requested checks, one for failure, or three for incomplete checks.

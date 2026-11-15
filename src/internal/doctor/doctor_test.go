@@ -475,3 +475,152 @@ func TestCommandHelpHumanAndHealth(t *testing.T) {
 		t.Fatalf("exit %d", code)
 	}
 }
+
+func TestWardenAudiencePairing(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		change func(*Manifest)
+		want   string
+	}{
+		{"neither side configured", func(*Manifest) {}, ""},
+		{"listed", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+		}, "pass"},
+		{"listed after normalisation", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = " Warden-A "
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a,warden-b"
+		}, "pass"},
+		{"server list normalised", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-b"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a, ,WARDEN-B ,warden-a"
+		}, "pass"},
+		{"listed and required", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+			m.Warden["WARDEN_HMAC_REQUIRE_AUDIENCE"] = "true"
+		}, "pass"},
+		{"not listed", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "audience-in-gateway"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "audience-in-server,warden-b"
+		}, "fail"},
+		{"prefix of a listed name", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+		}, "fail"},
+		{"server has no list", func(m *Manifest) { m.Gateway["WARDEN_HMAC_AUDIENCE"] = "audience-in-gateway" }, "fail"},
+		{"server not supplied", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "audience-in-gateway"
+			m.Warden = nil
+		}, "unknown"},
+		{"server not supplied and no audience", func(m *Manifest) { m.Warden = nil }, ""},
+		{"audience without key id", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a"
+			m.Gateway["WARDEN_HMAC_KEY_ID"] = " "
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+		}, "fail"},
+		{"audience without secret", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a"
+			delete(m.Gateway, "WARDEN_HMAC_SECRET")
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+		}, "fail"},
+		{"audience without credentials and without server", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a"
+			delete(m.Gateway, "WARDEN_HMAC_KEY_ID")
+			delete(m.Gateway, "WARDEN_HMAC_SECRET")
+			m.Warden = nil
+		}, "fail"},
+		{"audience with a space", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "audience in-gateway"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+		}, "fail"},
+		{"audience with a comma", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a,warden-b"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a,warden-b"
+		}, "fail"},
+		{"audience too long", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = strings.Repeat("a", 256)
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = strings.Repeat("a", 256)
+		}, "fail"},
+		{"required but gateway sets none", func(m *Manifest) {
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "audience-in-server"
+			m.Warden["WARDEN_HMAC_REQUIRE_AUDIENCE"] = " YES "
+		}, "fail"},
+		{"required but gateway uses an API key", func(m *Manifest) {
+			delete(m.Gateway, "WARDEN_HMAC_KEY_ID")
+			delete(m.Gateway, "WARDEN_HMAC_SECRET")
+			m.Gateway["WARDEN_API_KEY"] = "synthetic-api-key"
+			m.Warden = map[string]string{"API_KEY": "synthetic-api-key", "WARDEN_HMAC_AUDIENCES": "warden-a", "WARDEN_HMAC_REQUIRE_AUDIENCE": "true"}
+		}, ""},
+		{"listed but not required and gateway sets none", func(m *Manifest) {
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+			m.Warden["WARDEN_HMAC_REQUIRE_AUDIENCE"] = "false"
+		}, ""},
+		{"required without a server list", func(m *Manifest) { m.Warden["WARDEN_HMAC_REQUIRE_AUDIENCE"] = "true" }, "fail"},
+		{"server boolean unrecognised", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+			m.Warden["WARDEN_HMAC_REQUIRE_AUDIENCE"] = "audience-in-server"
+		}, "fail"},
+		{"server list entry invalid", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a,audience in-server"
+		}, "fail"},
+		{"server list too long", func(m *Manifest) {
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "a0"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "a0,a1,a2,a3,a4,a5,a6,a7,a8,a9,a10,a11,a12,a13,a14,a15,a16"
+		}, "fail"},
+		{"mTLS with audience", func(m *Manifest) {
+			m.Gateway["WARDEN_TLS_CLIENT_CERT_FILE"] = "not-read"
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "audience-in-gateway"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "audience-in-server"
+		}, "unknown"},
+		{"mTLS and required", func(m *Manifest) {
+			m.Gateway["WARDEN_TLS_CLIENT_CERT_FILE"] = "not-read"
+			m.Warden["WARDEN_HMAC_AUDIENCES"] = "audience-in-server"
+			m.Warden["WARDEN_HMAC_REQUIRE_AUDIENCE"] = "true"
+		}, "unknown"},
+		{"Warden disabled", func(m *Manifest) {
+			m.Gateway["WARDEN_ENABLED"] = "false"
+			m.Gateway["PASSWORDS"] = "plaintext:synthetic-password"
+			m.Gateway["WARDEN_HMAC_AUDIENCE"] = "audience-in-gateway"
+		}, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := fixture()
+			tc.change(&m)
+			r := Inspect(m)
+			if got := find(r, "warden.audience").Status; got != tc.want {
+				t.Fatalf("warden.audience status=%q, want %q", got, tc.want)
+			}
+			data, _ := json.Marshal(r)
+			for _, value := range []string{"audience-in-gateway", "audience-in-server", "in-gateway", "in-server", "synthetic-warden-secret", "synthetic-api-key"} {
+				if bytes.Contains(data, []byte(value)) {
+					t.Fatal("diagnostic exposed an input value")
+				}
+			}
+		})
+	}
+}
+
+func TestWardenAudienceReadFromEnvironmentAndExitStatus(t *testing.T) {
+	values := map[string]string{"AUTH_HOST": "auth.example.test", "WARDEN_ENABLED": "true", "WARDEN_URL": "https://directory.example.test", "WARDEN_HMAC_AUDIENCE": "warden-a"}
+	var out, errOut bytes.Buffer
+	code := Run([]string{"--json"}, func(key string) (string, bool) { v, ok := values[key]; return v, ok }, &out, &errOut)
+	var report Report
+	if err := json.Unmarshal(out.Bytes(), &report); err != nil {
+		t.Fatal(err)
+	}
+	if c := find(report, "warden.audience"); code != 1 || c.Status != "fail" || !strings.Contains(c.Message, "WARDEN_HMAC_KEY_ID") {
+		t.Fatalf("exit=%d status=%q", code, c.Status)
+	}
+	m := fixture()
+	m.Gateway["WARDEN_HMAC_AUDIENCE"] = "warden-a"
+	if code := Inspect(m).ExitCode(); code != 1 {
+		t.Fatalf("unlisted audience exit=%d", code)
+	}
+	m.Warden["WARDEN_HMAC_AUDIENCES"] = "warden-a"
+	if code := Inspect(m).ExitCode(); code != 0 {
+		t.Fatalf("listed audience exit=%d", code)
+	}
+}
