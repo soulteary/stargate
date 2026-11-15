@@ -69,9 +69,9 @@ Stargate è perfetto per:
 
 - [Avvio Rapido](#-avvio-rapido)
 - [Documentazione](#-documentazione)
-- [Configurazione di Base](#-configurazione-di-base)
+- [Configurazione di Base](#%EF%B8%8F-configurazione-di-base)
 - [Integrazione Servizi Opzionali](#-integrazione-servizi-opzionali)
-- [Checklist Produzione](#-checklist-produzione)
+- [Checklist Produzione](#%EF%B8%8F-checklist-produzione)
 - [Licenza](#-licenza)
 
 ## 🚀 Avvio Rapido

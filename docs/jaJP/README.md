@@ -47,7 +47,7 @@ Stargate Forward Auth Service のドキュメントへようこそ。
 
 1. [README.jaJP.md](../../README.jaJP.md) を読んでプロジェクトを理解する
 2. [クイックスタート](../../README.jaJP.md#-クイックスタート) セクションを確認する
-3. [設定](../../README.jaJP.md#-基本設定) を参照してサービスを設定する
+3. [設定](../../README.jaJP.md#%EF%B8%8F-基本設定) を参照してサービスを設定する
 
 ### 開発者
 

@@ -75,7 +75,7 @@ AUTH_HOST=auth.example.com
 | 속성 | 값 |
 |------|-----|
 | **타입** | String |
-| **필수** | 예 |
+| **필수** | Warden이 비활성화된 경우 필수. `WARDEN_ENABLED=true`이고 `HERALD_ENABLED=true` 또는 `HEADER_AUTH_ENABLED=true`인 경우 생략 가능 |
 | **기본값** | 없음 |
 | **형식** | `algorithm:password1|password2|password3` |
 

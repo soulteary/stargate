@@ -171,7 +171,7 @@ Lorsque `WARDEN_ENABLED=true`, Stargate peut s'intégrer avec le service Warden 
 **Méthode d'Intégration :**
 - Utiliser Warden Go SDK (`github.com/soulteary/warden/pkg/warden`)
 - Support de l'authentification par clé API
-- Support du cache (TTL configurable)
+- Les recherches d'utilisateur ne sont pas mises en cache ; `WARDEN_CACHE_TTL` est accepté uniquement par compatibilité et n'a aucun effet
 - Intégration de vérification de santé
 
 **Exigences de Configuration :**
@@ -236,8 +236,8 @@ Lorsque `HERALD_ENABLED=true`, Stargate peut s'intégrer avec le service Herald 
    - Vérifie le mot de passe (utilise l'algorithme de mot de passe configuré)
    - Crée une session et définit le cookie
    - **Priorité de récupération du callback** :
-     1. Depuis le cookie (si précédemment défini)
-     2. Depuis les données du formulaire
+     1. Depuis les données du formulaire
+     2. Depuis le cookie (si précédemment défini)
      3. Depuis les paramètres de requête
      4. Si aucun des éléments ci-dessus, et le domaine d'origine diffère du domaine du service d'authentification, utiliser le domaine d'origine comme callback
 
@@ -295,8 +295,9 @@ Lorsque les intégrations Warden et Herald sont activées, l'authentification OT
 
 ### Sécurité des Requêtes
 
-- L'endpoint de vérification d'authentification supporte deux méthodes d'authentification :
+- L'endpoint de vérification d'authentification supporte trois méthodes d'authentification :
   - Authentification par en-tête (`Stargate-Password`) : Pour les requêtes API
+  - En-têtes d'identité de confiance (`HEADER_AUTH_ENABLED=true`) : Identité fournie par un proxy de confiance et résolue via Warden
   - Authentification par cookie : Pour les requêtes Web
 - Distingue entre les requêtes HTML et API, retourne des réponses appropriées
 

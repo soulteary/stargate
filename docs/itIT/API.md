@@ -498,7 +498,7 @@ Tutte le risposte di errore API selezionano automaticamente il formato in base a
 Error message
 ```
 
-I messaggi di errore supportano l'internazionalizzazione, restituendo messaggi in cinese o inglese secondo la variabile d'ambiente `LANGUAGE`.
+I messaggi di errore supportano l'internazionalizzazione, restituendo messaggi in una delle sette lingue (`en`, `zh`, `fr`, `it`, `ja`, `de`, `ko`) secondo la variabile d'ambiente `LANGUAGE`.
 
 ## Esempi Flusso Autenticazione
 

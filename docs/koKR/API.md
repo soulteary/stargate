@@ -498,7 +498,7 @@ curl http://auth.example.com/
 Error message
 ```
 
-오류 메시지는 국제화를 지원하며, 환경 변수 `LANGUAGE`에 따라 중국어 또는 영어 메시지를 반환합니다.
+오류 메시지는 국제화를 지원하며, 환경 변수 `LANGUAGE`에 따라 7개 언어(`en`, `zh`, `fr`, `it`, `ja`, `de`, `ko`) 중 하나로 메시지를 반환합니다.
 
 ## 인증 플로우 예제
 

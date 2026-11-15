@@ -7,7 +7,7 @@ Thank you for your interest in the Stargate project! We welcome all forms of con
 ## 📋 Table of Contents
 
 - [How to Contribute](#-how-to-contribute)
-- [Development Environment Setup](#-development-environment-setup)
+- [Development Environment Setup](#%EF%B8%8F-development-environment-setup)
 - [Code Standards](#-code-standards)
 - [Commit Standards](#-commit-standards)
 - [Pull Request Process](#-pull-request-process)

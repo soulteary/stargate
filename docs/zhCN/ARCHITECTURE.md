@@ -214,7 +214,7 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 **集成方式：**
 - 使用 Warden Go SDK (`github.com/soulteary/warden/pkg/warden`)
 - 支持 API Key 认证
-- 支持缓存（可配置 TTL）
+- 按用户进行的查询不会被缓存；`WARDEN_CACHE_TTL` 仅为兼容而保留，不起作用
 - 健康检查集成
 
 **配置要求：**
@@ -279,8 +279,8 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
    - 验证密码（使用配置的密码算法）
    - 创建会话并设置 Cookie
    - **Callback 获取优先级**：
-     1. 从 Cookie 中获取（如果之前已设置）
-     2. 从表单数据中获取
+     1. 从表单数据中获取
+     2. 从 Cookie 中获取（如果之前已设置）
      3. 从查询参数中获取
      4. 如果以上都没有，且来源域名与认证服务域名不一致，则使用来源域名作为 callback
 
@@ -338,8 +338,9 @@ Stargate 支持可选的服务集成，以扩展认证功能。这些集成都�
 
 ### 请求安全
 
-- 认证检查端点支持两种认证方式：
-  - Header 认证（`Stargate-Password`）：用于 API 请求
+- 认证检查端点支持三种认证方式，按以下顺序检查：
+  - Header 认证（`Stargate-Password`）：用于 API 请求；默认关闭（`PASSWORD_HEADER_AUTH_ENABLED`）
+  - 可信身份请求头（`HEADER_AUTH_ENABLED=true`）：由可信代理提供身份，并通过 Warden 解析
   - Cookie 认证：用于 Web 请求
 - 区分 HTML 和 API 请求，返回适当的响应
 

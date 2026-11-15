@@ -75,7 +75,7 @@ Passwort-Konfiguration, die den Verschlüsselungsalgorithmus und die Liste der P
 | Attribut | Wert |
 |----------|------|
 | **Typ** | String |
-| **Erforderlich** | Ja |
+| **Erforderlich** | Ja, wenn Warden deaktiviert ist. Mit `WARDEN_ENABLED=true` kann es entfallen, wenn `HERALD_ENABLED=true` oder `HEADER_AUTH_ENABLED=true` gesetzt ist |
 | **Standard** | Keine |
 | **Format** | `algorithm:password1|password2|password3` |
 

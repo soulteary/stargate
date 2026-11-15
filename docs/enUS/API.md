@@ -674,7 +674,7 @@ All API error responses automatically select format based on the client's `Accep
 Error message
 ```
 
-Error messages support internationalization, returning Chinese or English messages based on the `LANGUAGE` environment variable.
+Error messages support internationalization in seven languages (`en`, `zh`, `fr`, `it`, `ja`, `de`, `ko`). The language is selected per request from the `lang` query parameter, the `lang` cookie, the `X-Language` header or `Accept-Language`, in that order; the `LANGUAGE` environment variable sets the default.
 
 ## Authentication Flows
 

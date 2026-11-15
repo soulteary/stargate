@@ -75,7 +75,7 @@ Configurazione password, specificando l'algoritmo di crittografia password e la 
 | Attributo | Valore |
 |-----------|--------|
 | **Tipo** | String |
-| **Richiesto** | Sì |
+| **Richiesto** | Sì quando Warden è disabilitato. Con `WARDEN_ENABLED=true` può essere omesso se `HERALD_ENABLED=true` o `HEADER_AUTH_ENABLED=true` |
 | **Predefinito** | Nessuno |
 | **Formato** | `algorithm:password1|password2|password3` |
 

@@ -1,9 +1,9 @@
 # Deployment diagnostics
 
-This command is introduced on the current source branch and is not present in
-the published v1.3.5 binary. Use a build containing this change. Older binaries
-may ignore an unknown subcommand and start the server; do not invoke `doctor`
-on them as a capability check. Inspect their release/build metadata first.
+This command is available from v1.3.6. It is not present in v1.3.5 and earlier
+binaries. Those binaries may ignore an unknown subcommand and start the server;
+do not invoke `doctor` on them as a capability check. Inspect their
+release/build metadata first.
 
 `stargate doctor` inspects a scoped configuration snapshot. It does not start the
 application, audit writer, tracing exporter, SDK clients or Redis connections.

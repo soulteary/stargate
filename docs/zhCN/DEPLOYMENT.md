@@ -258,8 +258,8 @@ networks:
 下面是对接独立部署 Warden 和 Herald 的 Stargate 端配置：
 
 这是 API-key 模式下的 Stargate 端配置。Warden 和 Herald 应分别按照其
-[Warden 部署指南](https://github.com/soulteary/warden/blob/v1.4.4/docs/enUS/DEPLOYMENT.md)
-和 [Herald 部署指南](https://github.com/soulteary/herald/blob/v1.3.13/docs/enUS/DEPLOYMENT.md)
+[Warden 部署指南](https://github.com/soulteary/warden/blob/v1.8.0/docs/enUS/DEPLOYMENT.md)
+和 [Herald 部署指南](https://github.com/soulteary/herald/blob/v1.9.0/docs/enUS/DEPLOYMENT.md)
 部署，并落实各自的数据和持久化要求。提供容器内可达的 URL 和匹配的凭据；
 上游默认端口分别为 Warden `8081`、Herald `8082`。需显式配置共享网络或可路由
 地址。使用 Herald HMAC 模式时，改用匹配的 `HERALD_HMAC_SECRET` 和

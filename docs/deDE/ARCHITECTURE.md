@@ -171,7 +171,7 @@ Wenn `WARDEN_ENABLED=true`, kann sich Stargate über Warden SDK mit dem Warden-S
 **Integrationsmethode:**
 - Warden Go SDK verwenden (`github.com/soulteary/warden/pkg/warden`)
 - API-Key-Authentifizierung unterstützen
-- Caching unterstützen (konfigurierbares TTL)
+- Benutzerabfragen werden nicht zwischengespeichert; `WARDEN_CACHE_TTL` wird nur aus Kompatibilitätsgründen akzeptiert und hat keine Wirkung
 - Health-Check-Integration
 
 **Konfigurationsanforderungen:**
@@ -236,8 +236,8 @@ Wenn `HERALD_ENABLED=true`, kann sich Stargate über den Herald-Client mit dem H
    - Überprüft das Passwort (verwendet konfigurierten Passwort-Algorithmus)
    - Erstellt eine Sitzung und setzt das Cookie
    - **Callback-Abrufpriorität**:
-     1. Vom Cookie (wenn zuvor gesetzt)
-     2. Von den Formulardaten
+     1. Von den Formulardaten
+     2. Vom Cookie (wenn zuvor gesetzt)
      3. Von den Abfrageparametern
      4. Wenn keines der oben genannten vorhanden ist und die ursprüngliche Domain sich von der Authentifizierungsdienst-Domain unterscheidet, die ursprüngliche Domain als Callback verwenden
 
@@ -295,8 +295,9 @@ Wenn Warden- und Herald-Integrationen aktiviert sind, kann OTP-Authentifizierung
 
 ### Anfragesicherheit
 
-- Der Authentifizierungsprüfungs-Endpunkt unterstützt zwei Authentifizierungsmethoden:
+- Der Authentifizierungsprüfungs-Endpunkt unterstützt drei Authentifizierungsmethoden:
   - Header-Authentifizierung (`Stargate-Password`): Für API-Anfragen
+  - Vertrauenswürdige Identitäts-Header (`HEADER_AUTH_ENABLED=true`): Von einem vertrauenswürdigen Proxy gelieferte Identität, über Warden aufgelöst
   - Cookie-Authentifizierung: Für Web-Anfragen
 - Unterscheidet zwischen HTML- und API-Anfragen, gibt entsprechende Antworten zurück
 

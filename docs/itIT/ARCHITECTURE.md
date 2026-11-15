@@ -171,7 +171,7 @@ Quando `WARDEN_ENABLED=true`, Stargate può integrarsi con il servizio Warden tr
 **Metodo di Integrazione:**
 - Utilizza Warden Go SDK (`github.com/soulteary/warden/pkg/warden`)
 - Supporta autenticazione API Key
-- Supporta caching (TTL configurabile)
+- Le ricerche utente non vengono messe in cache; `WARDEN_CACHE_TTL` è accettato solo per compatibilità e non ha alcun effetto
 - Integrazione health check
 
 **Requisiti di Configurazione:**
@@ -236,8 +236,8 @@ Quando `HERALD_ENABLED=true`, Stargate può integrarsi con il servizio Herald tr
    - Verifica la password (utilizza l'algoritmo password configurato)
    - Crea una sessione e imposta il cookie
    - **Priorità recupero callback**:
-     1. Dal cookie (se precedentemente impostato)
-     2. Dai dati del form
+     1. Dai dati del form
+     2. Dal cookie (se precedentemente impostato)
      3. Dai parametri query
      4. Se nessuno dei precedenti, e il dominio di origine differisce dal dominio del servizio di autenticazione, utilizzare il dominio di origine come callback
 
@@ -295,8 +295,9 @@ Quando le integrazioni Warden e Herald sono abilitate, può essere utilizzata l'
 
 ### Sicurezza Richieste
 
-- L'endpoint di verifica autenticazione supporta due metodi di autenticazione:
+- L'endpoint di verifica autenticazione supporta tre metodi di autenticazione:
   - Autenticazione header (`Stargate-Password`): Per richieste API
+  - Header di identità attendibili (`HEADER_AUTH_ENABLED=true`): Identità fornita da un proxy attendibile e risolta tramite Warden
   - Autenticazione cookie: Per richieste Web
 - Distingue tra richieste HTML e API, restituisce risposte appropriate
 
