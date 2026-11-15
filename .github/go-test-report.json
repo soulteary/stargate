@@ -1,45 +1,45 @@
 {
   "schema_version": "1.0",
   "tests": {
-    "total": 626,
-    "passed": 615,
+    "total": 767,
+    "passed": 756,
     "failed": 0,
     "skipped": 11
   },
   "coverage": {
-    "covered_statements": 2961,
-    "total_statements": 3105,
-    "percentage": 95.36,
+    "covered_statements": 3491,
+    "total_statements": 3651,
+    "percentage": 95.62,
     "threshold": 95
   },
   "packages": [
     {
       "name": "src/cmd/stargate",
       "status": "pass",
-      "tests": 73,
+      "tests": 84,
       "failed": 0,
-      "coverage": 88.99
+      "coverage": 90.8
     },
     {
       "name": "src/internal/auditlog",
       "status": "pass",
       "tests": 7,
       "failed": 0,
-      "coverage": 90.48
+      "coverage": 87.34
     },
     {
       "name": "src/internal/auth",
       "status": "pass",
-      "tests": 76,
+      "tests": 73,
       "failed": 0,
-      "coverage": 97.16
+      "coverage": 97.13
     },
     {
       "name": "src/internal/config",
       "status": "pass",
-      "tests": 84,
+      "tests": 112,
       "failed": 0,
-      "coverage": 96.9
+      "coverage": 97.7
     },
     {
       "name": "src/internal/doctor",
@@ -51,14 +51,14 @@
     {
       "name": "src/internal/handlers",
       "status": "pass",
-      "tests": 316,
+      "tests": 412,
       "failed": 0,
-      "coverage": 95.89
+      "coverage": 95.85
     },
     {
       "name": "src/internal/i18n",
       "status": "pass",
-      "tests": 37,
+      "tests": 40,
       "failed": 0,
       "coverage": 100
     },
@@ -77,6 +77,13 @@
       "coverage": 100
     },
     {
+      "name": "src/internal/testsupport",
+      "status": "pass",
+      "tests": 4,
+      "failed": 0,
+      "coverage": 100
+    },
+    {
       "name": "src/internal/tlsconfig",
       "status": "pass",
       "tests": 4,
@@ -86,14 +93,14 @@
     {
       "name": "src/internal/tracing",
       "status": "pass",
-      "tests": 4,
+      "tests": 5,
       "failed": 0,
-      "coverage": 95.56
+      "coverage": 96
     },
     {
       "name": "src/internal/web",
       "status": "pass",
-      "tests": 1,
+      "tests": 2,
       "failed": 0,
       "coverage": 83.33
     }
