@@ -4,11 +4,11 @@
 
 | Metric | Value |
 | --- | --- |
-| Total | 777 |
-| Passed | 766 |
+| Total | 779 |
+| Passed | 768 |
 | Failed | 0 |
 | Skipped | 11 |
-| Coverage | 95.72% |
+| Coverage | 95.62% |
 | Threshold | 95.00% |
 
 ### Packages
@@ -17,10 +17,10 @@
 | --- | --- | --- | --- | --- |
 | src/cmd/stargate | pass | 84 | 0 | 90.80% |
 | src/internal/auditlog | pass | 7 | 0 | 87.34% |
-| src/internal/auth | pass | 75 | 0 | 96.24% |
+| src/internal/auth | pass | 77 | 0 | 94.39% |
 | src/internal/config | pass | 114 | 0 | 97.76% |
 | src/internal/doctor | pass | 20 | 0 | 95.95% |
-| src/internal/handlers | pass | 413 | 0 | 95.86% |
+| src/internal/handlers | pass | 413 | 0 | 95.87% |
 | src/internal/i18n | pass | 40 | 0 | 100.00% |
 | src/internal/metrics | pass | 7 | 0 | 100.00% |
 | src/internal/requestcontext | pass | 2 | 0 | 100.00% |
