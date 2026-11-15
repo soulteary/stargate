@@ -1,10 +1,16 @@
 # セキュリティドキュメント
 
+> **部分翻訳**: このガイドは一部のみを翻訳したもので、現在の変更がすべて反映されているわけではありません。[英語版](../enUS/SECURITY.md)が完全な正式版です。
+>
+> セキュリティとアップグレードに関する次の項目は、英語版にのみ詳しく記載されています。
+>
+> - 統一応答: [Uniform Responses](../enUS/SECURITY.md#uniform-responses)
+> - 再認証: [Re-authentication for Sensitive Operations](../enUS/SECURITY.md#re-authentication-for-sensitive-operations)
+> - Warden HMAC の audience: [Service Integration Security](../enUS/SECURITY.md#5-service-integration-security)
+
 > 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](../zhCN/SECURITY.md) | [Français](../frFR/SECURITY.md) | [Italiano](../itIT/SECURITY.md) | [日本語](SECURITY.md) | [Deutsch](../deDE/SECURITY.md) | [한국어](../koKR/SECURITY.md)
 
 このドキュメントは、Stargate のセキュリティ機能、セキュリティ設定、ベストプラクティスについて説明します。
-
-> ⚠️ **注意**: このドキュメントは翻訳中です。完全なバージョンについては、[英語版](../enUS/SECURITY.md)を参照してください。
 
 ## 実装されたセキュリティ機能
 

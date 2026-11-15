@@ -1,5 +1,7 @@
 # ドキュメントインデックス
 
+> **部分翻訳**: 日本語のガイドは一部のみを翻訳したもので、現在の変更がすべて反映されているわけではありません。[英語版のドキュメント](../enUS/README.md)が完全な正式版です。
+
 Stargate Forward Auth Service のドキュメントへようこそ。
 
 ## 🌐 多言語ドキュメント
@@ -14,8 +16,6 @@ Stargate Forward Auth Service のドキュメントへようこそ。
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - 技術アーキテクチャと設計決定
 
 ### 詳細ドキュメント
-
-- **[PERFORMANCE.md](../enUS/PERFORMANCE.md)** - Redis rate-limit measurements (English)
 
 - **[API.md](API.md)** - 完全な API エンドポイントドキュメント
   - 認証チェックエンドポイント
@@ -63,36 +63,23 @@ Stargate Forward Auth Service のドキュメントへようこそ。
 
 ## 📖 ドキュメント構造
 
-```
-stargate/
-├── README.md              # プロジェクトメインドキュメント（英語）
-├── README.zhCN.md         # プロジェクトメインドキュメント（中国語）
-├── README.frFR.md         # プロジェクトメインドキュメント（フランス語）
-├── README.itIT.md         # プロジェクトメインドキュメント（イタリア語）
-├── README.jaJP.md         # プロジェクトメインドキュメント（日本語）
-├── README.deDE.md         # プロジェクトメインドキュメント（ドイツ語）
-├── README.koKR.md         # プロジェクトメインドキュメント（韓国語）
-├── docs/
-│   ├── enUS/
-│   │   ├── README.md       # ドキュメントインデックス（英語）
-│   │   ├── ARCHITECTURE.md # アーキテクチャドキュメント（英語）
-│   │   ├── API.md          # API ドキュメント（英語）
-│   │   ├── CONFIG.md       # 設定リファレンス（英語）
-│   │   └── DEPLOYMENT.md   # デプロイメントガイド（英語）
-│   ├── zhCN/
-│   │   ├── README.md       # ドキュメントインデックス（中国語）
-│   │   ├── ARCHITECTURE.md # アーキテクチャドキュメント（中国語）
-│   │   ├── API.md          # API ドキュメント（中国語）
-│   │   ├── CONFIG.md       # 設定リファレンス（中国語）
-│   │   └── DEPLOYMENT.md   # デプロイメントガイド（中国語）
-│   └── jaJP/
-│       ├── README.md       # ドキュメントインデックス（日本語、このファイル）
-│       ├── ARCHITECTURE.md # アーキテクチャドキュメント（日本語）
-│       ├── API.md          # API ドキュメント（日本語）
-│       ├── CONFIG.md       # 設定リファレンス（日本語）
-│       └── DEPLOYMENT.md   # デプロイメントガイド（日本語）
-└── ...
-```
+このディレクトリにある部分翻訳:
+
+- [API.md](API.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [CONFIG.md](CONFIG.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [DEPLOYMENT.md](DEPLOYMENT.md)
+- [MIGRATION_V1.md](MIGRATION_V1.md)
+- [SECURITY.md](SECURITY.md)
+
+英語版のみ:
+
+- [DIAGNOSTICS.md](../enUS/DIAGNOSTICS.md) - Deployment diagnostics
+- [AUTHENTICATION_UI.md](../enUS/AUTHENTICATION_UI.md) - Authentication pages
+- [DINGTALK_USERID_ONLY.md](../enUS/DINGTALK_USERID_ONLY.md) - Opt-in userid-only work-IM login
+- [PERFORMANCE.md](../enUS/PERFORMANCE.md) - Redis rate-limit measurements
+- [VERIFIED_EMAIL.md](../enUS/VERIFIED_EMAIL.md) - Verified email assertions
 
 ## 🔍 トピック別検索
 

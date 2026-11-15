@@ -1,10 +1,10 @@
 # Beitragsleitfaden
 
+> **Gekürzte Übersetzung**: Dieser Leitfaden ist eine gekürzte Übersetzung und enthält nicht alle aktuellen Änderungen. Der [englische Leitfaden](../enUS/CONTRIBUTING.md) ist vollständig und maßgeblich.
+
 > 🌐 **Language / 语言**: [English](../enUS/CONTRIBUTING.md) | [中文](../zhCN/CONTRIBUTING.md) | [Français](../frFR/CONTRIBUTING.md) | [Italiano](../itIT/CONTRIBUTING.md) | [日本語](../jaJP/CONTRIBUTING.md) | [Deutsch](CONTRIBUTING.md) | [한국어](../koKR/CONTRIBUTING.md)
 
 Vielen Dank für Ihr Interesse am Stargate-Projekt! Wir begrüßen alle Formen von Beiträgen.
-
-> ⚠️ **Hinweis**: Diese Dokumentation wird derzeit übersetzt. Für die vollständige Version konsultieren Sie die [englische Version](../enUS/CONTRIBUTING.md).
 
 ## Wie Sie Beitragen Können
 

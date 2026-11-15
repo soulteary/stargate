@@ -1,8 +1,15 @@
 # Guide de Déploiement
 
-Les exemples actuels utilisent v1.6.0. Avant de remplacer une version antérieure à v1.3, lire la [migration des sessions](../enUS/DEPLOYMENT.md#revocable-session-migration) et [l’échange lié au navigateur](../enUS/DEPLOYMENT.md#browser-bound-session-exchange). Coordonner toutes les répliques, préserver l’état Redis et prévoir la reconnexion requise.
+> **Traduction abrégée** : ce guide est une traduction abrégée et ne reflète pas toutes les modifications actuelles. Le [guide anglais](../enUS/DEPLOYMENT.md) est complet et fait foi.
+>
+> Les sujets suivants, liés à la sécurité et aux mises à niveau, ne sont décrits en entier que dans le guide anglais :
+>
+> - Mise à niveau et retour arrière : [v1.6.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
+> - Sessions révocables : [Revocable session migration](../enUS/DEPLOYMENT.md#revocable-session-migration), [Browser-bound session exchange](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)
+> - Priorité des identifiants : [Herald](../enUS/DEPLOYMENT.md#herald-credential-precedence), [Warden](../enUS/DEPLOYMENT.md#warden-credential-precedence)
+> - Audience HMAC de Warden : [Warden HMAC audience](../enUS/DEPLOYMENT.md#warden-hmac-audience), [Warden server versions](../enUS/DEPLOYMENT.md#warden-server-versions)
 
-> **Traduction historique** : ce guide ne reflète pas toutes les modifications actuelles. Consultez le [guide anglais actuel](../enUS/DEPLOYMENT.md).
+Les exemples actuels utilisent v1.6.0. Avant de remplacer une version antérieure à v1.3, lire la [migration des sessions](../enUS/DEPLOYMENT.md#revocable-session-migration) et [l’échange lié au navigateur](../enUS/DEPLOYMENT.md#browser-bound-session-exchange). Coordonner toutes les répliques, préserver l’état Redis et prévoir la reconnexion requise.
 
 Ce document fournit un guide de déploiement détaillé pour le service Stargate Forward Auth.
 

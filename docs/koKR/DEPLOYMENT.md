@@ -1,8 +1,15 @@
 # 배포 가이드
 
-현재 배포 예제는 v1.6.0을 사용합니다. v1.3 이전 배포를 교체하기 전에 [세션 마이그레이션](../enUS/DEPLOYMENT.md#revocable-session-migration)과 [브라우저에 바인딩된 교환](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)을 확인하세요. 모든 복제본을 조정하고 필요한 Redis 상태를 보존하며 필수 재로그인을 계획하세요.
+> **부분 번역**: 이 문서는 일부만 번역한 것으로, 현재 변경 사항이 모두 반영되어 있지 않습니다. [영어 문서](../enUS/DEPLOYMENT.md)가 완전한 기준 문서입니다.
+>
+> 보안 및 업그레이드와 관련된 다음 항목은 영어 문서에만 자세히 설명되어 있습니다.
+>
+> - 업그레이드와 롤백: [v1.6.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
+> - 취소 가능한 세션: [Revocable session migration](../enUS/DEPLOYMENT.md#revocable-session-migration), [Browser-bound session exchange](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)
+> - 자격 증명 우선순위: [Herald](../enUS/DEPLOYMENT.md#herald-credential-precedence), [Warden](../enUS/DEPLOYMENT.md#warden-credential-precedence)
+> - Warden HMAC audience: [Warden HMAC audience](../enUS/DEPLOYMENT.md#warden-hmac-audience), [Warden server versions](../enUS/DEPLOYMENT.md#warden-server-versions)
 
-> **이전 번역**: 현재 변경 사항이 모두 반영되어 있지 않습니다. [최신 영어 문서](../enUS/DEPLOYMENT.md)를 확인하세요.
+현재 배포 예제는 v1.6.0을 사용합니다. v1.3 이전 배포를 교체하기 전에 [세션 마이그레이션](../enUS/DEPLOYMENT.md#revocable-session-migration)과 [브라우저에 바인딩된 교환](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)을 확인하세요. 모든 복제본을 조정하고 필요한 Redis 상태를 보존하며 필수 재로그인을 계획하세요.
 
 이 문서는 Stargate Forward Auth 서비스의 자세한 배포 가이드를 제공합니다.
 

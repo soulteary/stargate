@@ -1,10 +1,16 @@
 # Documentazione di Sicurezza
 
+> **Traduzione ridotta**: questa guida è una traduzione ridotta e non include tutte le modifiche attuali. La [guida inglese](../enUS/SECURITY.md) è completa e fa fede.
+>
+> I seguenti argomenti su sicurezza e aggiornamento sono descritti per intero solo nella guida inglese:
+>
+> - Risposte uniformi: [Uniform Responses](../enUS/SECURITY.md#uniform-responses)
+> - Riautenticazione: [Re-authentication for Sensitive Operations](../enUS/SECURITY.md#re-authentication-for-sensitive-operations)
+> - Audience HMAC di Warden: [Service Integration Security](../enUS/SECURITY.md#5-service-integration-security)
+
 > 🌐 **Language / 语言**: [English](../enUS/SECURITY.md) | [中文](../zhCN/SECURITY.md) | [Français](../frFR/SECURITY.md) | [Italiano](SECURITY.md) | [日本語](../jaJP/SECURITY.md) | [Deutsch](../deDE/SECURITY.md) | [한국어](../koKR/SECURITY.md)
 
 Questo documento spiega le funzionalità di sicurezza di Stargate, la configurazione di sicurezza e le migliori pratiche.
-
-> ⚠️ **Nota**: Questa documentazione è in fase di traduzione. Per la versione completa, consulta la [versione inglese](../enUS/SECURITY.md).
 
 ## Funzionalità di Sicurezza Implementate
 

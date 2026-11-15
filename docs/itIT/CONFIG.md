@@ -1,6 +1,15 @@
 # Riferimento di Configurazione
 
-> **Traduzione storica**: questa guida non include tutte le modifiche attuali. Consultare la [configurazione inglese aggiornata](../enUS/CONFIG.md) per i requisiti Redis e i limiti di aggiornamento.
+> **Traduzione ridotta**: questa guida è una traduzione ridotta e non include tutte le modifiche attuali. La [guida inglese](../enUS/CONFIG.md) è completa e fa fede.
+>
+> I seguenti argomenti su sicurezza e aggiornamento sono descritti per intero solo nella guida inglese:
+>
+> - Audience HMAC di Warden: [`WARDEN_HMAC_AUDIENCE`](../enUS/CONFIG.md#warden_hmac_audience)
+> - Precedenza delle credenziali: [`HERALD_API_KEY`](../enUS/CONFIG.md#herald_api_key), [`HERALD_HMAC_SECRET`](../enUS/CONFIG.md#herald_hmac_secret)
+> - Risposte uniformi: [`LOGIN_UNIFORM_RESPONSES`](../enUS/CONFIG.md#login_uniform_responses), [`LOGIN_UNIFORM_RESEND_COOLDOWN`](../enUS/CONFIG.md#login_uniform_resend_cooldown), [`HERALD_CLIENT_IP_HEADER`](../enUS/CONFIG.md#herald_client_ip_header)
+> - Riautenticazione: [`STEP_UP_ENABLED`, `STEP_UP_PATHS`](../enUS/CONFIG.md#step-up-authentication-optional)
+> - Requisiti Redis e limiti di aggiornamento: [Session Storage](../enUS/CONFIG.md#session-storage-redis-optional), [`AUTH_REFRESH_ENABLED`](../enUS/CONFIG.md#auth_refresh_enabled), [Rate-limit state](../enUS/CONFIG.md#rate-limit-state-and-client-attribution)
+> - Diagnostica: [`stargate doctor`](../enUS/CONFIG.md#scoped-deployment-diagnostics), [DIAGNOSTICS.md](../enUS/DIAGNOSTICS.md)
 
 Questo documento dettaglia tutte le opzioni di configurazione per Stargate.
 

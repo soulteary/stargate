@@ -1,5 +1,7 @@
 # Migrazione da v0.12.0 a v1.0.0
 
+> **Traduzione ridotta**: questa guida è una traduzione ridotta e non include tutte le modifiche attuali. La [guida inglese](../enUS/MIGRATION_V1.md) è completa e fa fede.
+
 Stargate v1.0.0 stabilisce i contratti di deployment e HTTP. Verificare prima l'aggiornamento in staging.
 
 ## Prima dell'aggiornamento

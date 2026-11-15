@@ -1,5 +1,7 @@
 # Index de la Documentation
 
+> **Traduction abrégée** : les guides en français sont des traductions abrégées et ne reflètent pas toutes les modifications actuelles. La [documentation anglaise](../enUS/README.md) est complète et fait foi.
+
 Bienvenue dans la documentation du service Stargate Forward Auth.
 
 ## 🌐 Documentation Multilingue
@@ -14,8 +16,6 @@ Bienvenue dans la documentation du service Stargate Forward Auth.
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Architecture technique et décisions de conception
 
 ### Documents Détaillés
-
-- **[PERFORMANCE.md](../enUS/PERFORMANCE.md)** - Redis rate-limit measurements (English)
 
 - **[API.md](API.md)** - Documentation complète des points de terminaison API
   - Points de terminaison de vérification d'authentification
@@ -63,36 +63,23 @@ Bienvenue dans la documentation du service Stargate Forward Auth.
 
 ## 📖 Structure des Documents
 
-```
-stargate/
-├── README.md              # Document principal du projet (Anglais)
-├── README.zhCN.md         # Document principal du projet (Chinois)
-├── README.frFR.md         # Document principal du projet (Français)
-├── README.itIT.md         # Document principal du projet (Italien)
-├── README.jaJP.md         # Document principal du projet (Japonais)
-├── README.deDE.md         # Document principal du projet (Allemand)
-├── README.koKR.md         # Document principal du projet (Coréen)
-├── docs/
-│   ├── enUS/
-│   │   ├── README.md       # Index de la documentation (Anglais)
-│   │   ├── ARCHITECTURE.md # Document d'architecture (Anglais)
-│   │   ├── API.md          # Document API (Anglais)
-│   │   ├── CONFIG.md       # Référence de configuration (Anglais)
-│   │   └── DEPLOYMENT.md   # Guide de déploiement (Anglais)
-│   ├── zhCN/
-│   │   ├── README.md       # Index de la documentation (Chinois)
-│   │   ├── ARCHITECTURE.md # Document d'architecture (Chinois)
-│   │   ├── API.md          # Document API (Chinois)
-│   │   ├── CONFIG.md       # Référence de configuration (Chinois)
-│   │   └── DEPLOYMENT.md   # Guide de déploiement (Chinois)
-│   └── frFR/
-│       ├── README.md       # Index de la documentation (Français, ce fichier)
-│       ├── ARCHITECTURE.md # Document d'architecture (Français)
-│       ├── API.md          # Document API (Français)
-│       ├── CONFIG.md       # Référence de configuration (Français)
-│       └── DEPLOYMENT.md   # Guide de déploiement (Français)
-└── ...
-```
+Traductions abrégées dans ce répertoire :
+
+- [API.md](API.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [CONFIG.md](CONFIG.md)
+- [CONTRIBUTING.md](CONTRIBUTING.md)
+- [DEPLOYMENT.md](DEPLOYMENT.md)
+- [MIGRATION_V1.md](MIGRATION_V1.md)
+- [SECURITY.md](SECURITY.md)
+
+Disponible uniquement en anglais :
+
+- [DIAGNOSTICS.md](../enUS/DIAGNOSTICS.md) - Deployment diagnostics
+- [AUTHENTICATION_UI.md](../enUS/AUTHENTICATION_UI.md) - Authentication pages
+- [DINGTALK_USERID_ONLY.md](../enUS/DINGTALK_USERID_ONLY.md) - Opt-in userid-only work-IM login
+- [PERFORMANCE.md](../enUS/PERFORMANCE.md) - Redis rate-limit measurements
+- [VERIFIED_EMAIL.md](../enUS/VERIFIED_EMAIL.md) - Verified email assertions
 
 ## 🔍 Recherche par Sujet
 
