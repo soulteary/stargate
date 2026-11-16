@@ -9,6 +9,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/warden/pkg/warden"
+	"github.com/stretchr/testify/require"
 )
 
 func setupRefreshTest(t *testing.T) {
@@ -175,4 +176,69 @@ func TestAuthRefreshSkipsPasswordSessionInMixedDeployment(t *testing.T) {
 	testza.AssertNoError(t, err)
 	testza.AssertFalse(t, refreshed)
 	testza.AssertFalse(t, lookupCalled)
+}
+
+// The interval is measured on authorizationNow alone: the clock here stands
+// in 2001 and only moves when the test moves it, so the outcome cannot depend
+// on the wall clock or on where in a second the test runs.
+func TestAuthRefreshIntervalFollowsAuthorizationClock(t *testing.T) {
+	isolateGlobalState(t)
+	setupRefreshTest(t)
+	previousNow := authorizationNow
+	t.Cleanup(func() { authorizationNow = previousNow })
+	config.AuthRefreshInterval.Value = "5m"
+	current := time.Unix(1_000_000_000, 0)
+	authorizationNow = func() time.Time { return current }
+
+	ctx, app := createTestContext("GET", "/_auth", nil, "")
+	defer app.ReleaseCtx(ctx)
+	sess, err := setupTestStore().Get(ctx)
+	require.NoError(t, err)
+	defer sess.Release()
+	sess.Set("auth_method", "warden")
+	sess.Set("user_id", "user-1")
+	sess.Set("user_mail", "active@example.com")
+	require.NoError(t, auth.Authenticate(sess))
+	lookups := 0
+	lookupRefreshUser = func(context.Context, string, string) (*warden.AllowListUser, time.Time, error) {
+		lookups++
+		return &warden.AllowListUser{UserID: "user-1", Mail: "active@example.com", Status: "active"}, time.Time{}, nil
+	}
+
+	// A session without a stamp is always due, and the stamp is taken from
+	// the same clock.
+	stampedAt := current
+	refreshed, err := refreshAuthorizationIfNeeded(context.Background(), sess)
+	require.NoError(t, err)
+	require.True(t, refreshed)
+	require.Equal(t, stampedAt.Unix(), sess.Get("auth_refreshed_at"))
+
+	for _, step := range []struct {
+		name    string
+		age     time.Duration
+		refresh bool
+	}{
+		{"same instant", 0, false},
+		{"inside the interval", 5*time.Minute - time.Second, false},
+		{"exactly the interval", 5 * time.Minute, false},
+		{"past the interval", 5*time.Minute + time.Second, true},
+	} {
+		before := lookups
+		current = stampedAt.Add(step.age)
+		refreshed, err = refreshAuthorizationIfNeeded(context.Background(), sess)
+		require.NoError(t, err, step.name)
+		require.Equal(t, step.refresh, refreshed, step.name)
+		if step.refresh {
+			require.Equal(t, before+1, lookups, step.name)
+			require.Equal(t, current.Unix(), sess.Get("auth_refreshed_at"), step.name)
+		} else {
+			require.Equal(t, before, lookups, step.name)
+			require.Equal(t, stampedAt.Unix(), sess.Get("auth_refreshed_at"), step.name)
+		}
+	}
+
+	// The new stamp starts a new interval on the same clock.
+	require.False(t, wardenSessionNeedsRefresh(sess))
+	current = current.Add(5*time.Minute + time.Second)
+	require.True(t, wardenSessionNeedsRefresh(sess))
 }
