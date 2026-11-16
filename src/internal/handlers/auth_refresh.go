@@ -13,6 +13,9 @@ import (
 
 var lookupRefreshUser = auth.LookupUserInfo
 
+// authorizationNow is the clock for every directory authorization decision:
+// the Warden source deadline, the refresh interval and the auth_refreshed_at
+// stamp. Tests replace it; production code must not read time.Now for these.
 var authorizationNow = time.Now
 
 var errAuthorizationUnavailable = errors.New("directory authorization is unavailable")
@@ -72,7 +75,7 @@ func refreshDirectoryAuthorization(ctx context.Context, sess *session.Session, f
 	sess.Set("user_role", user.Role)
 	sess.Set("user_name", user.Name)
 	sess.Set("user_status", user.Status)
-	sess.Set("auth_refreshed_at", time.Now().Unix())
+	sess.Set("auth_refreshed_at", authorizationNow().Unix())
 	if !deadline.IsZero() {
 		sess.Set("warden_source_valid_until", deadline.UnixNano())
 		sess.Set("warden_source_policy", wardenSourcePolicy())
@@ -95,18 +98,25 @@ func wardenSourcePolicy() string {
 }
 
 func wardenSessionSourceExpired(sess *session.Session) bool {
+	return wardenSessionSourceExpiredAt(sess, authorizationNow())
+}
+
+func wardenSessionSourceExpiredAt(sess *session.Session, now time.Time) bool {
 	if config.WardenSourceMaxAge.ToDuration() <= 0 || !wardenSessionUsesDirectory(sess) {
 		return false
 	}
 	deadline, ok := sess.Get("warden_source_valid_until").(int64)
-	return !ok || sess.Get("warden_source_policy") != wardenSourcePolicy() || !authorizationNow().Before(time.Unix(0, deadline))
+	return !ok || sess.Get("warden_source_policy") != wardenSourcePolicy() || !now.Before(time.Unix(0, deadline))
 }
 
 func wardenSessionNeedsRefresh(sess *session.Session) bool {
 	if !wardenSessionUsesDirectory(sess) {
 		return false
 	}
-	if wardenSessionSourceExpired(sess) {
+	// One reading serves both the source deadline and the interval, so a
+	// single decision is taken at a single instant.
+	now := authorizationNow()
+	if wardenSessionSourceExpiredAt(sess, now) {
 		return true
 	}
 	interval := config.AuthRefreshInterval.ToDuration()
@@ -114,7 +124,7 @@ func wardenSessionNeedsRefresh(sess *session.Session) bool {
 		interval = 5 * time.Minute
 	}
 	if refreshedAt, ok := sess.Get("auth_refreshed_at").(int64); ok &&
-		time.Since(time.Unix(refreshedAt, 0)) <= interval {
+		now.Sub(time.Unix(refreshedAt, 0)) <= interval {
 		return false
 	}
 	return true
