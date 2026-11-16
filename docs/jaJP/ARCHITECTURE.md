@@ -21,16 +21,22 @@ src/
 ├── cmd/stargate/          # アプリケーションエントリーポイント
 │   ├── main.go            # メイン関数、設定の初期化とサーバーの起動
 │   ├── server.go          # サーバー設定とルート設定
-│   └── constants.go       # ルートと設定の定数
+│   ├── constants.go       # ルートと設定の定数
+│   ├── doctor.go          # doctor サブコマンドの呼び出し
+│   ├── readiness.go       # キャッシュ付き readiness ハンドラー（/readyz、/health）
+│   ├── request_log.go     # リクエストログのクライアントアドレス
+│   └── logger.go          # コメントのみ、コードなし
 │
 ├── internal/              # 内部パッケージ（外部に公開されない）
 │   ├── auditlog/          # 監査ログ
 │   ├── auth/              # 認証ロジック（パスワード検証、セッション、Warden クライアント）
 │   ├── config/            # 設定管理（環境変数、検証、ステップアップ）
+│   ├── doctor/            # stargate doctor の診断
 │   ├── handlers/          # HTTP リクエストハンドラー（forwardAuth、ログイン、ログアウト、確認コード、TOTP 等）
 │   ├── i18n/              # 国際化サポート
 │   ├── metrics/           # Prometheus メトリクス
 │   ├── requestcontext/    # リクエストの期限とキャンセル
+│   ├── testsupport/       # テスト共通のヘルパー
 │   ├── tlsconfig/         # サービスクライアント共通の TLS 設定
 │   ├── tracing/           # OpenTelemetry トレーシングミドルウェア
 │   └── web/               # Web リソースと HTML テンプレート

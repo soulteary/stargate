@@ -19,16 +19,22 @@ src/
 ├── cmd/stargate/          # 应用程序入口点
 │   ├── main.go            # 主函数，初始化配置和启动服务器
 │   ├── server.go          # 服务器配置和路由设置
-│   └── constants.go       # 路由和配置常量
+│   ├── constants.go       # 路由和配置常量
+│   ├── doctor.go          # doctor 子命令分发，在应用初始化之前执行
+│   ├── readiness.go       # /readyz 与 /health 的带缓存就绪检查处理器
+│   ├── request_log.go     # 请求日志中的客户端地址字段
+│   └── logger.go          # 仅有注释，无代码；日志在 main.go 中初始化
 │
 ├── internal/              # 内部包（不对外暴露）
 │   ├── auditlog/          # 审计日志
 │   ├── auth/              # 认证逻辑（密码校验、会话、Warden 调用）
 │   ├── config/            # 配置管理（环境变量、验证、步进认证）
+│   ├── doctor/            # stargate doctor 子命令的部署诊断
 │   ├── handlers/          # HTTP 请求处理器（forwardAuth、登录、登出、验证码、TOTP 等）
 │   ├── i18n/              # 国际化支持
 │   ├── metrics/           # Prometheus 指标
 │   ├── requestcontext/    # 请求 deadline 与取消
+│   ├── testsupport/       # 多个包的测试共用的辅助代码
 │   ├── tlsconfig/         # 服务客户端 TLS 配置
 │   ├── tracing/           # OpenTelemetry 追踪中间件
 │   └── web/               # Web 资源与 HTML 模板
@@ -100,7 +106,7 @@ src/
 - **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP 解绑页与确认（通过 Herald TOTP）
 - **LogoutRoute**: 登出处理
 - **SessionShareRoute**: 跨域会话共享
-- **HealthRoute**: 健康检查（包含 Warden 和 Herald 健康状态）
+- **健康检查路由**: `/healthz`、`/readyz` 与弃用的 `/health` 不是本包的处理器，由 `cmd/stargate`（`server.go`、`readiness.go`）通过 health-kit 注册
 - **IndexRoute**: 根路径处理
 - **GET /metrics**: Prometheus 指标（metrics-kit）
 

@@ -21,16 +21,22 @@ src/
 ├── cmd/stargate/          # Point d'entrée de l'application
 │   ├── main.go            # Fonction principale, initialise la configuration et démarre le serveur
 │   ├── server.go          # Configuration du serveur et configuration des routes
-│   └── constants.go       # Constantes de route et de configuration
+│   ├── constants.go       # Constantes de route et de configuration
+│   ├── doctor.go          # Appel de la sous-commande doctor
+│   ├── readiness.go       # Handler de readiness avec cache (/readyz, /health)
+│   ├── request_log.go     # Adresse client dans le journal des requêtes
+│   └── logger.go          # Commentaire seul, aucun code
 │
 ├── internal/              # Packages internes (non exposés en externe)
 │   ├── auditlog/          # Journalisation d'audit
 │   ├── auth/              # Logique d'authentification (vérification mot de passe, session, client Warden)
 │   ├── config/            # Gestion de la configuration (variables d'env, validation, step-up)
+│   ├── doctor/            # Diagnostics pour stargate doctor
 │   ├── handlers/          # Gestionnaires de requêtes HTTP (forwardAuth, login, logout, code de vérification, TOTP, etc.)
 │   ├── i18n/              # Support d'internationalisation
 │   ├── metrics/           # Métriques Prometheus
 │   ├── requestcontext/    # Échéances et annulation des requêtes
+│   ├── testsupport/       # Fonctions utilitaires communes aux tests
 │   ├── tlsconfig/         # Configuration TLS partagée des clients de service
 │   ├── tracing/           # Middleware de traçage OpenTelemetry
 │   └── web/               # Ressources Web et templates HTML

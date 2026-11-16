@@ -19,16 +19,22 @@ src/
 ├── cmd/stargate/          # Application entry point
 │   ├── main.go            # Main function, initializes configuration and starts server
 │   ├── server.go          # Server configuration and route setup
-│   └── constants.go       # Route and configuration constants
+│   ├── constants.go       # Route and configuration constants
+│   ├── doctor.go          # doctor subcommand dispatch, runs before application initialization
+│   ├── readiness.go       # Cached readiness handler for /readyz and /health
+│   ├── request_log.go     # Client address field for request log lines
+│   └── logger.go          # Comment only, no code; logging is initialized in main.go
 │
 ├── internal/              # Internal packages (not exposed externally)
 │   ├── auditlog/          # Audit logging
 │   ├── auth/              # Authentication logic (password check, session, Warden client)
 │   ├── config/            # Configuration management (env vars, validation, step-up)
+│   ├── doctor/            # Deployment diagnostics for the stargate doctor subcommand
 │   ├── handlers/          # HTTP request handlers (forwardAuth, login, logout, verify code, TOTP, etc.)
 │   ├── i18n/              # Internationalization support
 │   ├── metrics/           # Prometheus metrics
 │   ├── requestcontext/    # Request deadlines and cancellation
+│   ├── testsupport/       # Helpers shared by the tests of several packages
 │   ├── tlsconfig/         # Shared service-client TLS configuration
 │   ├── tracing/           # OpenTelemetry tracing middleware
 │   └── web/               # Web resources and HTML templates
@@ -100,7 +106,7 @@ Handlers are responsible for processing HTTP requests:
 - **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP unbind page and confirm (via Herald TOTP)
 - **LogoutRoute**: Logout processing
 - **SessionShareRoute**: Cross-domain session sharing
-- **HealthRoute**: Health check (includes Warden and Herald health status)
+- **Health routes**: `/healthz`, `/readyz` and the deprecated `/health` are not handlers of this package; `cmd/stargate` registers them (`server.go`, `readiness.go`) with health-kit
 - **IndexRoute**: Root path processing
 - **GET /metrics**: Prometheus metrics (metrics-kit)
 
