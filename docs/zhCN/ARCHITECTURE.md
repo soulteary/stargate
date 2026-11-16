@@ -22,8 +22,7 @@ src/
 │   ├── constants.go       # 路由和配置常量
 │   ├── doctor.go          # doctor 子命令分发，在应用初始化之前执行
 │   ├── readiness.go       # /readyz 与 /health 的带缓存就绪检查处理器
-│   ├── request_log.go     # 请求日志中的客户端地址字段
-│   └── logger.go          # 仅有注释，无代码；日志在 main.go 中初始化
+│   └── request_log.go     # 请求日志中的客户端地址字段
 │
 ├── internal/              # 内部包（不对外暴露）
 │   ├── auditlog/          # 审计日志
@@ -97,18 +96,41 @@ src/
 
 ### 3. 请求处理器 (`internal/handlers`)
 
-处理器负责处理 HTTP 请求：
+处理器负责处理 HTTP 请求。
 
-- **CheckRoute**: Traefik Forward Auth 认证检查（仅校验 session）
-- **LoginRoute/LoginAPI**: 登录页面和登录处理（支持密码和 Warden+Herald OTP）
-- **SendVerifyCodeAPI**: 发送验证码（调用 Herald 创建 challenge）
-- **TOTPEnrollRoute / TOTPEnrollConfirmAPI**: TOTP 绑定页与确认（通过 Herald TOTP）
-- **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP 解绑页与确认（通过 Herald TOTP）
-- **LogoutRoute**: 登出处理
-- **SessionShareRoute**: 跨域会话共享
+路由处理器，由 `cmd/stargate/server.go` 的 `setupRoutes` 注册：
+
+- **CheckRoute**（`GET /_auth`）: Traefik Forward Auth 认证检查；通过时返回 200 并设置用户头，未通过时重定向到登录页（HTML 请求）或返回 401（API 请求），目录授权不可用时返回 503
+- **LoginRoute**（`GET /_login`）: 登录页面；已认证的会话会被重定向到会话交换
+- **LoginAPI**（`POST /_login`）: 登录处理（支持密码和 Warden+Herald OTP）
+- **SendVerifyCodeAPI**（`POST /_send_verify_code`）: 发送验证码（调用 Herald 创建 challenge）
+- **AccountRoute**（`GET /_account`）: 已认证会话的账户页面；未认证时重定向到 `/_login`
+- **StepUpRoute**（`GET /_step_up`）: 追加认证（step-up）页面；要求提供该会话的再认证凭据
+- **StepUpAPI**（`POST /_step_up`）: 校验提交的凭据，在会话中记录追加认证时间，并重定向到 callback
+- **ReauthSendCodeAPI**（`POST /_send_reauth_code`）: 向会话用户在 Warden 中登记的联系方式发送用于再认证的一次性验证码
+- **TOTPEnrollPageRoute**（`GET /totp/enroll`）: TOTP 绑定起始页；要求提供再认证凭据，不创建绑定状态
+- **TOTPEnrollRoute**（`POST /totp/enroll`）: 校验凭据，开始绑定并渲染带二维码的绑定页（通过 Herald TOTP）
+- **TOTPEnrollConfirmAPI**（`POST /totp/enroll/confirm`）: 用 TOTP 验证码确认绑定（通过 Herald TOTP）
+- **TOTPRevokeRoute**（`GET /totp/revoke`）: TOTP 解绑页；要求提供再认证凭据
+- **TOTPRevokeConfirmAPI**（`POST /totp/revoke`）: 校验凭据并解绑 TOTP（通过 Herald TOTP）
+- **LogoutRoute**（`POST /_logout`）: 登出处理
+- **SessionShareRoute**（`GET /_session_exchange`）: 跨域会话共享
+- **IndexRoute**（`GET /`）: 根路径处理；返回会话是否已认证
+
+本包中由 `setupRoutes` 放在路由处理器之前的中间件：
+
+- **RequireSameOrigin**: 以 403 拒绝浏览器的跨站写请求；用于上面所有 `POST` 路由，以及 `PUT /log/level` 和 `POST /log/level`
+- **LoginRateLimit**: 按客户端限制请求数，上限由 `RATE_LIMIT_LOGIN_MAX` 设定；用于 `POST /_login` 和 `POST /_step_up`
+- **VerificationRateLimit**: 按客户端限制请求数，上限由 `RATE_LIMIT_VERIFICATION_MAX` 设定；用于 `POST /_send_verify_code`、`POST /_send_reauth_code`、`POST /totp/enroll`、`POST /totp/enroll/confirm`、`POST /totp/revoke`
+- **MetricsAuth**: 要求 `GET /metrics` 携带 `Authorization: Bearer <METRICS_API_KEY>`；未设置 `METRICS_API_KEY` 时返回 404
+- **RejectForwardedRequests**: 对带有转发头的请求返回 404；用于 `GET /log/level`、`PUT /log/level`、`POST /log/level`
+
+最终处理器不在本包中的路由：
+
 - **健康检查路由**: `/healthz`、`/readyz` 与弃用的 `/health` 不是本包的处理器，由 `cmd/stargate`（`server.go`、`readiness.go`）通过 health-kit 注册
-- **IndexRoute**: 根路径处理
-- **GET /metrics**: Prometheus 指标（metrics-kit）
+- **GET /metrics**: Prometheus 指标（metrics-kit），位于 `MetricsAuth` 之后
+- **/log/level**: 运行时日志级别（logger-kit），仅限本机回环访问；`GET` 读取，`PUT` 和 `POST` 修改
+- **静态文件**（`GET /assets*`）: 页面使用的静态文件，由 `setupStaticFiles` 注册
 
 **健康检查端点说明（避免与下游混淆）：**
 - **Stargate**：暴露 `GET /healthz` 作为进程存活检查，暴露 `GET /readyz` 聚合依赖就绪状态；弃用的 `GET /health` 保留为就绪检查别名。

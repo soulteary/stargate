@@ -24,8 +24,7 @@ src/
 │   ├── constants.go       # ルートと設定の定数
 │   ├── doctor.go          # doctor サブコマンドの呼び出し
 │   ├── readiness.go       # キャッシュ付き readiness ハンドラー（/readyz、/health）
-│   ├── request_log.go     # リクエストログのクライアントアドレス
-│   └── logger.go          # コメントのみ、コードなし
+│   └── request_log.go     # リクエストログのクライアントアドレス
 │
 ├── internal/              # 内部パッケージ（外部に公開されない）
 │   ├── auditlog/          # 監査ログ
@@ -79,18 +78,41 @@ src/
 
 ### 3. リクエストハンドラー (`internal/handlers`)
 
-ハンドラーは HTTP リクエストの処理を担当します：
+ハンドラーは HTTP リクエストの処理を担当します。
 
-- **CheckRoute**: Traefik Forward Auth の認証チェック
-- **LoginRoute/LoginAPI**: ログインページとログイン処理
-- **SendVerifyCodeAPI**: 認証コード送信（Herald でチャレンジ作成）
-- **TOTPEnrollRoute / TOTPEnrollConfirmAPI**: TOTP バインド画面・確認（Herald TOTP 経由）
-- **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP 解除画面・確認（Herald TOTP 経由）
-- **LogoutRoute**: ログアウト処理
-- **SessionShareRoute**: クロスドメインセッション共有
-- **ヘルスルート**: プロセスの liveness は `/healthz`、Redis・Warden・Herald の集約 readiness は `/readyz`
-- **IndexRoute**: ルートパスの処理
-- **GET /metrics**: Prometheus メトリクス（metrics-kit）
+ルートハンドラー（`cmd/stargate/server.go` の `setupRoutes` が登録）:
+
+- **CheckRoute** (`GET /_auth`): Traefik Forward Auth の認証チェック
+- **LoginRoute** (`GET /_login`): ログインページ
+- **LoginAPI** (`POST /_login`): ログイン処理
+- **SendVerifyCodeAPI** (`POST /_send_verify_code`): 認証コード送信（Herald でチャレンジ作成）
+- **AccountRoute** (`GET /_account`): アカウントページ
+- **StepUpRoute** (`GET /_step_up`): 追加認証（step-up）ページ
+- **StepUpAPI** (`POST /_step_up`): 追加認証の処理
+- **ReauthSendCodeAPI** (`POST /_send_reauth_code`): 再認証コード送信
+- **TOTPEnrollPageRoute** (`GET /totp/enroll`): TOTP バインド開始ページ
+- **TOTPEnrollRoute** (`POST /totp/enroll`): TOTP バインド開始・バインド画面（Herald TOTP 経由）
+- **TOTPEnrollConfirmAPI** (`POST /totp/enroll/confirm`): TOTP バインド確認（Herald TOTP 経由）
+- **TOTPRevokeRoute** (`GET /totp/revoke`): TOTP 解除画面
+- **TOTPRevokeConfirmAPI** (`POST /totp/revoke`): TOTP 解除確認（Herald TOTP 経由）
+- **LogoutRoute** (`POST /_logout`): ログアウト処理
+- **SessionShareRoute** (`GET /_session_exchange`): クロスドメインセッション共有
+- **IndexRoute** (`GET /`): ルートパスの処理
+
+このパッケージのミドルウェア（`setupRoutes` がルートハンドラーの前に置く）:
+
+- **RequireSameOrigin**: same-origin チェック；上記のすべての `POST` ルート, `PUT /log/level`, `POST /log/level`
+- **LoginRateLimit**: レート制限（`RATE_LIMIT_LOGIN_MAX`）；`POST /_login`, `POST /_step_up`
+- **VerificationRateLimit**: レート制限（`RATE_LIMIT_VERIFICATION_MAX`）；`POST /_send_verify_code`, `POST /_send_reauth_code`, `POST /totp/enroll`, `POST /totp/enroll/confirm`, `POST /totp/revoke`
+- **MetricsAuth**: Bearer トークン `METRICS_API_KEY`；`GET /metrics`
+- **RejectForwardedRequests**: 転送されたリクエストを拒否（404）；`GET /log/level`, `PUT /log/level`, `POST /log/level`
+
+ハンドラーがこのパッケージにないルート:
+
+- **ヘルスルート**: `/healthz`、`/readyz`、非推奨の `/health` はこのパッケージのハンドラーではなく、`cmd/stargate`（`server.go`、`readiness.go`）が health-kit で登録
+- **GET /metrics**: Prometheus メトリクス（metrics-kit）、`MetricsAuth` の後ろ
+- **/log/level**: 実行時のログレベル（logger-kit）、ループバックのみ
+- **静的ファイル** (`GET /assets*`): `setupStaticFiles` が登録
 
 ### 4. パスワードとセキュリティ
 
