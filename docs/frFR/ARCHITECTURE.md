@@ -24,8 +24,7 @@ src/
 │   ├── constants.go       # Constantes de route et de configuration
 │   ├── doctor.go          # Appel de la sous-commande doctor
 │   ├── readiness.go       # Handler de readiness avec cache (/readyz, /health)
-│   ├── request_log.go     # Adresse client dans le journal des requêtes
-│   └── logger.go          # Commentaire seul, aucun code
+│   └── request_log.go     # Adresse client dans le journal des requêtes
 │
 ├── internal/              # Packages internes (non exposés en externe)
 │   ├── auditlog/          # Journalisation d'audit
@@ -79,18 +78,41 @@ Le système de configuration fournit :
 
 ### 3. Gestionnaires de Requêtes (`internal/handlers`)
 
-Les gestionnaires sont responsables du traitement des requêtes HTTP :
+Les gestionnaires sont responsables du traitement des requêtes HTTP.
 
-- **CheckRoute** : Vérification d'authentification Traefik Forward Auth
-- **LoginRoute/LoginAPI** : Page de connexion et traitement de connexion
-- **SendVerifyCodeAPI** : Envoi du code de vérification (appel à Herald pour créer le challenge)
-- **TOTPEnrollRoute / TOTPEnrollConfirmAPI** : Page de liaison TOTP et confirmation (via Herald TOTP)
-- **TOTPRevokeRoute / TOTPRevokeConfirmAPI** : Page de révocation TOTP et confirmation (via Herald TOTP)
-- **LogoutRoute** : Traitement de déconnexion
-- **SessionShareRoute** : Partage de session cross-domain
-- **Routes de santé** : `/healthz` pour la liveness du processus et `/readyz` pour l'état agrégé de Redis, Warden et Herald
-- **IndexRoute** : Traitement du chemin racine
-- **GET /metrics** : Métriques Prometheus (metrics-kit)
+Gestionnaires de routes, enregistrés par `setupRoutes` dans `cmd/stargate/server.go` :
+
+- **CheckRoute** (`GET /_auth`) : Vérification d'authentification Traefik Forward Auth
+- **LoginRoute** (`GET /_login`) : Page de connexion
+- **LoginAPI** (`POST /_login`) : Traitement de connexion
+- **SendVerifyCodeAPI** (`POST /_send_verify_code`) : Envoi du code de vérification (appel à Herald pour créer le challenge)
+- **AccountRoute** (`GET /_account`) : Page du compte
+- **StepUpRoute** (`GET /_step_up`) : Page d'authentification supplémentaire (step-up)
+- **StepUpAPI** (`POST /_step_up`) : Traitement de l'authentification supplémentaire
+- **ReauthSendCodeAPI** (`POST /_send_reauth_code`) : Envoi du code de réauthentification
+- **TOTPEnrollPageRoute** (`GET /totp/enroll`) : Liaison TOTP, page de départ
+- **TOTPEnrollRoute** (`POST /totp/enroll`) : Démarrage de la liaison TOTP, page de liaison (via Herald TOTP)
+- **TOTPEnrollConfirmAPI** (`POST /totp/enroll/confirm`) : Confirmation de la liaison TOTP (via Herald TOTP)
+- **TOTPRevokeRoute** (`GET /totp/revoke`) : Page de révocation TOTP
+- **TOTPRevokeConfirmAPI** (`POST /totp/revoke`) : Confirmation de la révocation TOTP (via Herald TOTP)
+- **LogoutRoute** (`POST /_logout`) : Traitement de déconnexion
+- **SessionShareRoute** (`GET /_session_exchange`) : Partage de session cross-domain
+- **IndexRoute** (`GET /`) : Traitement du chemin racine
+
+Middleware de ce paquet que `setupRoutes` place devant les gestionnaires de routes :
+
+- **RequireSameOrigin** : Contrôle same-origin ; toutes les routes `POST` ci-dessus, `PUT /log/level`, `POST /log/level`
+- **LoginRateLimit** : Limite de débit (`RATE_LIMIT_LOGIN_MAX`) ; `POST /_login`, `POST /_step_up`
+- **VerificationRateLimit** : Limite de débit (`RATE_LIMIT_VERIFICATION_MAX`) ; `POST /_send_verify_code`, `POST /_send_reauth_code`, `POST /totp/enroll`, `POST /totp/enroll/confirm`, `POST /totp/revoke`
+- **MetricsAuth** : Jeton Bearer `METRICS_API_KEY` ; `GET /metrics`
+- **RejectForwardedRequests** : Refuse les requêtes relayées (404) ; `GET /log/level`, `PUT /log/level`, `POST /log/level`
+
+Routes dont le gestionnaire n'est pas dans ce paquet :
+
+- **Routes de santé** : `/healthz`, `/readyz` et l'ancien `/health` (obsolète) ne sont pas des gestionnaires de ce paquet ; `cmd/stargate` les enregistre (`server.go`, `readiness.go`) avec health-kit
+- **GET /metrics** : Métriques Prometheus (metrics-kit), derrière `MetricsAuth`
+- **/log/level** : Niveau de log à l'exécution (logger-kit), loopback uniquement
+- **Fichiers statiques** (`GET /assets*`) : Enregistrés par `setupStaticFiles`
 
 ### 4. Mot de passe et sécurité
 

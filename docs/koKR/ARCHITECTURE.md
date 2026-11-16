@@ -24,8 +24,7 @@ src/
 │   ├── constants.go       # 라우트 및 설정 상수
 │   ├── doctor.go          # doctor 하위 명령 호출
 │   ├── readiness.go       # 캐시된 readiness 핸들러 (/readyz, /health)
-│   ├── request_log.go     # 요청 로그의 클라이언트 주소
-│   └── logger.go          # 주석만 있음, 코드 없음
+│   └── request_log.go     # 요청 로그의 클라이언트 주소
 │
 ├── internal/              # 내부 패키지 (외부에 노출되지 않음)
 │   ├── auditlog/          # 감사 로깅
@@ -79,18 +78,41 @@ src/
 
 ### 3. 요청 핸들러 (`internal/handlers`)
 
-핸들러는 HTTP 요청 처리를 담당합니다:
+핸들러는 HTTP 요청 처리를 담당합니다.
 
-- **CheckRoute**: Traefik Forward Auth 인증 확인
-- **LoginRoute/LoginAPI**: 로그인 페이지 및 로그인 처리
-- **SendVerifyCodeAPI**: 인증 코드 발송(Herald로 챌린지 생성)
-- **TOTPEnrollRoute / TOTPEnrollConfirmAPI**: TOTP 바인드·확인(Herald TOTP 경유)
-- **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP 해제·확인(Herald TOTP 경유)
-- **LogoutRoute**: 로그아웃 처리
-- **SessionShareRoute**: 크로스 도메인 세션 공유
-- **헬스 라우트**: 프로세스 liveness는 `/healthz`, Redis·Warden·Herald의 집계 readiness는 `/readyz`
-- **IndexRoute**: 루트 경로 처리
-- **GET /metrics**: Prometheus 메트릭(metrics-kit)
+라우트 핸들러(`cmd/stargate/server.go`의 `setupRoutes`가 등록):
+
+- **CheckRoute** (`GET /_auth`): Traefik Forward Auth 인증 확인
+- **LoginRoute** (`GET /_login`): 로그인 페이지
+- **LoginAPI** (`POST /_login`): 로그인 처리
+- **SendVerifyCodeAPI** (`POST /_send_verify_code`): 인증 코드 발송(Herald로 챌린지 생성)
+- **AccountRoute** (`GET /_account`): 계정 페이지
+- **StepUpRoute** (`GET /_step_up`): 추가 인증(step-up) 페이지
+- **StepUpAPI** (`POST /_step_up`): 추가 인증 처리
+- **ReauthSendCodeAPI** (`POST /_send_reauth_code`): 재인증 코드 발송
+- **TOTPEnrollPageRoute** (`GET /totp/enroll`): TOTP 바인드 시작 페이지
+- **TOTPEnrollRoute** (`POST /totp/enroll`): TOTP 바인드 시작·바인드 페이지(Herald TOTP 경유)
+- **TOTPEnrollConfirmAPI** (`POST /totp/enroll/confirm`): TOTP 바인드 확인(Herald TOTP 경유)
+- **TOTPRevokeRoute** (`GET /totp/revoke`): TOTP 해제 페이지
+- **TOTPRevokeConfirmAPI** (`POST /totp/revoke`): TOTP 해제 확인(Herald TOTP 경유)
+- **LogoutRoute** (`POST /_logout`): 로그아웃 처리
+- **SessionShareRoute** (`GET /_session_exchange`): 크로스 도메인 세션 공유
+- **IndexRoute** (`GET /`): 루트 경로 처리
+
+이 패키지의 미들웨어(`setupRoutes`가 라우트 핸들러 앞에 배치):
+
+- **RequireSameOrigin**: same-origin 검사; 위의 모든 `POST` 라우트, `PUT /log/level`, `POST /log/level`
+- **LoginRateLimit**: 속도 제한(`RATE_LIMIT_LOGIN_MAX`); `POST /_login`, `POST /_step_up`
+- **VerificationRateLimit**: 속도 제한(`RATE_LIMIT_VERIFICATION_MAX`); `POST /_send_verify_code`, `POST /_send_reauth_code`, `POST /totp/enroll`, `POST /totp/enroll/confirm`, `POST /totp/revoke`
+- **MetricsAuth**: Bearer 토큰 `METRICS_API_KEY`; `GET /metrics`
+- **RejectForwardedRequests**: 전달된 요청 거부(404); `GET /log/level`, `PUT /log/level`, `POST /log/level`
+
+핸들러가 이 패키지에 없는 라우트:
+
+- **헬스 라우트**: `/healthz`, `/readyz`, 지원 중단된 `/health`는 이 패키지의 핸들러가 아니며 `cmd/stargate`(`server.go`, `readiness.go`)가 health-kit으로 등록
+- **GET /metrics**: Prometheus 메트릭(metrics-kit), `MetricsAuth` 뒤
+- **/log/level**: 런타임 로그 레벨(logger-kit), 루프백 전용
+- **정적 파일** (`GET /assets*`): `setupStaticFiles`가 등록
 
 ### 4. 비밀번호 및 보안
 

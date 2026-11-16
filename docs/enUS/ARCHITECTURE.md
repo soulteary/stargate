@@ -22,8 +22,7 @@ src/
 │   ├── constants.go       # Route and configuration constants
 │   ├── doctor.go          # doctor subcommand dispatch, runs before application initialization
 │   ├── readiness.go       # Cached readiness handler for /readyz and /health
-│   ├── request_log.go     # Client address field for request log lines
-│   └── logger.go          # Comment only, no code; logging is initialized in main.go
+│   └── request_log.go     # Client address field for request log lines
 │
 ├── internal/              # Internal packages (not exposed externally)
 │   ├── auditlog/          # Audit logging
@@ -97,18 +96,41 @@ The configuration system provides:
 
 ### 3. Request Handlers (`internal/handlers`)
 
-Handlers are responsible for processing HTTP requests:
+Handlers are responsible for processing HTTP requests.
 
-- **CheckRoute**: Traefik Forward Auth authentication check (only verifies session)
-- **LoginRoute/LoginAPI**: Login page and login processing (supports password and Warden+Herald OTP)
-- **SendVerifyCodeAPI**: Send verification code (calls Herald to create challenge)
-- **TOTPEnrollRoute / TOTPEnrollConfirmAPI**: TOTP bind page and confirm (via Herald TOTP)
-- **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP unbind page and confirm (via Herald TOTP)
-- **LogoutRoute**: Logout processing
-- **SessionShareRoute**: Cross-domain session sharing
+Route handlers, registered by `setupRoutes` in `cmd/stargate/server.go`:
+
+- **CheckRoute** (`GET /_auth`): Traefik Forward Auth authentication check; answers 200 with the user header, redirects to login (HTML requests) or answers 401 (API requests), and answers 503 when directory authorization is unavailable
+- **LoginRoute** (`GET /_login`): Login page; an already authenticated session is redirected to session exchange
+- **LoginAPI** (`POST /_login`): Login processing (supports password and Warden+Herald OTP)
+- **SendVerifyCodeAPI** (`POST /_send_verify_code`): Send verification code (calls Herald to create challenge)
+- **AccountRoute** (`GET /_account`): Account page for an authenticated session; redirects to `/_login` otherwise
+- **StepUpRoute** (`GET /_step_up`): Additional authentication (step-up) page; asks for the session's re-authentication proof
+- **StepUpAPI** (`POST /_step_up`): Verifies the submitted proof, records the step-up time in the session and redirects to the callback
+- **ReauthSendCodeAPI** (`POST /_send_reauth_code`): Sends a one-time code for re-authentication to the contact registered in Warden for the session's user
+- **TOTPEnrollPageRoute** (`GET /totp/enroll`): TOTP bind start page; asks for the re-authentication proof and creates no enrollment state
+- **TOTPEnrollRoute** (`POST /totp/enroll`): Verifies the proof, starts enrollment and renders the bind page with the QR code (via Herald TOTP)
+- **TOTPEnrollConfirmAPI** (`POST /totp/enroll/confirm`): Confirms the enrollment with a TOTP code (via Herald TOTP)
+- **TOTPRevokeRoute** (`GET /totp/revoke`): TOTP unbind page; asks for the re-authentication proof
+- **TOTPRevokeConfirmAPI** (`POST /totp/revoke`): Verifies the proof and revokes TOTP (via Herald TOTP)
+- **LogoutRoute** (`POST /_logout`): Logout processing
+- **SessionShareRoute** (`GET /_session_exchange`): Cross-domain session sharing
+- **IndexRoute** (`GET /`): Root path processing; reports whether the session is authenticated
+
+Middleware of this package that `setupRoutes` places in front of route handlers:
+
+- **RequireSameOrigin**: Rejects cross-site browser writes with 403; on every `POST` route above and on `PUT /log/level` and `POST /log/level`
+- **LoginRateLimit**: Per-client request quota set by `RATE_LIMIT_LOGIN_MAX`; on `POST /_login` and `POST /_step_up`
+- **VerificationRateLimit**: Per-client request quota set by `RATE_LIMIT_VERIFICATION_MAX`; on `POST /_send_verify_code`, `POST /_send_reauth_code`, `POST /totp/enroll`, `POST /totp/enroll/confirm`, `POST /totp/revoke`
+- **MetricsAuth**: Requires `Authorization: Bearer <METRICS_API_KEY>` on `GET /metrics`; answers 404 when `METRICS_API_KEY` is not set
+- **RejectForwardedRequests**: Answers 404 to requests that carry forwarding headers; on `GET /log/level`, `PUT /log/level`, `POST /log/level`
+
+Routes whose final handler is not in this package:
+
 - **Health routes**: `/healthz`, `/readyz` and the deprecated `/health` are not handlers of this package; `cmd/stargate` registers them (`server.go`, `readiness.go`) with health-kit
-- **IndexRoute**: Root path processing
-- **GET /metrics**: Prometheus metrics (metrics-kit)
+- **GET /metrics**: Prometheus metrics (metrics-kit), behind `MetricsAuth`
+- **/log/level**: Runtime log level (logger-kit), loopback only; `GET` reads it, `PUT` and `POST` change it
+- **Static files** (`GET /assets*`): Static files of the web pages, registered by `setupStaticFiles`
 
 **Health check endpoints (to avoid confusion with downstream services):**
 - **Stargate**: Exposes `GET /healthz` for process liveness and `GET /readyz` for aggregated dependency readiness. The deprecated `GET /health` route aliases readiness.

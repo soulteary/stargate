@@ -24,8 +24,7 @@ src/
 │   ├── constants.go       # Routen- und Konfigurationskonstanten
 │   ├── doctor.go          # Aufruf des Unterbefehls doctor
 │   ├── readiness.go       # Readiness-Handler mit Cache (/readyz, /health)
-│   ├── request_log.go     # Client-Adresse im Anfrageprotokoll
-│   └── logger.go          # Nur Kommentar, kein Code
+│   └── request_log.go     # Client-Adresse im Anfrageprotokoll
 │
 ├── internal/              # Interne Pakete (nicht extern verfügbar)
 │   ├── auditlog/          # Audit-Protokollierung
@@ -79,18 +78,41 @@ Das Konfigurationssystem bietet:
 
 ### 3. Anfragehandler (`internal/handlers`)
 
-Die Handler sind verantwortlich für die Verarbeitung von HTTP-Anfragen:
+Die Handler sind verantwortlich für die Verarbeitung von HTTP-Anfragen.
 
-- **CheckRoute**: Traefik Forward Auth Authentifizierungsprüfung
-- **LoginRoute/LoginAPI**: Login-Seite und Login-Verarbeitung
-- **SendVerifyCodeAPI**: Verifizierungscode senden (ruft Herald zum Erstellen des Challenges auf)
-- **TOTPEnrollRoute / TOTPEnrollConfirmAPI**: TOTP-Bindeseite und Bestätigung (über Herald TOTP)
-- **TOTPRevokeRoute / TOTPRevokeConfirmAPI**: TOTP-Unbind-Seite und Bestätigung (über Herald TOTP)
-- **LogoutRoute**: Logout-Verarbeitung
-- **SessionShareRoute**: Cross-Domain-Sitzungsfreigabe
-- **Health-Routen**: `/healthz` für Prozess-Liveness und `/readyz` für den aggregierten Status von Redis, Warden und Herald
-- **IndexRoute**: Root-Pfad-Verarbeitung
-- **GET /metrics**: Prometheus-Metriken (metrics-kit)
+Routen-Handler, registriert von `setupRoutes` in `cmd/stargate/server.go`:
+
+- **CheckRoute** (`GET /_auth`): Traefik Forward Auth Authentifizierungsprüfung
+- **LoginRoute** (`GET /_login`): Login-Seite
+- **LoginAPI** (`POST /_login`): Login-Verarbeitung
+- **SendVerifyCodeAPI** (`POST /_send_verify_code`): Verifizierungscode senden (ruft Herald zum Erstellen des Challenges auf)
+- **AccountRoute** (`GET /_account`): Kontoseite
+- **StepUpRoute** (`GET /_step_up`): Seite für zusätzliche Authentifizierung (Step-up)
+- **StepUpAPI** (`POST /_step_up`): Verarbeitung der zusätzlichen Authentifizierung
+- **ReauthSendCodeAPI** (`POST /_send_reauth_code`): Code für erneute Authentifizierung senden
+- **TOTPEnrollPageRoute** (`GET /totp/enroll`): TOTP-Bindung, Startseite
+- **TOTPEnrollRoute** (`POST /totp/enroll`): TOTP-Bindung starten, Bindeseite (über Herald TOTP)
+- **TOTPEnrollConfirmAPI** (`POST /totp/enroll/confirm`): TOTP-Bindung bestätigen (über Herald TOTP)
+- **TOTPRevokeRoute** (`GET /totp/revoke`): TOTP-Unbind-Seite
+- **TOTPRevokeConfirmAPI** (`POST /totp/revoke`): TOTP-Unbind bestätigen (über Herald TOTP)
+- **LogoutRoute** (`POST /_logout`): Logout-Verarbeitung
+- **SessionShareRoute** (`GET /_session_exchange`): Cross-Domain-Sitzungsfreigabe
+- **IndexRoute** (`GET /`): Root-Pfad-Verarbeitung
+
+Middleware dieses Pakets, die `setupRoutes` vor Routen-Handler setzt:
+
+- **RequireSameOrigin**: Same-Origin-Prüfung; alle `POST`-Routen oben, `PUT /log/level`, `POST /log/level`
+- **LoginRateLimit**: Rate-Limit (`RATE_LIMIT_LOGIN_MAX`); `POST /_login`, `POST /_step_up`
+- **VerificationRateLimit**: Rate-Limit (`RATE_LIMIT_VERIFICATION_MAX`); `POST /_send_verify_code`, `POST /_send_reauth_code`, `POST /totp/enroll`, `POST /totp/enroll/confirm`, `POST /totp/revoke`
+- **MetricsAuth**: Bearer-Token `METRICS_API_KEY`; `GET /metrics`
+- **RejectForwardedRequests**: Lehnt weitergeleitete Anfragen ab (404); `GET /log/level`, `PUT /log/level`, `POST /log/level`
+
+Routen, deren Handler nicht in diesem Paket liegt:
+
+- **Health-Routen**: `/healthz`, `/readyz` und das veraltete `/health` sind keine Handler dieses Pakets; `cmd/stargate` registriert sie (`server.go`, `readiness.go`) mit health-kit
+- **GET /metrics**: Prometheus-Metriken (metrics-kit), hinter `MetricsAuth`
+- **/log/level**: Log-Level zur Laufzeit (logger-kit), nur Loopback
+- **Statische Dateien** (`GET /assets*`): Registriert von `setupStaticFiles`
 
 ### 4. Passwort und Sicherheit
 
