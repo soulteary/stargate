@@ -67,7 +67,7 @@ services:
       retries: 12
       start_period: 10s
     labels: {traefik.enable: 'false'}
-    image: ghcr.io/soulteary/warden:1.9.0@sha256:08e262fe78bbc1ddb8d9e6a36c383e17cd2a8006bc9efda490f03214f8d0242b
+    image: ghcr.io/soulteary/warden:1.9.1@sha256:49773116869a8568dc58f1f68a31527738de56efea29dca8d7efb70531150453
     environment:
       PORT: '8081'
       ENVIRONMENT: production

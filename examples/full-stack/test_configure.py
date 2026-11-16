@@ -274,7 +274,7 @@ class ConfigurationTests(unittest.TestCase):
             self.assertTrue(all(service.get('labels', {}).get('traefik.enable') == 'false' for service in services.values()))
             self.assertFalse(any('docker.sock' in str(volume) for service in services.values() for volume in service.get('volumes', [])))
             self.assertEqual(services['herald']['image'], 'ghcr.io/soulteary/herald:1.9.0@sha256:adc6b044433bea989a69ee422cc4e38d67a2d19cc2512fc70aeac1d284c8eafd')
-            self.assertEqual(services['warden']['image'], 'ghcr.io/soulteary/warden:1.9.0@sha256:08e262fe78bbc1ddb8d9e6a36c383e17cd2a8006bc9efda490f03214f8d0242b')
+            self.assertEqual(services['warden']['image'], 'ghcr.io/soulteary/warden:1.9.1@sha256:49773116869a8568dc58f1f68a31527738de56efea29dca8d7efb70531150453')
             self.assertEqual(services['stargate']['image'], 'stargate-example-stargate:local')
             self.assertEqual(Path(services['stargate']['build']['context']), config.HERE.parents[1])
             gateway = services['stargate']['environment']
