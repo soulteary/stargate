@@ -70,21 +70,44 @@
 stargate/
 ├── README.md              # 项目主文档（英文）
 ├── README.zhCN.md         # 项目主文档（中文）
+├── README.deDE.md         # 项目主文档（德文）
+├── README.frFR.md         # 项目主文档（法文）
+├── README.itIT.md         # 项目主文档（意大利文）
+├── README.jaJP.md         # 项目主文档（日文）
+├── README.koKR.md         # 项目主文档（韩文）
 ├── docs/
+│   ├── deDE/               # 部分翻译（德文）
 │   ├── enUS/
 │   │   ├── README.md       # 文档索引（英文）
 │   │   ├── ARCHITECTURE.md # 架构文档（英文）
 │   │   ├── API.md          # API 文档（英文）
 │   │   ├── CONFIG.md       # 配置参考（英文）
 │   │   ├── MIGRATION_V1.md # v1.0.0 迁移指南（英文）
-│   │   └── DEPLOYMENT.md   # 部署指南（英文）
+│   │   ├── DEPLOYMENT.md   # 部署指南（英文）
+│   │   ├── SECURITY.md     # 安全文档（英文）
+│   │   ├── CONTRIBUTING.md # 贡献指南（英文）
+│   │   ├── DIAGNOSTICS.md  # 部署诊断（英文）
+│   │   ├── AUTHENTICATION_UI.md # 认证页面（英文）
+│   │   ├── VERIFIED_EMAIL.md # 可信邮箱验证声明（英文）
+│   │   ├── PERFORMANCE.md  # Redis 限流性能测量（英文）
+│   │   └── DINGTALK_USERID_ONLY.md # 可选的仅 userid 工作 IM 登录（仅英文）
+│   ├── frFR/               # 部分翻译（法文）
+│   ├── itIT/               # 部分翻译（意大利文）
+│   ├── jaJP/               # 部分翻译（日文）
+│   ├── koKR/               # 部分翻译（韩文）
 │   └── zhCN/
 │       ├── README.md       # 文档索引（中文，本文件）
 │       ├── ARCHITECTURE.md # 架构文档（中文）
 │       ├── API.md          # API 文档（中文）
 │       ├── CONFIG.md       # 配置参考（中文）
 │       ├── MIGRATION_V1.md # v1.0.0 迁移指南（中文）
-│       └── DEPLOYMENT.md   # 部署指南（中文）
+│       ├── DEPLOYMENT.md   # 部署指南（中文）
+│       ├── SECURITY.md     # 安全文档（中文）
+│       ├── CONTRIBUTING.md # 贡献指南（中文）
+│       ├── DIAGNOSTICS.md  # 部署诊断（中文）
+│       ├── AUTHENTICATION_UI.md # 认证页面（中文）
+│       ├── VERIFIED_EMAIL.md # 可信邮箱验证声明（中文）
+│       └── PERFORMANCE.md  # Redis 限流性能测量（中文）
 └── ...
 ```
 
