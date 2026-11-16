@@ -4,6 +4,11 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+### Changed
+
+- The full-stack example runs Warden 1.9.0, pinned by digest, and the Warden
+  deployment guide links point at the v1.9.0 tag.
+
 ## [1.7.0] - 2026-11-16
 
 ### Upgrade and rollback
