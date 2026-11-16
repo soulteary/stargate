@@ -101,7 +101,10 @@ health check. Each profile cleans up only its own containers/networks/volumes.
 
 The separate `bfcache` job runs after HTTPS acceptance with the same immutable
 product inputs and a new owned stack. It uses full Chromium with only Playwright's
-BFCache-disabling and repost-prompt-disabling defaults removed. Product no-store,
+BFCache-disabling and repost-prompt-disabling defaults removed, and with
+`--enable-automation` added: Chromium reports its command line, which the job
+reads to prove those two flags are absent, only when started with that switch,
+and Playwright stopped passing it by default in 1.60. Product no-store,
 TLS verification, authentication and cookie behavior remain unchanged. A GET
 login restoration must simultaneously preserve the per-document random identity,
 produce a trusted `pageshow.persisted`, and issue zero new main-document requests.
@@ -125,6 +128,14 @@ else. A product change is exercised when its pull request touches one of the
 paths listed at the top; the report names the commits that were built.
 These profiles do not prove external email delivery, Safari, Firefox, iOS or
 Android behavior.
+
+The three jobs install the Playwright version pinned in the workflow
+(`playwright==1.61.0`, which downloads Chrome for Testing 149.0.7827.55) with
+`playwright install --with-deps chromium`. That command refuses a distribution
+the pinned release has no dependency list for, so the pin has to be a release
+that knows the Ubuntu version behind `ubuntu-latest`; 1.61 is the first that
+lists Ubuntu 26.04. A newer pin brings a newer browser build, and the scenarios
+then run against that build.
 
 Pure input checks: `python3 -m unittest discover -s .github/browser -p 'test_*.py'`.
 Actual browser acceptance requires the workflow's clean Linux Docker runner.

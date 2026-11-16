@@ -20,6 +20,19 @@ class BFCacheProof(unittest.TestCase):
         self.assertNotIn(secret, json.dumps(result))
 
 
+class LaunchArguments(unittest.TestCase):
+    def test_command_line_is_readable_and_only_owned_hosts_are_mapped(self):
+        from bfcache_probe import launch_arguments, IGNORED_DEFAULTS
+        arguments = launch_arguments()
+        # Without this switch Chromium refuses Browser.getBrowserCommandLine and
+        # the probe cannot show which flags the browser ran with.
+        self.assertIn('--enable-automation', arguments)
+        self.assertEqual([a for a in arguments if a.startswith('--host-resolver-rules=')],
+                         ['--host-resolver-rules=MAP '+fixture.AUTH_HOST+' 127.0.0.1, MAP '+fixture.APP_HOST+' 127.0.0.1'])
+        self.assertEqual(len(arguments), 2)
+        self.assertFalse(set(arguments) & set(IGNORED_DEFAULTS))
+
+
 class AppEntry(unittest.TestCase):
     def test_entry_requires_real_auth_origin_and_exact_callback(self):
         self.assertTrue(approved_login_entry(fixture.AUTH+'/_login?state=synthetic', [fixture.APP]))

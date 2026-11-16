@@ -12,6 +12,10 @@ import production_tls as fixture
 from validate_inputs import callback_matches, resend_cooldown, START_WITHOUT_PROOF
 
 IGNORED_DEFAULTS = ['--disable-back-forward-cache', '--disable-prompt-on-repost']
+# Chromium answers Browser.getBrowserCommandLine, which the flag checks below
+# read, only when it was started with this switch. Playwright passed it by
+# default up to 1.59 and no longer does from 1.60.
+COMMAND_LINE_SWITCH = '--enable-automation'
 REASONS = {'BackForwardCacheDisabled', 'HTTPMethodNotGET', 'HTTPStatusNotOK', 'ErrorDocument',
            'SchemeNotHTTPOrHTTPS', 'Loading', 'Timeout', 'JavaScriptExecution', 'CacheLimit',
            'CacheControlNoStore', 'CacheControlNoStoreCookieModified', 'CacheControlNoStoreHTTPOnlyCookieModified',
@@ -24,6 +28,10 @@ REASONS = {'BackForwardCacheDisabled', 'HTTPMethodNotGET', 'HTTPStatusNotOK', 'E
 BASE_SAFE_FAILURE = fixture.safe_failure
 STAMP_SCRIPT = """window.__u11bf = {document:crypto.randomUUID(), shows:[]};
 addEventListener('pageshow', e => window.__u11bf.shows.push({persisted:e.persisted, trusted:e.isTrusted}));"""
+
+
+def launch_arguments():
+    return [COMMAND_LINE_SWITCH, '--host-resolver-rules=MAP '+fixture.AUTH_HOST+' 127.0.0.1, MAP '+fixture.APP_HOST+' 127.0.0.1']
 
 
 def exact_cdp_body_limit(error, playwright_error_type):
@@ -171,7 +179,7 @@ def browser_scenario(ca, home):
     fixture.command(['certutil','-A','-d','sql:'+str(nss),'-n',fixture.PROJECT,'-t','C,,','-i',ca])
     with fixture.private_browser_environment(), sync_playwright() as pw:
         browser = pw.chromium.launch(channel='chromium', ignore_default_args=IGNORED_DEFAULTS,
-            env=fixture.child_env({'HOME':str(home)}), args=['--host-resolver-rules=MAP '+fixture.AUTH_HOST+' 127.0.0.1, MAP '+fixture.APP_HOST+' 127.0.0.1'])
+            env=fixture.child_env({'HOME':str(home)}), args=launch_arguments())
         arguments = browser.new_browser_cdp_session().send('Browser.getBrowserCommandLine')['arguments']
         fixture.RESULT['browser'] = {'version':browser.version, 'channel':'chromium', 'headless':True,
             'ignored_automation_defaults':IGNORED_DEFAULTS, 'bfcache_disable_flag_present':'--disable-back-forward-cache' in arguments,
