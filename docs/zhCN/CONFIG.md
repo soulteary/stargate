@@ -47,7 +47,7 @@ services:
 | 环境变量 | 类型/可选值 | 默认值 | 必需 |
 |----------|-------------|--------|------|
 | `AUTH_HOST` | String | — | 是 |
-| `PASSWORDS` | 见密码配置 | — | 未启用 Warden 时为是 |
+| `PASSWORDS` | 见密码配置 | — | 未启用 Warden 时为是。`WARDEN_ENABLED=true` 且 `HERALD_ENABLED=true` 或 `HEADER_AUTH_ENABLED=true` 时可省略 |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | 否 |
 | `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | 否 |
 | `DEBUG` | true/false | false | 否 |

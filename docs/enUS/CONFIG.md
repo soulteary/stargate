@@ -47,7 +47,7 @@ Below are all environment variables used in code. "Required" means the service w
 | Variable | Type/Values | Default | Required |
 |----------|-------------|---------|----------|
 | `AUTH_HOST` | String | — | Yes |
-| `PASSWORDS` | See password config | — | Yes when Warden disabled |
+| `PASSWORDS` | See password config | — | Yes when Warden is disabled. With `WARDEN_ENABLED=true`, optional when `HERALD_ENABLED=true` or `HEADER_AUTH_ENABLED=true` |
 | `PASSWORD_HEADER_AUTH_ENABLED` | true/false | false | No |
 | `PASSWORD_HEADER_REQUIRE_TRUSTED_PROXY` | true/false | false | No |
 | `DEBUG` | true/false | false | No |
