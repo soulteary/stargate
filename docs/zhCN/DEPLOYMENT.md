@@ -258,7 +258,7 @@ networks:
 下面是对接独立部署 Warden 和 Herald 的 Stargate 端配置：
 
 这是 API-key 模式下的 Stargate 端配置。Warden 和 Herald 应分别按照其
-[Warden 部署指南](https://github.com/soulteary/warden/blob/v1.8.0/docs/enUS/DEPLOYMENT.md)
+[Warden 部署指南](https://github.com/soulteary/warden/blob/v1.9.0/docs/enUS/DEPLOYMENT.md)
 和 [Herald 部署指南](https://github.com/soulteary/herald/blob/v1.9.0/docs/enUS/DEPLOYMENT.md)
 部署，并落实各自的数据和持久化要求。提供容器内可达的 URL 和匹配的凭据；
 上游默认端口分别为 Warden `8081`、Herald `8082`。需显式配置共享网络或可路由
@@ -955,7 +955,7 @@ Warden 一侧必须运行 Warden 1.8.0 或更高版本，并在 `WARDEN_HMAC_AUD
 
 Stargate v1.5.0 和 v1.6.0 使用 Warden SDK v1.8.0 构建，v1.7.0 使用 v1.9.0 构建，后者与 v1.8.0 的差别只是错误类型多了一个字段。SDK 是编译进网关的客户端库，本身并不要求 Warden 服务端为同一版本。网关可与哪些 Warden 服务端版本配合取决于 `WARDEN_HMAC_AUDIENCE`，以下说明仅限于实际运行过的组合：
 
-- 设置了 `WARDEN_HMAC_AUDIENCE`（v3 签名）：需要 Warden 1.8.0 或更高版本。[完整部署示例](../../examples/full-stack/README.zhCN.md)运行带 audience 的 Warden 1.8.0，浏览器验收工作流使用从源码构建的网关在该部署上完成登录。带 audience 的 Stargate v1.5.0 也曾对接 Warden 1.7.0 运行：每次目录查询都被 401 拒绝。Warden 1.7.0 将 v3 形式视为未知的签名版本。
+- 设置了 `WARDEN_HMAC_AUDIENCE`（v3 签名）：需要 Warden 1.8.0 或更高版本。[完整部署示例](../../examples/full-stack/README.zhCN.md)运行带 audience 的 Warden 1.9.0，浏览器验收工作流使用从源码构建的网关在该部署上完成登录。带 audience 的 Stargate v1.5.0 也曾对接 Warden 1.7.0 运行：每次目录查询都被 401 拒绝。Warden 1.7.0 将 v3 形式视为未知的签名版本。
 - 未设置 `WARDEN_HMAC_AUDIENCE`（v2 签名，默认）：Stargate v1.5.0 曾对接 Warden 1.7.0 运行，登录正常。早于 1.7.0 的 Warden 版本未与 Stargate v1.5.0 一起运行过。
 
 手动触发的 Release compatibility 工作流不能作为当前版本的依据。其仓库内的默认清单 `.github/compatibility/manifests/baseline.json` 固定为 Stargate 1.3.3 与 Warden 1.6.1、Herald 1.4.3、herald-totp 2.0.2，运行的是这些已发布的二进制。它不运行 Stargate v1.5.0，因此不能说明 v1.5.0 可与 Warden 1.6.1 配合。

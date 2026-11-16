@@ -1454,7 +1454,7 @@ services:
 **Warden + Herald OTP Authentication Mode:**
 
 This is the Stargate side of an API-key deployment. Deploy
-[Warden](https://github.com/soulteary/warden/blob/v1.8.0/docs/enUS/DEPLOYMENT.md)
+[Warden](https://github.com/soulteary/warden/blob/v1.9.0/docs/enUS/DEPLOYMENT.md)
 and [Herald](https://github.com/soulteary/herald/blob/v1.9.0/docs/enUS/DEPLOYMENT.md)
 using their versioned guides, including their data and persistence requirements.
 Supply URLs reachable from the Stargate container and matching credentials;
