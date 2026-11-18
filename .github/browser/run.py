@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import re
 import secrets
+import shutil
 import struct
 import subprocess
 import time
@@ -217,6 +218,8 @@ def start_enrollment(page):
     with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/totp/enroll") as started:
         page.locator("[data-native-once] [type=submit]").click()
     check("enrollment starts with the delivered proof", started.value.status == 200)
+    if os.environ.get("BROWSER_THEME_DIR"):
+        check("native theme active on real enrollment", page.locator("body.auth-themed #confirmForm").count() == 1)
 
 
 def run_browser():
@@ -227,6 +230,9 @@ def run_browser():
         page = context.new_page()
         page.set_default_timeout(15000)
         login_page(page)
+        if os.environ.get("BROWSER_THEME_DIR"):
+            check("native theme active on real login", page.locator("body.auth-themed .auth-brand img").count() == 1)
+            page.locator(".auth-brand img").evaluate("image => image.decode()")
         page.locator("#mail").fill("")
         page.locator("#loginForm [type=submit]").click()
         page.locator("#error-container.show").wait_for()
@@ -266,6 +272,8 @@ def run_browser():
         protected_app(page)
         page.goto(AUTH + "/_account?lang=en")
         check("account screenshot contains no secret controls", page.locator("input, #qrcode, #backupCodesList").count() == 0 and "demo@example.test" not in page.locator("body").inner_text())
+        if os.environ.get("BROWSER_THEME_DIR"):
+            check("native theme active on real account", page.locator("body.auth-themed .auth-brand").count() == 1)
         page.screenshot(path="browser-account.png", full_page=True)
         RESULT["screenshots"] = ["browser-account.png"]
         stage("totp-enrollment")
@@ -332,6 +340,26 @@ def run_browser():
         page.wait_for_url(lambda u: "/_login" not in urlparse(u).path)
         authenticated(page, "demo-user-001")
         check("unused recovery positive control after rejection", "/_login" not in urlparse(page.url).path)
+        if os.environ.get("BROWSER_THEME_DIR"):
+            stage("themed-additional-verification")
+            page.goto(AUTH + "/_step_up?lang=en&callback=%2F&callback_proto=http")
+            check("real step-up page is themed", page.locator("body.auth-themed [data-native-once] #code").count() == 1)
+            time.sleep(31 - (time.time() % 30))
+            page.locator("#code").fill(totp(secret))
+            with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/_step_up") as stepped:
+                page.locator("[data-native-once] [type=submit]").click()
+            check("real step-up accepts current TOTP", stepped.value.status in (302, 303))
+            page.wait_for_url(lambda u: urlparse(u).path == "/")
+            stage("themed-authenticator-removal")
+            page.goto(AUTH + "/totp/revoke?lang=en")
+            check("real removal page is themed", page.locator("body.auth-themed #revokeForm #code").count() == 1)
+            time.sleep(31 - (time.time() % 30))
+            page.locator("#code").fill(totp(secret))
+            with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/totp/revoke") as revoked:
+                page.locator("#revokeForm [type=submit]").click()
+            check("real authenticator removal succeeds", revoked.value.status == 200)
+            page.goto(AUTH + "/totp/enroll?lang=en")
+            check("removal returns enrollment to delivered-code proof", page.locator("body.auth-themed #reauthSendBtn").count() == 1)
         context.close()
         browser.close()
 
@@ -349,7 +377,14 @@ def main():
         password = secrets.token_urlsafe(32)
         os.environ["BROWSER_TEST_PASSWORD"] = password
         override = STATE / "browser.override.yml"
-        override.write_text("services:\n  stargate:\n    build:\n      args:\n        COMMIT: '" + os.environ["GATEWAY_REF"] + "'\n        VERSION: 'browser-verification'\n    environment:\n      PASSWORDS: 'plaintext:" + password + "'\n  herald:\n    image: " + os.environ["HERALD_IMAGE"] + "\n")
+        theme_environment, theme_volume = "", ""
+        if os.environ.get("BROWSER_THEME_DIR"):
+            selected = STATE / "theme"
+            shutil.copytree(Path(os.environ["BROWSER_THEME_DIR"]).resolve(strict=True), selected, symlinks=True)
+            theme_environment = "      THEME_DIR: /app/theme\n"
+            theme_volume = "    volumes:\n      - " + json.dumps(str(selected) + ":/app/theme:ro") + "\n"
+            RESULT["theme_manifest_sha256"] = hashlib.sha256((selected / "theme.yml").read_bytes()).hexdigest()
+        override.write_text("services:\n  stargate:\n    build:\n      args:\n        COMMIT: '" + os.environ["GATEWAY_REF"] + "'\n        VERSION: 'browser-verification'\n    environment:\n      PASSWORDS: 'plaintext:" + password + "'\n" + theme_environment + theme_volume + "  herald:\n    image: " + os.environ["HERALD_IMAGE"] + "\n")
         override.chmod(0o600)
         envfile = STATE/".env"
         text = envfile.read_text()

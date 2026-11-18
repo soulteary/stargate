@@ -17,3 +17,7 @@ An optional `LOGIN_SUPPORT_URL` provides a support link. See [configuration](CON
 The binary includes an explicit set of authentication templates and public assets. When no external template or asset directory exists, it serves these built-in resources without creating files in the working directory. Docker images still carry the same resource directory.
 
 Existing external directories keep their precedence. Update a complete external template/asset tree with the binary, or remove that override to use the matching built-in UI. An old or partial override is not silently merged with new templates. Configuration, generated files and setup secrets are not embedded.
+
+## Native themes
+
+See [authentication themes](THEMES.md) for declarative layouts, colors and brand images. Authentication templates and scripts remain part of Stargate.

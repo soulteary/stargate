@@ -15,6 +15,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/auth"
 	"github.com/soulteary/stargate/src/internal/config"
 	"github.com/soulteary/stargate/src/internal/handlers"
+	"github.com/soulteary/stargate/src/internal/theme"
 	tracing "github.com/soulteary/tracing-kit/v2"
 	"github.com/soulteary/tracing-kit/v2/otlp"
 	version "github.com/soulteary/version-kit/v4"
@@ -57,7 +58,11 @@ func runApplication() error {
 	}
 
 	// Create and start server
-	app := createApp()
+	selected, err := theme.LoadConfigured(config.ThemeDir.String(), config.ThemeSafeMode.ToBool())
+	if err != nil {
+		return fmt.Errorf("load authentication theme: %w", err)
+	}
+	app := createAppWithTheme(selected, config.ThemeSafeMode.ToBool())
 
 	// Setup graceful shutdown for tracer
 	sigChan := make(chan os.Signal, 1)

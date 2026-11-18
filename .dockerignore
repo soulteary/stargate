@@ -20,7 +20,10 @@
 !src/internal/testsupport/*.go
 !src/internal/tlsconfig/*.go
 !src/internal/tracing/*.go
+!src/internal/theme/*.go
 !src/internal/web/*.go
+!src/internal/web/templates/theme.html
+!src/internal/web/templates/assets/theme.css
 !src/internal/web/templates/login.html
 !src/internal/web/templates/login.warden.html
 !src/internal/web/templates/account.html

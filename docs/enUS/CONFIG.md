@@ -1701,3 +1701,11 @@ Optional HTTPS support link or one `mailto:help@example.com` mailbox. Empty hide
 ## Scoped deployment diagnostics
 
 Use [`stargate doctor`](DIAGNOSTICS.md) for explicit offline configuration inspection and optional health/readiness checks. Health success does not prove HMAC or a working login.
+
+## THEME_DIR
+
+Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
+
+## THEME_SAFE_MODE
+
+Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.

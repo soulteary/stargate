@@ -539,3 +539,11 @@ HTTP 503으로 접근을 거부합니다.
 ### `LOGIN_SUPPORT_URL`
 
 선택적인 HTTPS 지원 링크 또는 단일 `mailto:help@example.com` 주소입니다. 비어 있으면 링크를 숨깁니다. 인증 정보, 제어 문자, mailto 헤더는 허용되지 않습니다.
+
+## THEME_DIR
+
+Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
+
+## THEME_SAFE_MODE
+
+Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.

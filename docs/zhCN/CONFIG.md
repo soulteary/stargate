@@ -1514,3 +1514,11 @@ HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 ## 部署诊断
 
 可使用 [`stargate doctor`](DIAGNOSTICS.md) 进行离线配置检查或显式健康/就绪检查；健康通过不证明 HMAC 或实际登录可用。
+
+## THEME_DIR
+
+Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
+
+## THEME_SAFE_MODE
+
+Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.
