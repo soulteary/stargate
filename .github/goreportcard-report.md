@@ -1,11 +1,11 @@
 # Go Report Card
 
-**Grade: A+** (98.8%)
+**Grade: A+** (98.7%)
 
 | Metric | Value |
 | ------ | ----- |
-| Files | 198 |
-| Issues | 21 |
+| Files | 202 |
+| Issues | 24 |
 
 ## Checks
 
@@ -14,7 +14,7 @@
 | gofmt | 100% |
 | go_vet | 100% |
 | ineffassign | 100% |
-| gocyclo | 89% |
+| gocyclo | 88% |
 | license | 100% |
 | misspell | 99% |
 
@@ -22,52 +22,60 @@
 
 ### gocyclo
 
-- `src/internal/handlers/uniform_fixture_test.go`
-  - Line 196: cyclomatic complexity 34 for function (*uniformHerald).serve
-- `src/internal/handlers/e2e_integration_test.go`
-  - Line 146: cyclomatic complexity 22 for function setupHeraldMockServer
 - `src/internal/handlers/account_test.go`
   - Line 16: cyclomatic complexity 19 for function TestAccountPageRequiresSessionAndLogoutRemainsSameOrigin
+- `src/internal/doctor/health.go`
+  - Line 65: cyclomatic complexity 19 for function probeHealth
+- `src/internal/config/config.go`
+  - Line 843: cyclomatic complexity 17 for function validatePasswordSettings
+- `src/internal/handlers/uniform_fixture_test.go`
+  - Line 196: cyclomatic complexity 34 for function (*uniformHerald).serve
+- `src/internal/handlers/check.go`
+  - Line 98: cyclomatic complexity 34 for function CheckRoute
+- `src/internal/auth/auth.go`
+  - Line 424: cyclomatic complexity 23 for function LookupUserInfo
+- `src/internal/handlers/reauth_test.go`
+  - Line 74: cyclomatic complexity 16 for function (*fakeHerald).serve
+- `src/internal/theme/theme.go`
+  - Line 264: cyclomatic complexity 25 for function validate
+  - Line 116: cyclomatic complexity 21 for function Load
+- `src/internal/handlers/auth_refresh.go`
+  - Line 27: cyclomatic complexity 25 for function refreshDirectoryAuthorization
+- `src/internal/handlers/check_precedence_test.go`
+  - Line 15: cyclomatic complexity 24 for function TestCheckRouteRefreshesOnlySelectedSession
+- `src/internal/handlers/login_identifier_labels_test.go`
+  - Line 19: cyclomatic complexity 23 for function TestWardenLoginIdentifierLabelsMatchTheirRenderedFields
+- `src/internal/handlers/e2e_integration_test.go`
+  - Line 146: cyclomatic complexity 22 for function setupHeraldMockServer
+- `src/internal/handlers/reauth.go`
+  - Line 222: cyclomatic complexity 18 for function verifyReauthCode
 - `src/internal/handlers/send_verify_code.go`
   - Line 93: cyclomatic complexity 17 for function SendVerifyCodeAPI
   - Line 43: cyclomatic complexity 17 for function selectVerificationDestination
-- `src/internal/config/strict_validation.go`
-  - Line 270: cyclomatic complexity 16 for function validateRedisSettings
-- `src/internal/handlers/work_im_bridge_integration_test.go`
-  - Line 28: cyclomatic complexity 44 for function TestWorkIMCurrentPair
-- `src/internal/handlers/verified_email.go`
-  - Line 34: cyclomatic complexity 29 for function canonicalEvidenceEmail
-- `src/internal/auth/auth.go`
-  - Line 424: cyclomatic complexity 23 for function LookupUserInfo
-- `src/cmd/stargate/standalone_resources_test.go`
-  - Line 17: cyclomatic complexity 20 for function TestStandaloneBinaryServesAuthenticationResources
 - `src/internal/handlers/totp_enroll.go`
   - Line 157: cyclomatic complexity 16 for function TOTPEnrollConfirmAPI
   - Line 57: cyclomatic complexity 16 for function TOTPEnrollRoute
-- `src/internal/handlers/check.go`
-  - Line 98: cyclomatic complexity 34 for function CheckRoute
-- `src/internal/handlers/auth_refresh.go`
-  - Line 24: cyclomatic complexity 25 for function refreshDirectoryAuthorization
-- `src/internal/handlers/check_precedence_test.go`
-  - Line 15: cyclomatic complexity 24 for function TestCheckRouteRefreshesOnlySelectedSession
-- `src/internal/handlers/login.go`
-  - Line 486: cyclomatic complexity 21 for function (*loginIdentity).verifyChallenge
-  - Line 395: cyclomatic complexity 16 for function (*loginIdentity).authenticateWarden
-  - Line 153: cyclomatic complexity 16 for function loginAPIHandler
-- `src/internal/doctor/health.go`
-  - Line 65: cyclomatic complexity 19 for function probeHealth
-- `src/internal/handlers/reauth.go`
-  - Line 222: cyclomatic complexity 18 for function verifyReauthCode
-- `src/internal/handlers/reauth_test.go`
-  - Line 74: cyclomatic complexity 16 for function (*fakeHerald).serve
+- `src/internal/handlers/work_im_bridge_integration_test.go`
+  - Line 28: cyclomatic complexity 44 for function TestWorkIMCurrentPair
 - `src/internal/doctor/checks.go`
   - Line 138: cyclomatic complexity 31 for function inspectPair
   - Line 53: cyclomatic complexity 27 for function Inspect
   - Line 214: cyclomatic complexity 18 for function inspectWardenAudience
-- `src/internal/handlers/login_identifier_labels_test.go`
-  - Line 19: cyclomatic complexity 23 for function TestWardenLoginIdentifierLabelsMatchTheirRenderedFields
-- `src/internal/config/config.go`
-  - Line 840: cyclomatic complexity 17 for function validatePasswordSettings
+- `src/internal/config/strict_validation.go`
+  - Line 270: cyclomatic complexity 16 for function validateRedisSettings
+- `src/internal/handlers/login.go`
+  - Line 486: cyclomatic complexity 21 for function (*loginIdentity).verifyChallenge
+  - Line 395: cyclomatic complexity 16 for function (*loginIdentity).authenticateWarden
+  - Line 153: cyclomatic complexity 16 for function loginAPIHandler
+- `src/internal/handlers/verified_email.go`
+  - Line 34: cyclomatic complexity 29 for function canonicalEvidenceEmail
+- `src/internal/theme/theme_test.go`
+  - Line 175: cyclomatic complexity 27 for function TestFilesystemRejections
+  - Line 42: cyclomatic complexity 21 for function TestSnapshotOwnsValidatedResources
+- `src/cmd/stargate/theme_test.go`
+  - Line 100: cyclomatic complexity 25 for function TestThemeUsesBuiltinsAndServesOnlySnapshot
+- `src/cmd/stargate/standalone_resources_test.go`
+  - Line 17: cyclomatic complexity 20 for function TestStandaloneBinaryServesAuthenticationResources
 
 ### misspell
 
