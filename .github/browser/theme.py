@@ -28,7 +28,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    result = {"status": "running", "checks": [], "scope": "Chromium; real password login, session and logout; synthetic Warden/TOTP/step-up views and browser transport fixtures"}
+    result = {"status": "running", "checks": [], "scope": "Chromium; real password login, step-up, session and logout; synthetic Warden/TOTP/step-up views and browser transport fixtures"}
     def check(name, condition):
         if not condition:
             raise AssertionError(name)
@@ -103,6 +103,7 @@ def main():
                     with page.expect_response(lambda response: response.request.method == "POST" and urlparse(response.url).path == "/_login") as rejected:
                         page.locator("[type=submit]").click()
                     check("real wrong password rejected", rejected.value.status == 401)
+                    page.locator("#error-container.show").wait_for(state="visible")
                     check("wrong password feedback visible", page.locator("#error-container").is_visible() and bool(page.locator("#error-container").inner_text()))
                     page.locator("#password").fill(password)
                     page.locator("[type=submit]").click()
@@ -114,6 +115,14 @@ def main():
                     check("account has no secret controls", page.locator("input, #qrcode, #backupCodesList").count() == 0)
                     page.set_viewport_size({"width": 1440, "height": 1000})
                     page.screenshot(path=str(args.output / "deep-space-account.png"), full_page=True)
+                    response = page.goto(base + "/_step_up?lang=en&callback=%2F&callback_proto=http")
+                    check("real password step-up is themed", response.status == 200 and page.locator("body.auth-themed [data-native-once] #password").count() == 1)
+                    page.locator("#password").fill(password)
+                    with page.expect_response(lambda response: response.request.method == "POST" and urlparse(response.url).path == "/_step_up") as stepped:
+                        page.locator("[data-native-once] [type=submit]").click()
+                    check("real password step-up succeeds", stepped.value.status in (302, 303))
+                    page.wait_for_url(base + "/")
+                    page.goto(base + "/_account?lang=en")
                     page.locator("[data-logout] button").click()
                     page.wait_for_url(lambda url: urlparse(url).path == "/_logout")
                     check("logout response shown", page.locator("body").inner_text() == "Logged out")
@@ -139,6 +148,7 @@ def main():
                     check("fixture: failure restores form controls", page.locator("#mail").is_enabled() and page.locator("#loginForm [type=submit]").is_enabled())
                     page.locator("#mail").fill("other@example.test")
                     page.locator("#loginForm [type=submit]").click()
+                    page.wait_for_function("() => document.querySelector('#error-container').textContent === JSON.parse(document.querySelector('#auth-ui-config').dataset.messages).challenge_required")
                     check("fixture: changed account cannot reuse challenge", len(requests) == 1)
                     check("no external resource requests", not external)
                     check("no browser script errors", not errors)
