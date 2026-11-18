@@ -9,6 +9,7 @@
 # directory there. BuildKit does not need the literal path, but the same lines
 # give it the same result. Add a line when a new package directory is added.
 !src/cmd/stargate/*.go
+!src/cmd/themecheck/*.go
 !src/internal/auditlog/*.go
 !src/internal/auth/*.go
 !src/internal/config/*.go
