@@ -55,6 +55,8 @@ Below are all environment variables used in code. "Required" means the service w
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | No |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | No |
 | `LOGIN_SUPPORT_URL` | String | `""` | No |
+| `THEME_DIR` | Directory path | empty | No |
+| `THEME_SAFE_MODE` | true/false | false | No |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | No |
 | `TRUSTED_PROXIES` | comma-separated IPs/CIDRs | empty | No |
 | `PROXY_HEADER` | HTTP header name | X-Forwarded-For | No |
@@ -1702,10 +1704,10 @@ Optional HTTPS support link or one `mailto:help@example.com` mailbox. Empty hide
 
 Use [`stargate doctor`](DIAGNOSTICS.md) for explicit offline configuration inspection and optional health/readiness checks. Health success does not prove HMAC or a working login.
 
-## THEME_DIR
+### `THEME_DIR`
 
 Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
 
-## THEME_SAFE_MODE
+### `THEME_SAFE_MODE`
 
 Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.

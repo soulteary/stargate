@@ -540,10 +540,10 @@ Die vollständigen Regeln und Migrationshinweise stehen in der
 
 Optionaler HTTPS-Supportlink oder ein einzelnes `mailto:help@example.com`-Postfach. Leer blendet den Link aus. Zugangsdaten, Steuerzeichen und Mailto-Header sind nicht erlaubt.
 
-## THEME_DIR
+### `THEME_DIR`
 
 Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
 
-## THEME_SAFE_MODE
+### `THEME_SAFE_MODE`
 
 Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.

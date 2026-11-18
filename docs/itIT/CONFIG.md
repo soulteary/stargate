@@ -540,10 +540,10 @@ Per le regole complete e la migrazione consultare la
 
 Link HTTPS facoltativo o una sola casella `mailto:help@example.com`. Vuoto nasconde il link. Credenziali, caratteri di controllo e intestazioni mailto non sono consentiti.
 
-## THEME_DIR
+### `THEME_DIR`
 
 Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
 
-## THEME_SAFE_MODE
+### `THEME_SAFE_MODE`
 
 Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.

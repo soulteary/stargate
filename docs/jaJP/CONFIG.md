@@ -540,10 +540,10 @@ Error: Configuration error: environment variable 'HERALD_ENABLED': requires WARD
 
 任意のHTTPSサポートリンク、または単一の `mailto:help@example.com` アドレス。空の場合は非表示です。認証情報、制御文字、メールヘッダー指定は許可されません。
 
-## THEME_DIR
+### `THEME_DIR`
 
 Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
 
-## THEME_SAFE_MODE
+### `THEME_SAFE_MODE`
 
 Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.

@@ -55,6 +55,8 @@ services:
 | `LOGIN_PAGE_TITLE` | String | Stargate - Login | 否 |
 | `LOGIN_PAGE_FOOTER_TEXT` | String | Copyright © 2024 - Stargate | 否 |
 | `LOGIN_SUPPORT_URL` | String | `""` | 否 |
+| `THEME_DIR` | Directory path | empty | No |
+| `THEME_SAFE_MODE` | true/false | false | No |
 | `USER_HEADER_NAME` | String | X-Forwarded-User | 否 |
 | `TRUSTED_PROXIES` | 逗号分隔的 IP/CIDR | 空 | 否 |
 | `PROXY_HEADER` | HTTP 头名称 | X-Forwarded-For | 否 |
@@ -1515,10 +1517,10 @@ HEADER_AUTH_SECRET_HEADER=X-Stargate-Header-Auth
 
 可使用 [`stargate doctor`](DIAGNOSTICS.md) 进行离线配置检查或显式健康/就绪检查；健康通过不证明 HMAC 或实际登录可用。
 
-## THEME_DIR
+### `THEME_DIR`
 
 Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
 
-## THEME_SAFE_MODE
+### `THEME_SAFE_MODE`
 
 Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.
