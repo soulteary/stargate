@@ -135,9 +135,9 @@ jobs:
           name: theme-views-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             ${{ runner.temp }}/theme-evidence/theme-results.json
-            ${{ runner.temp }}/theme-evidence/deep-space-login-desktop.png
-            ${{ runner.temp }}/theme-evidence/deep-space-login-mobile.png
-            ${{ runner.temp }}/theme-evidence/deep-space-account.png
+            ${{ runner.temp }}/theme-evidence/theme-login-desktop.png
+            ${{ runner.temp }}/theme-evidence/theme-login-mobile.png
+            ${{ runner.temp }}/theme-evidence/theme-account.png
           if-no-files-found: warn
 
   production_tls:

@@ -14,15 +14,35 @@ import subprocess
 import tempfile
 import time
 import urllib.request
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse
 
-from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[2]
 PAGES = ("login", "login.warden", "account", "totp_start", "totp_enroll", "totp_revoke", "step_up")
 
 
+def background_for_mode(css, mode):
+    """Read the background from the loader's generated base/media rules."""
+    base = re.search(r"\.auth-themed\{([^}]+)\}", css)
+    media = re.search(r"@media\(prefers-color-scheme:" + re.escape(mode) + r"\)\{\.auth-themed\{([^}]+)\}", css)
+    rule = media or base
+    if rule is None:
+        raise ValueError("theme stylesheet has no palette")
+    color = re.search(r"--sg-background:(#[0-9a-fA-F]{6});", rule.group(1))
+    if color is None:
+        raise ValueError("theme stylesheet has no background")
+    value = color.group(1)
+    return "rgb(" + ", ".join(str(int(value[index:index+2], 16)) for index in (1, 3, 5)) + ")"
+
+
+def decode_brand_image(page):
+    image = page.locator(".auth-brand img")
+    if image.count():
+        image.evaluate("img => img.decode()")
+
+
 def main():
+    from playwright.sync_api import sync_playwright
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--theme", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
@@ -61,23 +81,28 @@ def main():
                     raise RuntimeError("theme server not ready")
                 with sync_playwright() as pw:
                     browser = pw.chromium.launch(executable_path=os.environ.get("PLAYWRIGHT_CHROMIUM_EXECUTABLE"))
-                    context = browser.new_context()
+                    context = browser.new_context(color_scheme="light")
                     external, errors, violations = [], [], []
                     context.on("request", lambda request: external.append(request.url) if urlparse(request.url).netloc not in (address, "") else None)
                     page = context.new_page()
                     page.on("pageerror", lambda error: errors.append(type(error).__name__))
                     page.on("console", lambda message: violations.append(True) if message.type == "error" and "Content Security Policy" in message.text else None)
                     page.set_default_timeout(10000)
+                    stylesheet = None
                     for width, height in ((1440, 1000), (390, 844)):
                         page.set_viewport_size({"width": width, "height": height})
                         for lang in ("en", "zh"):
                             for name in PAGES:
                                 response = page.goto(base + "/__theme_preview/" + name + "?lang=" + lang)
-                                page.locator(".auth-brand img").evaluate("img => img.decode()")
+                                decode_brand_image(page)
                                 check(f"{name} {lang} {width}: themed no-store page", response.status == 200 and response.headers.get("cache-control") == "no-store" and page.locator("body").get_attribute("class") == "auth-themed")
                                 check(f"{name} {lang} {width}: no horizontal overflow", page.evaluate("document.documentElement.scrollWidth <= innerWidth"))
                                 check(f"{name} {lang} {width}: visible form area", page.locator("main").is_visible())
-                                check(f"{name} {lang} {width}: palette loaded", page.locator("body").evaluate("el => getComputedStyle(el).backgroundColor") == "rgb(16, 20, 25)")
+                                if stylesheet is None:
+                                    resource = context.request.get(base + page.locator('link[href$="/tokens.css"]').get_attribute("href"))
+                                    check("generated theme stylesheet is served", resource.status == 200)
+                                    stylesheet = resource.text()
+                                check(f"{name} {lang} {width}: palette loaded", page.locator("body").evaluate("el => getComputedStyle(el).backgroundColor") == background_for_mode(stylesheet, "light"))
                                 check(f"{name} {lang} {width}: error initially hidden", not page.locator("#error-container").is_visible())
                                 if name == "totp_enroll":
                                     check(f"{width} {lang}: recovery initially hidden", not page.locator("#backupCodes").is_visible() and not page.locator("#savedHome").is_visible())
@@ -89,16 +114,20 @@ def main():
                                     page.locator("#auth-mode").select_option("delivery")
                                     page.locator("#phone").focus()
                                     check(f"{width} {lang}: keyboard focus visible", page.locator("#phone").evaluate("el => getComputedStyle(el).outlineStyle !== 'none'"))
+                    page.emulate_media(color_scheme="dark")
+                    page.goto(base + "/__theme_preview/login.warden?lang=en")
+                    check("dark palette follows the selected theme", page.locator("body").evaluate("el => getComputedStyle(el).backgroundColor") == background_for_mode(stylesheet, "dark"))
+                    page.emulate_media(color_scheme="light")
                     page.set_viewport_size({"width": 1440, "height": 1000})
                     page.goto(base + "/__theme_preview/login.warden?lang=en")
-                    page.locator(".auth-brand img").evaluate("img => img.decode()")
+                    decode_brand_image(page)
                     page.emulate_media(reduced_motion="reduce")
-                    check("reduced motion disables animation", page.locator(".auth-brand img").evaluate("el => getComputedStyle(el).animationName") == "none" and page.locator("main").evaluate("el => getComputedStyle(el).animationName") == "none")
-                    page.screenshot(path=str(args.output / "deep-space-login-desktop.png"), full_page=True)
+                    check("reduced motion disables animation", (page.locator(".auth-brand img").count() == 0 or page.locator(".auth-brand img").evaluate("el => getComputedStyle(el).animationName") == "none") and page.locator("main").evaluate("el => getComputedStyle(el).animationName") == "none")
+                    page.screenshot(path=str(args.output / "theme-login-desktop.png"), full_page=True)
                     page.set_viewport_size({"width": 390, "height": 844})
                     page.goto(base + "/_login?lang=zh")
-                    page.locator(".auth-brand img").evaluate("img => img.decode()")
-                    page.screenshot(path=str(args.output / "deep-space-login-mobile.png"), full_page=True)
+                    decode_brand_image(page)
+                    page.screenshot(path=str(args.output / "theme-login-mobile.png"), full_page=True)
                     page.locator("#password").fill("incorrect-password")
                     with page.expect_response(lambda response: response.request.method == "POST" and urlparse(response.url).path == "/_login") as rejected:
                         page.locator("[type=submit]").click()
@@ -114,7 +143,7 @@ def main():
                     check("real account is themed and no-store", response.status == 200 and response.headers.get("cache-control") == "no-store" and page.locator(".auth-brand").count() == 1)
                     check("account has no secret controls", page.locator("input, #qrcode, #backupCodesList").count() == 0)
                     page.set_viewport_size({"width": 1440, "height": 1000})
-                    page.screenshot(path=str(args.output / "deep-space-account.png"), full_page=True)
+                    page.screenshot(path=str(args.output / "theme-account.png"), full_page=True)
                     response = page.goto(base + "/_step_up?lang=en&callback=%2F&callback_proto=http")
                     check("real password step-up is themed", response.status == 200 and page.locator("body.auth-themed [data-native-once] #password").count() == 1)
                     page.locator("#password").fill(password)
