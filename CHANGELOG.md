@@ -4,6 +4,35 @@ This file records user-visible changes. For upgrade steps and configuration exam
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-18
+
+### Upgrade and rollback
+
+`THEME_DIR` selects an extracted native theme directory. `THEME_SAFE_MODE=true`
+uses the bundled interface and skips both native themes and legacy UI overrides.
+Both settings are optional; deployments without either setting retain the
+existing override precedence. See the [theme guide](https://github.com/soulteary/stargate/blob/v1.8.0/docs/enUS/THEMES.md)
+for the format, limits and read-only mount example.
+
+A selected theme is validated at startup; invalid themes prevent startup. Mount
+the same theme on every replica and restart after changing it. Theme packages
+contain data and images; authentication templates and scripts remain in Stargate.
+Stored sessions and Redis records need no migration. Preserve Redis state during
+rollout and rollback. Before rolling back to v1.7.x, unset both theme settings;
+that version does not support native themes. If using legacy overrides, keep the
+templates and assets matched to the Stargate version.
+
+### Added
+
+- Native authentication themes with versioned theme and UI contracts, validated
+  colors and contrast, light and dark modes, split and centered layouts, and an
+  optional decorative image. The same theme applies to login, account, TOTP
+  enrollment, verification, revocation and step-up pages.
+- `themecheck` validates extracted theme directories and reports package metadata
+  and a content digest. Theme resources use content-addressed URLs.
+- Deep Space browser acceptance coverage for authentication pages, desktop and
+  mobile layouts, accessibility settings and complete authentication flows.
+
 ### Changed
 
 - Update the Warden SDK from v1.9.0 to v1.9.1, which logs a rate-limited
@@ -1372,3 +1401,5 @@ Before publishing the first release candidate, replace `Unreleased` with the int
 [1.3.3]: https://github.com/soulteary/stargate/compare/v1.3.2...v1.3.3
 
 [1.3.4]: https://github.com/soulteary/stargate/compare/v1.3.3...v1.3.4
+
+[1.8.0]: https://github.com/soulteary/stargate/compare/v1.7.0...v1.8.0

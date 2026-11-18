@@ -10,6 +10,8 @@
 
 Stargate is a lightweight Forward Auth service that centralizes authentication at the reverse-proxy boundary. It integrates with Traefik and exposes password, session, Warden, and Herald-backed authentication flows for protected services.
 
+v1.8.0 adds native authentication themes. See the [theme guide](docs/enUS/THEMES.md) and [upgrade and rollback notes](CHANGELOG.md#180---2026-11-18) before configuring `THEME_DIR` or `THEME_SAFE_MODE`.
+
 v1.7.0 answers `503 service_unavailable` instead of `401 user_not_in_list` on `POST /_send_verify_code` when the Warden lookup itself fails, and logs a 403 from Warden with the settings to check. Read the [upgrade and rollback notes](CHANGELOG.md#170---2026-11-16) before upgrading from v1.6.0, in particular when a client or monitor depends on the answer of `POST /_send_verify_code`.
 
 v1.4.0 changes TOTP enrollment, step-up, `Stargate-Password` rate limiting and the bundled templates. Read the [upgrade and rollback notes](CHANGELOG.md#140---2026-11-15) before upgrading from v1.3.x.

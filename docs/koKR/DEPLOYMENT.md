@@ -4,12 +4,12 @@
 >
 > 보안 및 업그레이드와 관련된 다음 항목은 영어 문서에만 자세히 설명되어 있습니다.
 >
-> - 업그레이드와 롤백: [v1.7.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
+> - 업그레이드와 롤백: [v1.8.0, v1.4.0](../enUS/DEPLOYMENT.md#deployment-guide), [v1.3.5](../enUS/DEPLOYMENT.md#authentication-priority-upgrade-and-rollback-v135), [v1.3.4](../enUS/DEPLOYMENT.md#dependency-patch-upgrade-and-rollback-v134), [v1.3.3](../enUS/DEPLOYMENT.md#herald-credential-selection-v133), [v1.3.2](../enUS/DEPLOYMENT.md#otp-verification-error-handling-v132), [v1.3.1](../enUS/DEPLOYMENT.md#bound-login-challenge-upgrade-and-rollback)
 > - 취소 가능한 세션: [Revocable session migration](../enUS/DEPLOYMENT.md#revocable-session-migration), [Browser-bound session exchange](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)
 > - 자격 증명 우선순위: [Herald](../enUS/DEPLOYMENT.md#herald-credential-precedence), [Warden](../enUS/DEPLOYMENT.md#warden-credential-precedence)
 > - Warden HMAC audience: [Warden HMAC audience](../enUS/DEPLOYMENT.md#warden-hmac-audience), [Warden server versions](../enUS/DEPLOYMENT.md#warden-server-versions)
 
-현재 배포 예제는 v1.7.0을 사용합니다. v1.3 이전 배포를 교체하기 전에 [세션 마이그레이션](../enUS/DEPLOYMENT.md#revocable-session-migration)과 [브라우저에 바인딩된 교환](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)을 확인하세요. 모든 복제본을 조정하고 필요한 Redis 상태를 보존하며 필수 재로그인을 계획하세요.
+현재 배포 예제는 v1.8.0을 사용합니다. v1.3 이전 배포를 교체하기 전에 [세션 마이그레이션](../enUS/DEPLOYMENT.md#revocable-session-migration)과 [브라우저에 바인딩된 교환](../enUS/DEPLOYMENT.md#browser-bound-session-exchange)을 확인하세요. 모든 복제본을 조정하고 필요한 Redis 상태를 보존하며 필수 재로그인을 계획하세요.
 
 이 문서는 Stargate Forward Auth 서비스의 자세한 배포 가이드를 제공합니다.
 
@@ -189,7 +189,7 @@ Traefik이 공유 외부 Docker 네트워크에서 이미 실행 중인 경우�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.7.0
+    image: ghcr.io/soulteary/stargate:1.8.0
     environment:
       - AUTH_HOST=auth.test.localhost
       - PASSWORDS=plaintext:test1234|test1337
@@ -278,7 +278,7 @@ docker compose logs -f stargate
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.7.0
+    image: ghcr.io/soulteary/stargate:1.8.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...
@@ -302,7 +302,7 @@ Stargate는 Traefik과 통합하도록 설계되어 있으며, Forward Auth 미�
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.7.0
+    image: ghcr.io/soulteary/stargate:1.8.0
     environment:
       - AUTH_HOST=auth.example.com
       - PASSWORDS=bcrypt:$$2a$$10$$...

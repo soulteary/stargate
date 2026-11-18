@@ -10,6 +10,8 @@
 
 Stargate 是一个轻量级前向认证服务，用于在反向代理边界集中处理认证。它可与 Traefik 集成，并为受保护服务提供密码、会话、Warden 和 Herald 认证流程。
 
+v1.8.0 新增原生认证主题。配置 `THEME_DIR` 或 `THEME_SAFE_MODE` 前，请阅读[主题指南](docs/zhCN/THEMES.md)和[升级与回滚说明](CHANGELOG.md#180---2026-11-18)。
+
 v1.7.0 在 Warden 查询本身失败时，`POST /_send_verify_code` 返回 `503 service_unavailable`，不再返回 `401 user_not_in_list`，并在 Warden 返回 403 时记录需要检查的设置。从 v1.6.0 升级前，请阅读[升级与回滚说明](CHANGELOG.md#170---2026-11-16)，尤其是有客户端或监控依赖 `POST /_send_verify_code` 响应的部署。
 
 v1.4.0 调整了 TOTP 绑定、Step-up、`Stargate-Password` 限流和内置模板。从 v1.3.x 升级前，请阅读[升级与回滚说明](CHANGELOG.md#140---2026-11-15)。
