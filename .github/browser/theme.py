@@ -147,6 +147,7 @@ def main():
                     check("fixture: login carries bound challenge and return state", len(requests) == 1 and requests[0].get("challenge_id") == ["fixture-challenge"] and requests[0].get("exchange_state") == ["preview-state"] and requests[0].get("mail") == ["preview@example.test"])
                     check("fixture: failure restores form controls", page.locator("#mail").is_enabled() and page.locator("#loginForm [type=submit]").is_enabled())
                     page.locator("#mail").fill("other@example.test")
+                    page.locator("#verify_code").fill("123456")
                     page.locator("#loginForm [type=submit]").click()
                     page.wait_for_function("() => document.querySelector('#error-container').textContent === JSON.parse(document.querySelector('#auth-ui-config').dataset.messages).challenge_required")
                     check("fixture: changed account cannot reuse challenge", len(requests) == 1)
