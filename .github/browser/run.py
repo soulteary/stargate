@@ -349,7 +349,7 @@ def run_browser():
             with page.expect_response(lambda r: r.request.method == "POST" and urlparse(r.url).path == "/_step_up") as stepped:
                 page.locator("[data-native-once] [type=submit]").click()
             check("real step-up accepts current TOTP", stepped.value.status in (302, 303))
-            page.wait_for_url(lambda u: urlparse(u).path == "/")
+            page.wait_for_url(AUTH + "/")
             stage("themed-authenticator-removal")
             page.goto(AUTH + "/totp/revoke?lang=en")
             check("real removal page is themed", page.locator("body.auth-themed #revokeForm #code").count() == 1)
