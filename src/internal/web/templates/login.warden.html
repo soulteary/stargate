@@ -1,6 +1,6 @@
 <!DOCTYPE html>
-<html lang="{{.UILanguage}}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{if .PageTitle}}{{.PageTitle}}{{else}}{{.UI.signin}}{{end}} - {{.Title}}</title><link rel="icon" href="/favicon.ico"><link rel="stylesheet" href="/assets/auth-ui.css"><script defer src="/assets/auth-ui.js"></script></head>
-<body><main class="card"><div id="auth-ui-config" hidden data-locale="{{.UILanguage}}" data-messages="{{.UIMessages}}" data-debug="{{.Debug}}" data-single-identifier="{{.SingleIdentifier}}"></div>
+<html lang="{{.UILanguage}}"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{if .PageTitle}}{{.PageTitle}}{{else}}{{.UI.signin}}{{end}} - {{.Title}}</title><link rel="icon" href="/favicon.ico"><link rel="stylesheet" href="/assets/auth-ui.css"><script defer src="/assets/auth-ui.js"></script>{{if .Theme}}{{template "theme-head" .}}{{end}}</head>
+<body{{if .Theme}} class="auth-themed"{{end}}><div class="auth-shell{{if .Theme}} auth-{{.Theme.Layout}}{{end}}">{{if .Theme}}{{template "theme-brand" .}}{{end}}<main class="card"><div id="auth-ui-config" hidden data-locale="{{.UILanguage}}" data-messages="{{.UIMessages}}" data-debug="{{.Debug}}" data-single-identifier="{{.SingleIdentifier}}"></div>
 <div id="error-container" class="message" role="alert" aria-atomic="true"></div>
 <h1>{{.UI.signin}}</h1><p class="hint">{{.UI.identifier_hint}}</p>
 <form id="loginForm" action="/_login" method="post" novalidate>
@@ -14,4 +14,4 @@
 <div id="recovery-fields" hidden><label for="recovery_code">{{.UI.recovery}}</label><input id="recovery_code" autocomplete="off" autocapitalize="characters" maxlength="19" aria-describedby="recovery-hint error-container"><p id="recovery-hint" class="hint">{{.UI.recovery_hint}}</p></div>
 {{if .Debug}}<p id="debug-code-container" class="hint" hidden></p>{{end}}<button type="submit">{{.UI.signin}}</button></form>
 {{if .PasswordLoginEnabled}}<p>{{.UI.or}}</p><form id="passwordLoginForm" action="/_login" method="post"><input type="hidden" name="auth_method" value="password">{{if .ExchangeState}}<input type="hidden" name="exchange_state" value="{{.ExchangeState}}">{{end}}{{if .Callback}}<input type="hidden" name="callback" value="{{.Callback}}">{{end}}<label for="local_password">{{.UI.password}}</label><input id="local_password" name="password" type="password" autocomplete="current-password" required><button type="submit">{{.UI.password_signin}}</button></form>{{end}}
-<footer>{{if .SupportURL}}<p><a href="{{.SupportURL}}" rel="noreferrer">{{.UI.contact}}</a></p>{{end}}<p>{{.FooterText}}</p></footer></main></body></html>
+<footer>{{if .SupportURL}}<p><a href="{{.SupportURL}}" rel="noreferrer">{{.UI.contact}}</a></p>{{end}}<p>{{.FooterText}}</p></footer></main></div></body></html>

@@ -539,3 +539,11 @@ Les règles détaillées et la migration sont décrites dans la
 ### `LOGIN_SUPPORT_URL`
 
 Lien HTTPS facultatif ou une seule adresse `mailto:help@example.com`. Vide, le lien est masqué. Identifiants, caractères de contrôle et en-têtes mailto sont refusés.
+
+### `THEME_DIR`
+
+Optional path to a native authentication theme directory. Read and validated at startup; restart after changes. Invalid selected themes prevent startup. See [theme format](../enUS/THEMES.md).
+
+### `THEME_SAFE_MODE`
+
+Default: `false`. When `true`, ignore native themes and legacy template, asset and favicon overrides and use the built-in interface.

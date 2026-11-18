@@ -139,3 +139,24 @@ then run against that build.
 
 Pure input checks: `python3 -m unittest discover -s .github/browser -p 'test_*.py'`.
 Actual browser acceptance requires the workflow's clean Linux Docker runner.
+
+## Native themes
+
+`theme.py --theme DIRECTORY --output DIRECTORY` builds an opt-in Go test server
+and checks all seven authentication views at desktop and mobile sizes in English
+and Chinese. Password rejection, login, account access and logout use the real
+routes and session store. Warden, TOTP and step-up preview data and intercepted
+code responses are fixtures for layout and browser-contract checks, not evidence
+of OTP backend success. Screenshots contain empty login forms and the account
+page only. The result lists this scope explicitly.
+
+Install Playwright as above. `PLAYWRIGHT_CHROMIUM_EXECUTABLE` optionally selects
+a local Chromium executable; the result records the actual browser version.
+
+`run.py` also accepts `BROWSER_THEME_DIR`. It copies that directory into its
+owned stack and mounts it read-only, setting `THEME_DIR`. The same real SMTP,
+Warden, Herald, TOTP and recovery scenario then runs with the theme. It checks
+that login, account and enrollment are themed, and additionally completes
+step-up and authenticator removal with separate fresh TOTP steps. No template
+or script from the theme is executed. The result records the theme manifest's
+SHA-256. The default run remains unthemed.

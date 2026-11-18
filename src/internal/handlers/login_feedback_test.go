@@ -13,7 +13,7 @@ import (
 // request. An inline display:none takes precedence and silently hides every
 // error, even when the server correctly rejects the request.
 func TestWardenLoginErrorFeedbackIsNotPermanentlyHidden(t *testing.T) {
-	page, err := template.ParseFiles("../web/templates/login.warden.html")
+	page, err := template.ParseFiles("../web/templates/login.warden.html", "../web/templates/theme.html")
 	if err != nil {
 		t.Fatal(err)
 	}

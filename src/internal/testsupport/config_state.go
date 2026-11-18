@@ -22,6 +22,8 @@ func ConfigVariables() []*config.EnvVariable {
 	return []*config.EnvVariable{
 		&config.Debug,
 		&config.AuthHost,
+		&config.ThemeDir,
+		&config.ThemeSafeMode,
 		&config.LoginSupportURL,
 		&config.LoginPageTitle,
 		&config.LoginPageFooterText,

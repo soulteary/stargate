@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -39,6 +40,7 @@ import (
 	"github.com/soulteary/stargate/src/internal/i18n"
 	"github.com/soulteary/stargate/src/internal/metrics"
 	"github.com/soulteary/stargate/src/internal/requestcontext"
+	"github.com/soulteary/stargate/src/internal/theme"
 	internal_tls "github.com/soulteary/stargate/src/internal/tlsconfig"
 	internal_tracing "github.com/soulteary/stargate/src/internal/tracing"
 	webresources "github.com/soulteary/stargate/src/internal/web"
@@ -71,12 +73,34 @@ func findTemplatesPath() string {
 // setupTemplates initializes the HTML template engine.
 // It loads templates from the web/templates directory.
 func setupTemplates() *html.Engine {
-	log.Debug().Msg("Initializing html templating")
-	templatesPath := findTemplatesPath()
-	if _, err := os.Stat(templatesPath); errors.Is(err, os.ErrNotExist) {
-		return html.NewFileSystem(http.FS(webresources.Templates()), ".html")
+	return setupThemeTemplates(nil, false).Engine
+}
+
+type themeViews struct {
+	*html.Engine
+	selected *theme.Snapshot
+}
+
+func (v *themeViews) Render(out io.Writer, name string, binding interface{}, layout ...string) error {
+	data := fiber.Map{}
+	if values, ok := binding.(fiber.Map); ok {
+		for key, value := range values {
+			data[key] = value
+		}
 	}
-	return html.New(templatesPath, ".html")
+	data["Theme"] = v.selected
+	return v.Engine.Render(out, name, data, layout...)
+}
+
+func setupThemeTemplates(selected *theme.Snapshot, safe bool) *themeViews {
+	var engine *html.Engine
+	templatesPath := findTemplatesPath()
+	if _, err := os.Stat(templatesPath); selected != nil || safe || errors.Is(err, os.ErrNotExist) {
+		engine = html.NewFileSystem(http.FS(webresources.Templates()), ".html")
+	} else {
+		engine = html.New(templatesPath, ".html")
+	}
+	return &themeViews{Engine: engine, selected: selected}
 }
 
 func parseTrustedProxies() []string {
@@ -347,9 +371,13 @@ func findFaviconPath() string {
 
 // setupStaticFiles registers static file serving for assets.
 func setupStaticFiles(app *fiber.App) {
+	setupThemeStaticFiles(app, false)
+}
+
+func setupThemeStaticFiles(app *fiber.App, builtin bool) {
 	log.Debug().Msg("Registering static file server for assets")
 	assetsPath := findAssetsPath()
-	if _, err := os.Stat(assetsPath); errors.Is(err, os.ErrNotExist) {
+	if _, err := os.Stat(assetsPath); builtin || errors.Is(err, os.ErrNotExist) {
 		app.Get("/assets*", static.New("", static.Config{FS: webresources.Assets()}))
 		return
 	}
@@ -405,6 +433,10 @@ var unobservedPaths = []string{RouteHealthz, RouteReadyz, RouteHealth, "/metrics
 // setupMiddleware configures all middleware for the Fiber application.
 // This includes recover, security headers, logging, tracing, i18n, and favicon handling.
 func setupMiddleware(app *fiber.App) {
+	setupThemeMiddleware(app, false)
+}
+
+func setupThemeMiddleware(app *fiber.App, builtin bool) {
 	// 1. Panic recovery (highest priority - prevents server crashes)
 	app.Use(recover.New())
 	log.Debug().Msg("Panic recovery middleware enabled")
@@ -453,7 +485,9 @@ func setupMiddleware(app *fiber.App) {
 	log.Debug().Msg("Adding favicon middleware")
 	faviconPath := findFaviconPath()
 	// Only add favicon middleware if the file exists
-	if _, err := os.Stat(faviconPath); err == nil {
+	if _, err := os.Stat(faviconPath); builtin {
+		app.Use(favicon.New(favicon.Config{FileSystem: webresources.Assets(), File: "favicon.ico"}))
+	} else if err == nil {
 		app.Use(favicon.New(favicon.Config{
 			File: faviconPath,
 		}))
@@ -469,7 +503,11 @@ func setupMiddleware(app *fiber.App) {
 //
 // Returns a fully configured Fiber app ready to start.
 func createApp() *fiber.App {
-	engine := setupTemplates()
+	return createAppWithTheme(nil, false)
+}
+
+func createAppWithTheme(selected *theme.Snapshot, safe bool) *fiber.App {
+	engine := setupThemeTemplates(selected, safe)
 
 	log.Debug().Msg("Creating web server instance")
 	app := fiber.New(fiber.Config{
@@ -484,7 +522,7 @@ func createApp() *fiber.App {
 		EnableIPValidation: true,
 	})
 
-	setupMiddleware(app)
+	setupThemeMiddleware(app, selected != nil || safe)
 	store, redisClient := setupSessionStore()
 	handlers.SetChallengeContextStore(handlers.NewChallengeContextStore(redisClient))
 	// Share rate-limit counters through the same Redis as sessions so every
@@ -494,7 +532,19 @@ func createApp() *fiber.App {
 	replayStore := handlers.NewSessionExchangeReplayStore(redisClient)
 
 	setupRoutes(app, store, healthAggregator, replayStore)
-	setupStaticFiles(app)
+	setupThemeStaticFiles(app, selected != nil || safe)
+	if selected != nil {
+		app.Get(selected.BaseURL()+"/*", func(c fiber.Ctx) error {
+			data, contentType, ok := selected.Resource(c.Params("*"))
+			if !ok {
+				return c.SendStatus(fiber.StatusNotFound)
+			}
+			c.Set("Content-Type", contentType)
+			c.Set("Cache-Control", "public, max-age=31536000, immutable")
+			c.Set("X-Content-Type-Options", "nosniff")
+			return c.Send(data)
+		})
+	}
 
 	return app
 }

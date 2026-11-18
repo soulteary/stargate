@@ -48,6 +48,12 @@ jobs:
   chromium:
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        appearance: [builtin, deep-space]
+    env:
+      BROWSER_THEME_DIR: ${{ matrix.appearance == 'deep-space' && format('{0}/theme-fixture/themes/deep-space', github.workspace) || '' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
@@ -66,6 +72,20 @@ jobs:
           ref: ${{ env.GATEWAY_REF }}
           path: gateway
           persist-credentials: false
+      - name: Check out native theme fixture
+        if: matrix.appearance == 'deep-space'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          repository: soulteary/stargate-themes
+          ref: 6ae0fd8a85f2544a72336c74beb9734434644c66
+          path: theme-fixture
+          persist-credentials: false
+      - name: Set up Go for theme view checks
+        if: matrix.appearance == 'deep-space'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0
         with:
           python-version: '3.12'
@@ -81,6 +101,9 @@ jobs:
         run: |
           python3 -m pip install playwright==1.61.0
           python3 -m playwright install --with-deps chromium
+      - name: Check themed views and password sessions
+        if: matrix.appearance == 'deep-space'
+        run: python3 .github/browser/theme.py --theme "$BROWSER_THEME_DIR" --output "$RUNNER_TEMP/theme-evidence"
       - name: Start isolated real stack and run browser acceptance
         run: |
           set +e
@@ -100,11 +123,22 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: browser-acceptance-${{ github.run_id }}-${{ github.run_attempt }}
+          name: browser-acceptance-${{ matrix.appearance }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             browser-results.json
             browser-account.png
           if-no-files-found: error
+      - name: Upload theme view evidence
+        if: always() && matrix.appearance == 'deep-space'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: theme-views-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/theme-evidence/theme-results.json
+            ${{ runner.temp }}/theme-evidence/theme-login-desktop.png
+            ${{ runner.temp }}/theme-evidence/theme-login-mobile.png
+            ${{ runner.temp }}/theme-evidence/theme-account.png
+          if-no-files-found: warn
 
   production_tls:
     needs: chromium
