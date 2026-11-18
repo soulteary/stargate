@@ -165,13 +165,18 @@ func Load(directory string) (*Snapshot, error) {
 	if err = checkEntries(root, ".", allowed); err != nil {
 		return nil, err
 	}
+	s.css = []byte(s.stylesheet())
 	hash := sha256.New()
+	// Include generated CSS so a changed core default cannot reuse a cached URL.
+	_, _ = fmt.Fprintf(hash, "theme.yml:%d:", len(raw))
 	_, _ = hash.Write(raw)
+	_, _ = fmt.Fprintf(hash, "tokens.css:%d:", len(s.css))
+	_, _ = hash.Write(s.css)
 	if a, ok := s.assets["assets/"+m.Brand.Image]; ok {
+		_, _ = fmt.Fprintf(hash, "assets/%s:%d:", m.Brand.Image, len(a.data))
 		_, _ = hash.Write(a.data)
 	}
 	s.digest = hex.EncodeToString(hash.Sum(nil))
-	s.css = []byte(s.stylesheet())
 	return s, nil
 }
 
@@ -375,6 +380,15 @@ func validateContrast(base, override map[string]string) error {
 		}
 		if (a+0.05)/(b+0.05) < 4.5 {
 			return fmt.Errorf("%s and %s need at least 4.5:1 contrast", pair[0], pair[1])
+		}
+	}
+	for _, background := range []string{"background", "surface"} {
+		a, b := luminance(values["focus"]), luminance(values[background])
+		if a < b {
+			a, b = b, a
+		}
+		if (a+0.05)/(b+0.05) < 3 {
+			return fmt.Errorf("focus must contrast at least 3:1 with %s", background)
 		}
 	}
 	return nil

@@ -86,6 +86,7 @@ Text, muted text, links and error text must contrast at least 4.5:1 with both
 background and surface. Button text must contrast 4.5:1 with accent, and brand
 text with art. The image behind brand text is not covered by this check: review
 its readability with the built-in scrim at desktop and mobile widths.
+Focus must contrast at least 3:1 with background and surface.
 
 `modes.light` and `modes.dark` override base tokens under the corresponding
 `prefers-color-scheme` media query. Each merged palette passes the same checks.
@@ -112,7 +113,7 @@ automatically. The directory must remain under the operator's control while it
 is loaded.
 
 Validated bytes are held in an immutable in-memory snapshot. CSS and image URLs
-use a SHA-256 of the manifest and image contents and return fixed MIME types,
+use a SHA-256 of the manifest, generated stylesheet and image contents and return fixed MIME types,
 `nosniff` and a one-year immutable cache policy. The manifest and license are
 never served. Authentication HTML retains `Cache-Control: no-store` and the
 existing CSP. A running process does not reread files. Only its current digest

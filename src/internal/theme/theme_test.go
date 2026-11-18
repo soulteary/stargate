@@ -114,12 +114,31 @@ func TestDigestIncludesManifestAndImage(t *testing.T) {
 	}
 }
 
+func TestDigestChangesWithGeneratedDefaults(t *testing.T) {
+	dir := fixture(t, validManifest)
+	before, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	original := defaults["radius"]
+	t.Cleanup(func() { defaults["radius"] = original })
+	defaults["radius"] = "15px"
+	after, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before.BaseURL() == after.BaseURL() {
+		t.Fatal("changed generated CSS reused an immutable URL")
+	}
+}
+
 func TestManifestRejections(t *testing.T) {
 	cases := map[string]string{
 		"unknown mode":       validManifest + "modes:\n  sepia:\n    text: '#111827'\n",
 		"brand text":         validManifest + "brand:\n  heading: " + strings.Repeat("a", 257) + "\n",
 		"contrast":           validManifest + "tokens:\n  text: '#f3f4f6'\n",
 		"mode contrast":      validManifest + "modes:\n  dark:\n    text: '#f3f4f6'\n",
+		"focus contrast":     validManifest + "tokens:\n  focus: '#f3f4f6'\n",
 		"unknown":            validManifest + "script: evil.js\n",
 		"multiple documents": validManifest + "---\nid: other\n",
 		"syntax":             validManifest + "tokens: [\n",
