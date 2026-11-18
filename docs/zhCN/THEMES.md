@@ -1,6 +1,6 @@
 # 认证主题
 
-原生主题需要包含此功能的 Stargate 构建；旧版本不会读取这些设置。
+原生主题需要 Stargate v1.8.0 或更高版本；旧版本不会读取这些设置。
 主题格式和 UI 协议版本均为 `1`。
 
 通过 `THEME_DIR=/app/themes/deep-space` 选择一个主题目录。在 Docker 中将

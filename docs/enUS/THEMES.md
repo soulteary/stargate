@@ -1,7 +1,7 @@
 # Authentication themes
 
-Native themes require a Stargate build containing this format; earlier releases
-ignore these settings. The theme and UI contracts are both `1`.
+Native themes require Stargate v1.8.0 or later; earlier releases ignore these
+settings. The theme and UI contracts are both `1`.
 
 Set `THEME_DIR` to one theme directory, for example `/app/themes/deep-space`.
 Mount it read-only in Docker:

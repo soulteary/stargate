@@ -27,7 +27,7 @@ export PASSWORDS='plaintext:yourpassword'
 **Docker：**
 
 ```bash
-docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:1.7.0
+docker run -e AUTH_HOST=auth.example.com -e PASSWORDS=plaintext:yourpassword ghcr.io/soulteary/stargate:1.8.0
 ```
 
 **Docker Compose：**
@@ -1270,7 +1270,7 @@ COOKIE_DOMAIN=.example.com
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.7.0
+    image: ghcr.io/soulteary/stargate:1.8.0
     environment:
       # 必需配置
       - AUTH_HOST=auth.example.com
@@ -1298,7 +1298,7 @@ services:
 ```yaml
 services:
   stargate:
-    image: ghcr.io/soulteary/stargate:1.7.0
+    image: ghcr.io/soulteary/stargate:1.8.0
     environment:
       - AUTH_HOST=auth.example.com
       - WARDEN_ENABLED=true
