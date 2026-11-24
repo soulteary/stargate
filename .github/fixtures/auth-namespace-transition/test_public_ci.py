@@ -83,7 +83,7 @@ class PublicControls(unittest.TestCase):
   workflow=ROOT.parents[1]/'workflows/released-auth-namespace-transition.yml';text=workflow.read_text()
   self.assertNotIn('\n  push:',text);self.assertIn('contents: read',text);self.assertEqual(text.count('persist-credentials: false'),5)
   for n,row in m._runner.SOURCES.items():self.assertIn('ref: '+row[0],text)
-  for s in ('test_controls.py','test_public_ci.py','go mod download && go mod verify',"go-version: '1.27.3'","'.github/fixtures/auth-namespace-transition/**'"):self.assertIn(s,text)
+  for s in ('test_controls.py','test_public_ci.py','go mod download && go mod verify',"go-version: '1.27.4'","'.github/fixtures/auth-namespace-transition/**'"):self.assertIn(s,text)
   upload=text.split('path: |')[-1];self.assertNotIn('*',upload)
   for s in ('private','stdout','stderr','ready','started'):self.assertNotIn(s,upload)
   for s in ('result.json','native-results.json','source-inputs.json','failure.json'):self.assertIn(s,upload)

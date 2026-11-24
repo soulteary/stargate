@@ -98,7 +98,7 @@ def main():
  record(root,'intent',{'scope':'isolated-native-session-OTP-namespace-regression','actual_upgrade':False,'physical_Redis':False,'real_TTL_wait':False,'TOTP':False,'clear_Redis':False})
  try:
   pins=expected();env={'PATH':str(a.go.parent)+':/usr/bin:/bin','GOPROXY':'off','GOSUMDB':'off','GOTOOLCHAIN':'local','GOENV':'off','GOWORK':'off','GOMODCACHE':str(a.go_mod_cache),'GOCACHE':str(root/'go-cache'),'TMPDIR':str(root),'LANG':'C','TZ':'UTC'}
-  v=subprocess.run([str(a.go),'version'],env=env,capture_output=True,timeout=10);need(v.returncode==0 and v.stdout.decode().split()[2]=='go1.27.3')
+  v=subprocess.run([str(a.go),'version'],env=env,capture_output=True,timeout=10);need(v.returncode==0 and v.stdout.decode().split()[2]=='go1.27.4')
   copies={n:materialize(getattr(a,n+'_source'),n,root,pins[n]) for n in SOURCES};bins={}
   record(root,'source-inputs',{n:{k:r[k] for k in ('commit','tree','archive_sha256')} for n,r in pins.items()})
   for name,(_,package,_) in SOURCES.items():

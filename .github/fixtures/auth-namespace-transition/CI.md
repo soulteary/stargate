@@ -17,7 +17,7 @@ these prior local results do not imply this newly packaged CI has run. Private
 Root receipts are not included or uploaded.
 
 CI checks out four exact released source commits with no persisted credentials.
-Existing Go 1.27.3 downloads and verifies their unmodified go.mod/go.sum graphs;
+Existing Go 1.27.4 downloads and verifies their unmodified go.mod/go.sum graphs;
 no dependencies are added. The runner then disables module downloads and verifies
 each local graph before building. Its fixed manifest/commit/tree/archive-size/SHA,
 380 source/test blob and overlay checks run before compilation. An Ubuntu Git/tar

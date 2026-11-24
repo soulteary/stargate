@@ -77,7 +77,7 @@ wait. No remote system is contacted.
 
 ## Root's future local command (not yet executed)
 
-Use already available Go 1.27.3 and a prepopulated trusted dependency cache. No
+Use already available Go 1.27.4 and a prepopulated trusted dependency cache. No
 installation/download happens in this runner. Output must be a new absolute path
 whose existing parent is canonical:
 
@@ -87,7 +87,7 @@ python3 -I -B run_transition.py \
   --sg-new-source /absolute/stargate-git-repository \
   --herald-old-source /absolute/herald-git-repository-with-old-object \
   --herald-new-source /absolute/herald-git-repository-with-new-object \
-  --go /absolute/go1.27.3/bin/go \
+  --go /absolute/go1.27.4/bin/go \
   --go-mod-cache /absolute/existing/pkg/mod \
   --output /absolute/new-owned-output
 ```

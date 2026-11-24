@@ -38,7 +38,7 @@ durable guarantees. A successful send task is not a real IM delivery guarantee.
 
 ## Root-only future local invocation (not run by the author)
 
-Use existing Go 1.27.3 and a populated trusted module cache; downloads are disabled.
+Use existing Go 1.27.4 and a populated trusted module cache; downloads are disabled.
 Choose a new absolute output path whose parent exists and is canonical:
 
 ```
@@ -46,7 +46,7 @@ python3 -I -B run_three.py \
   --sg-source /absolute/stargate-repository \
   --herald-source /absolute/herald-repository \
   --adapter-source /absolute/herald-dingtalk-repository \
-  --go /absolute/go1.27.3/bin/go \
+  --go /absolute/go1.27.4/bin/go \
   --go-mod-cache /absolute/populated/pkg/mod \
   --output /absolute/new-owned-output
 ```
