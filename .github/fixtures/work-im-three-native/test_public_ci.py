@@ -58,7 +58,7 @@ class PublicCIControls(unittest.TestCase):
   self.assertIn('contents: read',text)
   self.assertEqual(text.count('persist-credentials: false'),4)
   for row in m.SOURCES.values():self.assertIn('ref: '+row[0],text)
-  for value in ('go mod download && go mod verify',"go-version: '1.27.3'",'GOTOOLCHAIN: local'):self.assertIn(value,text)
+  for value in ('go mod download && go mod verify',"go-version: '1.27.4'",'GOTOOLCHAIN: local'):self.assertIn(value,text)
   upload=text.split('path: |')[-1]
   self.assertNotIn('*',upload)
   for name in ('stdout','stderr','ready','started','intent'):self.assertNotIn(name,upload)

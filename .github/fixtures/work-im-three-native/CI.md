@@ -16,7 +16,7 @@ The inherited README's source-candidate evidence paragraph describes the origina
 author stage, not the later Root result. No private Root receipts are published.
 
 CI checks out exact released SG6f/Herald a4/adapter47c with checkout credentials
-not persisted. Go 1.27.3 downloads and verifies their existing public go.mod/go.sum
+not persisted. Go 1.27.4 downloads and verifies their existing public go.mod/go.sum
 graphs; no new dependencies are added. Only this dependency preparation requires
 module-network access. The runner then forces GOPROXY=off/GOSUMDB=off/GOTOOLCHAIN=local,
 uses a clean synthetic environment and exercises only owned loopback services.

@@ -172,7 +172,7 @@ def main():
         # No inherited configuration, credentials, proxies, GOFLAGS, workspace or toolchain download.
         env={'PATH':str(args.go.parent)+':/usr/bin:/bin','GOPROXY':'off','GOSUMDB':'off','GOTOOLCHAIN':'local','GOENV':'off','GOWORK':'off','GOMODCACHE':str(args.go_mod_cache),'GOCACHE':str(out/'go-cache'),'TMPDIR':str(out),'LANG':'C','TZ':'UTC'}
         version=subprocess.run([str(args.go),'version'],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE,timeout=10)
-        need(version.returncode==0 and version.stdout.decode().split()[2]=='go1.27.3')
+        need(version.returncode==0 and version.stdout.decode().split()[2]=='go1.27.4')
         expected = expected_inputs()
         copies={};pins={}
         for name in SOURCES:copies[name],pins[name]=materialize(getattr(args,name+'_source'),name,out,expected[name])
