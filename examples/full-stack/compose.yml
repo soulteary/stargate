@@ -67,7 +67,7 @@ services:
       retries: 12
       start_period: 10s
     labels: {traefik.enable: 'false'}
-    image: ghcr.io/soulteary/warden:1.9.1@sha256:49773116869a8568dc58f1f68a31527738de56efea29dca8d7efb70531150453
+    image: ghcr.io/soulteary/warden:1.9.2@sha256:896c8dc4f9ab7853fed02befb825637cb87046a621486416345a9af299966a8e
     environment:
       PORT: '8081'
       ENVIRONMENT: production
@@ -100,7 +100,7 @@ services:
       retries: 12
       start_period: 10s
     labels: {traefik.enable: 'false'}
-    image: ghcr.io/soulteary/herald:1.9.0@sha256:adc6b044433bea989a69ee422cc4e38d67a2d19cc2512fc70aeac1d284c8eafd
+    image: ghcr.io/soulteary/herald:1.9.1@sha256:aabdef5b60d7fa05d28afe16233112fb5a3a1c3e3a82e75681b9b5f76de7a311
     environment:
       PORT: ':8082'
       ENVIRONMENT: production
@@ -148,7 +148,7 @@ services:
       start_period: 10s
     labels: {traefik.enable: 'false'}
     profiles: [totp]
-    image: ghcr.io/soulteary/herald-totp:2.0.4@sha256:01605e742a57227eeae4108c4fca375c78731689c9cead2123561971c94c8f3e
+    image: ghcr.io/soulteary/herald-totp:2.0.5@sha256:688ef907977e776304a116dbdfed27bb8904e520ed4c3de7d7bd51f5c09c0e44
     environment:
       PORT: ':8084'
       ENVIRONMENT: production
