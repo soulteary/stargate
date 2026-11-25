@@ -149,7 +149,7 @@ class ConfigurationTests(unittest.TestCase):
         self.assertRegex(key, r'^[0-9a-f]{64}$')
         compose = (config.HERE / 'compose.yml').read_text()
         self.assertEqual(compose.count('HERALD_CODE_HASH_KEY: ${HERALD_CODE_HASH_KEY:-}\n'), 1)
-        self.assertIn('image: ghcr.io/soulteary/herald:1.9.0@sha256:adc6b044433bea989a69ee422cc4e38d67a2d19cc2512fc70aeac1d284c8eafd\n', compose)
+        self.assertIn('image: ghcr.io/soulteary/herald:1.9.1@sha256:aabdef5b60d7fa05d28afe16233112fb5a3a1c3e3a82e75681b9b5f76de7a311\n', compose)
         for override in ['compose.local.yml', 'compose.production.yml', 'compose.totp-production.yml']:
             self.assertNotIn('HERALD_CODE_HASH', (config.HERE / override).read_text())
 
@@ -273,8 +273,8 @@ class ConfigurationTests(unittest.TestCase):
             services = rendered['services']
             self.assertTrue(all(service.get('labels', {}).get('traefik.enable') == 'false' for service in services.values()))
             self.assertFalse(any('docker.sock' in str(volume) for service in services.values() for volume in service.get('volumes', [])))
-            self.assertEqual(services['herald']['image'], 'ghcr.io/soulteary/herald:1.9.0@sha256:adc6b044433bea989a69ee422cc4e38d67a2d19cc2512fc70aeac1d284c8eafd')
-            self.assertEqual(services['warden']['image'], 'ghcr.io/soulteary/warden:1.9.1@sha256:49773116869a8568dc58f1f68a31527738de56efea29dca8d7efb70531150453')
+            self.assertEqual(services['herald']['image'], 'ghcr.io/soulteary/herald:1.9.1@sha256:aabdef5b60d7fa05d28afe16233112fb5a3a1c3e3a82e75681b9b5f76de7a311')
+            self.assertEqual(services['warden']['image'], 'ghcr.io/soulteary/warden:1.9.2@sha256:896c8dc4f9ab7853fed02befb825637cb87046a621486416345a9af299966a8e')
             self.assertEqual(services['stargate']['image'], 'stargate-example-stargate:local')
             self.assertEqual(Path(services['stargate']['build']['context']), config.HERE.parents[1])
             gateway = services['stargate']['environment']
